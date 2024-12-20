@@ -67,7 +67,7 @@ library
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base ^>=4.20.0.0
+    build-depends:    base >=4
 
     -- Directories containing source files.
     hs-source-dirs:   src
@@ -90,7 +90,7 @@ executable aztecs
 
     -- Other library packages from which modules are imported.
     build-depends:
-        base ^>=4.20.0.0,
+        base >=4,
         aztecs
 
     -- Directories containing source files.
@@ -123,5 +123,5 @@ test-suite aztecs-test
 
     -- Test dependencies.
     build-depends:
-        base ^>=4.20.0.0,
+        base >=4,
         aztecs
