@@ -23,15 +23,15 @@ data S = S (Query Q)
 instance (MonadIO m) => System m S where
   access = S <$> queryAccess (Q <$> ECS.write <*> ECS.read)
   run (S q) = do
-    e <- spawnTask (X 0)
-    insertTask e (Y 1)
+    e <- spawn (X 0)
+    insert e (Y 1)
 
-    q' <- queryTask q
+    q' <- query q
     liftIO $ print q'
 
-    updateQueryTask (fmap (\(Q x _) -> x) q') (\(X x) -> X $ x + 1)
+    updateQuery (fmap (\(Q x _) -> x) q') (\(X x) -> X $ x + 1)
 
-    q'' <- queryTask q
+    q'' <- query q
     liftIO $ print q''
 
     return ()
