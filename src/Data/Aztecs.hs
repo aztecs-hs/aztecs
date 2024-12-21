@@ -112,12 +112,22 @@ instance Semigroup ReadWrites where
 instance Monoid ReadWrites where
   mempty = ReadWrites [] []
 
-data Query a = Query ReadWrites (Maybe [Entity] -> World -> [a])
+data Query a = Query ReadWrites (Maybe [Entity] -> World -> ([Entity], [a]))
   deriving (Functor)
 
 instance Applicative Query where
-  pure a = Query mempty (\_ _ -> [a])
-  Query rs f <*> Query rs' f' = Query (rs <> rs') (\es w -> f es w <*> f' es w)
+  pure a = Query mempty (\_ _ -> ([], [a]))
+  Query rs f <*> Query rs' f' =
+    Query
+      (rs <> rs')
+      ( \es w ->
+          let (es1, fs) = f es w
+           in case es1 of
+                [] -> ([], [])
+                _ ->
+                  let (es2, as) = f' es w
+                   in (es1 <> es2, fs <*> as)
+      )
 
 read :: (Typeable a) => Query a
 read = f Proxy
@@ -127,14 +137,13 @@ read = f Proxy
       Query
         (ReadWrites [typeOf p] [])
         ( \es w ->
-            let x = (fromMaybe [] (fmap toList (getRow p w)))
+            let row = (fromMaybe [] (fmap toList (getRow p w)))
              in case es of
                   Just es' ->
-                    map
-                      (\(EntityComponent _ a) -> a)
-                      (filter (\(EntityComponent e _) -> isJust $ find (== e) es') x)
-                  Nothing -> map (\(EntityComponent _ a) -> a) x
+                    let row' = (filter (\(EntityComponent e _) -> isJust $ find (== e) es') row')
+                     in foldr (\(EntityComponent e a) (es'', as) -> (e : es'', a : as)) ([], []) row'
+                  Nothing -> (map (\(EntityComponent e _) -> e) row, map (\(EntityComponent _ a) -> a) row)
         )
 
 runQuery :: Query a -> World -> [a]
-runQuery (Query _ f) w = f Nothing w
+runQuery (Query _ f) w = snd $ f Nothing w
