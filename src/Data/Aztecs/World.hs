@@ -6,6 +6,7 @@ module Data.Aztecs.World
     Component (..),
     Storage (..),
     World,
+    union,
     spawn,
     insert,
     adjust,
@@ -61,6 +62,9 @@ data World = World (Map TypeRep Dynamic) Entity deriving (Show)
 
 newWorld :: World
 newWorld = World empty (Entity 0)
+
+union :: World -> World -> World
+union (World a e) (World b _) = World (Map.union a b) e
 
 spawn :: (Component c, Typeable c) => c -> World -> (Entity, World)
 spawn = f (Proxy)

@@ -45,8 +45,8 @@ instance System IO B where
     xys <- T.all q
     liftIO $ print xys
 
-app :: Schedule IO
-app = schedule @_ @A [] <> schedule @_ @B [after @A]
+app :: Scheduler IO
+app = schedule @Startup @_ @A [] <> schedule @Update @_ @B []
 
 main :: IO ()
-main = runSchedule app
+main = runScheduler app

@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -25,9 +26,13 @@ module Data.Aztecs
     before,
     after,
     Schedule (..),
+    Startup,
+    Update,
+    runSchedule,
+    Scheduler (..),
     schedule,
     build,
-    runSchedule,
+    runScheduler,
   )
 where
 
@@ -48,6 +53,7 @@ import Data.Aztecs.World
     World,
     newWorld,
     table,
+    union,
   )
 import Data.Foldable (foldrM)
 import Data.Functor ((<&>))
@@ -109,12 +115,6 @@ instance Semigroup (Schedule m) where
 
 instance Monoid (Schedule m) where
   mempty = Schedule mempty
-
-schedule :: forall m a. (System m a, Typeable a) => [Constraint] -> Schedule m
-schedule cs = f (Proxy :: Proxy a)
-  where
-    f :: Proxy a -> Schedule m
-    f p = Schedule $ Map.singleton (typeOf p) (ScheduleNode (Node p) cs)
 
 data GraphNode m = GraphNode (Node m) (Set TypeRep) (Set TypeRep)
 
@@ -181,19 +181,52 @@ build (Schedule s) =
 runNode :: (Monad m) => Node m -> World -> m ([Command m ()], World)
 runNode (Node p) w = runSystemProxy p w <&> (\(_, cmds, w') -> (cmds, w'))
 
-runSchedule :: Schedule IO -> IO ()
-runSchedule s = do
-  let nodes = build s
-  _ <-
-    foldrM
-      ( \nodeGroup w -> do
-          (cmds, w') <- do
-            results <- mapConcurrently (\(GraphNode n _ _) -> runNode n w) nodeGroup
-            let (cmdLists, worlds) = unzip results
-                finalWorld = last worlds
-            return (concat cmdLists, finalWorld)
-          foldrM (\(Command cmd) w'' -> runStateT cmd w'' <&> snd) w' cmds
-      )
-      newWorld
-      nodes
+runSchedule :: [[GraphNode IO]] -> World -> IO World
+runSchedule nodes w =
+  foldrM
+    ( \nodeGroup w' -> do
+        results <- mapConcurrently (\(GraphNode n _ _) -> runNode n w) nodeGroup
+        let (cmdLists, worlds) = unzip results
+            finalWorld = foldr union w' worlds
+            (cmds, w'') = (concat cmdLists, finalWorld)
+        foldrM (\(Command cmd) w''' -> runStateT cmd w''' <&> snd) w'' cmds
+    )
+    w
+    nodes
+
+newtype Scheduler m = Scheduler (Map TypeRep (Schedule m))
+  deriving (Monoid)
+
+instance Semigroup (Scheduler m) where
+  Scheduler a <> Scheduler b = Scheduler $ Map.unionWith (<>) a b
+
+data Startup
+
+data Update
+
+schedule :: forall l m a. (Typeable l, System m a, Typeable a) => [Constraint] -> Scheduler m
+schedule cs = f (Proxy :: Proxy l) (Proxy :: Proxy a)
+  where
+    f :: Proxy l -> Proxy a -> Scheduler m
+    f lp p =
+      Scheduler $ Map.singleton (typeOf lp) (Schedule $ Map.singleton (typeOf p) (ScheduleNode (Node p) cs))
+
+newtype SchedulerGraph m = SchedulerGraph (Map TypeRep [[GraphNode m]])
+
+buildScheduler :: (Monad m) => Scheduler m -> SchedulerGraph m
+buildScheduler (Scheduler s) = SchedulerGraph $ fmap build s
+
+runScheduler' :: forall l. (Typeable l) => SchedulerGraph IO -> World -> IO World
+runScheduler' (SchedulerGraph g) w = case Map.lookup (typeOf (Proxy :: Proxy l)) g of
+  Just s -> runSchedule s w
+  Nothing -> return w
+
+runScheduler :: Scheduler IO -> IO ()
+runScheduler s = do
+  let g = buildScheduler s
+  w <- runScheduler' @Startup g newWorld
+  let go wAcc = do
+        wAcc' <- runScheduler' @Update g wAcc
+        go wAcc'
+  _ <- go w
   return ()
