@@ -21,17 +21,17 @@ data Q = Q (Write X) Y deriving (Show)
 data S = S (Query Q)
 
 instance (MonadIO m) => System m S where
-  access = S <$> queryAccess (Q <$> ECS.write <*> ECS.read)
+  access = S <$> query (Q <$> ECS.write <*> ECS.read)
   run (S q) = do
     e <- spawn (X 0)
     insert e (Y 1)
 
-    q' <- query q
+    q' <- queryAll q
     liftIO $ print q'
 
-    updateQuery (fmap (\(Q x _) -> x) q') (\(X x) -> X $ x + 1)
+    adjustQuery (fmap (\(Q x _) -> x) q') (\(X x) -> X $ x + 1)
 
-    q'' <- query q
+    q'' <- queryAll q
     liftIO $ print q''
 
     return ()

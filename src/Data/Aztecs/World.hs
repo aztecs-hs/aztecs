@@ -21,8 +21,8 @@ module Data.Aztecs.World
     QueryResult (..),
     query,
     queryAll,
-    update,
-    updateQuery,
+    adjust,
+    adjustQuery,
   )
 where
 
@@ -170,8 +170,8 @@ read = f Proxy
 
 newtype Write a = Write {unWrite :: a} deriving (Show)
 
-update :: (Component c, Typeable c) => Write c -> (c -> c) -> Entity -> World -> World
-update (Write a) f w = insert w (f a)
+adjust :: (Component c, Typeable c) => Write c -> (c -> c) -> Entity -> World -> World
+adjust (Write a) f w = insert w (f a)
 
 write :: (Component a, Typeable a) => Query (Write a)
 write = f Proxy
@@ -200,8 +200,8 @@ data QueryResult a = QueryResult [Entity] [a]
 queryAll :: Query a -> World -> QueryResult a
 queryAll (Query _ f _) w = let (es, as) = f Nothing w in QueryResult es as
 
-updateQuery :: (Component a, Typeable a) => QueryResult (Write a) -> (a -> a) -> World -> World
-updateQuery (QueryResult es as) g w =
+adjustQuery :: (Component a, Typeable a) => QueryResult (Write a) -> (a -> a) -> World -> World
+adjustQuery (QueryResult es as) g w =
   let as' = map (\(Write wr) -> g wr) as
       s = getRow Proxy w
       s' = fmap (\s'' -> insert' s'' (map (\(e, a) -> EntityComponent e a) (zip es as'))) s

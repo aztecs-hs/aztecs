@@ -16,12 +16,14 @@ module Data.Aztecs
     Write (..),
     QueryResult (..),
     Access (..),
-    queryAccess,
+    query,
     Task (..),
     spawn,
     insert,
-    query,
-    updateQuery,
+    getQuery,
+    queryAll,
+    adjust,
+    adjustQuery,
     System (..),
     runSystem,
     W.read,
@@ -57,8 +59,8 @@ instance (Applicative m) => Applicative (Access m) where
   pure a = Access $ (\_ -> pure (mempty, a))
   Access f <*> Access a = Access $ (\w -> (\(rs, f') (rs', a') -> (rs <> rs', f' a')) <$> f w <*> a w)
 
-queryAccess :: (Applicative m) => Query a -> Access m (Query a)
-queryAccess (Query a f g) = Access $ (\_ -> pure (a, (Query a f g)))
+query :: (Applicative m) => Query a -> Access m (Query a)
+query (Query a f g) = Access $ (\_ -> pure (a, (Query a f g)))
 
 data Task m s a = Task (StateT (s, World) m a)
   deriving (Functor)
@@ -86,15 +88,26 @@ insert e a = Task $ do
   S.put $ (s, W.insert e a w)
   return ()
 
-query :: (Monad m) => Query a -> Task m s (QueryResult a)
-query q = Task $ do
+adjust :: (Component a, Typeable a, Monad m) => Write a -> (a -> a) -> Entity -> Task m s ()
+adjust w f e = Task $ do
+  (s, w') <- S.get
+  S.put $ (s, W.adjust w f e w')
+  return ()
+
+getQuery :: (Monad m) => Entity -> Query a -> Task m s (Maybe a)
+getQuery e q = Task $ do
+  (_, w) <- S.get
+  return $ W.query e q w
+
+queryAll :: (Monad m) => Query a -> Task m s (QueryResult a)
+queryAll q = Task $ do
   (_, w) <- S.get
   return $ W.queryAll q w
 
-updateQuery :: (Component a, Typeable a, Monad m) => QueryResult (Write a) -> (a -> a) -> Task m s ()
-updateQuery q f = Task $ do
+adjustQuery :: (Component a, Typeable a, Monad m) => QueryResult (Write a) -> (a -> a) -> Task m s ()
+adjustQuery q f = Task $ do
   (s, w) <- S.get
-  S.put $ (s, W.updateQuery q f w)
+  S.put $ (s, W.adjustQuery q f w)
   return ()
 
 class System m a where
