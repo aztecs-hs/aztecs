@@ -22,6 +22,7 @@ import qualified Data.Aztecs.World as W
 import Data.Dynamic (Typeable)
 import Prelude hiding (all)
 
+-- | System task.
 data Task m s a = Task (StateT (s, [Command m ()], World) m a)
   deriving (Functor)
 
@@ -35,22 +36,26 @@ instance (Monad m) => Monad (Task m s) where
 instance (MonadIO m) => MonadIO (Task m s) where
   liftIO a = Task $ liftIO a
 
+-- | Update a single query match.
 update :: (Component a, Typeable a, Monad m) => Write a -> (a -> a) -> Entity -> Task m s ()
 update (Write wr) f e = Task $ do
   (s, cmds, w) <- S.get
   S.put $ (s, cmds, W.adjust wr f e w)
   return ()
 
+-- | Query a single match.
 get :: (Monad m) => Entity -> Query a -> Task m s (Maybe a)
 get e q = Task $ do
   (_, _, w) <- S.get
   return $ Q.query e q w
 
+-- | Query all matches.
 all :: (Monad m) => Query a -> Task m s (QueryResult a)
 all q = Task $ do
   (_, _, w) <- S.get
   return $ Q.all q w
 
+-- | Alter the components in a query.
 alter ::
   (Component a, Typeable a, Monad m) =>
   QueryResult (Write a) ->
@@ -61,6 +66,7 @@ alter q f = Task $ do
   S.put $ (s, cmds, Q.adjust q f w)
   return ()
 
+-- | Command to update the `World`.
 newtype Command m a = Command (StateT World m a)
   deriving (Functor)
 
@@ -71,12 +77,14 @@ instance (Monad m) => Applicative (Command m) where
 instance (Monad m) => Monad (Command m) where
   Command a >>= f = Command $ a >>= (\a' -> case f a' of Command b -> b)
 
+-- | Queue a `Command` to run after this system is complete.
 command :: (Monad m) => Command m () -> Task m a ()
 command cmd = Task $ do
   (s, cmds, w) <- S.get
   S.put $ (s, cmds <> [cmd], w)
   return ()
 
+-- | Spawn a `Component` and return its `Entity`.
 spawn :: (Component a, Typeable a, Monad m) => a -> Command m Entity
 spawn a = Command $ do
   w <- S.get
@@ -84,6 +92,7 @@ spawn a = Command $ do
   S.put $ w'
   return e
 
+-- | Insert a `Component` into an `Entity`.
 insert :: (Component a, Typeable a, Monad m) => Entity -> a -> Command m ()
 insert e a = Command $ do
   w <- S.get
