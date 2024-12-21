@@ -4,6 +4,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Data.Aztecs
   ( Entity,
@@ -50,16 +51,17 @@ import Data.Aztecs.World
   )
 import Data.Foldable (foldrM)
 import Data.Functor ((<&>))
-import Data.List (groupBy, sortBy)
+import Data.List (find, groupBy, sortBy)
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Maybe (isJust)
 import Data.Proxy
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Typeable
 import Prelude hiding (all, read)
 
-newtype Access m a = Access {unAccess :: (ReadWrites, World -> m a)}
+newtype Access m a = Access {unAccess :: ([ReadWrites], World -> m a)}
   deriving (Functor)
 
 instance (Applicative m) => Applicative (Access m) where
@@ -68,7 +70,7 @@ instance (Applicative m) => Applicative (Access m) where
     Access $ (fRws <> aRws, \w -> f w <*> a w)
 
 query :: (Applicative m) => Query a -> Access m (Query a)
-query (Query a f g) = Access $ (a, \_ -> pure $ Query a f g)
+query (Query a f g) = Access $ ([a], \_ -> pure $ Query a f g)
 
 class System m a where
   access :: Access m a
@@ -83,6 +85,9 @@ runSystem w = do
 
 runSystemProxy :: (Monad m, System m a) => (Proxy a) -> World -> m (a, [Command m ()], World)
 runSystemProxy _ w = runSystem w
+
+accessSystemProxy :: (Monad m, System m a) => (Proxy a) -> Access m a
+accessSystemProxy _ = access
 
 data Constraint = Before TypeRep | After TypeRep
 
@@ -113,7 +118,26 @@ schedule cs = f (Proxy :: Proxy a)
 
 data GraphNode m = GraphNode (Node m) (Set TypeRep) (Set TypeRep)
 
-build :: Schedule m -> [[GraphNode m]]
+nodeReadWrites :: forall m. (Monad m) => Node m -> [ReadWrites]
+nodeReadWrites (Node p) = fst $ unAccess $ accessSystemProxy @m p
+
+rwHasReadConflict :: ReadWrites -> ReadWrites -> Bool
+rwHasReadConflict (ReadWrites (r : rs) ws) (ReadWrites rs' ws') =
+  (isJust $ find (== r) ws) || rwHasReadConflict (ReadWrites rs ws) (ReadWrites rs' ws')
+rwHasReadConflict _ _ = False
+
+rwHasConflict :: ReadWrites -> ReadWrites -> Bool
+rwHasConflict (ReadWrites rs (w : ws)) (ReadWrites rs' ws') =
+  (isJust $ find (== w) ws) || rwHasReadConflict (ReadWrites rs ws) (ReadWrites rs' ws')
+rwHasConflict a b = rwHasReadConflict a b
+
+hasConflict :: (Monad m) => GraphNode m -> GraphNode m -> Bool
+hasConflict (GraphNode a _ _) (GraphNode b _ _) =
+  let aRws = nodeReadWrites a
+      bRws = nodeReadWrites b
+   in any (uncurry rwHasConflict) [(x, y) | x <- aRws, y <- bRws]
+
+build :: (Monad m) => Schedule m -> [[GraphNode m]]
 build (Schedule s) =
   let graph =
         fmap
@@ -147,7 +171,12 @@ build (Schedule s) =
               compare (length deps') (length deps)
           )
           (Map.elems graph')
-   in groupBy (\(GraphNode _ deps _) (GraphNode _ deps' _) -> length deps == length deps') nodes
+   in groupBy
+        ( \(GraphNode a deps aBefores) (GraphNode b deps' bBefores) ->
+            (length deps == length deps')
+              || hasConflict (GraphNode a deps aBefores) (GraphNode b deps' bBefores)
+        )
+        nodes
 
 runNode :: (Monad m) => Node m -> World -> m ([Command m ()], World)
 runNode (Node p) w = runSystemProxy p w <&> (\(_, cmds, w') -> (cmds, w'))
