@@ -15,7 +15,8 @@ library
     ghc-options:      -Wall
     build-depends:
         base >=4,
-        containers >=0.7
+        containers >=0.7,
+        mtl >=2
 
 executable aztecs
     main-is:          Main.hs
