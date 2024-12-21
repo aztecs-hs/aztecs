@@ -11,6 +11,7 @@ extra-doc-files: CHANGELOG.md
 library
     exposed-modules:
         Data.Aztecs
+        Data.Aztecs.Command
         Data.Aztecs.Task
         Data.Aztecs.Query
         Data.Aztecs.World

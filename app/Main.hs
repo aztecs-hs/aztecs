@@ -6,6 +6,7 @@ module Main where
 
 import Control.Monad.IO.Class
 import Data.Aztecs
+import qualified Data.Aztecs.Command as C
 import qualified Data.Aztecs.Query as Q
 import qualified Data.Aztecs.Task as T
 
@@ -29,8 +30,8 @@ instance System IO A where
     liftIO $ print "A"
 
     T.command $ do
-      e <- T.spawn (X 0)
-      T.insert e (Y 1)
+      e <- C.spawn (X 0)
+      C.insert e (Y 1)
 
     xs <- T.all q
     liftIO $ print xs

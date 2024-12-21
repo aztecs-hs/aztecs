@@ -38,6 +38,7 @@ where
 
 import Control.Concurrent.Async (mapConcurrently)
 import Control.Monad.State (StateT (runStateT))
+import Data.Aztecs.Command
 import Data.Aztecs.Query
   ( Query (..),
     QueryResult (..),
