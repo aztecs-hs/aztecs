@@ -13,7 +13,12 @@ module Data.Aztecs
     get,
     Query,
     read,
+    Write (..),
+    update,
+    updateQuery,
+    write,
     query,
+    QueryResult (..),
     queryAll,
   )
 where
@@ -22,6 +27,7 @@ import Data.Dynamic (Dynamic, fromDynamic, toDyn)
 import Data.Functor ((<&>))
 import Data.List (find)
 import Data.Map (Map, alter, empty, lookup)
+import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, isJust)
 import Data.Typeable
 import Prelude hiding (read)
@@ -35,6 +41,7 @@ table' cs =
   Storage
     { empty' = table' [],
       spawn' = \e a -> table' (EntityComponent e a : cs),
+      insert' = \cs' -> table' (filter (\(EntityComponent e _) -> not . isJust $ find (\(EntityComponent e' _) -> e == e') cs') cs <> cs'),
       get' = \e ->
         find (\(EntityComponent e' _) -> e == e') cs
           <&> \(EntityComponent _ a) -> a,
@@ -47,6 +54,7 @@ table = table' []
 data Storage a = Storage
   { empty' :: Storage a,
     spawn' :: Entity -> a -> Storage a,
+    insert' :: [EntityComponent a] -> Storage a,
     get' :: Entity -> Maybe a,
     toList :: [EntityComponent a]
   }
@@ -105,6 +113,16 @@ get e (World w _) = f (Proxy)
     f :: (Typeable c) => Proxy c -> Maybe c
     f p = Data.Map.lookup (typeOf p) w >>= fromDynamic >>= flip get' e
 
+setRow :: (Component c, Typeable c) => Storage c -> World -> World
+setRow = f Proxy
+  where
+    f :: (Component c, Typeable c) => Proxy c -> Storage c -> World -> World
+    f p cs (World w e') =
+      World
+        ( Map.insert (typeOf p) (toDyn cs) w
+        )
+        e'
+
 data ReadWrites = ReadWrites [TypeRep] [TypeRep]
 
 instance Semigroup ReadWrites where
@@ -113,7 +131,11 @@ instance Semigroup ReadWrites where
 instance Monoid ReadWrites where
   mempty = ReadWrites [] []
 
-data Query a = Query ReadWrites (Maybe [Entity] -> World -> ([Entity], [a])) (Entity -> World -> Maybe a)
+data Query a
+  = Query
+      ReadWrites
+      (Maybe [Entity] -> World -> ([Entity], [a]))
+      (Entity -> World -> Maybe a)
   deriving (Functor)
 
 instance Applicative Query where
@@ -141,21 +163,43 @@ read :: (Typeable a) => Query a
 read = f Proxy
   where
     f :: (Typeable a) => Proxy a -> Query a
+    f p = Query (ReadWrites [typeOf p] []) (\es w -> readWrite es p w) (get)
+
+newtype Write a = Write {unWrite :: a} deriving (Show)
+
+update :: (Component c, Typeable c) => Write c -> (c -> c) -> Entity -> World -> World
+update (Write a) f w = insert w (f a)
+
+write :: (Component a, Typeable a) => Query (Write a)
+write = f Proxy
+  where
+    f :: (Typeable a) => Proxy a -> Query (Write a)
     f p =
       Query
-        (ReadWrites [typeOf p] [])
-        ( \es w ->
-            let row = (fromMaybe [] (fmap toList (getRow p w)))
-             in case es of
-                  Just es' ->
-                    let row' = (filter (\(EntityComponent e _) -> isJust $ find (== e) es') row')
-                     in foldr (\(EntityComponent e a) (es'', as) -> (e : es'', a : as)) ([], []) row'
-                  Nothing -> (map (\(EntityComponent e _) -> e) row, map (\(EntityComponent _ a) -> a) row)
-        )
-        (get)
+        (ReadWrites [] [typeOf p])
+        (\es w -> let (a, b) = readWrite es p w in (a, Write <$> b))
+        (\e w -> Write <$> get e w)
+
+readWrite :: (Typeable a, Foldable t) => Maybe (t Entity) -> Proxy a -> World -> ([Entity], [a])
+readWrite es p w =
+  let row = (fromMaybe [] (fmap toList (getRow p w)))
+      row' = case es of
+        Just es' -> (filter (\(EntityComponent e _) -> isJust $ find (== e) es') row)
+        Nothing -> row
+   in foldr (\(EntityComponent e a) (es'', as) -> (e : es'', a : as)) ([], []) row'
 
 query :: Entity -> Query a -> World -> Maybe a
 query e (Query _ _ f) w = f e w
 
-queryAll :: Query a -> World -> [a]
-queryAll (Query _ f _) w = snd $ f Nothing w
+data QueryResult a = QueryResult [Entity] [a]
+  deriving (Functor, Show)
+
+queryAll :: Query a -> World -> QueryResult a
+queryAll (Query _ f _) w = let (es, as) = f Nothing w in QueryResult es as
+
+updateQuery :: (Component a, Typeable a) => QueryResult (Write a) -> (a -> a) -> World -> World
+updateQuery (QueryResult es as) g w =
+  let as' = map (\(Write wr) -> g wr) as
+      s = getRow Proxy w
+      s' = fmap (\s'' -> insert' s'' (map (\(e, a) -> EntityComponent e a) (zip es as'))) s
+   in fromMaybe w (fmap (\y' -> setRow y' w) s')
