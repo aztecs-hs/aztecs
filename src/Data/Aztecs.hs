@@ -26,23 +26,24 @@ module Data.Aztecs
     adjustQuery,
     System (..),
     runSystem,
-    W.read,
-    W.write,
   )
 where
 
 import Control.Monad.State (MonadIO (liftIO), StateT (runStateT))
 import qualified Control.Monad.State as S
+import Data.Aztecs.Query
+  ( Query (..),
+    QueryResult (..),
+    ReadWrites (..),
+    Write (..),
+  )
+import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.World
   ( Component (..),
     Entity,
     EntityComponent (..),
-    Query (..),
-    QueryResult,
-    ReadWrites,
     Storage (..),
     World,
-    Write,
     get,
     newWorld,
     table,
@@ -57,7 +58,9 @@ newtype Access m a = Access {unAccess :: World -> m (ReadWrites, a)}
 
 instance (Applicative m) => Applicative (Access m) where
   pure a = Access $ (\_ -> pure (mempty, a))
-  Access f <*> Access a = Access $ (\w -> (\(rs, f') (rs', a') -> (rs <> rs', f' a')) <$> f w <*> a w)
+  Access f <*> Access a =
+    Access $
+      (\w -> (\(rs, f') (rs', a') -> (rs <> rs', f' a')) <$> f w <*> a w)
 
 query :: (Applicative m) => Query a -> Access m (Query a)
 query (Query a f g) = Access $ (\_ -> pure (a, (Query a f g)))
@@ -89,25 +92,29 @@ insert e a = Task $ do
   return ()
 
 adjust :: (Component a, Typeable a, Monad m) => Write a -> (a -> a) -> Entity -> Task m s ()
-adjust w f e = Task $ do
-  (s, w') <- S.get
-  S.put $ (s, W.adjust w f e w')
+adjust (Write wr) f e = Task $ do
+  (s, w) <- S.get
+  S.put $ (s, W.adjust wr f e w)
   return ()
 
 getQuery :: (Monad m) => Entity -> Query a -> Task m s (Maybe a)
 getQuery e q = Task $ do
   (_, w) <- S.get
-  return $ W.query e q w
+  return $ Q.query e q w
 
 queryAll :: (Monad m) => Query a -> Task m s (QueryResult a)
 queryAll q = Task $ do
   (_, w) <- S.get
-  return $ W.queryAll q w
+  return $ Q.all q w
 
-adjustQuery :: (Component a, Typeable a, Monad m) => QueryResult (Write a) -> (a -> a) -> Task m s ()
+adjustQuery ::
+  (Component a, Typeable a, Monad m) =>
+  QueryResult (Write a) ->
+  (a -> a) ->
+  Task m s ()
 adjustQuery q f = Task $ do
   (s, w) <- S.get
-  S.put $ (s, W.adjustQuery q f w)
+  S.put $ (s, Q.adjust q f w)
   return ()
 
 class System m a where

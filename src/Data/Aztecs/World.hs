@@ -8,21 +8,12 @@ module Data.Aztecs.World
     World,
     spawn,
     insert,
+    adjust,
     get,
     getRow,
     newWorld,
     setRow,
     table,
-    ReadWrites (..),
-    Write (..),
-    Query (..),
-    read,
-    write,
-    QueryResult (..),
-    query,
-    queryAll,
-    adjust,
-    adjustQuery,
   )
 where
 
@@ -31,7 +22,7 @@ import Data.Functor ((<&>))
 import Data.List (find)
 import Data.Map (Map, alter, empty, lookup)
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe, isJust)
+import Data.Maybe (isJust)
 import Data.Typeable
 import Prelude hiding (read)
 
@@ -107,6 +98,9 @@ insert = f Proxy
       Just row -> spawn' row e c
       Nothing -> spawn' storage e c
 
+adjust :: (Component c, Typeable c) => c -> (c -> c) -> Entity -> World -> World
+adjust a f w = insert w (f a)
+
 getRow :: (Typeable c) => Proxy c -> World -> Maybe (Storage c)
 getRow p (World w _) = Data.Map.lookup (typeOf p) w >>= fromDynamic
 
@@ -125,84 +119,3 @@ setRow = f Proxy
         ( Map.insert (typeOf p) (toDyn cs) w
         )
         e'
-
-data ReadWrites = ReadWrites [TypeRep] [TypeRep]
-
-instance Semigroup ReadWrites where
-  ReadWrites rs ws <> ReadWrites rs' ws' = ReadWrites (rs <> rs') (ws <> ws')
-
-instance Monoid ReadWrites where
-  mempty = ReadWrites [] []
-
-data Query a
-  = Query
-      ReadWrites
-      (Maybe [Entity] -> World -> ([Entity], [a]))
-      (Entity -> World -> Maybe a)
-  deriving (Functor)
-
-instance Applicative Query where
-  pure a = Query mempty (\_ _ -> ([], [a])) (\_ _ -> Just a)
-  Query rs f g <*> Query rs' f' g' =
-    Query
-      (rs <> rs')
-      ( \es w ->
-          let (es1, fs) = f es w
-           in case es1 of
-                [] -> ([], [])
-                _ ->
-                  let (es2, as) = f' es w
-                   in (es1 <> es2, fs <*> as)
-      )
-      ( \e w ->
-          case g e w of
-            Just a -> case g' e w of
-              Just a' -> Just $ a a'
-              Nothing -> Nothing
-            Nothing -> Nothing
-      )
-
-read :: (Typeable a) => Query a
-read = f Proxy
-  where
-    f :: (Typeable a) => Proxy a -> Query a
-    f p = Query (ReadWrites [typeOf p] []) (\es w -> readWrite es p w) (get)
-
-newtype Write a = Write {unWrite :: a} deriving (Show)
-
-adjust :: (Component c, Typeable c) => Write c -> (c -> c) -> Entity -> World -> World
-adjust (Write a) f w = insert w (f a)
-
-write :: (Component a, Typeable a) => Query (Write a)
-write = f Proxy
-  where
-    f :: (Typeable a) => Proxy a -> Query (Write a)
-    f p =
-      Query
-        (ReadWrites [] [typeOf p])
-        (\es w -> let (a, b) = readWrite es p w in (a, Write <$> b))
-        (\e w -> Write <$> get e w)
-
-readWrite :: (Typeable a, Foldable t) => Maybe (t Entity) -> Proxy a -> World -> ([Entity], [a])
-readWrite es p w =
-  let row = (fromMaybe [] (fmap toList (getRow p w)))
-      row' = case es of
-        Just es' -> (filter (\(EntityComponent e _) -> isJust $ find (== e) es') row)
-        Nothing -> row
-   in foldr (\(EntityComponent e a) (es'', as) -> (e : es'', a : as)) ([], []) row'
-
-query :: Entity -> Query a -> World -> Maybe a
-query e (Query _ _ f) w = f e w
-
-data QueryResult a = QueryResult [Entity] [a]
-  deriving (Functor, Show)
-
-queryAll :: Query a -> World -> QueryResult a
-queryAll (Query _ f _) w = let (es, as) = f Nothing w in QueryResult es as
-
-adjustQuery :: (Component a, Typeable a) => QueryResult (Write a) -> (a -> a) -> World -> World
-adjustQuery (QueryResult es as) g w =
-  let as' = map (\(Write wr) -> g wr) as
-      s = getRow Proxy w
-      s' = fmap (\s'' -> insert' s'' (map (\(e, a) -> EntityComponent e a) (zip es as'))) s
-   in fromMaybe w (fmap (\y' -> setRow y' w) s')
