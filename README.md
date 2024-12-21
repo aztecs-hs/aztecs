@@ -1,6 +1,6 @@
 # Aztecs
 
-An ECS for Haskell
+A type-safe and friendly [ECS](https://en.wikipedia.org/wiki/Entity_component_system) for Haskell.
 
 ```hs
 import Control.Monad.IO.Class
@@ -54,3 +54,6 @@ app = schedule @Startup @_ @A [] <> schedule @Update @_ @B []
 main :: IO ()
 main = runScheduler app
 ```
+
+## Inspiration
+Aztecs' approach to type-safety is inspired by [Bevy](https://github.com/bevyengine/bevy/)
