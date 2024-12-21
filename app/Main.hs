@@ -19,4 +19,4 @@ main :: IO ()
 main =
   let (e, w) = spawn (X 1) newWorld
       w' = insert e (Y 2) w
-   in print $ runQuery (Q <$> ECS.read <*> ECS.read) w'
+   in print $ query e (Q <$> ECS.read <*> ECS.read) w'

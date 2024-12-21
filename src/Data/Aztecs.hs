@@ -13,7 +13,8 @@ module Data.Aztecs
     get,
     Query,
     read,
-    runQuery,
+    query,
+    queryAll,
   )
 where
 
@@ -112,12 +113,12 @@ instance Semigroup ReadWrites where
 instance Monoid ReadWrites where
   mempty = ReadWrites [] []
 
-data Query a = Query ReadWrites (Maybe [Entity] -> World -> ([Entity], [a]))
+data Query a = Query ReadWrites (Maybe [Entity] -> World -> ([Entity], [a])) (Entity -> World -> Maybe a)
   deriving (Functor)
 
 instance Applicative Query where
-  pure a = Query mempty (\_ _ -> ([], [a]))
-  Query rs f <*> Query rs' f' =
+  pure a = Query mempty (\_ _ -> ([], [a])) (\_ _ -> Just a)
+  Query rs f g <*> Query rs' f' g' =
     Query
       (rs <> rs')
       ( \es w ->
@@ -127,6 +128,13 @@ instance Applicative Query where
                 _ ->
                   let (es2, as) = f' es w
                    in (es1 <> es2, fs <*> as)
+      )
+      ( \e w ->
+          case g e w of
+            Just a -> case g' e w of
+              Just a' -> Just $ a a'
+              Nothing -> Nothing
+            Nothing -> Nothing
       )
 
 read :: (Typeable a) => Query a
@@ -144,6 +152,10 @@ read = f Proxy
                      in foldr (\(EntityComponent e a) (es'', as) -> (e : es'', a : as)) ([], []) row'
                   Nothing -> (map (\(EntityComponent e _) -> e) row, map (\(EntityComponent _ a) -> a) row)
         )
+        (get)
 
-runQuery :: Query a -> World -> [a]
-runQuery (Query _ f) w = snd $ f Nothing w
+query :: Entity -> Query a -> World -> Maybe a
+query e (Query _ _ f) w = f e w
+
+queryAll :: Query a -> World -> [a]
+queryAll (Query _ f _) w = snd $ f Nothing w
