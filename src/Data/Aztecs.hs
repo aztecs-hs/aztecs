@@ -30,6 +30,7 @@ module Data.Aztecs
   )
 where
 
+import Control.Concurrent.Async (mapConcurrently)
 import Control.Monad.State (StateT (runStateT))
 import Data.Aztecs.Query
   ( Query (..),
@@ -49,7 +50,7 @@ import Data.Aztecs.World
   )
 import Data.Foldable (foldrM)
 import Data.Functor ((<&>))
-import Data.List (sortBy)
+import Data.List (groupBy, sortBy)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Proxy
@@ -112,7 +113,7 @@ schedule cs = f (Proxy :: Proxy a)
 
 data GraphNode m = GraphNode (Node m) (Set TypeRep) (Set TypeRep)
 
-build :: Schedule m -> [Node m]
+build :: Schedule m -> [[GraphNode m]]
 build (Schedule s) =
   let graph =
         fmap
@@ -140,24 +141,28 @@ build (Schedule s) =
           )
           graph
           graph
-   in map
-        (\(_, GraphNode n _ _) -> n)
-        $ sortBy
-          ( \(_, GraphNode _ deps _) (_, GraphNode _ deps' _) ->
+      nodes =
+        sortBy
+          ( \(GraphNode _ deps _) (GraphNode _ deps' _) ->
               compare (length deps') (length deps)
           )
-          (Map.toList graph')
+          (Map.elems graph')
+   in groupBy (\(GraphNode _ deps _) (GraphNode _ deps' _) -> length deps == length deps') nodes
 
 runNode :: (Monad m) => Node m -> World -> m ([Command m ()], World)
 runNode (Node p) w = runSystemProxy p w <&> (\(_, cmds, w') -> (cmds, w'))
 
-runSchedule :: (Monad m) => Schedule m -> m ()
+runSchedule :: Schedule IO -> IO ()
 runSchedule s = do
   let nodes = build s
   _ <-
     foldrM
-      ( \n w -> do
-          (cmds, w') <- runNode n w
+      ( \nodeGroup w -> do
+          (cmds, w') <- do
+            results <- mapConcurrently (\(GraphNode n _ _) -> runNode n w) nodeGroup
+            let (cmdLists, worlds) = unzip results
+                finalWorld = last worlds
+            return (concat cmdLists, finalWorld)
           foldrM (\(Command cmd) w'' -> runStateT cmd w'' <&> snd) w' cmds
       )
       newWorld
