@@ -17,27 +17,35 @@ data Y = Y Int deriving (Show)
 
 instance Component Y
 
-data XY = XY (Write X) Y deriving (Show)
+data A = A (Query (Write X))
 
-data S = S (Query XY)
+instance System IO A where
+  access = A <$> query Q.write
+  run (A q) = do
+    liftIO $ print "A"
 
-instance (MonadIO m) => System m S where
-  access = S <$> query (XY <$> Q.write <*> Q.read)
-  run (S q) = do
     e <- T.spawn (X 0)
     T.insert e (Y 1)
+
+    xs <- T.all q
+    liftIO $ print xs
+
+    T.alter xs (\(X x) -> X $ x + 1)
+
+data XY = XY X Y deriving (Show)
+
+data B = B (Query XY)
+
+instance System IO B where
+  access = B <$> query (XY <$> Q.read <*> Q.read)
+  run (B q) = do
+    liftIO $ print "B"
 
     xys <- T.all q
     liftIO $ print xys
 
-    T.alter (fmap (\(XY x _) -> x) xys) (\(X x) -> X $ x + 1)
-
-    xys' <- T.all q
-    liftIO $ print xys'
-
-    return ()
+app :: Schedule IO
+app = schedule @_ @A [] <> schedule @_ @B [after @A]
 
 main :: IO ()
-main = do
-  _ <- runSystem @_ @S newWorld
-  return ()
+main = runSchedule app
