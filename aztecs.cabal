@@ -9,7 +9,12 @@ build-type:      Simple
 extra-doc-files: CHANGELOG.md
 
 library
-    exposed-modules:  Data.Aztecs, Data.Aztecs.Query, Data.Aztecs.World
+    exposed-modules:
+        Data.Aztecs
+        Data.Aztecs.Task
+        Data.Aztecs.Query
+        Data.Aztecs.World
+
     hs-source-dirs:   src
     default-language: Haskell2010
     ghc-options:      -Wall

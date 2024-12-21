@@ -7,6 +7,7 @@ module Main where
 import Control.Monad.IO.Class
 import Data.Aztecs
 import qualified Data.Aztecs.Query as Q
+import qualified Data.Aztecs.Task as T
 
 data X = X Int deriving (Show)
 
@@ -23,16 +24,16 @@ data S = S (Query XY)
 instance (MonadIO m) => System m S where
   access = S <$> query (XY <$> Q.write <*> Q.read)
   run (S q) = do
-    e <- spawn (X 0)
-    insert e (Y 1)
+    e <- T.spawn (X 0)
+    T.insert e (Y 1)
 
-    q' <- queryAll q
-    liftIO $ print q'
+    xys <- T.all q
+    liftIO $ print xys
 
-    adjustQuery (fmap (\(XY x _) -> x) q') (\(X x) -> X $ x + 1)
+    T.alter (fmap (\(XY x _) -> x) xys) (\(X x) -> X $ x + 1)
 
-    q'' <- queryAll q
-    liftIO $ print q''
+    xys' <- T.all q
+    liftIO $ print xys'
 
     return ()
 
