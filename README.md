@@ -18,12 +18,12 @@ data Y = Y Int deriving (Show)
 
 instance Component Y
 
-data A = A (Query (Write X))
+data A = A (Query X)
 
 -- Systems
 
 instance System IO A where
-  access = A <$> query Q.write
+  access = A <$> query Q.read
   run (A q) = do
     liftIO $ print "A"
 
@@ -34,19 +34,21 @@ instance System IO A where
     xs <- T.all q
     liftIO $ print xs
 
-    T.alter xs (\(X x) -> X $ x + 1)
-
-data XY = XY X Y deriving (Show)
+data XY = XY (Write X) Y deriving (Show)
 
 data B = B (Query XY)
 
 instance System IO B where
-  access = B <$> query (XY <$> Q.read <*> Q.read)
+  access = B <$> query (XY <$> Q.write <*> Q.read)
   run (B q) = do
     liftIO $ print "B"
 
+    -- Query all entities with an X and Y component
     xys <- T.all q
     liftIO $ print xys
+
+    -- Increment all X components
+    T.alter (fmap (\(XY x _) -> x) xys) (\(X x) -> X $ x + 1)
 
 app :: Scheduler IO
 app = schedule @Startup @_ @A [] <> schedule @Update @_ @B []
