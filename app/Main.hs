@@ -24,8 +24,9 @@ instance System IO A where
   run (A q) = do
     liftIO $ print "A"
 
-    e <- T.spawn (X 0)
-    T.insert e (Y 1)
+    T.command $ do
+      e <- T.spawn (X 0)
+      T.insert e (Y 1)
 
     xs <- T.all q
     liftIO $ print xs

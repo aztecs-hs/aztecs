@@ -2,12 +2,14 @@
 
 module Data.Aztecs.Task
   ( Task (..),
-    spawn,
-    insert,
     get,
     all,
     update,
     alter,
+    Command (..),
+    command,
+    spawn,
+    insert,
   )
 where
 
@@ -20,7 +22,7 @@ import qualified Data.Aztecs.World as W
 import Data.Dynamic (Typeable)
 import Prelude hiding (all)
 
-data Task m s a = Task (StateT (s, World) m a)
+data Task m s a = Task (StateT (s, [Command m ()], World) m a)
   deriving (Functor)
 
 instance (Monad m) => Applicative (Task m s) where
@@ -33,33 +35,20 @@ instance (Monad m) => Monad (Task m s) where
 instance (MonadIO m) => MonadIO (Task m s) where
   liftIO a = Task $ liftIO a
 
-spawn :: (Component a, Typeable a, Monad m) => a -> Task m s Entity
-spawn a = Task $ do
-  (s, w) <- S.get
-  let (e, w') = W.spawn a w
-  S.put $ (s, w')
-  return e
-
-insert :: (Component a, Typeable a, Monad m) => Entity -> a -> Task m s ()
-insert e a = Task $ do
-  (s, w) <- S.get
-  S.put $ (s, W.insert e a w)
-  return ()
-
 update :: (Component a, Typeable a, Monad m) => Write a -> (a -> a) -> Entity -> Task m s ()
 update (Write wr) f e = Task $ do
-  (s, w) <- S.get
-  S.put $ (s, W.adjust wr f e w)
+  (s, cmds, w) <- S.get
+  S.put $ (s, cmds, W.adjust wr f e w)
   return ()
 
 get :: (Monad m) => Entity -> Query a -> Task m s (Maybe a)
 get e q = Task $ do
-  (_, w) <- S.get
+  (_, _, w) <- S.get
   return $ Q.query e q w
 
 all :: (Monad m) => Query a -> Task m s (QueryResult a)
 all q = Task $ do
-  (_, w) <- S.get
+  (_, _, w) <- S.get
   return $ Q.all q w
 
 alter ::
@@ -68,6 +57,35 @@ alter ::
   (a -> a) ->
   Task m s ()
 alter q f = Task $ do
-  (s, w) <- S.get
-  S.put $ (s, Q.adjust q f w)
+  (s, cmds, w) <- S.get
+  S.put $ (s, cmds, Q.adjust q f w)
+  return ()
+
+newtype Command m a = Command (StateT World m a)
+  deriving (Functor)
+
+instance (Monad m) => Applicative (Command m) where
+  pure a = Command $ pure a
+  Command f <*> Command a = Command $ f <*> a
+
+instance (Monad m) => Monad (Command m) where
+  Command a >>= f = Command $ a >>= (\a' -> case f a' of Command b -> b)
+
+command :: (Monad m) => Command m () -> Task m a ()
+command cmd = Task $ do
+  (s, cmds, w) <- S.get
+  S.put $ (s, cmds <> [cmd], w)
+  return ()
+
+spawn :: (Component a, Typeable a, Monad m) => a -> Command m Entity
+spawn a = Command $ do
+  w <- S.get
+  let (e, w') = W.spawn a w
+  S.put $ w'
+  return e
+
+insert :: (Component a, Typeable a, Monad m) => Entity -> a -> Command m ()
+insert e a = Command $ do
+  w <- S.get
+  S.put $ W.insert e a w
   return ()

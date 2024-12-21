@@ -73,14 +73,14 @@ class System m a where
   access :: Access m a
   run :: a -> Task m a ()
 
-runSystem :: (Monad m, System m a) => World -> m (a, World)
+runSystem :: (Monad m, System m a) => World -> m (a, [Command m ()], World)
 runSystem w = do
   let (_, f) = unAccess access
   i <- f w
   let (Task t) = run i
-  runStateT t (i, w) <&> snd
+  runStateT t (i, [], w) <&> snd
 
-runSystemProxy :: (Monad m, System m a) => (Proxy a) -> World -> m (a, World)
+runSystemProxy :: (Monad m, System m a) => (Proxy a) -> World -> m (a, [Command m ()], World)
 runSystemProxy _ w = runSystem w
 
 data Constraint = Before TypeRep | After TypeRep
@@ -148,11 +148,18 @@ build (Schedule s) =
           )
           (Map.toList graph')
 
-runNode :: (Monad m) => Node m -> World -> m World
-runNode (Node p) w = runSystemProxy p w <&> snd
+runNode :: (Monad m) => Node m -> World -> m ([Command m ()], World)
+runNode (Node p) w = runSystemProxy p w <&> (\(_, cmds, w') -> (cmds, w'))
 
 runSchedule :: (Monad m) => Schedule m -> m ()
 runSchedule s = do
   let nodes = build s
-  _ <- foldrM (\n w -> runNode n w) newWorld nodes
+  _ <-
+    foldrM
+      ( \n w -> do
+          (cmds, w') <- runNode n w
+          foldrM (\(Command cmd) w'' -> runStateT cmd w'' <&> snd) w' cmds
+      )
+      newWorld
+      nodes
   return ()
