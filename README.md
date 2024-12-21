@@ -1,9 +1,8 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications #-}
+# Aztecs
 
-module Main where
+An ECS for Haskell
 
+```hs
 import Control.Monad.IO.Class
 import Data.Aztecs
 import qualified Data.Aztecs.Query as Q
@@ -54,3 +53,4 @@ app = schedule @Startup @_ @A [] <> schedule @Update @_ @B []
 
 main :: IO ()
 main = runScheduler app
+```
