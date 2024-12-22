@@ -185,14 +185,14 @@ runNode (Node p) w = runSystemProxy p w <&> (\(_, cmds, w') -> (cmds, w'))
 
 data OnSpawn a = OnSpawn (Proxy a)
 
-instance (Typeable a) => Component (OnSpawn a)
+instance (Component a) => Component (OnSpawn a)
 
 data OnInsert a = OnInsert (Proxy a)
 
-instance (Typeable a) => Component (OnInsert a)
+instance (Component a) => Component (OnInsert a)
 
 data TemporaryComponent where
-  TemporaryComponent :: (Typeable a) => Entity -> Proxy a -> TemporaryComponent
+  TemporaryComponent :: (Component a) => Entity -> Proxy a -> TemporaryComponent
 
 -- | Run a `Command`, returning any temporary `Entity`s and the updated `World`.
 runCommand :: (Monad m) => Command m () -> World -> m ([TemporaryComponent], World)
@@ -226,7 +226,7 @@ runSchedule' nodes w =
     ([], w)
     nodes
 
-removeProxy :: forall c. (Typeable c) => Entity -> Proxy c -> World -> World
+removeProxy :: forall c. (Component c) => Entity -> Proxy c -> World -> World
 removeProxy e _ = W.remove @c e
 
 runSchedule :: [[GraphNode IO]] -> World -> IO World

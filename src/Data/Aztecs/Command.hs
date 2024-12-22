@@ -21,8 +21,8 @@ import Data.Proxy
 import Prelude hiding (all)
 
 data Edit where
-  Spawn :: (Component c, Typeable c) => Entity -> (Proxy c) -> Edit
-  Insert :: (Component c, Typeable c) => Entity -> (Proxy c) -> Edit
+  Spawn :: (Component c) => Entity -> (Proxy c) -> Edit
+  Insert :: (Component c) => Entity -> (Proxy c) -> Edit
 
 -- | Command to update the `World`.
 newtype Command m a = Command (StateT World (WriterT [Edit] m) a)

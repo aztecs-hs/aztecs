@@ -62,7 +62,7 @@ instance Applicative Query where
       )
 
 -- | Read a `Component`.
-read :: forall c. (Component c, Typeable c) => Query c
+read :: forall c. (Component c) => Query c
 read = Query (ReadWrites (Set.fromList [typeOf (Proxy :: Proxy c)]) Set.empty) (\es w -> readWrite es (Proxy :: Proxy c) w) get
 
 newtype Write c = Write c deriving (Show)
@@ -74,7 +74,7 @@ mapWrite :: (c -> c) -> Write c -> Write c
 mapWrite f (Write c) = Write (f c)
 
 -- | Get a writer to a `Component`.
-write :: forall c. (Component c, Typeable c) => Query (Write c)
+write :: forall c. (Component c) => Query (Write c)
 write =
   Query
     (ReadWrites Set.empty (Set.fromList [typeOf (Proxy :: Proxy c)]))
@@ -82,7 +82,7 @@ write =
     (\e w -> Write <$> get e w)
 
 -- | Check if an `Entity` has a `Component`, returning `True` if it's present.
-has :: forall c. (Component c, Typeable c) => Query Bool
+has :: forall c. (Component c) => Query Bool
 has =
   Query
     (ReadWrites Set.empty Set.empty)
@@ -92,7 +92,7 @@ has =
     )
     (\e w -> Just $ isJust $ get @c e w)
 
-readWrite :: (Typeable a, Foldable t) => Maybe (t Entity) -> Proxy a -> World -> ([Entity], [a])
+readWrite :: (Component a, Foldable t) => Maybe (t Entity) -> Proxy a -> World -> ([Entity], [a])
 readWrite es p w =
   let row = (fromMaybe [] (fmap S.toList (getRow p w)))
       row' = case es of
@@ -112,7 +112,7 @@ all :: Query a -> World -> QueryResult a
 all (Query _ f _) w = let (es, as) = f Nothing w in QueryResult es as
 
 -- | Alter the components in a query.
-alter :: (Component c, Typeable c) => QueryResult (Write c) -> (c -> c) -> World -> World
+alter :: (Component c) => QueryResult (Write c) -> (c -> c) -> World -> World
 alter (QueryResult es as) g w =
   let as' = map (\(Write wr) -> g wr) as
       s = getRow Proxy w

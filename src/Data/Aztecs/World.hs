@@ -30,7 +30,7 @@ import Data.Maybe (fromMaybe)
 import Data.Typeable
 import Prelude hiding (read)
 
-class Component a where
+class (Typeable a) => Component a where
   storage :: Storage a
   storage = table
 
@@ -42,7 +42,7 @@ newWorld = World empty (Entity 0)
 union :: World -> World -> World
 union (World a e) (World b _) = World (Map.union a b) e
 
-spawn :: forall c. (Component c, Typeable c) => c -> World -> (Entity, World)
+spawn :: forall c. (Component c) => c -> World -> (Entity, World)
 spawn c (World w (Entity e)) =
   ( Entity e,
     World
@@ -57,7 +57,7 @@ spawn c (World w (Entity e)) =
       (Entity (e + 1))
   )
 
-insert :: forall c. (Component c, Typeable c) => Entity -> c -> World -> World
+insert :: forall c. (Component c) => Entity -> c -> World -> World
 insert e c (World w e') =
   World
     ( alter
@@ -67,19 +67,19 @@ insert e c (World w e') =
     )
     e'
 
-adjust :: (Component c, Typeable c) => c -> (c -> c) -> Entity -> World -> World
+adjust :: (Component c) => c -> (c -> c) -> Entity -> World -> World
 adjust a f w = insert w (f a)
 
-getRow :: (Typeable c) => Proxy c -> World -> Maybe (Storage c)
+getRow :: (Component c) => Proxy c -> World -> Maybe (Storage c)
 getRow p (World w _) = Data.Map.lookup (typeOf p) w >>= fromDynamic
 
-get :: forall c. (Typeable c) => Entity -> World -> Maybe c
+get :: forall c. (Component c) => Entity -> World -> Maybe c
 get e (World w _) = Data.Map.lookup (typeOf @(Proxy c) Proxy) w >>= fromDynamic >>= flip S.get e
 
-setRow :: forall c. (Component c, Typeable c) => Storage c -> World -> World
+setRow :: forall c. (Component c) => Storage c -> World -> World
 setRow cs (World w e') = World (Map.insert (typeOf @(Proxy c) Proxy) (toDyn cs) w) e'
 
-remove :: forall c. (Typeable c) => Entity -> World -> World
+remove :: forall c. (Component c) => Entity -> World -> World
 remove e (World w e') = World (alter (\row -> row >>= f) (typeOf @(Proxy c) Proxy) w) e'
   where
     f row = fmap (\row' -> toDyn $ S.remove @c row' e) (fromDynamic row)
