@@ -16,7 +16,7 @@ module Data.Aztecs.World
     getRow,
     newWorld,
     setRow,
-    remove
+    remove,
   )
 where
 
@@ -26,6 +26,7 @@ import qualified Data.Aztecs.Storage as S
 import Data.Dynamic (Dynamic, fromDynamic, toDyn)
 import Data.Map (Map, alter, empty, lookup)
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
 import Data.Typeable
 import Prelude hiding (read)
 
@@ -41,41 +42,30 @@ newWorld = World empty (Entity 0)
 union :: World -> World -> World
 union (World a e) (World b _) = World (Map.union a b) e
 
-spawn :: (Component c, Typeable c) => c -> World -> (Entity, World)
-spawn = f (Proxy)
-  where
-    f :: (Component c, Typeable c) => Proxy c -> c -> World -> (Entity, World)
-    f p c (World w (Entity e)) =
-      ( Entity e,
-        World
-          ( alter
-              ( \maybeRow -> case maybeRow of
-                  Just row -> fmap (\row' -> toDyn $ S.spawn row' (Entity e) c) (fromDynamic row)
-                  Nothing -> Just $ toDyn $ S.spawn storage (Entity e) c
-              )
-              (typeOf p)
-              w
+spawn :: forall c. (Component c, Typeable c) => c -> World -> (Entity, World)
+spawn c (World w (Entity e)) =
+  ( Entity e,
+    World
+      ( alter
+          ( \maybeRow -> case maybeRow of
+              Just row -> fmap (\row' -> toDyn $ S.spawn row' (Entity e) c) (fromDynamic row)
+              Nothing -> Just $ toDyn $ S.spawn storage (Entity e) c
           )
-          (Entity (e + 1))
+          (typeOf (Proxy :: Proxy c))
+          w
       )
+      (Entity (e + 1))
+  )
 
-insert :: (Component c, Typeable c) => Entity -> c -> World -> World
-insert = f Proxy
-  where
-    f :: (Component c, Typeable c) => Proxy c -> Entity -> c -> World -> World
-    f p e c (World w e') =
-      World
-        ( alter
-            ( \maybeRow -> Just $ toDyn $ g (maybeRow >>= fromDynamic) e c
-            )
-            (typeOf p)
-            w
-        )
-        e'
-    g :: (Component c, Typeable c) => Maybe (Storage c) -> Entity -> c -> Storage c
-    g maybeRow e c = case maybeRow of
-      Just row -> S.spawn row e c
-      Nothing -> S.spawn storage e c
+insert :: forall c. (Component c, Typeable c) => Entity -> c -> World -> World
+insert e c (World w e') =
+  World
+    ( alter
+        (\maybeRow -> Just . toDyn $ S.spawn (fromMaybe storage (maybeRow >>= fromDynamic)) e c)
+        (typeOf (Proxy :: Proxy c))
+        w
+    )
+    e'
 
 adjust :: (Component c, Typeable c) => c -> (c -> c) -> Entity -> World -> World
 adjust a f w = insert w (f a)
@@ -90,7 +80,6 @@ setRow :: forall c. (Component c, Typeable c) => Storage c -> World -> World
 setRow cs (World w e') = World (Map.insert (typeOf @(Proxy c) Proxy) (toDyn cs) w) e'
 
 remove :: forall c. (Typeable c) => Entity -> World -> World
-remove e (World w e') = World (alter f (typeOf @(Proxy c) Proxy) w) e'
+remove e (World w e') = World (alter (\row -> row >>= f) (typeOf @(Proxy c) Proxy) w) e'
   where
-    f (Just row) = Just $ toDyn $ fmap (\row' -> S.remove @c row' e) (fromDynamic row)
-    f Nothing = Nothing
+    f row = fmap (\row' -> toDyn $ S.remove @c row' e) (fromDynamic row)

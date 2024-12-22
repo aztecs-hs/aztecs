@@ -38,7 +38,4 @@ spawn a = Command $ do
 
 -- | Insert a `Component` into an `Entity`.
 insert :: (Component a, Typeable a, Monad m) => Entity -> a -> Command m ()
-insert e a = Command $ do
-  w <- S.get
-  S.put $ W.insert e a w
-  return ()
+insert e a = Command $ S.get >>= S.put . W.insert e a
