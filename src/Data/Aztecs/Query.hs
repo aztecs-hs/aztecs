@@ -58,32 +58,29 @@ instance Applicative Query where
       )
 
 -- | Read a `Component`.
-read :: forall a. (Typeable a) => Query a
-read = Query (ReadWrites [typeOf (Proxy :: Proxy a)] []) (\es w -> readWrite es (Proxy :: Proxy a) w) get
+read :: forall c. (Component c, Typeable c) => Query c
+read = Query (ReadWrites [typeOf (Proxy :: Proxy c)] []) (\es w -> readWrite es (Proxy :: Proxy c) w) get
 
 newtype Write a = Write {unWrite :: a} deriving (Show)
 
 -- | Get a writer to a `Component`.
-write :: (Component a, Typeable a) => Query (Write a)
-write = f Proxy
-  where
-    f :: (Typeable a) => Proxy a -> Query (Write a)
-    f p =
-      Query
-        (ReadWrites [] [typeOf p])
-        (\es w -> let (a, b) = readWrite es p w in (a, Write <$> b))
-        (\e w -> Write <$> get e w)
+write :: forall c. (Component c, Typeable c) => Query (Write c)
+write =
+  Query
+    (ReadWrites [] [typeOf (Proxy :: Proxy c)])
+    (\es w -> let (a, b) = readWrite es (Proxy :: Proxy c) w in (a, Write <$> b))
+    (\e w -> Write <$> get e w)
 
 -- | Check if an `Entity` has a `Component`, returning `True` if it's present.
-has :: forall a. (Typeable a) => Query Bool
+has :: forall c. (Component c, Typeable c) => Query Bool
 has =
   Query
-    (ReadWrites [] [typeOf (Proxy :: Proxy a)])
+    (ReadWrites [] [typeOf (Proxy :: Proxy c)])
     ( \_es w ->
-        let row = (fromMaybe [] (fmap S.toList (getRow (Proxy :: Proxy a) w)))
+        let row = (fromMaybe [] (fmap S.toList (getRow (Proxy :: Proxy c) w)))
          in foldr (\(EntityComponent e _) (eAcc, rowAcc) -> (e : eAcc, True : rowAcc)) ([], []) row
     )
-    (\e w -> Just $ isJust $ get @a e w)
+    (\e w -> Just $ isJust $ get @c e w)
 
 readWrite :: (Typeable a, Foldable t) => Maybe (t Entity) -> Proxy a -> World -> ([Entity], [a])
 readWrite es p w =
@@ -105,7 +102,7 @@ all :: Query a -> World -> QueryResult a
 all (Query _ f _) w = let (es, as) = f Nothing w in QueryResult es as
 
 -- | Alter the components in a query.
-alter :: (Component a, Typeable a) => QueryResult (Write a) -> (a -> a) -> World -> World
+alter :: (Component c, Typeable c) => QueryResult (Write c) -> (c -> c) -> World -> World
 alter (QueryResult es as) g w =
   let as' = map (\(Write wr) -> g wr) as
       s = getRow Proxy w
