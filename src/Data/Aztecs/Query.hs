@@ -18,11 +18,12 @@ module Data.Aztecs.Query
   )
 where
 
-import Data.Aztecs.World (Component, Entity, EntityComponent (..), Storage (..), World, get, getRow, setRow)
+import Data.Aztecs.World (Component, Entity, EntityComponent (..),  World, get, getRow, setRow)
 import Data.List (find)
 import Data.Maybe (fromMaybe, isJust)
 import Data.Typeable
 import Prelude hiding (all, read)
+import qualified Data.Aztecs.Storage as S
 
 data ReadWrites = ReadWrites [TypeRep] [TypeRep]
 
@@ -88,14 +89,14 @@ has = f @a Proxy
       Query
         (ReadWrites [] [typeOf p])
         ( \_es w ->
-            let row = (fromMaybe [] (fmap toList (getRow p w)))
+            let row = (fromMaybe [] (fmap S.toList (getRow p w)))
              in foldr (\(EntityComponent e _) (eAcc, rowAcc) -> (e : eAcc, True : rowAcc)) ([], []) row
         )
         (\e w -> Just $ isJust $ get @a e w)
 
 readWrite :: (Typeable a, Foldable t) => Maybe (t Entity) -> Proxy a -> World -> ([Entity], [a])
 readWrite es p w =
-  let row = (fromMaybe [] (fmap toList (getRow p w)))
+  let row = (fromMaybe [] (fmap S.toList (getRow p w)))
       row' = case es of
         Just es' -> (filter (\(EntityComponent e _) -> isJust $ find (== e) es') row)
         Nothing -> row
@@ -114,5 +115,5 @@ adjust :: (Component a, Typeable a) => QueryResult (Write a) -> (a -> a) -> Worl
 adjust (QueryResult es as) g w =
   let as' = map (\(Write wr) -> g wr) as
       s = getRow Proxy w
-      s' = fmap (\s'' -> insert' s'' (map (\(e, a) -> EntityComponent e a) (zip es as'))) s
+      s' = fmap (\s'' -> S.insert s'' (map (\(e, a) -> EntityComponent e a) (zip es as'))) s
    in fromMaybe w (fmap (\y' -> setRow y' w) s')

@@ -10,11 +10,8 @@
 module Data.Aztecs
   ( Entity,
     EntityComponent (..),
-    Storage (..),
-    table,
     Component (..),
     World,
-    newWorld,
     Query,
     Write (..),
     QueryResult (..),
@@ -50,10 +47,8 @@ import Data.Aztecs.World
   ( Component (..),
     Entity,
     EntityComponent (..),
-    Storage (..),
     World,
     newWorld,
-    table,
     union,
   )
 import Data.Foldable (foldrM)
