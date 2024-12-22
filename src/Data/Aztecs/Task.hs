@@ -31,7 +31,6 @@ update :: (Component a, Typeable a, Monad m) => Write a -> (a -> a) -> Entity ->
 update wr f e = Task $ do
   (s, cmds, w) <- S.get
   S.put $ (s, cmds, W.adjust (Q.unWrite wr) f e w)
-  return ()
 
 -- | Query a single match.
 get :: (Monad m) => Entity -> Query a -> Task m s (Maybe a)
@@ -54,11 +53,9 @@ alter ::
 alter q f = Task $ do
   (s, cmds, w) <- S.get
   S.put $ (s, cmds, Q.alter q f w)
-  return ()
 
 -- | Queue a `Command` to run after this system is complete.
 command :: (Monad m) => Command m () -> Task m a ()
 command cmd = Task $ do
   (s, cmds, w) <- S.get
   S.put $ (s, cmds <> [cmd], w)
-  return ()

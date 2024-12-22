@@ -13,6 +13,8 @@ library
         Data.Aztecs
         Data.Aztecs.Core
         Data.Aztecs.Command
+        Data.Aztecs.Schedule
+        Data.Aztecs.System
         Data.Aztecs.Storage
         Data.Aztecs.Task
         Data.Aztecs.Query

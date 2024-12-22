@@ -43,19 +43,7 @@ union :: World -> World -> World
 union (World a e) (World b _) = World (Map.union a b) e
 
 spawn :: forall c. (Component c) => c -> World -> (Entity, World)
-spawn c (World w (Entity e)) =
-  ( Entity e,
-    World
-      ( alter
-          ( \maybeRow -> case maybeRow of
-              Just row -> fmap (\row' -> toDyn $ S.spawn row' (Entity e) c) (fromDynamic row)
-              Nothing -> Just $ toDyn $ S.spawn storage (Entity e) c
-          )
-          (typeOf (Proxy :: Proxy c))
-          w
-      )
-      (Entity (e + 1))
-  )
+spawn c (World w (Entity e)) = (Entity e, insert (Entity e) c (World w (Entity $ e + 1)))
 
 insert :: forall c. (Component c) => Entity -> c -> World -> World
 insert e c (World w e') =

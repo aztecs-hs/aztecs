@@ -63,7 +63,11 @@ instance Applicative Query where
 
 -- | Read a `Component`.
 read :: forall c. (Component c) => Query c
-read = Query (ReadWrites (Set.fromList [typeOf (Proxy :: Proxy c)]) Set.empty) (\es w -> readWrite es (Proxy :: Proxy c) w) get
+read =
+  Query
+    (ReadWrites (Set.fromList [typeOf (Proxy :: Proxy c)]) Set.empty)
+    (\es w -> readWrite es (Proxy :: Proxy c) w)
+    get
 
 newtype Write c = Write c deriving (Show)
 
