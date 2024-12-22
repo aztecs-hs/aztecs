@@ -61,7 +61,7 @@ alter ::
   Task m s ()
 alter q f = Task $ do
   (s, cmds, w) <- S.get
-  S.put $ (s, cmds, Q.adjust q f w)
+  S.put $ (s, cmds, Q.alter q f w)
   return ()
 
 -- | Queue a `Command` to run after this system is complete.

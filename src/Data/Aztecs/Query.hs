@@ -14,17 +14,18 @@ module Data.Aztecs.Query
     QueryResult (..),
     query,
     all,
-    adjust,
+    alter,
   )
 where
 
-import Data.Aztecs.World (Component, Entity, EntityComponent (..),  World, get, getRow, setRow)
+import qualified Data.Aztecs.Storage as S
+import Data.Aztecs.World (Component, Entity, EntityComponent (..), World, get, getRow, setRow)
 import Data.List (find)
 import Data.Maybe (fromMaybe, isJust)
 import Data.Typeable
 import Prelude hiding (all, read)
-import qualified Data.Aztecs.Storage as S
 
+-- | Component IDs to read and write.
 data ReadWrites = ReadWrites [TypeRep] [TypeRep]
 
 instance Semigroup ReadWrites where
@@ -33,6 +34,7 @@ instance Semigroup ReadWrites where
 instance Monoid ReadWrites where
   mempty = ReadWrites [] []
 
+-- | Query to apply to the `World`.
 data Query a
   = Query
       ReadWrites
@@ -45,28 +47,19 @@ instance Applicative Query where
   Query rs f g <*> Query rs' f' g' =
     Query
       (rs <> rs')
-      ( \es w ->
-          let (es1, fs) = f es w
-           in case es1 of
-                [] -> ([], [])
-                _ ->
-                  let (es2, as) = f' es w
-                   in (es1 <> es2, fs <*> as)
+      ( \es w -> case f es w of
+          ([], _) -> ([], [])
+          (es', fs) -> let (es'', as) = f' es w in (es' <> es'', fs <*> as)
       )
-      ( \e w ->
-          case g e w of
-            Just a -> case g' e w of
-              Just a' -> Just $ a a'
-              Nothing -> Nothing
-            Nothing -> Nothing
+      ( \e w -> do
+          a <- g e w
+          a' <- g' e w
+          return (a a')
       )
 
 -- | Read a `Component`.
-read :: (Typeable a) => Query a
-read = f Proxy
-  where
-    f :: (Typeable a) => Proxy a -> Query a
-    f p = Query (ReadWrites [typeOf p] []) (\es w -> readWrite es p w) get
+read :: forall a. (Typeable a) => Query a
+read = Query (ReadWrites [typeOf (Proxy :: Proxy a)] []) (\es w -> readWrite es (Proxy :: Proxy a) w) get
 
 newtype Write a = Write {unWrite :: a} deriving (Show)
 
@@ -81,18 +74,16 @@ write = f Proxy
         (\es w -> let (a, b) = readWrite es p w in (a, Write <$> b))
         (\e w -> Write <$> get e w)
 
+-- | Check if an `Entity` has a `Component`, returning `True` if it's present.
 has :: forall a. (Typeable a) => Query Bool
-has = f @a Proxy
-  where
-    f :: forall b. (Typeable b) => Proxy b -> Query Bool
-    f p =
-      Query
-        (ReadWrites [] [typeOf p])
-        ( \_es w ->
-            let row = (fromMaybe [] (fmap S.toList (getRow p w)))
-             in foldr (\(EntityComponent e _) (eAcc, rowAcc) -> (e : eAcc, True : rowAcc)) ([], []) row
-        )
-        (\e w -> Just $ isJust $ get @a e w)
+has =
+  Query
+    (ReadWrites [] [typeOf (Proxy :: Proxy a)])
+    ( \_es w ->
+        let row = (fromMaybe [] (fmap S.toList (getRow (Proxy :: Proxy a) w)))
+         in foldr (\(EntityComponent e _) (eAcc, rowAcc) -> (e : eAcc, True : rowAcc)) ([], []) row
+    )
+    (\e w -> Just $ isJust $ get @a e w)
 
 readWrite :: (Typeable a, Foldable t) => Maybe (t Entity) -> Proxy a -> World -> ([Entity], [a])
 readWrite es p w =
@@ -102,17 +93,20 @@ readWrite es p w =
         Nothing -> row
    in foldr (\(EntityComponent e a) (es'', as) -> (e : es'', a : as)) ([], []) row'
 
+-- | Query a single match from the `World`.
 query :: Entity -> Query a -> World -> Maybe a
 query e (Query _ _ f) w = f e w
 
 data QueryResult a = QueryResult [Entity] [a]
   deriving (Functor, Show)
 
+-- | Query all matches from the `World`.
 all :: Query a -> World -> QueryResult a
 all (Query _ f _) w = let (es, as) = f Nothing w in QueryResult es as
 
-adjust :: (Component a, Typeable a) => QueryResult (Write a) -> (a -> a) -> World -> World
-adjust (QueryResult es as) g w =
+-- | Alter the components in a query.
+alter :: (Component a, Typeable a) => QueryResult (Write a) -> (a -> a) -> World -> World
+alter (QueryResult es as) g w =
   let as' = map (\(Write wr) -> g wr) as
       s = getRow Proxy w
       s' = fmap (\s'' -> S.insert s'' (map (\(e, a) -> EntityComponent e a) (zip es as'))) s
