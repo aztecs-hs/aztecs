@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Data.Aztecs.Command
   ( Command (..),
@@ -9,6 +10,7 @@ module Data.Aztecs.Command
   )
 where
 
+import Control.Monad.IO.Class
 import Control.Monad.State (StateT (..))
 import qualified Control.Monad.State as S
 import Control.Monad.Writer (WriterT)
@@ -24,14 +26,7 @@ data Edit where
 
 -- | Command to update the `World`.
 newtype Command m a = Command (StateT World (WriterT [Edit] m) a)
-  deriving (Functor)
-
-instance (Monad m) => Applicative (Command m) where
-  pure a = Command $ pure a
-  Command f <*> Command a = Command $ f <*> a
-
-instance (Monad m) => Monad (Command m) where
-  Command a >>= f = Command $ a >>= (\a' -> case f a' of Command b -> b)
+  deriving (Functor, Applicative, Monad, MonadIO)
 
 -- | Spawn a `Component` and return its `Entity`.
 spawn :: (Component a, Typeable a, Monad m) => a -> Command m Entity

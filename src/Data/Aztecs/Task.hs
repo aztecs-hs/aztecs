@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Data.Aztecs.Task
   ( Task (..),
@@ -10,7 +11,8 @@ module Data.Aztecs.Task
   )
 where
 
-import Control.Monad.State (MonadIO (liftIO), StateT (..))
+import Control.Monad.IO.Class
+import Control.Monad.State (StateT (..))
 import qualified Control.Monad.State as S
 import Data.Aztecs.Command
 import Data.Aztecs.Query (Query, QueryResult, Write (..))
@@ -21,18 +23,8 @@ import Data.Dynamic (Typeable)
 import Prelude hiding (all)
 
 -- | System task.
-data Task m s a = Task (StateT (s, [Command m ()], World) m a)
-  deriving (Functor)
-
-instance (Monad m) => Applicative (Task m s) where
-  pure a = Task $ pure a
-  Task f <*> Task a = Task $ f <*> a
-
-instance (Monad m) => Monad (Task m s) where
-  Task a >>= f = Task $ a >>= (\a' -> case f a' of Task b -> b)
-
-instance (MonadIO m) => MonadIO (Task m s) where
-  liftIO a = Task $ liftIO a
+newtype Task m s a = Task (StateT (s, [Command m ()], World) m a)
+  deriving (Functor, Applicative, Monad, MonadIO)
 
 -- | Update a single query match.
 update :: (Component a, Typeable a, Monad m) => Write a -> (a -> a) -> Entity -> Task m s ()
