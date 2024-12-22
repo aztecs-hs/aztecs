@@ -24,17 +24,19 @@ import qualified Data.Aztecs.Storage as S
 import Data.Aztecs.World (Component, Entity, EntityComponent (..), World, get, getRow, setRow)
 import Data.List (find)
 import Data.Maybe (fromMaybe, isJust)
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Data.Typeable
 import Prelude hiding (all, read)
 
 -- | Component IDs to read and write.
-data ReadWrites = ReadWrites [TypeRep] [TypeRep]
+data ReadWrites = ReadWrites (Set TypeRep) (Set TypeRep)
 
 instance Semigroup ReadWrites where
   ReadWrites rs ws <> ReadWrites rs' ws' = ReadWrites (rs <> rs') (ws <> ws')
 
 instance Monoid ReadWrites where
-  mempty = ReadWrites [] []
+  mempty = ReadWrites mempty mempty
 
 -- | Query to apply to the `World`.
 data Query a
@@ -61,7 +63,7 @@ instance Applicative Query where
 
 -- | Read a `Component`.
 read :: forall c. (Component c, Typeable c) => Query c
-read = Query (ReadWrites [typeOf (Proxy :: Proxy c)] []) (\es w -> readWrite es (Proxy :: Proxy c) w) get
+read = Query (ReadWrites (Set.fromList [typeOf (Proxy :: Proxy c)]) Set.empty) (\es w -> readWrite es (Proxy :: Proxy c) w) get
 
 newtype Write c = Write c deriving (Show)
 
@@ -75,7 +77,7 @@ mapWrite f (Write c) = Write (f c)
 write :: forall c. (Component c, Typeable c) => Query (Write c)
 write =
   Query
-    (ReadWrites [] [typeOf (Proxy :: Proxy c)])
+    (ReadWrites Set.empty (Set.fromList [typeOf (Proxy :: Proxy c)]))
     (\es w -> let (a, b) = readWrite es (Proxy :: Proxy c) w in (a, Write <$> b))
     (\e w -> Write <$> get e w)
 
@@ -83,7 +85,7 @@ write =
 has :: forall c. (Component c, Typeable c) => Query Bool
 has =
   Query
-    (ReadWrites [] [typeOf (Proxy :: Proxy c)])
+    (ReadWrites Set.empty Set.empty)
     ( \_es w ->
         let row = (fromMaybe [] (fmap S.toList (getRow (Proxy :: Proxy c) w)))
          in foldr (\(EntityComponent e _) (eAcc, rowAcc) -> (e : eAcc, True : rowAcc)) ([], []) row

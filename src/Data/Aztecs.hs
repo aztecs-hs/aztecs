@@ -121,21 +121,18 @@ data GraphNode m = GraphNode (Node m) (Set TypeRep) (Set TypeRep)
 nodeReadWrites :: forall m. (Monad m) => Node m -> [ReadWrites]
 nodeReadWrites (Node p) = fst $ unAccess $ accessSystemProxy @m p
 
-rwHasReadConflict :: ReadWrites -> ReadWrites -> Bool
-rwHasReadConflict (ReadWrites (r : rs) ws) (ReadWrites rs' ws') =
-  (isJust $ find (== r) ws) || rwHasReadConflict (ReadWrites rs ws) (ReadWrites rs' ws')
-rwHasReadConflict _ _ = False
-
-rwHasConflict :: ReadWrites -> ReadWrites -> Bool
-rwHasConflict (ReadWrites rs (w : ws)) (ReadWrites rs' ws') =
-  (isJust $ find (== w) ws) || rwHasReadConflict (ReadWrites rs ws) (ReadWrites rs' ws')
-rwHasConflict a b = rwHasReadConflict a b
-
 hasConflict :: (Monad m) => GraphNode m -> GraphNode m -> Bool
 hasConflict (GraphNode a _ _) (GraphNode b _ _) =
-  let aRws = nodeReadWrites a
-      bRws = nodeReadWrites b
-   in any (uncurry rwHasConflict) [(x, y) | x <- aRws, y <- bRws]
+  let f n = map (\(ReadWrites rs ws) -> (Set.toList rs, Set.toList ws)) (nodeReadWrites n)
+   in any (uncurry rwHasConflict) [(x, y) | x <- f a, y <- f b]
+  where
+    rwHasConflict (rs, (w : ws)) (rs', ws') =
+      (isJust $ find (== w) ws) || rwHasReadConflict (rs, ws) (rs', ws')
+    rwHasConflict rws rws' = rwHasReadConflict rws rws'
+
+    rwHasReadConflict ((r : rs), ws) (rs', ws') =
+      (isJust $ find (== r) ws) || rwHasReadConflict (rs, ws) (rs', ws')
+    rwHasReadConflict _ _ = False
 
 build :: (Monad m) => Schedule m -> [[GraphNode m]]
 build (Schedule s) =
