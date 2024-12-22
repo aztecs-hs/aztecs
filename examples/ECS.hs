@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications #-}
 
-module ECS where
+module Main where
 
 import Control.Monad.IO.Class
 import Data.Aztecs
