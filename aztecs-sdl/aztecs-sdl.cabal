@@ -1,0 +1,32 @@
+cabal-version:   3.0
+name:            aztecs-sdl
+version:         0.1.0.0
+license:         BSD-3-Clause
+license-file:    LICENSE
+maintainer:      matt@hunzinger.me
+author:          Matt Hunzinger
+build-type:      Simple
+extra-doc-files: CHANGELOG.md
+
+library
+    exposed-modules:
+        Data.Aztecs.SDL
+    hs-source-dirs:   src
+    default-language: Haskell2010
+    ghc-options:      -Wall
+    build-depends:
+        base >=4,
+        aztecs,
+        containers >=0.7,
+        linear >=1,
+        sdl2 >=2
+
+executable sdl
+    main-is:          SDL.hs
+    hs-source-dirs:   examples
+    default-language: Haskell2010
+    ghc-options:      -Wall
+    build-depends:
+        base >=4,
+        aztecs,
+        aztecs-sdl

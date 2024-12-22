@@ -6,6 +6,7 @@ import Criterion.Main
 import Data.Aztecs
 import Data.Aztecs.Query (mapWrite)
 import qualified Data.Aztecs.Query as Q
+import Data.Aztecs.System (runSystem)
 import qualified Data.Aztecs.Task as T
 import qualified Data.Aztecs.World as W
 

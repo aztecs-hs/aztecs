@@ -25,7 +25,7 @@ library
     ghc-options:      -Wall
     build-depends:
         base >=4,
-        async >= 2,
+        async >=2,
         containers >=0.7,
         mtl >=2
 

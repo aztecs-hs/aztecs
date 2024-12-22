@@ -19,6 +19,9 @@ module Data.Aztecs.Schedule
     after,
     Scheduler (..),
     schedule,
+    SchedulerGraph (..),
+    buildScheduler,
+    runSchedulerGraph,
     runScheduler,
   )
 where
