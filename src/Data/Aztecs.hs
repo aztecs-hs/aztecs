@@ -30,11 +30,14 @@ module Data.Aztecs
     schedule,
     build,
     runScheduler,
+    OnSpawn,
+    OnInsert,
   )
 where
 
 import Control.Concurrent.Async (mapConcurrently)
 import Control.Monad.State (StateT (runStateT))
+import Control.Monad.Writer (WriterT (runWriterT))
 import Data.Aztecs.Command
 import Data.Aztecs.Query
   ( Query (..),
@@ -51,6 +54,7 @@ import Data.Aztecs.World
     newWorld,
     union,
   )
+import qualified Data.Aztecs.World as W
 import Data.Foldable (foldrM)
 import Data.Functor ((<&>))
 import Data.List (find, groupBy, sortBy)
@@ -154,7 +158,12 @@ build (Schedule s) =
           ( \(GraphNode _ _ befores) acc ->
               foldr
                 ( \i acc' ->
-                    Map.adjust (\(GraphNode n deps bs) -> GraphNode n (Set.singleton i <> deps) bs) i acc'
+                    Map.adjust
+                      ( \(GraphNode n deps bs) ->
+                          GraphNode n (Set.singleton i <> deps) bs
+                      )
+                      i
+                      acc'
                 )
                 acc
                 befores
@@ -177,6 +186,26 @@ build (Schedule s) =
 runNode :: (Monad m) => Node m -> World -> m ([Command m ()], World)
 runNode (Node p) w = runSystemProxy p w <&> (\(_, cmds, w') -> (cmds, w'))
 
+data OnSpawn a = OnSpawn (Proxy a)
+
+instance (Typeable a) => Component (OnSpawn a)
+
+data OnInsert a = OnInsert (Proxy a)
+
+instance (Typeable a) => Component (OnInsert a)
+
+runCommand :: (Monad m) => Command m () -> World -> m World
+runCommand (Command cmd) w = do
+  (((), w'), edits) <- runWriterT $ runStateT cmd w
+  return $
+    foldr
+      ( \edit w'' -> case edit of
+          Spawn e p -> W.insert e (OnSpawn p) w''
+          Insert e p -> W.insert e (OnInsert p) w''
+      )
+      w'
+      edits
+
 runSchedule :: [[GraphNode IO]] -> World -> IO World
 runSchedule nodes w =
   foldrM
@@ -185,7 +214,7 @@ runSchedule nodes w =
         let (cmdLists, worlds) = unzip results
             finalWorld = foldr union w' worlds
             (cmds, w'') = (concat cmdLists, finalWorld)
-        foldrM (\(Command cmd) w''' -> runStateT cmd w''' <&> snd) w'' cmds
+        foldrM runCommand w'' cmds
     )
     w
     nodes
@@ -205,7 +234,10 @@ schedule cs = f (Proxy :: Proxy l) (Proxy :: Proxy a)
   where
     f :: Proxy l -> Proxy a -> Scheduler m
     f lp p =
-      Scheduler $ Map.singleton (typeOf lp) (Schedule $ Map.singleton (typeOf p) (ScheduleNode (Node p) cs))
+      Scheduler $
+        Map.singleton
+          (typeOf lp)
+          (Schedule $ Map.singleton (typeOf p) (ScheduleNode (Node p) cs))
 
 newtype SchedulerGraph m = SchedulerGraph (Map TypeRep [[GraphNode m]])
 

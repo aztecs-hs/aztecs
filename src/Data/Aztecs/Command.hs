@@ -1,21 +1,29 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE GADTs #-}
 
 module Data.Aztecs.Command
   ( Command (..),
     spawn,
     insert,
+    Edit (..),
   )
 where
 
 import Control.Monad.State (StateT (..))
 import qualified Control.Monad.State as S
+import Control.Monad.Writer (WriterT)
 import Data.Aztecs.World (Component, Entity, World)
 import qualified Data.Aztecs.World as W
 import Data.Dynamic (Typeable)
+import Data.Proxy
 import Prelude hiding (all)
 
+data Edit where
+  Spawn :: (Component c, Typeable c) => Entity -> (Proxy c) -> Edit
+  Insert :: (Component c, Typeable c) => Entity -> (Proxy c) -> Edit
+
 -- | Command to update the `World`.
-newtype Command m a = Command (StateT World m a)
+newtype Command m a = Command (StateT World (WriterT [Edit] m) a)
   deriving (Functor)
 
 instance (Monad m) => Applicative (Command m) where
