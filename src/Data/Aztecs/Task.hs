@@ -15,7 +15,7 @@ import Control.Monad.IO.Class
 import Control.Monad.State (StateT (..))
 import qualified Control.Monad.State as S
 import Data.Aztecs.Command
-import Data.Aztecs.Query (Query, QueryResult, Write (..))
+import Data.Aztecs.Query (Query, QueryResult, Write)
 import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.World (Component, Entity, World)
 import qualified Data.Aztecs.World as W
@@ -28,9 +28,9 @@ newtype Task m s a = Task (StateT (s, [Command m ()], World) m a)
 
 -- | Update a single query match.
 update :: (Component a, Typeable a, Monad m) => Write a -> (a -> a) -> Entity -> Task m s ()
-update (Write wr) f e = Task $ do
+update wr f e = Task $ do
   (s, cmds, w) <- S.get
-  S.put $ (s, cmds, W.adjust wr f e w)
+  S.put $ (s, cmds, W.adjust (Q.unWrite wr) f e w)
   return ()
 
 -- | Query a single match.

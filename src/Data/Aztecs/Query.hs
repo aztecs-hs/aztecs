@@ -6,7 +6,8 @@
 
 module Data.Aztecs.Query
   ( ReadWrites (..),
-    Write (..),
+    Write,
+    unWrite,
     Query (..),
     read,
     write,
@@ -61,7 +62,10 @@ instance Applicative Query where
 read :: forall c. (Component c, Typeable c) => Query c
 read = Query (ReadWrites [typeOf (Proxy :: Proxy c)] []) (\es w -> readWrite es (Proxy :: Proxy c) w) get
 
-newtype Write a = Write {unWrite :: a} deriving (Show)
+newtype Write a = Write a deriving (Show)
+
+unWrite :: Write a -> a
+unWrite (Write a) = a
 
 -- | Get a writer to a `Component`.
 write :: forall c. (Component c, Typeable c) => Query (Write c)

@@ -13,7 +13,7 @@ module Data.Aztecs
     Component (..),
     World,
     Query,
-    Write (..),
+    Write,
     QueryResult (..),
     Access (..),
     query,
@@ -43,7 +43,7 @@ import Data.Aztecs.Query
   ( Query (..),
     QueryResult (..),
     ReadWrites (..),
-    Write (..),
+    Write,
   )
 import Data.Aztecs.Task
 import Data.Aztecs.World
