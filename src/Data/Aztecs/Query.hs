@@ -1,4 +1,8 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Data.Aztecs.Query
   ( ReadWrites (..),
@@ -6,6 +10,7 @@ module Data.Aztecs.Query
     Query (..),
     read,
     write,
+    has,
     QueryResult (..),
     query,
     all,
@@ -55,6 +60,7 @@ instance Applicative Query where
             Nothing -> Nothing
       )
 
+-- | Read a `Component`.
 read :: (Typeable a) => Query a
 read = f Proxy
   where
@@ -63,6 +69,7 @@ read = f Proxy
 
 newtype Write a = Write {unWrite :: a} deriving (Show)
 
+-- | Get a writer to a `Component`.
 write :: (Component a, Typeable a) => Query (Write a)
 write = f Proxy
   where
@@ -72,6 +79,19 @@ write = f Proxy
         (ReadWrites [] [typeOf p])
         (\es w -> let (a, b) = readWrite es p w in (a, Write <$> b))
         (\e w -> Write <$> get e w)
+
+has :: forall a. (Typeable a) => Query Bool
+has = f @a Proxy
+  where
+    f :: forall b. (Typeable b) => Proxy b -> Query Bool
+    f p =
+      Query
+        (ReadWrites [] [typeOf p])
+        ( \_es w ->
+            let row = (fromMaybe [] (fmap toList (getRow p w)))
+             in foldr (\(EntityComponent e _) (eAcc, rowAcc) -> (e : eAcc, True : rowAcc)) ([], []) row
+        )
+        (\e w -> Just $ isJust $ get @a e w)
 
 readWrite :: (Typeable a, Foldable t) => Maybe (t Entity) -> Proxy a -> World -> ([Entity], [a])
 readWrite es p w =
