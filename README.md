@@ -25,9 +25,9 @@ data Y = Y Int deriving (Show)
 
 instance Component Y
 
-data A = A (Query X)
-
 -- Systems
+
+data A = A (Query X)
 
 instance System IO A where
   access = A <$> query Q.read
