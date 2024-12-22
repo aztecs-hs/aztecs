@@ -2,6 +2,12 @@
 
 A type-safe and friendly [ECS](https://en.wikipedia.org/wiki/Entity_component_system) for Haskell.
 
+## Features
+
+ - Automatic parallelism: Systems run in parallel if possible, and in multiple stages
+ - Type-safe DSL: Components and systems are accessed by marker types that determine their storage
+ - Modular design: Aztecs can be extended for a variety of use cases
+
 ```hs
 import Control.Monad.IO.Class
 import Data.Aztecs
