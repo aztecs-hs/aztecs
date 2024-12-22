@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -15,6 +16,7 @@ module Data.Aztecs.World
     getRow,
     newWorld,
     setRow,
+    remove
   )
 where
 
@@ -86,3 +88,9 @@ get e (World w _) = Data.Map.lookup (typeOf @(Proxy c) Proxy) w >>= fromDynamic 
 
 setRow :: forall c. (Component c, Typeable c) => Storage c -> World -> World
 setRow cs (World w e') = World (Map.insert (typeOf @(Proxy c) Proxy) (toDyn cs) w) e'
+
+remove :: forall c. (Typeable c) => Entity -> World -> World
+remove e (World w e') = World (alter f (typeOf @(Proxy c) Proxy) w) e'
+  where
+    f (Just row) = Just $ toDyn $ fmap (\row' -> S.remove @c row' e) (fromDynamic row)
+    f Nothing = Nothing

@@ -10,7 +10,8 @@ data Storage a = Storage
     spawn :: Entity -> a -> Storage a,
     insert :: [EntityComponent a] -> Storage a,
     get :: Entity -> Maybe a,
-    toList :: [EntityComponent a]
+    toList :: [EntityComponent a],
+    remove :: Entity -> Storage a
   }
 
 table' :: [EntityComponent a] -> Storage a
@@ -22,7 +23,8 @@ table' cs =
       get = \e ->
         find (\(EntityComponent e' _) -> e == e') cs
           <&> \(EntityComponent _ a) -> a,
-      toList = cs
+      toList = cs,
+      remove = \e -> table' (filter (\(EntityComponent e' _) -> e /= e') cs)
     }
 
 table :: Storage a

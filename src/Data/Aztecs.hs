@@ -194,30 +194,48 @@ data OnInsert a = OnInsert (Proxy a)
 
 instance (Typeable a) => Component (OnInsert a)
 
-runCommand :: (Monad m) => Command m () -> World -> m World
+data TemporaryComponent where
+  TemporaryComponent :: (Typeable a) => Entity -> Proxy a -> TemporaryComponent
+
+-- | Run a `Command`, returning any temporary `Entity`s and the updated `World`.
+runCommand :: (Monad m) => Command m () -> World -> m ([TemporaryComponent], World)
 runCommand (Command cmd) w = do
   (((), w'), edits) <- runWriterT $ runStateT cmd w
   return $
     foldr
-      ( \edit w'' -> case edit of
-          Spawn e p -> W.insert e (OnSpawn p) w''
-          Insert e p -> W.insert e (OnInsert p) w''
+      ( \edit (cs, w'') -> case edit of
+          Spawn e p -> (TemporaryComponent e p : cs, W.insert e (OnSpawn p) w'')
+          Insert e p -> (TemporaryComponent e p : cs, W.insert e (OnInsert p) w'')
       )
-      w'
+      ([], w')
       edits
 
-runSchedule :: [[GraphNode IO]] -> World -> IO World
-runSchedule nodes w =
+runSchedule' :: [[GraphNode IO]] -> World -> IO ([TemporaryComponent], World)
+runSchedule' nodes w =
   foldrM
-    ( \nodeGroup w' -> do
+    ( \nodeGroup (csAcc, w') -> do
         results <- mapConcurrently (\(GraphNode n _ _) -> runNode n w) nodeGroup
         let (cmdLists, worlds) = unzip results
             finalWorld = foldr union w' worlds
             (cmds, w'') = (concat cmdLists, finalWorld)
-        foldrM runCommand w'' cmds
+        foldrM
+          ( \cmd (csAcc', wAcc) -> do
+              (cs, wAcc') <- runCommand cmd wAcc
+              return (cs ++ csAcc', wAcc')
+          )
+          (csAcc, w'')
+          cmds
     )
-    w
+    ([], w)
     nodes
+
+removeProxy :: forall c. (Typeable c) => Entity -> Proxy c -> World -> World
+removeProxy e _ = W.remove @c e
+
+runSchedule :: [[GraphNode IO]] -> World -> IO World
+runSchedule nodes w = do
+  (cs, w') <- runSchedule' nodes w
+  foldrM (\(TemporaryComponent e p) wAcc -> return $ removeProxy e p wAcc) w' cs
 
 newtype Scheduler m = Scheduler (Map TypeRep (Schedule m))
   deriving (Monoid)
