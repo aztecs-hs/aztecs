@@ -10,6 +10,7 @@ module Data.Aztecs.Query
     unWrite,
     mapWrite,
     QueryBuilder (..),
+    entity,
     read,
     write,
     Query (..),
@@ -52,7 +53,7 @@ instance Applicative QueryBuilder where
 data Query a
   = Query
       [ArchetypeId]
-      ([Entity] -> World -> [a])
+      (Set Entity -> World -> [a])
       (Entity -> World -> Maybe a)
   deriving (Functor)
 
@@ -60,6 +61,9 @@ instance Applicative Query where
   pure a = Query mempty (const $ const [a]) (const $ const $ Just a)
   Query aIds f g <*> Query aIds' f' g' =
     Query (aIds <> aIds') (\es w -> f es w <*> f' es w) (\e w -> g e w <*> g' e w)
+
+entity :: QueryBuilder Entity
+entity = QueryBuilder mempty mempty (\aId _ -> Query [aId] (\es _ -> Set.toList es) (\e _ -> Just e))
 
 -- | Read a `Component`.
 read :: forall c. (Component c) => QueryBuilder c
@@ -109,11 +113,11 @@ query e (Query _ _ f) w = f e w
 
 -- | Query all matches from the `World`.
 all :: Query a -> World -> [a]
-all (Query aIds f _) (World cs as) = f (concat $ map (\aId -> A.getArchetype aId as) aIds) (World cs as)
+all (Query aIds f _) (World cs as) = f (Set.fromList $ concat $ map (\aId -> A.getArchetype aId as) aIds) (World cs as)
 
 -- | Alter the components in a query.
-alter :: (Component c) => [Write c] -> (c -> c) -> World -> World
+alter :: (Component c) => [EntityComponent c] -> (EntityComponent c -> c) -> World -> World
 alter as g w =
   let s = getRow Proxy w
-      s' = fmap (\s'' -> S.insert s'' (map (\(Write e a) -> EntityComponent e (g a)) as)) s
+      s' = fmap (\s'' -> S.insert s'' (map (\(EntityComponent e a) -> EntityComponent e (g (EntityComponent e a))) as)) s
    in fromMaybe w (fmap (\y' -> setRow y' w) s')

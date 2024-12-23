@@ -6,7 +6,6 @@ module Data.Aztecs.Task
     get,
     all,
     update,
-    alter,
     command,
   )
 where
@@ -43,16 +42,6 @@ all :: (Monad m) => Query a -> Task m s [a]
 all q = Task $ do
   (_, _, w) <- S.get
   return $ Q.all q w
-
--- | Alter the components in a query.
-alter ::
-  (Component a, Typeable a, Monad m) =>
-  [Write a] ->
-  (a -> a) ->
-  Task m s ()
-alter q f = Task $ do
-  (s, cmds, w) <- S.get
-  S.put $ (s, cmds, Q.alter q f w)
 
 -- | Queue a `Command` to run after this system is complete.
 command :: (Monad m) => Command m () -> Task m a ()

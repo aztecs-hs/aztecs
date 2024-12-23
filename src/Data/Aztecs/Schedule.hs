@@ -32,7 +32,6 @@ import Control.Monad.Writer (WriterT (runWriterT))
 import Data.Aztecs.Command
 import Data.Aztecs.Query (ReadWrites (..))
 import Data.Aztecs.System
-import Data.Aztecs.Task (Task (..))
 import Data.Aztecs.World
   ( Component (..),
     Entity,
@@ -53,16 +52,6 @@ import qualified Data.Set as Set
 import Data.Typeable
 import Prelude hiding (all, read)
 
-runSystemCached :: (Monad m, System m a) => Maybe (Access m a) -> World -> m (a, Access m a, [Command m ()], World)
-runSystemCached cache w = do
-  let (_, f) = unAccess $ case cache of
-        Just a -> a
-        Nothing -> access
-  (i, w', acc) <- f w
-  let (Task t) = run i
-  (a, cmds, w'') <- runStateT t (i, [], w') <&> snd
-  return (a, acc, cmds, w'')
-
 accessSystemProxy :: (Monad m, System m a) => (Proxy a) -> Access m a
 accessSystemProxy _ = access
 
@@ -75,7 +64,7 @@ after :: forall m a. (System m a) => Constraint
 after = After $ typeOf (Proxy :: Proxy a)
 
 data Node m where
-  Node :: (System m a) => Proxy a -> Maybe (Access m a) -> Node m
+  Node :: (System m a) => Proxy a -> Cache -> Node m
 
 data ScheduleNode m = ScheduleNode (Node m) [Constraint]
 
@@ -90,7 +79,7 @@ instance Monoid (Schedule m) where
 data GraphNode m = GraphNode (Node m) (Set TypeRep) (Set TypeRep)
 
 nodeReadWrites :: forall m. (Monad m) => Node m -> [ReadWrites]
-nodeReadWrites (Node p _) = fst $ unAccess $ accessSystemProxy @m p
+nodeReadWrites (Node p _) = let (Access rws _) = accessSystemProxy @m p in rws
 
 hasConflict :: (Monad m) => GraphNode m -> GraphNode m -> Bool
 hasConflict (GraphNode a _ _) (GraphNode b _ _) =
@@ -152,8 +141,11 @@ build (Schedule s) =
         nodes
 
 runNode :: (Monad m) => Node m -> World -> m (Node m, [Command m ()], World)
-runNode (Node p a) w =
-  runSystemCached a w <&> (\(_, a', cmds, w') -> (Node p (Just a'), cmds, w'))
+runNode (Node p cache) w =
+  runSystemProxy p cache w <&> (\(a', cmds, w') -> (Node p a', cmds, w'))
+
+runSystemProxy :: forall m a. (Monad m, System m a) => Proxy a -> Cache -> World -> m (Cache, [Command m ()], World)
+runSystemProxy _ = runSystem @m @a
 
 data OnSpawn a = OnSpawn (Proxy a)
 
@@ -239,7 +231,7 @@ schedule cs =
       ( Schedule $
           Map.singleton
             (typeOf (Proxy :: Proxy s))
-            (ScheduleNode (Node (Proxy :: Proxy s) Nothing) cs)
+            (ScheduleNode (Node (Proxy :: Proxy s) mempty) cs)
       )
 
 newtype SchedulerGraph m = SchedulerGraph (Map TypeRep [[GraphNode m]])
