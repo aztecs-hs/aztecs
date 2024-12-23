@@ -33,7 +33,6 @@ instance System IO A where
           e <- C.spawn (X 0)
           C.insert e (Y 1)
       )
-  run (A _) = return ()
 
 data XY = XY X Y deriving (Show)
 
@@ -50,7 +49,6 @@ instance System IO B where
       <* S.alter
         (\(EntityComponent _ (X x)) -> X $ x + 1)
         (EntityComponent <$> Q.entity <*> Q.read @X)
-  run (B _) = return ()
 
 app :: Scheduler IO
 app = schedule @Startup @_ @A [] <> schedule @Update @_ @B []

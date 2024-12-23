@@ -123,7 +123,6 @@ task (Access rw f) g =
 
 class (Typeable a) => System m a where
   access :: Access m ()
-  run :: a -> Task m a ()
 
 runSystem :: forall m a. (Monad m, System m a) => Cache -> World -> m (Cache, [Command m ()], World)
 runSystem cache w = do
