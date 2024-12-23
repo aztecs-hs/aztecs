@@ -27,7 +27,7 @@ instance (Applicative m) => Applicative (Access m) where
     Access $ (fRws <> aRws, \w -> f w <*> a w)
 
 query :: (Applicative m) => Query a -> Access m (Query a)
-query (Query a f g) = Access $ ([a], \_ -> pure $ Query a f g)
+query (Query a arch f g) = Access $ ([a], \_ -> pure $ Query a arch f g)
 
 class (Typeable a) => System m a where
   access :: Access m a

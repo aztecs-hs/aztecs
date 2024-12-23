@@ -5,7 +5,6 @@ module Data.Aztecs
     World,
     Query,
     Write,
-    QueryResult (..),
     Access (..),
     query,
     System (..),
@@ -25,7 +24,6 @@ where
 
 import Data.Aztecs.Query
   ( Query (..),
-    QueryResult (..),
     Write,
   )
 import Data.Aztecs.Schedule

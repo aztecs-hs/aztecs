@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -44,10 +45,10 @@ instance Show ArchetypeComponent where
   show (ArchetypeComponent p) = show (typeOf p)
 
 newtype Archetype = Archetype (Set ArchetypeComponent)
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Monoid, Semigroup)
 
-archetype :: forall c. (Component c) => ArchetypeComponent
-archetype = ArchetypeComponent (Proxy @c)
+archetype :: forall c. (Component c) => Archetype
+archetype = Archetype . Set.singleton $ ArchetypeComponent (Proxy @c)
 
 newtype ArchetypeId = ArchetypeId Int deriving (Show)
 

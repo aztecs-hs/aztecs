@@ -15,7 +15,7 @@ import Control.Monad.IO.Class
 import Control.Monad.State (StateT (..))
 import qualified Control.Monad.State as S
 import Data.Aztecs.Command
-import Data.Aztecs.Query (Query, QueryResult, Write)
+import Data.Aztecs.Query (Query, Write)
 import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.World (Component, Entity, World)
 import qualified Data.Aztecs.World as W
@@ -39,7 +39,7 @@ get e q = Task $ do
   return $ Q.query e q w
 
 -- | Query all matches.
-all :: (Monad m) => Query a -> Task m s (QueryResult a)
+all :: (Monad m) => Query a -> Task m s [(Entity, a)]
 all q = Task $ do
   (_, _, w) <- S.get
   return $ Q.all q w
@@ -47,7 +47,7 @@ all q = Task $ do
 -- | Alter the components in a query.
 alter ::
   (Component a, Typeable a, Monad m) =>
-  QueryResult (Write a) ->
+  [(Entity, Write a)] ->
   (a -> a) ->
   Task m s ()
 alter q f = Task $ do

@@ -8,7 +8,7 @@ module Data.Aztecs.World
   ( Entity,
     EntityComponent (..),
     Component (..),
-    World,
+    World (..),
     union,
     spawn,
     insert,
