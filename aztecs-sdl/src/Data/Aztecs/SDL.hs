@@ -49,8 +49,7 @@ instance System IO KeyboardSystem where
                 motion = keyboardEventKeyMotion keyboardEvent
              in Map.insert keyCode motion acc
           _ -> acc
-        (QueryResult _ writes) = allKeys
-        (Keyboard keys') = map Q.unWrite writes !! 0
+        (_, Keyboard keys') = map Q.unWrite allKeys !! 0
         keys'' = foldr f keys' events
 
     T.alter allKeys (const (Keyboard keys''))
