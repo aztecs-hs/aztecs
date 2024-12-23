@@ -3,10 +3,12 @@ module Data.Aztecs
     EntityComponent (..),
     Component (..),
     World,
+    QueryBuilder,
     Query,
     Write,
     Access (..),
     query,
+    Task,
     System (..),
     Constraint (..),
     before,
@@ -24,14 +26,15 @@ where
 
 import Data.Aztecs.Query
   ( Query (..),
+    QueryBuilder,
     Write,
   )
 import Data.Aztecs.Schedule
 import Data.Aztecs.System
+import Data.Aztecs.Task (Task (..))
 import Data.Aztecs.World
   ( Component (..),
     Entity,
     EntityComponent (..),
     World,
   )
-import Prelude hiding (all, read)

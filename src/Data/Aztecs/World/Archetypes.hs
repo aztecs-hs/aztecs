@@ -52,9 +52,12 @@ archetype = Archetype . Set.singleton $ ArchetypeComponent (Proxy @c)
 
 newtype ArchetypeId = ArchetypeId Int deriving (Show)
 
+data ArchetypeState = ArchetypeState Archetype [Entity] [ArchetypeId]
+  deriving (Show)
+
 data Archetypes
   = Archetypes
-      (IntMap (Archetype, [Entity]))
+      (IntMap ArchetypeState)
       (Map TypeRep [ArchetypeId])
       (Map Archetype ArchetypeId)
       Int
@@ -76,24 +79,87 @@ insertArchetype (Archetype a) w (Archetypes es ids as i) = case Map.lookup (Arch
             )
             ([], ids)
             (Set.toList a)
-     in (ArchetypeId i, Archetypes (IntMap.insert i (Archetype a, es') es) ids' as (i + 1))
+     in (ArchetypeId i, Archetypes (IntMap.insert i (ArchetypeState (Archetype a) es' []) es) ids' as (i + 1))
 
 getArchetype :: ArchetypeId -> Archetypes -> [Entity]
-getArchetype (ArchetypeId i) (Archetypes es _ _ _) = fromMaybe [] . fmap snd $ IntMap.lookup i es
+getArchetype (ArchetypeId i) (Archetypes es _ _ _) = fromMaybe [] (fmap (\(ArchetypeState _ es' _) -> es') ((IntMap.lookup i es)))
 
 insert :: forall c. (Component c) => Entity -> Components -> Archetypes -> Archetypes
 insert e cs (Archetypes es ids as j) = case Map.lookup (typeOf (Proxy @c)) ids of
   Just (ids') ->
-    let f a = case a of
-          Just ((Archetype acs), esAcc) ->
+    let insertInArchetype :: Int -> IntMap ArchetypeState -> IntMap ArchetypeState
+        insertInArchetype archetypeId acc =
+          IntMap.alter (updateArchetypeState archetypeId) archetypeId acc
+
+        updateArchetypeState :: Int -> Maybe ArchetypeState -> Maybe ArchetypeState
+        updateArchetypeState _ state = case state of
+          Just (ArchetypeState arch esAcc deps) ->
             let isMatch =
                   all
                     (\(ArchetypeComponent p) -> isJust $ C.getRow p cs)
-                    (Set.toList acs)
+                    (Set.toList $ unwrapArchetype arch)
              in if isMatch
-                  then Just (Archetype acs, e : esAcc)
-                  else Just (Archetype acs, esAcc)
-          Nothing -> Nothing
-        es' = foldr (\(ArchetypeId i) acc -> IntMap.alter f i acc) es ids'
-     in Archetypes es' ids as j
+                  then
+                    Just $ ArchetypeState arch (e : esAcc) deps
+                  else state
+          Nothing -> state
+
+        updateDependencies :: Int -> IntMap ArchetypeState -> IntMap ArchetypeState
+        updateDependencies archetypeId acc = case IntMap.lookup archetypeId acc of
+          Just (ArchetypeState _ _ deps) -> foldr updateDependencies (insertInArchetype archetypeId acc) (map getArchetypeId deps)
+          Nothing -> acc
+        es' = foldr updateDependencies es (map getArchetypeId ids')
+     in merge $ Archetypes es' ids as j
   Nothing -> Archetypes es ids as j
+
+merge :: Archetypes -> Archetypes
+merge archetypes@(Archetypes es _ _ _) =
+  foldl processArchetype archetypes (IntMap.toList es)
+  where
+    processArchetype :: Archetypes -> (Int, ArchetypeState) -> Archetypes
+    processArchetype acc (parentId, ArchetypeState parentArch _ _) =
+      foldl (updateDependency parentId parentArch) acc (IntMap.toList es)
+
+    updateDependency :: Int -> Archetype -> Archetypes -> (Int, ArchetypeState) -> Archetypes
+    updateDependency parentId parentArch acc (childId, ArchetypeState childArch _ _) =
+      let parentComponents = unwrapArchetype parentArch
+          childComponents = unwrapArchetype childArch
+       in if childId /= parentId && Set.isSubsetOf childComponents parentComponents
+            then mergeWithDeps (ArchetypeId parentId) (ArchetypeId childId) acc
+            else acc
+
+mergeWithDeps :: ArchetypeId -> ArchetypeId -> Archetypes -> Archetypes
+mergeWithDeps parentId childId (Archetypes es ids as nextId) =
+  case (IntMap.lookup (getArchetypeId parentId) es, IntMap.lookup (getArchetypeId childId) es) of
+    (Just (ArchetypeState parentArch parentEntities parentDeps), Just (ArchetypeState childArch childEntities childDeps)) ->
+      let parentComponents = unwrapArchetype parentArch
+          childComponents = unwrapArchetype childArch
+
+          adjustedChildComponents = Set.intersection parentComponents childComponents
+          adjustedChildArch = Archetype adjustedChildComponents
+
+          (childId', updatedEs, updatedAs, newNextId) =
+            if adjustedChildComponents == childComponents
+              then (childId, es, as, nextId)
+              else case Map.lookup adjustedChildArch as of
+                Just existingId -> (existingId, es, as, nextId)
+                Nothing ->
+                  let newChildId = ArchetypeId nextId
+                      newState = ArchetypeState adjustedChildArch childEntities childDeps
+                   in ( newChildId,
+                        IntMap.insert nextId newState es,
+                        Map.insert adjustedChildArch newChildId as,
+                        nextId + 1
+                      )
+
+          updatedParentDeps = childId' : parentDeps
+          updatedParentState = ArchetypeState parentArch parentEntities updatedParentDeps
+          finalEs = IntMap.insert (getArchetypeId parentId) updatedParentState updatedEs
+       in Archetypes finalEs ids updatedAs newNextId
+    _ -> Archetypes es ids as nextId
+
+getArchetypeId :: ArchetypeId -> Int
+getArchetypeId (ArchetypeId x) = x
+
+unwrapArchetype :: Archetype -> Set ArchetypeComponent
+unwrapArchetype (Archetype set) = set
