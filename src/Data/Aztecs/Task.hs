@@ -39,7 +39,7 @@ get e q = Task $ do
   return $ Q.query e q w
 
 -- | Query all matches.
-all :: (Monad m) => Query a -> Task m s [(Entity, a)]
+all :: (Monad m) => Query a -> Task m s [a]
 all q = Task $ do
   (_, _, w) <- S.get
   return $ Q.all q w

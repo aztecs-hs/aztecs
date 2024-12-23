@@ -32,6 +32,7 @@ import Control.Monad.Writer (WriterT (runWriterT))
 import Data.Aztecs.Command
 import Data.Aztecs.Query (ReadWrites (..))
 import Data.Aztecs.System
+import Data.Aztecs.Task (Task (..))
 import Data.Aztecs.World
   ( Component (..),
     Entity,
@@ -52,8 +53,15 @@ import qualified Data.Set as Set
 import Data.Typeable
 import Prelude hiding (all, read)
 
-runSystemProxy :: (Monad m, System m a) => (Proxy a) -> World -> m (a, [Command m ()], World)
-runSystemProxy _ w = runSystem w
+runSystemCached :: (Monad m, System m a) => Maybe (Access m a) -> World -> m (a, Access m a, [Command m ()], World)
+runSystemCached cache w = do
+  let (_, f) = unAccess $ case cache of
+        Just a -> a
+        Nothing -> access
+  (i, w', acc) <- f w
+  let (Task t) = run i
+  (a, cmds, w'') <- runStateT t (i, [], w') <&> snd
+  return (a, acc, cmds, w'')
 
 accessSystemProxy :: (Monad m, System m a) => (Proxy a) -> Access m a
 accessSystemProxy _ = access
@@ -67,7 +75,7 @@ after :: forall m a. (System m a) => Constraint
 after = After $ typeOf (Proxy :: Proxy a)
 
 data Node m where
-  Node :: (System m a) => (Proxy a) -> Node m
+  Node :: (System m a) => Proxy a -> Maybe (Access m a) -> Node m
 
 data ScheduleNode m = ScheduleNode (Node m) [Constraint]
 
@@ -82,7 +90,7 @@ instance Monoid (Schedule m) where
 data GraphNode m = GraphNode (Node m) (Set TypeRep) (Set TypeRep)
 
 nodeReadWrites :: forall m. (Monad m) => Node m -> [ReadWrites]
-nodeReadWrites (Node p) = fst $ unAccess $ accessSystemProxy @m p
+nodeReadWrites (Node p _) = fst $ unAccess $ accessSystemProxy @m p
 
 hasConflict :: (Monad m) => GraphNode m -> GraphNode m -> Bool
 hasConflict (GraphNode a _ _) (GraphNode b _ _) =
@@ -143,8 +151,9 @@ build (Schedule s) =
         )
         nodes
 
-runNode :: (Monad m) => Node m -> World -> m ([Command m ()], World)
-runNode (Node p) w = runSystemProxy p w <&> (\(_, cmds, w') -> (cmds, w'))
+runNode :: (Monad m) => Node m -> World -> m (Node m, [Command m ()], World)
+runNode (Node p a) w =
+  runSystemCached a w <&> (\(_, a', cmds, w') -> (Node p (Just a'), cmds, w'))
 
 data OnSpawn a = OnSpawn (Proxy a)
 
@@ -170,32 +179,47 @@ runCommand (Command cmd) w = do
       ([], w')
       edits
 
-runSchedule' :: [[GraphNode IO]] -> World -> IO ([TemporaryComponent], World)
+runSchedule' :: [[GraphNode IO]] -> World -> IO ([TemporaryComponent], [[GraphNode IO]], World)
 runSchedule' nodes w =
   foldrM
-    ( \nodeGroup (csAcc, w') -> do
-        results <- mapConcurrently (\(GraphNode n _ _) -> runNode n w) nodeGroup
-        let (cmdLists, worlds) = unzip results
+    ( \nodeGroup (csAcc, nodeAcc, w') -> do
+        results <-
+          mapConcurrently
+            ( \(GraphNode n as bs) -> do
+                (n', cmds, w'') <- runNode n w
+                return ((GraphNode n' as bs), cmds, w'')
+            )
+            nodeGroup
+        let (nodes', cmdLists, worlds) =
+              foldr
+                ( \(a, b, c) (as, bs, cs) ->
+                    (a : as, b : bs, c : cs)
+                )
+                ([], [], [])
+                results
             finalWorld = foldr union w' worlds
             (cmds, w'') = (concat cmdLists, finalWorld)
-        foldrM
-          ( \cmd (csAcc', wAcc) -> do
-              (cs, wAcc') <- runCommand cmd wAcc
-              return (cs ++ csAcc', wAcc')
-          )
-          (csAcc, w'')
-          cmds
+        (temps, w''') <-
+          foldrM
+            ( \cmd (csAcc', wAcc) -> do
+                (cs, wAcc') <- runCommand cmd wAcc
+                return (cs ++ csAcc', wAcc')
+            )
+            (csAcc, w'')
+            cmds
+        return (temps, nodes' : nodeAcc, w''')
     )
-    ([], w)
+    ([], [], w)
     nodes
 
 removeProxy :: forall c. (Component c) => Entity -> Proxy c -> World -> World
 removeProxy e _ = W.remove @c e
 
-runSchedule :: [[GraphNode IO]] -> World -> IO World
+runSchedule :: [[GraphNode IO]] -> World -> IO ([[GraphNode IO]], World)
 runSchedule nodes w = do
-  (cs, w') <- runSchedule' nodes w
-  foldrM (\(TemporaryComponent e p) wAcc -> return $ removeProxy e p wAcc) w' cs
+  (cs, nodes', w') <- runSchedule' nodes w
+  w'' <- foldrM (\(TemporaryComponent e p) wAcc -> return $ removeProxy e p wAcc) w' cs
+  return (nodes', w'')
 
 newtype Scheduler m = Scheduler (Map TypeRep (Schedule m))
   deriving (Monoid)
@@ -215,7 +239,7 @@ schedule cs =
       ( Schedule $
           Map.singleton
             (typeOf (Proxy :: Proxy s))
-            (ScheduleNode (Node (Proxy :: Proxy s)) cs)
+            (ScheduleNode (Node (Proxy :: Proxy s) Nothing) cs)
       )
 
 newtype SchedulerGraph m = SchedulerGraph (Map TypeRep [[GraphNode m]])
@@ -223,16 +247,19 @@ newtype SchedulerGraph m = SchedulerGraph (Map TypeRep [[GraphNode m]])
 buildScheduler :: (Monad m) => Scheduler m -> SchedulerGraph m
 buildScheduler (Scheduler s) = SchedulerGraph $ fmap build s
 
-runSchedulerGraph :: forall l. (Typeable l) => SchedulerGraph IO -> World -> IO World
+runSchedulerGraph :: forall l. (Typeable l) => SchedulerGraph IO -> World -> IO (SchedulerGraph IO, World)
 runSchedulerGraph (SchedulerGraph g) w = case Map.lookup (typeOf (Proxy :: Proxy l)) g of
-  Just s -> runSchedule s w
-  Nothing -> return w
+  Just s -> do
+    (nodes, w') <- runSchedule s w
+    let g' = Map.insert (typeOf (Proxy :: Proxy l)) nodes g
+    return (SchedulerGraph g', w')
+  Nothing -> return (SchedulerGraph g, w)
 
 runScheduler :: Scheduler IO -> IO ()
 runScheduler s = do
   let g = buildScheduler s
-  w <- runSchedulerGraph @Startup g newWorld
-  let go wAcc = do
-        wAcc' <- runSchedulerGraph @Update g wAcc
-        go wAcc'
-  go w
+  (g', w) <- runSchedulerGraph @Startup g newWorld
+  let go gAcc wAcc = do
+        (gAcc', wAcc') <- runSchedulerGraph @Update gAcc wAcc
+        go gAcc' wAcc'
+  go g' w
