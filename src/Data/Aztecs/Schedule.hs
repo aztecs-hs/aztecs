@@ -52,8 +52,8 @@ import qualified Data.Set as Set
 import Data.Typeable
 import Prelude hiding (all, read)
 
-accessSystemProxy :: (Monad m, System m a) => (Proxy a) -> Access m a
-accessSystemProxy _ = access
+accessSystemProxy ::  forall m a. (Monad m, System m a) => (Proxy a) -> Access m ()
+accessSystemProxy _ = access @m @a
 
 data Constraint = Before TypeRep | After TypeRep
 

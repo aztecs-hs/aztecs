@@ -26,16 +26,14 @@ instance Component Y
 data A = A (Query X)
 
 instance System IO A where
-  access = A <$> query Q.read
-  run (A q) = do
-    liftIO $ print "A"
-
-    T.command $ do
-      e <- C.spawn (X 0)
-      C.insert e (Y 1)
-
-    xs <- T.all q
-    liftIO $ print xs
+  access =
+    S.task
+      (pure ())
+      ( \_ -> T.command $ do
+          e <- C.spawn (X 0)
+          C.insert e (Y 1)
+      )
+  run (A _) = return ()
 
 data XY = XY X Y deriving (Show)
 
@@ -43,14 +41,16 @@ data B = B [XY]
 
 instance System IO B where
   access =
-    B
-      <$> S.all (XY <$> Q.read <*> Q.read)
+    S.task
+      (S.all (XY <$> Q.read <*> Q.read))
+      ( \x -> do
+          liftIO $ print "B"
+          liftIO $ print x
+      )
       <* S.alter
         (\(EntityComponent _ (X x)) -> X $ x + 1)
         (EntityComponent <$> Q.entity <*> Q.read @X)
-  run (B xys) = do
-    liftIO $ print "B"
-    liftIO $ print xys
+  run (B _) = return ()
 
 app :: Scheduler IO
 app = schedule @Startup @_ @A [] <> schedule @Update @_ @B []

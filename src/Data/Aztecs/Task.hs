@@ -7,6 +7,7 @@ module Data.Aztecs.Task
     all,
     update,
     command,
+    runTask,
   )
 where
 
@@ -24,6 +25,9 @@ import Prelude hiding (all)
 -- | System task.
 newtype Task m s a = Task (StateT (s, [Command m ()], World) m a)
   deriving (Functor, Applicative, Monad, MonadIO)
+
+runTask :: (Functor m) => Task m s a -> s -> World -> m (a, s, [Command m ()], World)
+runTask (Task t) s w = fmap (\(a, (s', cmds, w')) -> (a, s', cmds, w')) (S.runStateT t (s, [], w))
 
 -- | Update a single query match.
 update :: (Component a, Typeable a, Monad m) => Write a -> (a -> a) -> Entity -> Task m s ()

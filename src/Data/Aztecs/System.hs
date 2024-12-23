@@ -13,11 +13,13 @@ module Data.Aztecs.System
     runSystem,
     all,
     alter,
+    task,
     Cache (..),
   )
 where
 
-import Control.Monad.State (MonadState (..), StateT (runStateT))
+import Control.Monad.State (MonadState (..), MonadTrans (lift), StateT (runStateT))
+import Control.Monad.Writer (MonadWriter (tell), WriterT (runWriterT))
 import Data.Aztecs.Command
 import Data.Aztecs.Query
   ( Query (..),
@@ -25,7 +27,7 @@ import Data.Aztecs.Query
     ReadWrites (..),
   )
 import qualified Data.Aztecs.Query as Q
-import Data.Aztecs.Task (Task (..))
+import Data.Aztecs.Task (Task (..), runTask)
 import Data.Aztecs.World
   ( Component,
     EntityComponent,
@@ -33,6 +35,7 @@ import Data.Aztecs.World
   )
 import qualified Data.Aztecs.World.Archetypes as A
 import Data.Dynamic (Dynamic, fromDynamic, toDyn)
+import Data.Foldable (foldrM)
 import Data.Functor ((<&>))
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -43,7 +46,7 @@ import Prelude hiding (all, read)
 newtype Cache = Cache (Map TypeRep Dynamic)
   deriving (Semigroup, Monoid)
 
-data Access m a = Access [ReadWrites] (StateT (World, Cache) m a)
+data Access m a = Access [ReadWrites] (StateT (World, Cache) (WriterT [Task m () ()] m) a)
   deriving (Functor)
 
 instance (Monad m) => Applicative (Access m) where
@@ -101,14 +104,35 @@ alter f (QueryBuilder rws a g) =
         put (w', (Cache (Map.insert (typeOf (Proxy :: Proxy c)) (toDyn q) cache)))
     )
 
+task :: (Monad m) => Access m a -> (a -> Task m a ()) -> Access m ()
+task (Access rw f) g =
+  Access
+    rw
+    ( do
+        a <- f
+        tell
+          [ Task $ do
+              ((), cmds, w) <- get
+              let t = g a
+              ((), _, cmds', w') <- lift $ runTask t a w
+              put ((), cmds <> cmds', w')
+              return ()
+          ]
+        return ()
+    )
+
 class (Typeable a) => System m a where
-  access :: Access m a
+  access :: Access m ()
   run :: a -> Task m a ()
 
 runSystem :: forall m a. (Monad m, System m a) => Cache -> World -> m (Cache, [Command m ()], World)
 runSystem cache w = do
   let (Access _ f) = access @m @a
-  (i, (w', acc)) <- runStateT f (w, cache)
-  let (Task t) = run i
-  (_, cmds, w'') <- runStateT t (i, [], w') <&> snd
-  return (acc, cmds, w'')
+  ((_, (w', cache')), tasks) <- runWriterT $ runStateT f (w, cache)
+
+  let go (Task t) (acc, wAcc) = do
+        (_, cmds, wAcc') <- runStateT t ((), [], wAcc) <&> snd
+        return (acc <> cmds, wAcc')
+
+  (cmds, w'') <- foldrM go ([], w') tasks
+  return (cache', cmds, w'')
