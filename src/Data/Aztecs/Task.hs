@@ -30,7 +30,7 @@ newtype Task m s a = Task (StateT (s, [Command m ()], World) m a)
 update :: (Component a, Typeable a, Monad m) => Write a -> (a -> a) -> Entity -> Task m s ()
 update wr f e = Task $ do
   (s, cmds, w) <- S.get
-  S.put $ (s, cmds, W.adjust (Q.unWrite wr) f e w)
+  S.put $ (s, cmds, W.adjust (snd $ Q.unWrite wr) f e w)
 
 -- | Query a single match.
 get :: (Monad m) => Entity -> Query a -> Task m s (Maybe a)
@@ -47,7 +47,7 @@ all q = Task $ do
 -- | Alter the components in a query.
 alter ::
   (Component a, Typeable a, Monad m) =>
-  [(Entity, Write a)] ->
+  [Write a] ->
   (a -> a) ->
   Task m s ()
 alter q f = Task $ do

@@ -78,13 +78,13 @@ read =
           get
     )
 
-newtype Write c = Write c deriving (Show)
+data Write c = Write Entity c deriving (Show)
 
-unWrite :: Write c -> c
-unWrite (Write c) = c
+unWrite :: Write c -> (Entity, c)
+unWrite (Write e c) = (e, c)
 
 mapWrite :: (c -> c) -> Write c -> Write c
-mapWrite f (Write c) = Write (f c)
+mapWrite f (Write e c) = Write e (f c)
 
 -- | Get a writer to a `Component`.
 write :: forall c. (Component c) => QueryBuilder (Write c)
@@ -98,9 +98,9 @@ write =
           ( \es w ->
               let es' = fromMaybe [] (fmap S.toList (getRow (Proxy :: Proxy c) w))
                   es'' = filter (\(EntityComponent e _) -> e `elem` es) es'
-               in map (\(EntityComponent _ c) -> Write c) es''
+               in map (\(EntityComponent e c) -> Write e c) es''
           )
-          (\e w -> Write <$> get e w)
+          (\e w -> Write e <$> get e w)
     )
 
 -- | Query a single match from the `World`.
@@ -112,8 +112,8 @@ all :: Query a -> World -> [a]
 all (Query aIds f _) (World cs as) = f (concat $ map (\aId -> A.getArchetype aId as) aIds) (World cs as)
 
 -- | Alter the components in a query.
-alter :: (Component c) => [(Entity, Write c)] -> (c -> c) -> World -> World
+alter :: (Component c) => [Write c] -> (c -> c) -> World -> World
 alter as g w =
   let s = getRow Proxy w
-      s' = fmap (\s'' -> S.insert s'' (map (\(e, Write a) -> EntityComponent e (g a)) as)) s
+      s' = fmap (\s'' -> S.insert s'' (map (\(Write e a) -> EntityComponent e (g a)) as)) s
    in fromMaybe w (fmap (\y' -> setRow y' w) s')

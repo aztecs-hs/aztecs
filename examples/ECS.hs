@@ -50,7 +50,7 @@ instance System IO B where
     liftIO $ print xys
 
     -- Increment all X components
-    -- T.alter (fmap (\(e, XY x _) -> (e, x)) xys) (\(X x) -> X $ x + 1)
+    T.alter (fmap (\(XY x _) -> x) xys) (\(X x) -> X $ x + 1)
 
 app :: Scheduler IO
 app = schedule @Startup @_ @A [] <> schedule @Update @_ @B []
