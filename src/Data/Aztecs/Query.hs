@@ -1,32 +1,31 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Data.Aztecs.Query
   ( ReadWrites (..),
-    Write,
-    unWrite,
-    mapWrite,
     QueryBuilder (..),
     entity,
     read,
-    write,
+    buildQuery,
     Query (..),
-    query,
     all,
+    all',
+    get,
+    get',
     alter,
   )
 where
 
 import qualified Data.Aztecs.Storage as S
-import Data.Aztecs.World (Component, Entity, EntityComponent (..), World (..), get, getRow, setRow)
-import Data.Aztecs.World.Archetypes (Archetype, ArchetypeId)
+import Data.Aztecs.World (Component, Entity, EntityComponent (..), World (..), getRow, setRow)
+import Data.Aztecs.World.Archetypes (ArchetypeId)
 import qualified Data.Aztecs.World.Archetypes as A
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, listToMaybe)
 import Data.Set (Set)
-import qualified Data.Set as Set
 import Data.Typeable
 import Prelude hiding (all, read)
 
@@ -39,81 +38,81 @@ instance Semigroup ReadWrites where
 instance Monoid ReadWrites where
   mempty = ReadWrites mempty mempty
 
-data QueryBuilder a = QueryBuilder ReadWrites Archetype (ArchetypeId -> World -> Query a)
+-- | Builder for a `Query`.
+data QueryBuilder a where
+  PureQB :: a -> QueryBuilder a
+  MapQB :: (a -> b) -> QueryBuilder a -> QueryBuilder b
+  AppQB :: QueryBuilder (a -> b) -> QueryBuilder a -> QueryBuilder b
+  EntityQB :: QueryBuilder Entity
+  ComponentQB :: (Component c) => Proxy c -> (World -> (ArchetypeId, World)) -> QueryBuilder c
 
 instance Functor QueryBuilder where
-  fmap f (QueryBuilder r a q) = QueryBuilder r a (\aid w -> fmap f (q aid w))
+  fmap = MapQB
 
 instance Applicative QueryBuilder where
-  pure a = QueryBuilder mempty mempty (const $ pure (Query [] (const $ const [a]) (const $ const $ Just a)))
-  QueryBuilder r a f <*> QueryBuilder r' a' x =
-    QueryBuilder (r <> r') (a <> a') (\aid w -> f aid w <*> x aid w)
-
--- | Query to apply to the `World`.
-data Query a
-  = Query
-      [ArchetypeId]
-      (Set Entity -> World -> [a])
-      (Entity -> World -> Maybe a)
-  deriving (Functor)
-
-instance Applicative Query where
-  pure a = Query mempty (const $ const [a]) (const $ const $ Just a)
-  Query aIds f g <*> Query aIds' f' g' =
-    Query (aIds <> aIds') (\es w -> f es w <*> f' es w) (\e w -> g e w <*> g' e w)
+  pure = PureQB
+  (<*>) = AppQB
 
 entity :: QueryBuilder Entity
-entity = QueryBuilder mempty mempty (\aId _ -> Query [aId] (\es _ -> Set.toList es) (\e _ -> Just e))
+entity = EntityQB
 
 -- | Read a `Component`.
 read :: forall c. (Component c) => QueryBuilder c
 read =
-  QueryBuilder
-    (ReadWrites Set.empty (Set.fromList [typeOf (Proxy :: Proxy c)]))
-    (A.archetype @c)
-    ( \aId _ ->
-        Query
-          [aId]
-          ( \es w ->
-              let es' = fromMaybe [] (fmap S.toList (getRow (Proxy :: Proxy c) w))
-                  es'' = filter (\(EntityComponent e _) -> e `elem` es) es'
-               in map (\(EntityComponent _ c) -> c) es''
-          )
-          get
+  ComponentQB
+    (Proxy :: Proxy c)
+    ( \(World cs as) ->
+        let (aId, as') = A.insertArchetype (A.archetype @c) cs as
+         in (aId, World cs as')
     )
 
-data Write c = Write Entity c deriving (Show)
+buildQuery :: QueryBuilder a -> World -> (Query a, World)
+buildQuery (PureQB a) w = (pure a, w)
+buildQuery (MapQB f qb) w =
+  let (a, w') = buildQuery qb w
+   in (fmap f a, w')
+buildQuery (AppQB fqb aqb) w =
+  let (f, w') = buildQuery fqb w
+      (a, w'') = buildQuery aqb w'
+   in (f <*> a, w'')
+buildQuery EntityQB w = (Query mempty EntityQB, w)
+buildQuery (ComponentQB p f) w =
+  let (aId, w') = f w
+   in (Query [aId] (ComponentQB p f), w')
 
-unWrite :: Write c -> (Entity, c)
-unWrite (Write e c) = (e, c)
+-- | Query to apply to the `World`.
+data Query a = Query [ArchetypeId] (QueryBuilder a)
+  deriving (Functor)
 
-mapWrite :: (c -> c) -> Write c -> Write c
-mapWrite f (Write e c) = Write e (f c)
+instance Applicative Query where
+  pure a = Query mempty (pure a)
+  Query aIds f <*> Query aIds' f' = Query (aIds <> aIds') (f <*> f')
 
--- | Get a writer to a `Component`.
-write :: forall c. (Component c) => QueryBuilder (Write c)
-write =
-  QueryBuilder
-    (ReadWrites Set.empty (Set.fromList [typeOf (Proxy :: Proxy c)]))
-    (A.archetype @c)
-    ( \aId _ ->
-        Query
-          [aId]
-          ( \es w ->
-              let es' = fromMaybe [] (fmap S.toList (getRow (Proxy :: Proxy c) w))
-                  es'' = filter (\(EntityComponent e _) -> e `elem` es) es'
-               in map (\(EntityComponent e c) -> Write e c) es''
-          )
-          (\e w -> Write e <$> get e w)
-    )
-
--- | Query a single match from the `World`.
-query :: Entity -> Query a -> World -> Maybe a
-query e (Query _ _ f) w = f e w
-
--- | Query all matches from the `World`.
 all :: Query a -> World -> [a]
-all (Query aIds f _) (World cs as) = f (Set.fromList $ concat $ map (\aId -> A.getArchetype aId as) aIds) (World cs as)
+all (Query aIds qb) w@(World _ as) = all' (concat $ map (\aId -> A.getArchetype aId as) aIds) qb w
+
+all' :: [Entity] -> QueryBuilder a -> World -> [a]
+all' _ (PureQB a) _ = [a]
+all' es (MapQB f qb) w = map f (all' es qb w)
+all' es (AppQB fqb aqb) w = zipWith (\f a -> f a) (all' es fqb w) (all' es aqb w)
+all' es EntityQB _ = es
+all' es (ComponentQB p _) w =
+  let es' = fromMaybe [] (fmap S.toList (getRow p w))
+      es'' = filter (\(EntityComponent e _) -> e `elem` es) es'
+   in map (\(EntityComponent _ c) -> c) es''
+
+get :: Query a -> Entity -> World -> Maybe a
+get (Query aIds qb) e w@(World _ as) = get' e (concat $ map (\aId -> A.getArchetype aId as) aIds) qb w
+
+get' :: Entity -> [Entity] -> QueryBuilder a -> World -> Maybe a
+get' _ _ (PureQB a) _ = Just a
+get' e es (MapQB f qb) w = fmap f (get' e es qb w)
+get' e es (AppQB fqb aqb) w = get' e es fqb w <*> get' e es aqb w
+get' e es EntityQB _ = if e `elem` es then Just e else Nothing
+get' e _ (ComponentQB p _) w =
+  let es' = fromMaybe [] (fmap S.toList (getRow p w))
+      es'' = filter (\(EntityComponent e' _) -> e == e') es'
+   in fmap (\(EntityComponent _ c) -> c) (listToMaybe es'')
 
 -- | Alter the components in a query.
 alter :: (Component c) => [EntityComponent c] -> (EntityComponent c -> c) -> World -> World

@@ -5,7 +5,6 @@ module Data.Aztecs
     World,
     QueryBuilder,
     Query,
-    Write,
     Access (..),
     query,
     Task,
@@ -27,7 +26,6 @@ where
 import Data.Aztecs.Query
   ( Query (..),
     QueryBuilder,
-    Write,
   )
 import Data.Aztecs.Schedule
 import Data.Aztecs.System

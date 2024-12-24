@@ -23,7 +23,7 @@ import Control.Monad.Writer (MonadWriter (tell), WriterT (runWriterT))
 import Data.Aztecs.Command
 import Data.Aztecs.Query
   ( Query (..),
-    QueryBuilder (QueryBuilder),
+    QueryBuilder (..),
     ReadWrites (..),
   )
 import qualified Data.Aztecs.Query as Q
@@ -33,7 +33,6 @@ import Data.Aztecs.World
     EntityComponent,
     World (..),
   )
-import qualified Data.Aztecs.World.Archetypes as A
 import Data.Dynamic (Dynamic, fromDynamic, toDyn)
 import Data.Foldable (foldrM)
 import Data.Functor ((<&>))
@@ -61,44 +60,39 @@ instance (Monad m) => Applicative (Access m) where
       )
 
 query :: (Monad m) => QueryBuilder a -> Access m (Query a)
-query (QueryBuilder rws a f) =
+query qb =
   Access
-    [rws]
+    [] -- TODO
     ( do
         (World cs as, cache) <- get
-        let (aId, as') = A.insertArchetype a cs as
-            q = f aId (World cs as)
-        put (World cs as', cache)
+        let (q, w) = Q.buildQuery qb (World cs as)
+        put (w, cache)
         return q
     )
 
 -- | Query all matches.
 all :: forall m a. (Typeable a, Monad m) => QueryBuilder a -> Access m [a]
-all (QueryBuilder rws a f) =
+all qb =
   Access
-    [rws]
+    [] -- TODO
     ( do
         (World cs as, Cache cache) <- get
         let (q, w) = case Map.lookup (typeOf (Proxy :: Proxy a)) cache of
               Just q' -> (fromMaybe (error "TODO") (fromDynamic q'), World cs as)
-              Nothing ->
-                let (aId, as') = A.insertArchetype a cs as
-                 in (f aId (World cs as'), (World cs as'))
+              Nothing -> Q.buildQuery qb (World cs as)
         put (w, Cache cache)
         return $ Q.all q w
     )
 
 alter :: forall m c. (Component c, Monad m) => (EntityComponent c -> c) -> QueryBuilder (EntityComponent c) -> Access m ()
-alter f (QueryBuilder rws a g) =
+alter f qb =
   Access
-    [rws]
+    [] -- TODO
     ( do
         (World cs as, (Cache cache)) <- get
         let (q, w) = case Map.lookup (typeOf (Proxy :: Proxy c)) cache of
               Just q' -> (fromMaybe (error "TODO") (fromDynamic q'), World cs as)
-              Nothing ->
-                let (aId, as') = A.insertArchetype a cs as
-                 in (g aId (World cs as'), (World cs as'))
+              Nothing -> Q.buildQuery qb (World cs as)
             es = Q.all q w
         let w' = Q.alter es f w
         put (w', (Cache (Map.insert (typeOf (Proxy :: Proxy c)) (toDyn q) cache)))
