@@ -13,7 +13,7 @@ import Control.Monad.IO.Class
 import Data.Aztecs
 import qualified Data.Aztecs.Command as C
 import qualified Data.Aztecs.Query as Q
-import qualified Data.Aztecs.Task as T
+import qualified Data.Aztecs.System as S
 
 -- Components
 
@@ -30,32 +30,23 @@ instance Component Y
 data A = A (Query X)
 
 instance System IO A where
-  access = A <$> query Q.read
-  run (A q) = do
-    liftIO $ print "A"
+  access = S.command $ do
+    e <- C.spawn (X 0)
+    C.insert e (Y 1)
 
-    T.command $ do
-      e <- C.spawn (X 0)
-      C.insert e (Y 1)
+data XY = XY X Y deriving (Show)
 
-    xs <- T.all q
-    liftIO $ print xs
-
-data XY = XY (Write X) Y deriving (Show)
-
-data B = B (Query XY)
+data B = B [XY]
 
 instance System IO B where
-  access = B <$> query (XY <$> Q.write <*> Q.read)
-  run (B q) = do
-    liftIO $ print "B"
+  access = do
+    xys <- (S.all (XY <$> Q.read <*> Q.read))
 
-    -- Query all entities with an X and Y component
-    xys <- T.all q
+    S.alter
+      (\(EntityComponent _ (X x)) -> X $ x + 1)
+      (EntityComponent <$> Q.entity <*> Q.read @X)
+
     liftIO $ print xys
-
-    -- Increment all X components
-    T.alter (fmap (\(XY x _) -> x) xys) (\(X x) -> X $ x + 1)
 
 app :: Scheduler IO
 app = schedule @Startup @_ @A [] <> schedule @Update @_ @B []
