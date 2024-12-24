@@ -22,7 +22,7 @@ instance Component Y
 
 -- Systems
 
-data A = A (Query X)
+data A
 
 instance System IO A where
   access = S.command $ do
@@ -31,16 +31,15 @@ instance System IO A where
 
 data XY = XY X Y deriving (Show)
 
-data B = B [XY]
+data B
 
 instance System IO B where
   access = do
+    -- Increment every X component
+    S.alter (Q.read @X) (\_ (X x) -> X $ x + 1)
+
+    -- Query for all entities with an X and Y component
     xys <- (S.all (XY <$> Q.read <*> Q.read))
-
-    S.alter
-      (\(EntityComponent _ (X x)) -> X $ x + 1)
-      (EntityComponent <$> Q.entity <*> Q.read @X)
-
     liftIO $ print xys
 
 app :: Scheduler IO

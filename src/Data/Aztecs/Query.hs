@@ -115,8 +115,8 @@ get' e _ (ComponentQB p _) w =
    in fmap (\(EntityComponent _ c) -> c) (listToMaybe es'')
 
 -- | Alter the components in a query.
-alter :: (Component c) => [EntityComponent c] -> (EntityComponent c -> c) -> World -> World
+alter :: (Component c) => [EntityComponent c] -> (Entity -> c -> c) -> World -> World
 alter as g w =
   let s = getRow Proxy w
-      s' = fmap (\s'' -> S.insert s'' (map (\(EntityComponent e a) -> EntityComponent e (g (EntityComponent e a))) as)) s
+      s' = fmap (\s'' -> S.insert s'' (map (\(EntityComponent e a) -> EntityComponent e (g e a)) as)) s
    in fromMaybe w (fmap (\y' -> setRow y' w) s')
