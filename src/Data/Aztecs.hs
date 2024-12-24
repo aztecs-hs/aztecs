@@ -6,7 +6,6 @@ module Data.Aztecs
     QueryBuilder,
     Query,
     Access (..),
-    query,
     Task,
     System (..),
     Constraint (..),

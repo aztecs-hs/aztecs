@@ -50,7 +50,8 @@ newtype Archetype = Archetype (Set ArchetypeComponent)
 archetype :: forall c. (Component c) => Archetype
 archetype = Archetype . Set.singleton $ ArchetypeComponent (Proxy @c)
 
-newtype ArchetypeId = ArchetypeId Int deriving (Show)
+newtype ArchetypeId = ArchetypeId Int deriving (Eq, Ord, Show)
+
 
 data ArchetypeState = ArchetypeState Archetype [Entity] [ArchetypeId]
   deriving (Show)

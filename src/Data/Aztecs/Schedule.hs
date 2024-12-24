@@ -27,10 +27,10 @@ module Data.Aztecs.Schedule
 where
 
 import Control.Concurrent.Async (mapConcurrently)
+import Control.Monad.IO.Class
 import Control.Monad.State (StateT (runStateT))
 import Control.Monad.Writer (WriterT (runWriterT))
 import Data.Aztecs.Command
-import Data.Aztecs.Query (ReadWrites (..))
 import Data.Aztecs.System
 import Data.Aztecs.World
   ( Component (..),
@@ -42,18 +42,14 @@ import Data.Aztecs.World
 import qualified Data.Aztecs.World as W
 import Data.Foldable (foldrM)
 import Data.Functor ((<&>))
-import Data.List (find, groupBy, sortBy)
+import Data.List (groupBy, sortBy)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (isJust)
 import Data.Proxy
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Typeable
 import Prelude hiding (all, read)
-
-accessSystemProxy ::  forall m a. (Monad m, System m a) => (Proxy a) -> Access m ()
-accessSystemProxy _ = access @m @a
 
 data Constraint = Before TypeRep | After TypeRep
 
@@ -77,22 +73,6 @@ instance Monoid (Schedule m) where
   mempty = Schedule mempty
 
 data GraphNode m = GraphNode (Node m) (Set TypeRep) (Set TypeRep)
-
-nodeReadWrites :: forall m. (Monad m) => Node m -> [ReadWrites]
-nodeReadWrites (Node p _) = let (Access rws _) = accessSystemProxy @m p in rws
-
-hasConflict :: (Monad m) => GraphNode m -> GraphNode m -> Bool
-hasConflict (GraphNode a _ _) (GraphNode b _ _) =
-  let f n = map (\(ReadWrites rs ws) -> (Set.toList rs, Set.toList ws)) (nodeReadWrites n)
-   in any (uncurry rwHasConflict) [(x, y) | x <- f a, y <- f b]
-  where
-    rwHasConflict (rs, (w : ws)) (rs', ws') =
-      (isJust $ find (== w) ws) || rwHasReadConflict (rs, ws) (rs', ws')
-    rwHasConflict rws rws' = rwHasReadConflict rws rws'
-
-    rwHasReadConflict ((r : rs), ws) (rs', ws') =
-      (isJust $ find (== r) ws) || rwHasReadConflict (rs, ws) (rs', ws')
-    rwHasReadConflict _ _ = False
 
 build :: (Monad m) => Schedule m -> [[GraphNode m]]
 build (Schedule s) =
@@ -136,15 +116,15 @@ build (Schedule s) =
    in groupBy
         ( \(GraphNode a deps aBefores) (GraphNode b deps' bBefores) ->
             (length deps == length deps')
-              || hasConflict (GraphNode a deps aBefores) (GraphNode b deps' bBefores)
+            -- TODO || hasConflict (GraphNode a deps aBefores) (GraphNode b deps' bBefores)
         )
         nodes
 
-runNode :: (Monad m) => Node m -> World -> m (Node m, [Command m ()], World)
+runNode :: (MonadIO m) => Node m -> World -> m (Node m, Maybe (Access m ()), [Command m ()], World)
 runNode (Node p cache) w =
-  runSystemProxy p cache w <&> (\(a', cmds, w') -> (Node p a', cmds, w'))
+  runSystemProxy p cache w <&> (\(next, a', cmds, w') -> (Node p a', next, cmds, w'))
 
-runSystemProxy :: forall m a. (Monad m, System m a) => Proxy a -> Cache -> World -> m (Cache, [Command m ()], World)
+runSystemProxy :: forall m a. (MonadIO m, System m a) => Proxy a -> Cache -> World -> m (Maybe (Access m ()), Cache, [Command m ()], World)
 runSystemProxy _ = runSystem @m @a
 
 data OnSpawn a = OnSpawn (Proxy a)
@@ -178,28 +158,40 @@ runSchedule' nodes w =
         results <-
           mapConcurrently
             ( \(GraphNode n as bs) -> do
-                (n', cmds, w'') <- runNode n w
-                return ((GraphNode n' as bs), cmds, w'')
+                (n', next, cmds, w'') <- runNode n w
+                return ((next, (GraphNode n' as bs)), cmds, w'')
             )
             nodeGroup
-        let (nodes', cmdLists, worlds) =
+        let (nexts, cmdLists, worlds) =
               foldr
-                ( \(a, b, c) (as, bs, cs) ->
-                    (a : as, b : bs, c : cs)
+                ( \(n, b, c) (ns, bs, cs) ->
+                    (n : ns, b : bs, c : cs)
                 )
                 ([], [], [])
                 results
             finalWorld = foldr union w' worlds
             (cmds, w'') = (concat cmdLists, finalWorld)
-        (temps, w''') <-
+
+        (w''', nodes', cmds') <-
+          foldrM
+            ( \(a, (GraphNode (Node p cache) as bs)) (wAcc, nodeAcc', cmdAcc) -> case a of
+                Just a' -> do
+                  ((), wAcc', cache', cmdAcc') <- runAccess' a' wAcc cache
+                  return (wAcc', (GraphNode (Node p cache') as bs) : nodeAcc', cmdAcc' ++ cmdAcc)
+                Nothing -> return (w, (GraphNode (Node p cache) as bs) : nodeAcc', cmdAcc)
+            )
+            (w'', [], [])
+            nexts
+
+        (temps, w'''') <-
           foldrM
             ( \cmd (csAcc', wAcc) -> do
                 (cs, wAcc') <- runCommand cmd wAcc
                 return (cs ++ csAcc', wAcc')
             )
-            (csAcc, w'')
-            cmds
-        return (temps, nodes' : nodeAcc, w''')
+            (csAcc, w''')
+            (cmds ++ cmds')
+        return (temps, nodes' : nodeAcc, w'''')
     )
     ([], [], w)
     nodes
