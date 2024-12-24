@@ -6,8 +6,8 @@ module Data.Aztecs.Task
     get,
     all,
     update,
-    alter,
     command,
+    runTask,
   )
 where
 
@@ -26,6 +26,9 @@ import Prelude hiding (all)
 newtype Task m s a = Task (StateT (s, [Command m ()], World) m a)
   deriving (Functor, Applicative, Monad, MonadIO)
 
+runTask :: (Functor m) => Task m s a -> s -> World -> m (a, s, [Command m ()], World)
+runTask (Task t) s w = fmap (\(a, (s', cmds, w')) -> (a, s', cmds, w')) (S.runStateT t (s, [], w))
+
 -- | Update a single query match.
 update :: (Component a, Typeable a, Monad m) => Write a -> (a -> a) -> Entity -> Task m s ()
 update wr f e = Task $ do
@@ -43,16 +46,6 @@ all :: (Monad m) => Query a -> Task m s [a]
 all q = Task $ do
   (_, _, w) <- S.get
   return $ Q.all q w
-
--- | Alter the components in a query.
-alter ::
-  (Component a, Typeable a, Monad m) =>
-  [Write a] ->
-  (a -> a) ->
-  Task m s ()
-alter q f = Task $ do
-  (s, cmds, w) <- S.get
-  S.put $ (s, cmds, Q.alter q f w)
 
 -- | Queue a `Command` to run after this system is complete.
 command :: (Monad m) => Command m () -> Task m a ()
