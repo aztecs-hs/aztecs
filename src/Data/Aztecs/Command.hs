@@ -29,13 +29,16 @@ newtype Command m a = Command (StateT World (WriterT [Edit] m) a)
   deriving (Functor, Applicative, Monad, MonadIO)
 
 -- | Spawn a `Component` and return its `Entity`.
-spawn :: (Component a, Typeable a, Monad m) => a -> Command m Entity
+spawn :: (Component a, Typeable a) => a -> Command IO Entity
 spawn a = Command $ do
   w <- S.get
-  let (e, w') = W.spawn a w
+  (e, w') <- liftIO $ W.spawn a w
   S.put $ w'
   return e
 
 -- | Insert a `Component` into an `Entity`.
-insert :: (Component a, Typeable a, Monad m) => Entity -> a -> Command m ()
-insert e a = Command $ S.get >>= S.put . W.insert e a
+insert :: (Component a, Typeable a) => Entity -> a -> Command IO ()
+insert e a =  Command $ do
+  w <- S.get
+  w' <- liftIO $ W.insert e a w
+  S.put w'

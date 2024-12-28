@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
@@ -27,7 +28,6 @@ module Data.Aztecs.Schedule
 where
 
 import Control.Concurrent.Async (mapConcurrently)
-import Control.Monad.IO.Class
 import Control.Monad.State (StateT (runStateT))
 import Control.Monad.Writer (WriterT (runWriterT))
 import Data.Aztecs.Command
@@ -120,12 +120,12 @@ build (Schedule s) =
         )
         nodes
 
-runNode :: (MonadIO m) => Node m -> World -> m (Node m, Maybe (Access m ()), [Command m ()], World)
+runNode :: Node IO -> World -> IO (Node IO, Maybe (Access IO ()), [Command IO ()], World)
 runNode (Node p cache) w =
   runSystemProxy p cache w <&> (\(next, a', cmds, w') -> (Node p a', next, cmds, w'))
 
-runSystemProxy :: forall m a. (MonadIO m, System m a) => Proxy a -> Cache -> World -> m (Maybe (Access m ()), Cache, [Command m ()], World)
-runSystemProxy _ = runSystem @m @a
+runSystemProxy :: forall a. (System IO a) => Proxy a -> Cache -> World -> IO (Maybe (Access IO ()), Cache, [Command IO ()], World)
+runSystemProxy _ = runSystem @a
 
 data OnSpawn a = OnSpawn (Proxy a)
 
@@ -139,14 +139,17 @@ data TemporaryComponent where
   TemporaryComponent :: (Component a) => Entity -> Proxy a -> TemporaryComponent
 
 -- | Run a `Command`, returning any temporary `Entity`s and the updated `World`.
-runCommand :: (Monad m) => Command m () -> World -> m ([TemporaryComponent], World)
+runCommand :: Command IO () -> World -> IO ([TemporaryComponent], World)
 runCommand (Command cmd) w = do
   (((), w'), edits) <- runWriterT $ runStateT cmd w
-  return $
-    foldr
+  foldrM
       ( \edit (cs, w'') -> case edit of
-          Spawn e p -> (TemporaryComponent e p : cs, W.insert e (OnSpawn p) w'')
-          Insert e p -> (TemporaryComponent e p : cs, W.insert e (OnInsert p) w'')
+          Spawn e p -> do
+            w''' <- W.insert e (OnSpawn p) w''
+            return (TemporaryComponent e p : cs, w''')
+          Insert e p -> do
+            w''' <- W.insert e (OnInsert p) w''
+            return (TemporaryComponent e p : cs, w''')
       )
       ([], w')
       edits

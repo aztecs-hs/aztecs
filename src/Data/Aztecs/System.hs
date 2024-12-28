@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
@@ -68,7 +69,7 @@ instance (Monad m) => Monad (Access m) where
 instance (MonadIO m) => MonadIO (Access m) where
   liftIO = LiftIO
 
-runAccess :: (MonadIO m) => Access m a -> World -> Cache -> m (Either (Access m a) a, World, Cache, [Command m ()])
+runAccess :: Access IO a -> World -> Cache -> IO (Either (Access IO a) a, World, Cache, [Command IO ()])
 runAccess (PureA a) w c = return (Right a, w, c, [])
 runAccess (MapA f a) w cache = do
   (a', w', cache', cmds) <- runAccess a w cache
@@ -98,24 +99,25 @@ runAccess (BindA a f) w cache = do
     Left a'' -> return (Left (BindA a'' f), w', cache', cmds)
     Right a'' -> runAccess (f a'') w' cache'
 runAccess (AllA qb p) (World cs as) (Cache cache) = case Map.lookup (typeOf p) cache of
-  Just q' ->
+  Just q' -> do
     let (q, w) = (fromMaybe (error "TODO") (fromDynamic q'), World cs as)
-     in return (Right (Q.all q w), World cs as, Cache cache, [])
+    es <- Q.all q w
+    return (Right es, World cs as, Cache cache, [])
   Nothing -> return (Left (AllA qb p), World cs as, Cache cache, [])
 runAccess (AlterA p qb f) (World cs as) (Cache cache) =
   case Map.lookup (typeOf p) cache of
-    Just q' ->
+    Just q' -> do
       let (q, w) = (fromMaybe (error "TODO") (fromDynamic q'), World cs as)
-          es = Q.all q w
-          w' = Q.alter es f w
-       in return (Right (), w', Cache (Map.insert (typeOf p) (toDyn q) cache), [])
+      es <- Q.all q w
+      w' <- Q.alter es f w
+      return (Right (), w', Cache (Map.insert (typeOf p) (toDyn q) cache), [])
     Nothing -> return (Left (AlterA p qb f), World cs as, Cache cache, [])
 runAccess (CommandA cmd) w cache = return (Right (), w, cache, [cmd])
 runAccess (LiftIO io) w cache = do
   a <- liftIO io
   return (Right a, w, cache, [])
 
-runAccess' :: (MonadIO m) => Access m a -> World -> Cache -> m (a, World, Cache, [Command m ()])
+runAccess' :: Access IO a -> World -> Cache -> IO (a, World, Cache, [Command IO ()])
 runAccess' (PureA a) w c = return (a, w, c, [])
 runAccess' (MapA f a) w cache = do
   (a', w', cache', cmds) <- runAccess' a w cache
@@ -128,18 +130,19 @@ runAccess' (BindA a f) w cache = do
   (a', w', cache', cmds) <- runAccess' a w cache
   (b, w'', cache'', cmds') <- runAccess' (f a') w' cache'
   return (b, w'', cache'', cmds ++ cmds')
-runAccess' (AllA p qb) (World cs as) (Cache cache) =
-  let (q, w) = case Map.lookup (typeOf p) cache of
-        Just q' -> (fromMaybe (error "TODO") (fromDynamic q'), World cs as)
-        Nothing -> Q.buildQuery qb (World cs as)
-   in return (Q.all q w, w, Cache cache, [])
-runAccess' (AlterA p qb f) (World cs as) (Cache cache) =
-  let (q, w) = case Map.lookup (typeOf p) cache of
-        Just q' -> (fromMaybe (error "TODO") (fromDynamic q'), World cs as)
-        Nothing -> Q.buildQuery (EntityComponent <$> Q.entity <*> qb) (World cs as)
-      es = Q.all q w
-      w' = Q.alter es f w
-   in return ((), w', Cache (Map.insert (typeOf p) (toDyn q) cache), [])
+runAccess' (AllA p qb) (World cs as) (Cache cache) = do
+  (q, w) <- case Map.lookup (typeOf p) cache of
+    Just q' -> return (fromMaybe (error "TODO") (fromDynamic q'), World cs as)
+    Nothing -> Q.buildQuery qb (World cs as)
+  es <- Q.all q w
+  return (es, w, Cache cache, [])
+runAccess' (AlterA p qb f) (World cs as) (Cache cache) = do
+  (q, w) <- case Map.lookup (typeOf p) cache of
+    Just q' -> return (fromMaybe (error "TODO") (fromDynamic q'), World cs as)
+    Nothing -> Q.buildQuery (EntityComponent <$> Q.entity <*> qb) (World cs as)
+  es <- Q.all q w
+  w' <- Q.alter es f w
+  return ((), w', Cache (Map.insert (typeOf p) (toDyn q) cache), [])
 runAccess' (CommandA cmd) w cache = return ((), w, cache, [cmd])
 runAccess' (LiftIO io) w cache = do
   a <- liftIO io
@@ -158,9 +161,9 @@ command = CommandA
 class (Typeable a) => System m a where
   access :: Access m ()
 
-runSystem :: forall m a. (MonadIO m, System m a) => Cache -> World -> m (Maybe (Access m ()), Cache, [Command m ()], World)
+runSystem :: forall a. (System IO a) => Cache -> World -> IO (Maybe (Access IO ()), Cache, [Command IO ()], World)
 runSystem cache w = do
-  (result, w', cache', cmds) <- runAccess (access @m @a) w cache
+  (result, w', cache', cmds) <- runAccess (access @IO @a) w cache
   case result of
     Left a -> return (Just a, cache', cmds, w')
     Right _ -> return (Nothing, cache', cmds, w')

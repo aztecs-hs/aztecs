@@ -22,6 +22,7 @@ import Data.Aztecs.Core
 import qualified Data.Aztecs.Storage as S
 import Data.Aztecs.World.Components (Component, Components, getRow)
 import qualified Data.Aztecs.World.Components as C
+import Data.Foldable (foldrM)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import Data.Map (Map)
@@ -52,7 +53,6 @@ archetype = Archetype . Set.singleton $ ArchetypeComponent (Proxy @c)
 
 newtype ArchetypeId = ArchetypeId Int deriving (Eq, Ord, Show)
 
-
 data ArchetypeState = ArchetypeState Archetype [Entity] [ArchetypeId]
   deriving (Show)
 
@@ -67,20 +67,20 @@ data Archetypes
 newArchetypes :: Archetypes
 newArchetypes = Archetypes IntMap.empty Map.empty Map.empty 0
 
-insertArchetype :: Archetype -> Components -> Archetypes -> (ArchetypeId, Archetypes)
+insertArchetype :: Archetype -> Components -> Archetypes -> IO (ArchetypeId, Archetypes)
 insertArchetype (Archetype a) w (Archetypes es ids as i) = case Map.lookup (Archetype a) as of
-  Just (ArchetypeId i') -> (ArchetypeId i, Archetypes es ids as i')
-  Nothing ->
-    let (es', ids') =
-          foldr
-            ( \(ArchetypeComponent p) (eAcc, acc) ->
-                let cs = fromMaybe [] $ fmap (\s -> S.toList s) (getRow p w)
-                    eAcc' = map (\(EntityComponent e _) -> e) cs
-                 in (eAcc' ++ eAcc, Map.unionWith (<>) (Map.singleton (typeOf p) [ArchetypeId i]) acc)
-            )
-            ([], ids)
-            (Set.toList a)
-     in (ArchetypeId i, Archetypes (IntMap.insert i (ArchetypeState (Archetype a) es' []) es) ids' as (i + 1))
+  Just (ArchetypeId i') -> return (ArchetypeId i, Archetypes es ids as i')
+  Nothing -> do
+    (es', ids') <-
+      foldrM
+        ( \(ArchetypeComponent p) (eAcc, acc) -> do
+            cs <- fromMaybe (pure []) $ fmap (\s -> S.toList s) (getRow p w)
+            let eAcc' = map (\(EntityComponent e _) -> e) cs
+            return (eAcc' ++ eAcc, Map.unionWith (<>) (Map.singleton (typeOf p) [ArchetypeId i]) acc)
+        )
+        ([], ids)
+        (Set.toList a)
+    return (ArchetypeId i, Archetypes (IntMap.insert i (ArchetypeState (Archetype a) es' []) es) ids' as (i + 1))
 
 getArchetype :: ArchetypeId -> Archetypes -> [Entity]
 getArchetype (ArchetypeId i) (Archetypes es _ _ _) = fromMaybe [] (fmap (\(ArchetypeState _ es' _) -> es') ((IntMap.lookup i es)))

@@ -1,30 +1,53 @@
 module Data.Aztecs.Storage (Storage (..), table, table') where
 
+import Control.Monad (filterM)
 import Data.Aztecs.Core
 import Data.Functor ((<&>))
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.List (find)
-import Data.Maybe (isJust)
 
 data Storage a = Storage
-  { empty :: Storage a,
-    spawn :: Entity -> a -> Storage a,
-    insert :: [EntityComponent a] -> Storage a,
-    get :: Entity -> Maybe a,
-    toList :: [EntityComponent a],
-    remove :: Entity -> Storage a
+  { empty :: IO (Storage a),
+    spawn :: Entity -> a -> IO (Storage a),
+    get :: Entity -> IO (Maybe (a, a -> Storage a -> IO (Storage a))),
+    toList :: IO [EntityComponent a],
+    remove :: Entity -> IO (Storage a)
   }
 
-table' :: [EntityComponent a] -> Storage a
+table' :: [IORef (EntityComponent a)] -> Storage a
 table' cs =
   Storage
-    { empty = table' [],
-      spawn = \e a -> table' (EntityComponent e a : cs),
-      insert = \cs' -> table' (filter (\(EntityComponent e _) -> not . isJust $ find (\(EntityComponent e' _) -> e == e') cs') cs <> cs'),
-      get = \e ->
-        find (\(EntityComponent e' _) -> e == e') cs
-          <&> \(EntityComponent _ a) -> a,
-      toList = cs,
-      remove = \e -> table' (filter (\(EntityComponent e' _) -> e /= e') cs)
+    { empty = pure $ table' [],
+      spawn = \e a -> do
+        r <- newIORef (EntityComponent e a)
+        return $ table' (r : cs),
+      get = \e -> do
+        cs' <-
+          mapM
+            ( \r -> do
+                a <- readIORef r
+                return (a, r)
+            )
+            cs
+        return
+          ( find (\(EntityComponent e' _, _) -> e == e') cs'
+              <&> \(EntityComponent _ a, r) ->
+                ( a,
+                  \a' t -> do
+                    writeIORef r (EntityComponent e a')
+                    return t
+                )
+          ),
+      toList = mapM readIORef cs,
+      remove = \e -> do
+        cs' <-
+          filterM
+            ( \r -> do
+                (EntityComponent e' _) <- readIORef r
+                return $ e /= e'
+            )
+            cs
+        return $ table' cs'
     }
 
 table :: Storage a
