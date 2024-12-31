@@ -7,11 +7,10 @@
 
 module Data.Aztecs.Query
   ( ReadWrites (..),
-    QueryBuilder (..),
+    Query (..),
     entity,
     read,
     buildQuery,
-    Query (..),
     all,
     all',
     get,
@@ -22,7 +21,7 @@ where
 
 import qualified Data.Aztecs.Storage as S
 import Data.Aztecs.World (Component, Entity, EntityComponent (..), World (..), getRow)
-import Data.Aztecs.World.Archetypes (ArchetypeId)
+import Data.Aztecs.World.Archetypes (Archetype, ArchetypeId, archetype)
 import qualified Data.Aztecs.World.Archetypes as A
 import Data.Maybe (fromMaybe, listToMaybe)
 import Data.Set (Set)
@@ -39,74 +38,44 @@ instance Monoid ReadWrites where
   mempty = ReadWrites mempty mempty
 
 -- | Builder for a `Query`.
-data QueryBuilder a where
-  PureQB :: a -> QueryBuilder a
-  MapQB :: (a -> b) -> QueryBuilder a -> QueryBuilder b
-  AppQB :: QueryBuilder (a -> b) -> QueryBuilder a -> QueryBuilder b
-  EntityQB :: QueryBuilder Entity
-  ReadQB :: (Component c) => Proxy c -> (World -> IO (ArchetypeId, World)) -> QueryBuilder c
-  WriteQB :: (Component c) => Proxy c -> c -> (World -> IO (ArchetypeId, World)) -> QueryBuilder ()
+data Query a where
+  PureQB :: a -> Query a
+  MapQB :: (a -> b) -> Query a -> Query b
+  AppQB :: Query (a -> b) -> Query a -> Query b
+  EntityQB :: Query Entity
+  ReadQB :: (Component c) => Proxy c -> Archetype -> Query c
+  WriteQB :: (Component c) => Proxy c -> c -> Archetype -> Query ()
 
-instance Functor QueryBuilder where
+instance Functor Query where
   fmap = MapQB
 
-instance Applicative QueryBuilder where
+instance Applicative Query where
   pure = PureQB
   (<*>) = AppQB
 
-entity :: QueryBuilder Entity
+entity :: Query Entity
 entity = EntityQB
 
 -- | Read a `Component`.
-read :: forall c. (Component c) => QueryBuilder c
-read =
-  ReadQB
-    (Proxy :: Proxy c)
-    ( \(World cs as) -> do
-        (aId, as') <- A.insertArchetype (A.archetype @c) cs as
-        return (aId, World cs as')
-    )
+read :: forall c. (Component c) => Query c
+read = ReadQB (Proxy :: Proxy c) (archetype @c)
 
 -- | Alter a `Component`.
-write :: forall c. (Component c) => c -> QueryBuilder ()
-write c =
-  WriteQB
-    (Proxy :: Proxy c)
-    c
-    ( \(World cs as) -> do
-        (aId, as') <- A.insertArchetype (A.archetype @c) cs as
-        return (aId, World cs as')
-    )
+write :: forall c. (Component c) => c -> Query ()
+write c = WriteQB (Proxy :: Proxy c) c (archetype @c)
 
-buildQuery :: QueryBuilder a -> World -> IO (Query a, World)
-buildQuery (PureQB a) w = return (pure a, w)
-buildQuery (MapQB f qb) w = do
-  (a, w') <- buildQuery qb w
-  return (fmap f a, w')
-buildQuery (AppQB fqb aqb) w = do
-  (f, w') <- buildQuery fqb w
-  (a, w'') <- buildQuery aqb w'
-  return (f <*> a, w'')
-buildQuery EntityQB w = return (Query mempty EntityQB, w)
-buildQuery (ReadQB p f) w = do
-  (aId, w') <- f w
-  return (Query [aId] (ReadQB p f), w')
-buildQuery (WriteQB p c f) w = do
-  (aId, w') <- f w
-  return (Query [aId] (WriteQB p c f), w')
+buildQuery :: Query a -> Archetype
+buildQuery (PureQB _) = mempty
+buildQuery (MapQB _ qb) = buildQuery qb
+buildQuery (AppQB f a) = buildQuery f <> buildQuery a
+buildQuery EntityQB = mempty
+buildQuery (ReadQB _ a) = a
+buildQuery (WriteQB _ _ a) = a
 
--- | Query to apply to the `World`.
-data Query a = Query [ArchetypeId] (QueryBuilder a)
-  deriving (Functor)
+all :: ArchetypeId -> Query a -> World -> IO [a]
+all a qb w@(World _ as) = all' (A.getArchetype a as) qb w
 
-instance Applicative Query where
-  pure a = Query mempty (pure a)
-  Query aIds f <*> Query aIds' f' = Query (aIds <> aIds') (f <*> f')
-
-all :: Query a -> World -> IO [a]
-all (Query aIds qb) w@(World _ as) = all' (concat $ map (\aId -> A.getArchetype aId as) aIds) qb w
-
-all' :: [Entity] -> QueryBuilder a -> World -> IO [a]
+all' :: [Entity] -> Query a -> World -> IO [a]
 all' _ (PureQB a) _ = return [a]
 all' es (MapQB f qb) w = do
   a <- all' es qb w
@@ -126,10 +95,10 @@ all' es (WriteQB p c _) w = do
   mapM_ (\(EntityComponent _ _, f) -> f c) es''
   return $ replicate (length es) ()
 
-get :: Query a -> Entity -> World -> IO (Maybe a)
-get (Query aIds qb) e w@(World _ as) = get' e (concat $ map (\aId -> A.getArchetype aId as) aIds) qb w
+get :: ArchetypeId -> Query a -> Entity -> World -> IO (Maybe a)
+get a qb e w@(World _ as) = get' e (A.getArchetype a as) qb w
 
-get' :: Entity -> [Entity] -> QueryBuilder a -> World -> IO (Maybe a)
+get' :: Entity -> [Entity] -> Query a -> World -> IO (Maybe a)
 get' _ _ (PureQB a) _ = return $ Just a
 get' e es (MapQB f qb) w = do
   a <- get' e es qb w

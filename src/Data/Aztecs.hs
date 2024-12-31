@@ -3,7 +3,7 @@ module Data.Aztecs
     EntityComponent (..),
     Component (..),
     World,
-    QueryBuilder,
+    Query,
     Query,
     Access (..),
     Task,
@@ -24,7 +24,7 @@ where
 
 import Data.Aztecs.Query
   ( Query (..),
-    QueryBuilder,
+    Query,
   )
 import Data.Aztecs.Schedule
 import Data.Aztecs.System
