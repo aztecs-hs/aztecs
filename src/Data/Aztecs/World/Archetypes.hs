@@ -53,7 +53,7 @@ archetype = Archetype . Set.singleton $ ArchetypeComponent (Proxy @c)
 
 newtype ArchetypeId = ArchetypeId Int deriving (Eq, Ord, Show)
 
-data ArchetypeState = ArchetypeState Archetype [Entity] [ArchetypeId]
+data ArchetypeState = ArchetypeState Archetype (Set Entity) [ArchetypeId]
   deriving (Show)
 
 data Archetypes
@@ -80,10 +80,10 @@ insertArchetype (Archetype a) w (Archetypes es ids as i) = case Map.lookup (Arch
         )
         ([], ids)
         (Set.toList a)
-    return (ArchetypeId i, Archetypes (IntMap.insert i (ArchetypeState (Archetype a) es' []) es) ids' as (i + 1))
+    return (ArchetypeId i, Archetypes (IntMap.insert i (ArchetypeState (Archetype a) (Set.fromList es') []) es) ids' as (i + 1))
 
 getArchetype :: ArchetypeId -> Archetypes -> [Entity]
-getArchetype (ArchetypeId i) (Archetypes es _ _ _) = fromMaybe [] (fmap (\(ArchetypeState _ es' _) -> es') ((IntMap.lookup i es)))
+getArchetype (ArchetypeId i) (Archetypes es _ _ _) = fromMaybe [] (fmap (\(ArchetypeState _ es' _) -> Set.toList es') ((IntMap.lookup i es)))
 
 insert :: forall c. (Component c) => Entity -> Components -> Archetypes -> Archetypes
 insert e cs (Archetypes es ids as j) = case Map.lookup (typeOf (Proxy @c)) ids of
@@ -101,7 +101,7 @@ insert e cs (Archetypes es ids as j) = case Map.lookup (typeOf (Proxy @c)) ids o
                     (Set.toList $ unwrapArchetype arch)
              in if isMatch
                   then
-                    Just $ ArchetypeState arch (e : esAcc) deps
+                    Just $ ArchetypeState arch (Set.singleton e <> esAcc) deps
                   else state
           Nothing -> state
 

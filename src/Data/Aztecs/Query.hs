@@ -23,6 +23,7 @@ import qualified Data.Aztecs.Storage as S
 import Data.Aztecs.World (Component, Entity, EntityComponent (..), World (..), getRow)
 import Data.Aztecs.World.Archetypes (Archetype, ArchetypeId, archetype)
 import qualified Data.Aztecs.World.Archetypes as A
+import Data.Foldable (foldrM)
 import Data.Maybe (fromMaybe, listToMaybe)
 import Data.Set (Set)
 import Data.Typeable
@@ -76,24 +77,16 @@ all :: ArchetypeId -> Query a -> World -> IO [a]
 all a qb w@(World _ as) = all' (A.getArchetype a as) qb w
 
 all' :: [Entity] -> Query a -> World -> IO [a]
-all' _ (PureQB a) _ = return [a]
-all' es (MapQB f qb) w = do
-  a <- all' es qb w
-  return $ map f a
-all' es (AppQB fqb aqb) w = do
-  f <- all' es fqb w
-  a <- all' es aqb w
-  return $ zipWith (\f' a' -> f' a') f a
-all' es EntityQB _ = return es
-all' es (ReadQB p _) w = do
-  es' <- fromMaybe (pure []) (fmap S.toList (getRow p w))
-  let es'' = filter (\(EntityComponent e _) -> e `elem` es) es'
-  return $ map (\(EntityComponent _ c) -> c) es''
-all' es (WriteQB p f _) w = do
-  es' <- fromMaybe (pure []) (fmap S.toList' (getRow p w))
-  let es'' = filter (\(EntityComponent e _, _) -> e `elem` es) es'
-  mapM_ (\(EntityComponent _ c, g) -> g (f c)) es''
-  return $ replicate (length es) ()
+all' es q w =
+  foldrM
+    ( \e acc -> do
+        a <- get' e es q w
+        return $ case a of
+          Just a' -> (a' : acc)
+          Nothing -> acc
+    )
+    []
+    es
 
 get :: ArchetypeId -> Query a -> Entity -> World -> IO (Maybe a)
 get a qb e w@(World _ as) = get' e (A.getArchetype a as) qb w
