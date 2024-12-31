@@ -16,7 +16,7 @@ module Data.Aztecs.Query
     all',
     get,
     get',
-    alter,
+    write,
   )
 where
 
@@ -44,7 +44,8 @@ data QueryBuilder a where
   MapQB :: (a -> b) -> QueryBuilder a -> QueryBuilder b
   AppQB :: QueryBuilder (a -> b) -> QueryBuilder a -> QueryBuilder b
   EntityQB :: QueryBuilder Entity
-  ComponentQB :: (Component c) => Proxy c -> (World -> IO (ArchetypeId, World)) -> QueryBuilder c
+  ReadQB :: (Component c) => Proxy c -> (World -> IO (ArchetypeId, World)) -> QueryBuilder c
+  WriteQB :: (Component c) => Proxy c -> c -> (World -> IO (ArchetypeId, World)) -> QueryBuilder ()
 
 instance Functor QueryBuilder where
   fmap = MapQB
@@ -59,8 +60,19 @@ entity = EntityQB
 -- | Read a `Component`.
 read :: forall c. (Component c) => QueryBuilder c
 read =
-  ComponentQB
+  ReadQB
     (Proxy :: Proxy c)
+    ( \(World cs as) -> do
+        (aId, as') <- A.insertArchetype (A.archetype @c) cs as
+        return (aId, World cs as')
+    )
+
+-- | Alter a `Component`.
+write :: forall c. (Component c) => c -> QueryBuilder ()
+write c =
+  WriteQB
+    (Proxy :: Proxy c)
+    c
     ( \(World cs as) -> do
         (aId, as') <- A.insertArchetype (A.archetype @c) cs as
         return (aId, World cs as')
@@ -76,9 +88,12 @@ buildQuery (AppQB fqb aqb) w = do
   (a, w'') <- buildQuery aqb w'
   return (f <*> a, w'')
 buildQuery EntityQB w = return (Query mempty EntityQB, w)
-buildQuery (ComponentQB p f) w = do
+buildQuery (ReadQB p f) w = do
   (aId, w') <- f w
-  return (Query [aId] (ComponentQB p f), w')
+  return (Query [aId] (ReadQB p f), w')
+buildQuery (WriteQB p c f) w = do
+  (aId, w') <- f w
+  return (Query [aId] (WriteQB p c f), w')
 
 -- | Query to apply to the `World`.
 data Query a = Query [ArchetypeId] (QueryBuilder a)
@@ -101,10 +116,15 @@ all' es (AppQB fqb aqb) w = do
   a <- all' es aqb w
   return $ zipWith (\f' a' -> f' a') f a
 all' es EntityQB _ = return es
-all' es (ComponentQB p _) w = do
+all' es (ReadQB p _) w = do
   es' <- fromMaybe (pure []) (fmap S.toList (getRow p w))
   let es'' = filter (\(EntityComponent e _) -> e `elem` es) es'
   return $ map (\(EntityComponent _ c) -> c) es''
+all' es (WriteQB p c _) w = do
+  es' <- fromMaybe (pure []) (fmap S.toList' (getRow p w))
+  let es'' = filter (\(EntityComponent e _, _) -> e `elem` es) es'
+  mapM_ (\(EntityComponent _ _, f) -> f c) es''
+  return $ replicate (length es) ()
 
 get :: Query a -> Entity -> World -> IO (Maybe a)
 get (Query aIds qb) e w@(World _ as) = get' e (concat $ map (\aId -> A.getArchetype aId as) aIds) qb w
@@ -119,11 +139,7 @@ get' e es (AppQB fqb aqb) w = do
   a <- get' e es aqb w
   return $ f <*> a
 get' e es EntityQB _ = return $ if e `elem` es then Just e else Nothing
-get' e _ (ComponentQB p _) w = do
+get' e _ (ReadQB p _) w = do
   es' <- fromMaybe (pure []) (fmap S.toList (getRow p w))
   let es'' = filter (\(EntityComponent e' _) -> e == e') es'
   return $ fmap (\(EntityComponent _ c) -> c) (listToMaybe es'')
-
--- | Alter the components in a query.
-alter :: (Component c) => [EntityComponent c] -> (Entity -> c -> c) -> World -> IO World
-alter as g w = error "TODO"

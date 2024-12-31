@@ -36,7 +36,7 @@ data B
 instance System IO B where
   access = do
     -- Increment every X component
-    S.alter (Q.read @X) (\_ (X x) -> X $ x + 1)
+    S.all (Q.write (X 1))
 
     -- Query for all entities with an X and Y component
     xys <- (S.all (XY <$> Q.read <*> Q.read))

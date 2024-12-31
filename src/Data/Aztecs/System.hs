@@ -14,7 +14,6 @@ module Data.Aztecs.System
     runAccess,
     runAccess',
     all,
-    alter,
     command,
     System (..),
     runSystem,
@@ -52,7 +51,6 @@ data Access (m :: Type -> Type) a where
   AppA :: Access m (a -> b) -> Access m a -> Access m b
   BindA :: Access m a -> (a -> Access m b) -> Access m b
   AllA :: (Typeable a) => Proxy a -> QueryBuilder a -> Access m [a]
-  AlterA :: (Component c) => Proxy c -> QueryBuilder c -> (Entity -> c -> c) -> Access m ()
   CommandA :: Command m () -> Access m ()
   LiftIO :: IO a -> Access m a
 
@@ -104,14 +102,6 @@ runAccess (AllA qb p) (World cs as) (Cache cache) = case Map.lookup (typeOf p) c
     es <- Q.all q w
     return (Right es, World cs as, Cache cache, [])
   Nothing -> return (Left (AllA qb p), World cs as, Cache cache, [])
-runAccess (AlterA p qb f) (World cs as) (Cache cache) =
-  case Map.lookup (typeOf p) cache of
-    Just q' -> do
-      let (q, w) = (fromMaybe (error "TODO") (fromDynamic q'), World cs as)
-      es <- Q.all q w
-      w' <- Q.alter es f w
-      return (Right (), w', Cache (Map.insert (typeOf p) (toDyn q) cache), [])
-    Nothing -> return (Left (AlterA p qb f), World cs as, Cache cache, [])
 runAccess (CommandA cmd) w cache = return (Right (), w, cache, [cmd])
 runAccess (LiftIO io) w cache = do
   a <- liftIO io
@@ -136,13 +126,6 @@ runAccess' (AllA p qb) (World cs as) (Cache cache) = do
     Nothing -> Q.buildQuery qb (World cs as)
   es <- Q.all q w
   return (es, w, Cache cache, [])
-runAccess' (AlterA p qb f) (World cs as) (Cache cache) = do
-  (q, w) <- case Map.lookup (typeOf p) cache of
-    Just q' -> return (fromMaybe (error "TODO") (fromDynamic q'), World cs as)
-    Nothing -> Q.buildQuery (EntityComponent <$> Q.entity <*> qb) (World cs as)
-  es <- Q.all q w
-  w' <- Q.alter es f w
-  return ((), w', Cache (Map.insert (typeOf p) (toDyn q) cache), [])
 runAccess' (CommandA cmd) w cache = return ((), w, cache, [cmd])
 runAccess' (LiftIO io) w cache = do
   a <- liftIO io
@@ -151,9 +134,6 @@ runAccess' (LiftIO io) w cache = do
 -- | Query all matches.
 all :: forall m a. (Typeable a, Monad m) => QueryBuilder a -> Access m [a]
 all = AllA (Proxy :: Proxy a)
-
-alter :: forall m c. (Component c, Monad m) => QueryBuilder c -> (Entity -> c -> c) -> Access m ()
-alter = AlterA (Proxy :: Proxy a)
 
 command :: Command m () -> Access m ()
 command = CommandA
