@@ -27,24 +27,16 @@ import Data.Aztecs.Query
   ( Query (..),
   )
 import qualified Data.Aztecs.Query as Q
-import Data.Aztecs.World
-  ( Component,
-    Entity,
-    EntityComponent (EntityComponent),
-    World (..),
-  )
-import Data.Aztecs.World.Archetypes (Archetype)
+import Data.Aztecs.World (World (..))
+import Data.Aztecs.World.Archetypes (Archetype, ArchetypeId)
 import qualified Data.Aztecs.World.Archetypes as A
-import Data.Dynamic (Dynamic, fromDynamic, toDyn)
 import Data.Kind
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe)
 import Data.Typeable
 import Prelude hiding (all, read)
 
--- TODO is TypeRep a stable ID for queries?
-newtype Cache = Cache (Map Archetype Dynamic)
+newtype Cache = Cache (Map Archetype ArchetypeId)
   deriving (Semigroup, Monoid)
 
 data Access (m :: Type -> Type) a where
@@ -52,7 +44,7 @@ data Access (m :: Type -> Type) a where
   MapA :: (a -> b) -> Access m a -> Access m b
   AppA :: Access m (a -> b) -> Access m a -> Access m b
   BindA :: Access m a -> (a -> Access m b) -> Access m b
-  AllA :: (Typeable a) => Proxy a -> Query a -> Access m [a]
+  AllA :: Query a -> Access m [a]
   CommandA :: Command m () -> Access m ()
   LiftIO :: IO a -> Access m a
 
@@ -98,12 +90,12 @@ runAccess (BindA a f) w cache = do
   case a' of
     Left a'' -> return (Left (BindA a'' f), w', cache', cmds)
     Right a'' -> runAccess (f a'') w' cache'
-runAccess (AllA p qb) (World cs as) (Cache cache) = case Map.lookup (Q.buildQuery qb) cache of
+runAccess (AllA qb) (World cs as) (Cache cache) = case Map.lookup (Q.buildQuery qb) cache of
   Just q' -> do
-    let (q, w) = (fromMaybe (error "TODO") (fromDynamic q'), World cs as)
+    let (q, w) = (q', World cs as)
     es <- Q.all q qb w
     return (Right es, World cs as, Cache cache, [])
-  Nothing -> return (Left (AllA p qb), World cs as, Cache cache, [])
+  Nothing -> return (Left (AllA qb), World cs as, Cache cache, [])
 runAccess (CommandA cmd) w cache = return (Right (), w, cache, [cmd])
 runAccess (LiftIO io) w cache = do
   a <- liftIO io
@@ -122,13 +114,13 @@ runAccess' (BindA a f) w cache = do
   (a', w', cache', cmds) <- runAccess' a w cache
   (b, w'', cache'', cmds') <- runAccess' (f a') w' cache'
   return (b, w'', cache'', cmds ++ cmds')
-runAccess' (AllA p qb) (World cs as) (Cache cache) = do
-  (q, w) <- case Map.lookup (Q.buildQuery qb) cache of
-    Just q' -> return (fromMaybe (error "TODO") (fromDynamic q'), World cs as)
+runAccess' (AllA qb) (World cs as) (Cache cache) = do
+  (aId, w) <- case Map.lookup (Q.buildQuery qb) cache of
+    Just q' -> return (q', World cs as)
     Nothing -> do
       (x, as') <- A.insertArchetype (Q.buildQuery qb) cs as
       return (x, World cs as')
-  es <- Q.all q qb w
+  es <- Q.all aId qb w
   return (es, w, Cache cache, [])
 runAccess' (CommandA cmd) w cache = return ((), w, cache, [cmd])
 runAccess' (LiftIO io) w cache = do
@@ -136,8 +128,8 @@ runAccess' (LiftIO io) w cache = do
   return (a, w, cache, [])
 
 -- | Query all matches.
-all :: forall m a. (Typeable a, Monad m) => Query a -> Access m [a]
-all = AllA (Proxy :: Proxy a)
+all :: (Monad m) => Query a -> Access m [a]
+all = AllA
 
 command :: Command m () -> Access m ()
 command = CommandA
