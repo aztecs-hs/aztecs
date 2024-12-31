@@ -4,7 +4,6 @@ module Data.Aztecs
     Component (..),
     World,
     Query,
-    Query,
     Access (..),
     Task,
     System (..),
@@ -17,14 +16,11 @@ module Data.Aztecs
     Scheduler (..),
     schedule,
     runScheduler,
-    OnSpawn,
-    OnInsert,
   )
 where
 
 import Data.Aztecs.Query
   ( Query (..),
-    Query,
   )
 import Data.Aztecs.Schedule
 import Data.Aztecs.System

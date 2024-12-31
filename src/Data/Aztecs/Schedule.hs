@@ -7,9 +7,7 @@
 {-# LANGUAGE TypeApplications #-}
 
 module Data.Aztecs.Schedule
-  ( OnSpawn (..),
-    OnInsert (..),
-    Node (..),
+  ( Node (..),
     Schedule (..),
     ScheduleNode (..),
     runSchedule,
@@ -29,17 +27,13 @@ where
 
 import Control.Concurrent.Async (mapConcurrently)
 import Control.Monad.State (StateT (runStateT))
-import Control.Monad.Writer (WriterT (runWriterT))
 import Data.Aztecs.Command
 import Data.Aztecs.System
 import Data.Aztecs.World
-  ( Component (..),
-    Entity,
-    World,
+  ( World,
     newWorld,
     union,
   )
-import qualified Data.Aztecs.World as W
 import Data.Foldable (foldrM)
 import Data.Functor ((<&>))
 import Data.List (groupBy, sortBy)
@@ -127,37 +121,14 @@ runNode (Node p cache) w =
 runSystemProxy :: forall a. (System IO a) => Proxy a -> Cache -> World -> IO (Maybe (Access IO ()), Cache, [Command IO ()], World)
 runSystemProxy _ = runSystem @a
 
-data OnSpawn a = OnSpawn (Proxy a)
-
-instance (Component a) => Component (OnSpawn a)
-
-data OnInsert a = OnInsert (Proxy a)
-
-instance (Component a) => Component (OnInsert a)
-
-data TemporaryComponent where
-  TemporaryComponent :: (Component a) => Entity -> Proxy a -> TemporaryComponent
-
 -- | Run a `Command`, returning any temporary `Entity`s and the updated `World`.
-runCommand :: Command IO () -> World -> IO ([TemporaryComponent], World)
-runCommand (Command cmd) w = do
-  (((), w'), edits) <- runWriterT $ runStateT cmd w
-  foldrM
-      ( \edit (cs, w'') -> case edit of
-          Spawn e p -> do
-            w''' <- W.insert e (OnSpawn p) w''
-            return (TemporaryComponent e p : cs, w''')
-          Insert e p -> do
-            w''' <- W.insert e (OnInsert p) w''
-            return (TemporaryComponent e p : cs, w''')
-      )
-      ([], w')
-      edits
+runCommand :: Command IO () -> World -> IO (World)
+runCommand (Command cmd) w = snd <$> runStateT cmd w
 
-runSchedule' :: [[GraphNode IO]] -> World -> IO ([TemporaryComponent], [[GraphNode IO]], World)
-runSchedule' nodes w =
+runSchedule :: [[GraphNode IO]] -> World -> IO ([[GraphNode IO]], World)
+runSchedule nodes w =
   foldrM
-    ( \nodeGroup (csAcc, nodeAcc, w') -> do
+    ( \nodeGroup (nodeAcc, w') -> do
         results <-
           mapConcurrently
             ( \(GraphNode n as bs) -> do
@@ -186,27 +157,11 @@ runSchedule' nodes w =
             (w'', [], [])
             nexts
 
-        (temps, w'''') <-
-          foldrM
-            ( \cmd (csAcc', wAcc) -> do
-                (cs, wAcc') <- runCommand cmd wAcc
-                return (cs ++ csAcc', wAcc')
-            )
-            (csAcc, w''')
-            (cmds ++ cmds')
-        return (temps, nodes' : nodeAcc, w'''')
+        w'''' <- foldrM (\cmd wAcc -> runCommand cmd wAcc) w''' (cmds ++ cmds')
+        return (nodes' : nodeAcc, w'''')
     )
-    ([], [], w)
+    ([], w)
     nodes
-
-removeProxy :: forall c. (Component c) => Entity -> Proxy c -> World -> World
-removeProxy e _ = W.remove @c e
-
-runSchedule :: [[GraphNode IO]] -> World -> IO ([[GraphNode IO]], World)
-runSchedule nodes w = do
-  (cs, nodes', w') <- runSchedule' nodes w
-  w'' <- foldrM (\(TemporaryComponent e p) wAcc -> return $ removeProxy e p wAcc) w' cs
-  return (nodes', w'')
 
 newtype Scheduler m = Scheduler (Map TypeRep (Schedule m))
   deriving (Monoid)

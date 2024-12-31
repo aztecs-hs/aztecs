@@ -13,7 +13,6 @@ where
 import Control.Monad.IO.Class
 import Control.Monad.State (StateT (..))
 import qualified Control.Monad.State as S
-import Control.Monad.Writer (WriterT)
 import Data.Aztecs.World (Component, Entity, World)
 import qualified Data.Aztecs.World as W
 import Data.Dynamic (Typeable)
@@ -25,7 +24,7 @@ data Edit where
   Insert :: (Component c) => Entity -> (Proxy c) -> Edit
 
 -- | Command to update the `World`.
-newtype Command m a = Command (StateT World (WriterT [Edit] m) a)
+newtype Command m a = Command (StateT World m a)
   deriving (Functor, Applicative, Monad, MonadIO)
 
 -- | Spawn a `Component` and return its `Entity`.

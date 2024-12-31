@@ -36,10 +36,10 @@ data B
 instance System IO B where
   access = do
     -- Increment every X component
-    S.all (Q.write (X 1))
+    _ <- S.all (Q.write (\(X x) -> X (x + 1)))
 
     -- Query for all entities with an X and Y component
-    xys <- (S.all (XY <$> Q.read <*> Q.read))
+    xys <- S.all (XY <$> Q.read <*> Q.read)
     liftIO $ print xys
 
 app :: Scheduler IO

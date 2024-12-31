@@ -44,7 +44,7 @@ data Query a where
   AppQB :: Query (a -> b) -> Query a -> Query b
   EntityQB :: Query Entity
   ReadQB :: (Component c) => Proxy c -> Archetype -> Query c
-  WriteQB :: (Component c) => Proxy c -> c -> Archetype -> Query ()
+  WriteQB :: (Component c) => Proxy c -> (c -> c) -> Archetype -> Query ()
 
 instance Functor Query where
   fmap = MapQB
@@ -61,7 +61,7 @@ read :: forall c. (Component c) => Query c
 read = ReadQB (Proxy :: Proxy c) (archetype @c)
 
 -- | Alter a `Component`.
-write :: forall c. (Component c) => c -> Query ()
+write :: forall c. (Component c) => (c -> c) -> Query ()
 write c = WriteQB (Proxy :: Proxy c) c (archetype @c)
 
 buildQuery :: Query a -> Archetype
@@ -89,10 +89,10 @@ all' es (ReadQB p _) w = do
   es' <- fromMaybe (pure []) (fmap S.toList (getRow p w))
   let es'' = filter (\(EntityComponent e _) -> e `elem` es) es'
   return $ map (\(EntityComponent _ c) -> c) es''
-all' es (WriteQB p c _) w = do
+all' es (WriteQB p f _) w = do
   es' <- fromMaybe (pure []) (fmap S.toList' (getRow p w))
   let es'' = filter (\(EntityComponent e _, _) -> e `elem` es) es'
-  mapM_ (\(EntityComponent _ _, f) -> f c) es''
+  mapM_ (\(EntityComponent _ c, g) -> g (f c)) es''
   return $ replicate (length es) ()
 
 get :: ArchetypeId -> Query a -> Entity -> World -> IO (Maybe a)
@@ -112,3 +112,8 @@ get' e _ (ReadQB p _) w = do
   es' <- fromMaybe (pure []) (fmap S.toList (getRow p w))
   let es'' = filter (\(EntityComponent e' _) -> e == e') es'
   return $ fmap (\(EntityComponent _ c) -> c) (listToMaybe es'')
+get' e es (WriteQB p f _) w = do
+  es' <- fromMaybe (pure []) (fmap S.toList' (getRow p w))
+  let es'' = filter (\(EntityComponent e' _, _) -> e == e') es'
+  mapM_ (\(EntityComponent _ c, g) -> g (f c)) es''
+  return $ if e `elem` es then Just () else Nothing
