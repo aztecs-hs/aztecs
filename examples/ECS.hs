@@ -12,13 +12,13 @@ import qualified Data.Aztecs.System as S
 
 -- Components
 
-data X = X Int deriving (Show)
+data Position = Position Int deriving (Show)
 
-instance Component X
+instance Component Position
 
-data Y = Y Int deriving (Show)
+data Velocity = Velocity Int deriving (Show)
 
-instance Component Y
+instance Component Velocity
 
 -- Systems
 
@@ -26,21 +26,18 @@ data A
 
 instance System IO A where
   access = S.command $ do
-    e <- C.spawn (X 0)
-    C.insert e (Y 1)
-
-data XY = XY X Y deriving (Show)
+    e <- C.spawn (Position 0)
+    C.insert e (Velocity 1)
 
 data B
 
 instance System IO B where
   access = do
-    -- Increment every X component
-    _ <- S.all (Q.write (\(X x) -> X (x + 1)))
+    positions <- S.all $ do
+      Velocity y <- Q.read
+      Q.write (\(Position x) -> Position (x + y))
 
-    -- Query for all entities with an X and Y component
-    xys <- S.all (XY <$> Q.read <*> Q.read)
-    liftIO $ print xys
+    liftIO $ print positions
 
 app :: Scheduler IO
 app = schedule @Startup @_ @A [] <> schedule @Update @_ @B []

@@ -43,9 +43,10 @@ data Query a where
   PureQB :: a -> Query a
   MapQB :: (a -> b) -> Query a -> Query b
   AppQB :: Query (a -> b) -> Query a -> Query b
+  BindQB :: Query a -> (a -> Query b) -> Query b
   EntityQB :: Query Entity
   ReadQB :: (Component c) => Proxy c -> Archetype -> Query c
-  WriteQB :: (Component c) => Proxy c -> (c -> c) -> Archetype -> Query ()
+  WriteQB :: (Component c) => Proxy c -> (c -> c) -> Archetype -> Query c
 
 instance Functor Query where
   fmap = MapQB
@@ -53,6 +54,9 @@ instance Functor Query where
 instance Applicative Query where
   pure = PureQB
   (<*>) = AppQB
+
+instance Monad Query where
+  (>>=) = BindQB
 
 entity :: Query Entity
 entity = EntityQB
@@ -62,7 +66,7 @@ read :: forall c. (Component c) => Query c
 read = ReadQB (Proxy :: Proxy c) (archetype @c)
 
 -- | Alter a `Component`.
-write :: forall c. (Component c) => (c -> c) -> Query ()
+write :: forall c. (Component c) => (c -> c) -> Query c
 write c = WriteQB (Proxy :: Proxy c) c (archetype @c)
 
 buildQuery :: Query a -> Archetype
@@ -72,6 +76,7 @@ buildQuery (AppQB f a) = buildQuery f <> buildQuery a
 buildQuery EntityQB = mempty
 buildQuery (ReadQB _ a) = a
 buildQuery (WriteQB _ _ a) = a
+buildQuery (BindQB a f) = buildQuery a
 
 all :: ArchetypeId -> Query a -> World -> IO [a]
 all a qb w@(World _ as) = all' (A.getArchetype a as) qb w
@@ -105,8 +110,13 @@ get' e _ (ReadQB p _) w = do
   es' <- fromMaybe (pure []) (fmap S.toList (getRow p w))
   let es'' = filter (\(EntityComponent e' _) -> e == e') es'
   return $ fmap (\(EntityComponent _ c) -> c) (listToMaybe es'')
-get' e es (WriteQB p f _) w = do
+get' e _ (WriteQB p f _) w = do
   es' <- fromMaybe (pure []) (fmap S.toList' (getRow p w))
   let es'' = filter (\(EntityComponent e' _, _) -> e == e') es'
   mapM_ (\(EntityComponent _ c, g) -> g (f c)) es''
-  return $ if e `elem` es then Just () else Nothing
+  return $ fmap (\(EntityComponent _ c, _) -> c) (listToMaybe es'')
+get' e es (BindQB qb f) w = do
+  a <- get' e es qb w
+  case a of
+    Just a' -> get' e es (f a') w
+    Nothing -> return Nothing
