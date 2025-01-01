@@ -1,5 +1,7 @@
-# Revision history for aztecs
+# Changelog
 
-## 0.1.0.0 -- YYYY-mm-dd
+All notable changes to this project will be documented in this file.
 
-* First version. Released on an unsuspecting world.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+
+## [0.1.0.0](https://github.com/actuate-rs/actuate/compare/actuate-0.1.0.0) - 2025-1-1
