@@ -4,9 +4,10 @@ A type-safe and friendly [ECS](https://en.wikipedia.org/wiki/Entity_component_sy
 
 ## Features
 
- - Automatic parallelism: Systems run in parallel if possible, and in multiple stages
- - Type-safe DSL: Components and systems are accessed by marker types that determine their storage
- - Modular design: Aztecs can be extended for a variety of use cases
+- High-performance: Queries use archetypes to efficiently access the ECS
+- Automatic parallelism: Systems run in parallel if possible, and in multiple stages
+- Type-safe DSL: Components and systems are accessed by marker types that determine their storage
+- Modular design: Aztecs can be extended for a variety of use cases
 
 ```hs
 import Control.Monad.IO.Class
@@ -38,9 +39,10 @@ data B
 
 instance System IO B where
   access = do
+    -- Update all entities with a `Position` and `Velocity` component.
     positions <- S.all $ do
-      Velocity y <- Q.read
-      Q.write (\(Position x) -> Position (x + y))
+      Velocity v <- Q.read
+      Q.write (\(Position p) -> Position (p + v))
 
     liftIO $ print positions
 
@@ -52,4 +54,5 @@ main = runScheduler app
 ```
 
 ## Inspiration
+
 Aztecs' approach to type-safety is inspired by [Bevy](https://github.com/bevyengine/bevy/)

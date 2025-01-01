@@ -33,9 +33,10 @@ data B
 
 instance System IO B where
   access = do
+    -- Update all entities with a `Position` and `Velocity` component.
     positions <- S.all $ do
-      Velocity y <- Q.read
-      Q.write (\(Position x) -> Position (x + y))
+      Velocity v <- Q.read
+      Q.write (\(Position p) -> Position (p + v))
 
     liftIO $ print positions
 
