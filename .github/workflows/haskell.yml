@@ -14,12 +14,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-haskell@v1
-        with:
-          ghc-version: "8.10.3"
-          cabal-version: "3.2"
-
       - name: Cache
         uses: actions/cache@v3
         env:
@@ -31,6 +25,12 @@ jobs:
             ${{ runner.os }}-build-${{ env.cache-name }}-
             ${{ runner.os }}-build-
             ${{ runner.os }}-
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-haskell@v1
+        with:
+          ghc-version: "8.10.3"
+          cabal-version: "3.2"
 
       - name: Install linux dependencies
         run: sudo apt-get install libsdl2-dev

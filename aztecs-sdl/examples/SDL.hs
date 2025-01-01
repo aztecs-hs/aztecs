@@ -14,7 +14,7 @@ data A
 
 instance System IO A where
   access = do
-    keys <- S.all (Q.read @Keyboard)
+    keys <- S.all (Q.read @_ @Keyboard)
     liftIO $ print keys
 
 app :: Scheduler IO
