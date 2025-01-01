@@ -20,12 +20,11 @@ module Data.Aztecs.Query
 where
 
 import Control.Monad.IO.Class (MonadIO (..))
-import qualified Data.Aztecs.Storage as S
-import Data.Aztecs.World (Component, Entity, EntityComponent (..), World (..), getRow)
-import Data.Aztecs.World.Archetypes (Archetype, ArchetypeId, archetype)
+import Data.Aztecs.World (Component, Entity, World (..))
+import Data.Aztecs.World.Archetypes (Archetype, ArchetypeId, ArchetypeState (..), archetype)
 import qualified Data.Aztecs.World.Archetypes as A
 import Data.Foldable (foldrM)
-import Data.Maybe (fromMaybe, listToMaybe)
+import qualified Data.Map as Map
 import Data.Set (Set)
 import Data.Typeable
 import Prelude hiding (all, read)
@@ -82,10 +81,12 @@ buildQuery (BindQ a _) = buildQuery a
 buildQuery (LiftQ _) = mempty
 
 all :: (MonadIO m) => ArchetypeId -> Query m a -> World -> m [a]
-all a qb w@(World _ as) = all' (A.getArchetype a as) qb w
+all a qb w@(World _ as) = case A.getArchetype a as of
+  Just s -> all' s qb w
+  Nothing -> return []
 
-all' :: (MonadIO m) => [Entity] -> Query m a -> World -> m [a]
-all' es q w =
+all' :: (MonadIO m) => ArchetypeState -> Query m a -> World -> m [a]
+all' es@(ArchetypeState _ m _) q w =
   foldrM
     ( \e acc -> do
         a <- get' e es q w
@@ -94,12 +95,14 @@ all' es q w =
           Nothing -> acc
     )
     []
-    es
+    (Map.keys m)
 
 get :: (MonadIO m) => ArchetypeId -> Query m a -> Entity -> World -> m (Maybe a)
-get a qb e w@(World _ as) = get' e (A.getArchetype a as) qb w
+get a qb e w@(World _ as) = case A.getArchetype a as of
+  Just s -> get' e s qb w
+  Nothing -> return Nothing
 
-get' :: (MonadIO m) => Entity -> [Entity] -> Query m a -> World -> m (Maybe a)
+get' :: (MonadIO m) => Entity -> ArchetypeState -> Query m a -> World -> m (Maybe a)
 get' _ _ (PureQ a) _ = return $ Just a
 get' e es (MapQ f qb) w = do
   a <- get' e es qb w
@@ -108,16 +111,21 @@ get' e es (AppQ fqb aqb) w = do
   f <- get' e es fqb w
   a <- get' e es aqb w
   return $ f <*> a
-get' e es EntityQ _ = return $ if e `elem` es then Just e else Nothing
-get' e _ (ReadQ p _) w = do
-  es' <- liftIO $ fromMaybe (pure []) (fmap S.toList (getRow p w))
-  let es'' = filter (\(EntityComponent e' _) -> e == e') es'
-  return $ fmap (\(EntityComponent _ c) -> c) (listToMaybe es'')
-get' e _ (WriteQ p f _) w = do
-  es' <- liftIO $ fromMaybe (pure []) (fmap S.toList' (getRow p w))
-  let es'' = filter (\(EntityComponent e' _, _) -> e == e') es'
-  liftIO $ mapM_ (\(EntityComponent _ c, g) -> g (f c)) es''
-  return $ fmap (\(EntityComponent _ c, _) -> c) (listToMaybe es'')
+get' e _ EntityQ _ = return $ Just e
+get' e (ArchetypeState _ m _) (ReadQ _ _) _ = return $ do
+  cs <- Map.lookup e m
+  (c, _) <- A.getArchetypeComponent cs
+  return c
+get' e (ArchetypeState _ m _) (WriteQ _ f _) _ = do
+  let res = do
+        cs <- Map.lookup e m
+        A.getArchetypeComponent cs
+  case res of
+    Just (c, g) -> do
+      let c' = f c
+      liftIO $ g c'
+      return $ Just c'
+    Nothing -> return Nothing
 get' e es (BindQ qb f) w = do
   a <- get' e es qb w
   case a of
