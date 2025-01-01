@@ -76,7 +76,7 @@ buildQuery (AppQB f a) = buildQuery f <> buildQuery a
 buildQuery EntityQB = mempty
 buildQuery (ReadQB _ a) = a
 buildQuery (WriteQB _ _ a) = a
-buildQuery (BindQB a f) = buildQuery a
+buildQuery (BindQB a _) = buildQuery a
 
 all :: ArchetypeId -> Query a -> World -> IO [a]
 all a qb w@(World _ as) = all' (A.getArchetype a as) qb w

@@ -14,6 +14,7 @@ module Data.Aztecs.System
     runAccess,
     runAccess',
     all,
+    get,
     command,
     System (..),
     runSystem,
@@ -23,13 +24,12 @@ where
 
 import Control.Monad.IO.Class
 import Data.Aztecs.Command
-import Data.Aztecs.Query
-  ( Query (..),
-  )
+import Data.Aztecs.Query (Query (..))
 import qualified Data.Aztecs.Query as Q
-import Data.Aztecs.World (World (..))
+import Data.Aztecs.World (Entity, World (..))
 import Data.Aztecs.World.Archetypes (Archetype, ArchetypeId)
 import qualified Data.Aztecs.World.Archetypes as A
+import Data.Foldable (foldrM)
 import Data.Kind
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -44,7 +44,8 @@ data Access (m :: Type -> Type) a where
   MapA :: (a -> b) -> Access m a -> Access m b
   AppA :: Access m (a -> b) -> Access m a -> Access m b
   BindA :: Access m a -> (a -> Access m b) -> Access m b
-  AllA :: Query a -> Access m [a]
+  AllA :: Archetype -> Query a -> Access m [a]
+  GetA :: Archetype -> Query a -> Entity -> Access m (Maybe a)
   CommandA :: Command m () -> Access m ()
   LiftIO :: IO a -> Access m a
 
@@ -90,12 +91,17 @@ runAccess (BindA a f) w cache = do
   case a' of
     Left a'' -> return (Left (BindA a'' f), w', cache', cmds)
     Right a'' -> runAccess (f a'') w' cache'
-runAccess (AllA qb) (World cs as) (Cache cache) = case Map.lookup (Q.buildQuery qb) cache of
-  Just q' -> do
-    let (q, w) = (q', World cs as)
-    es <- Q.all q qb w
-    return (Right es, World cs as, Cache cache, [])
-  Nothing -> return (Left (AllA qb), World cs as, Cache cache, [])
+runAccess (AllA a qb) w (Cache cache) = case Map.lookup (Q.buildQuery qb) cache of
+  Just aId -> do
+    es <- Q.all aId qb w
+    return (Right es, w, Cache cache, [])
+  Nothing -> return (Left (AllA a qb), w, Cache cache, [])
+runAccess (GetA arch q e) w (Cache cache) = do
+  case Map.lookup arch cache of
+    Just aId -> do
+      a <- Q.get aId q e w
+      return (Right a, w, Cache cache, [])
+    Nothing -> return (Left (GetA arch q e), w, Cache cache, [])
 runAccess (CommandA cmd) w cache = return (Right (), w, cache, [cmd])
 runAccess (LiftIO io) w cache = do
   a <- liftIO io
@@ -114,7 +120,7 @@ runAccess' (BindA a f) w cache = do
   (a', w', cache', cmds) <- runAccess' a w cache
   (b, w'', cache'', cmds') <- runAccess' (f a') w' cache'
   return (b, w'', cache'', cmds ++ cmds')
-runAccess' (AllA qb) (World cs as) (Cache cache) = do
+runAccess' (AllA _ qb) (World cs as) (Cache cache) = do
   (aId, w) <- case Map.lookup (Q.buildQuery qb) cache of
     Just q' -> return (q', World cs as)
     Nothing -> do
@@ -122,6 +128,14 @@ runAccess' (AllA qb) (World cs as) (Cache cache) = do
       return (x, World cs as')
   es <- Q.all aId qb w
   return (es, w, Cache cache, [])
+runAccess' (GetA arch q e) (World cs as) (Cache cache) = do
+  (aId, w) <- case Map.lookup arch cache of
+    Just q' -> return (q', World cs as)
+    Nothing -> do
+      (x, as') <- A.insertArchetype arch cs as
+      return (x, World cs as')
+  a <- Q.get aId q e w
+  return (a, w, Cache cache, [])
 runAccess' (CommandA cmd) w cache = return ((), w, cache, [cmd])
 runAccess' (LiftIO io) w cache = do
   a <- liftIO io
@@ -129,7 +143,54 @@ runAccess' (LiftIO io) w cache = do
 
 -- | Query all matches.
 all :: (Monad m) => Query a -> Access m [a]
-all = AllA
+all q = fst <$> all' mempty q
+
+all' :: (Monad m) => Archetype -> Query a -> Access m ([a], Archetype)
+all' arch (PureQB a) = pure ([a], arch)
+all' arch (MapQB f a) = all' arch (f <$> a)
+all' arch (AppQB f a) = all' arch (f <*> a)
+all' arch (BindQB a f) = do
+  (a', arch') <- all' arch a
+  foldrM
+    ( \q (acc, archAcc) -> do
+        (as, archAcc') <- all' archAcc (f q)
+        return (as ++ acc, archAcc')
+    )
+    ([], arch')
+    a'
+all' arch (ReadQB p arch') = do
+  let arch'' = (arch <> arch')
+  as <- AllA arch'' (ReadQB p arch')
+  return (as, arch'')
+all' arch (WriteQB p f arch') = do
+  let arch'' = (arch <> arch')
+  as <- AllA arch'' (WriteQB p f arch')
+  return (as, arch'')
+all' arch EntityQB = do
+  es <- AllA arch EntityQB
+  return (es, arch)
+
+get :: (Monad m) => Entity -> Query a -> Access m (Maybe a)
+get e q = fst <$> get' mempty e q
+
+get' :: (Monad m) => Archetype -> Entity -> Query a -> Access m (Maybe a, Archetype)
+get' arch _ (PureQB a) = pure (Just a, arch)
+get' arch e (MapQB f qb) = get' arch e (f <$> qb)
+get' arch e (AppQB f a) = get' arch e (f <*> a)
+get' arch e (BindQB a f) = do
+  (a', arch') <- get' arch e a
+  case fmap f a' of
+    Just a'' -> get' arch' e a''
+    Nothing -> return (Nothing, arch')
+get' arch e (ReadQB p arch') = do
+  let arch'' = (arch <> arch')
+  a <- GetA arch'' (ReadQB p arch') e
+  return (a, arch'')
+get' arch e (WriteQB p f arch') = do
+  let arch'' = (arch <> arch')
+  a <- GetA arch'' (WriteQB p f arch') e
+  return (a, arch'')
+get' arch e EntityQB = return (Just e, arch)
 
 command :: Command m () -> Access m ()
 command = CommandA
