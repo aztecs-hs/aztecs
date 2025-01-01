@@ -4,8 +4,6 @@
 
 module Data.Aztecs.SDL
   ( Keyboard (..),
-    SetupKeyboard (..),
-    KeyboardSystem (..),
     sdlPlugin,
   )
 where
@@ -13,7 +11,7 @@ where
 import Data.Aztecs
 import qualified Data.Aztecs.Command as C
 import qualified Data.Aztecs.Query as Q
-import qualified Data.Aztecs.Task as T
+import qualified Data.Aztecs.System as S
 import Data.Map (Map)
 import qualified Data.Map as Map
 import SDL
@@ -22,39 +20,35 @@ newtype Keyboard = Keyboard (Map Keycode InputMotion) deriving (Show)
 
 instance Component Keyboard
 
-data SetupKeyboard = SetupKeyboard
+data SetupKeyboard
 
 instance System IO SetupKeyboard where
-  access = pure SetupKeyboard
-  run SetupKeyboard = do
+  access = do
     initializeAll
     _ <- createWindow "SDL" defaultWindow
 
-    T.command $ do
+    S.command $ do
       _ <- C.spawn $ Keyboard Map.empty
       return ()
 
-data KeyboardSystem = KeyboardSystem (Query (Write Keyboard))
+data KeyboardSystem
 
 instance System IO KeyboardSystem where
-  access = KeyboardSystem <$> query Q.write
-  run (KeyboardSystem keys) = do
+  access = do
     events <- pollEvents
 
-    allKeys <- T.all keys
-
-    let f event acc = case eventPayload event of
+    let f event (Keyboard kb) = case eventPayload event of
           KeyboardEvent keyboardEvent ->
             let keyCode = keysymKeycode (keyboardEventKeysym keyboardEvent)
                 motion = keyboardEventKeyMotion keyboardEvent
-             in Map.insert keyCode motion acc
-          _ -> acc
-        (_, Keyboard keys') = map Q.unWrite allKeys !! 0
-        keys'' = foldr f keys' events
+             in Keyboard $ Map.insert keyCode motion kb
+          _ -> Keyboard kb
+        g kb = foldr f kb events
 
-    T.alter allKeys (const (Keyboard keys''))
+    _ <- S.all $ do
+      Q.write g
+
+    return ()
 
 sdlPlugin :: Scheduler IO
-sdlPlugin =
-  schedule @Startup @_ @SetupKeyboard []
-    <> schedule @Update @_ @KeyboardSystem []
+sdlPlugin = schedule @Startup @_ @SetupKeyboard [] <> schedule @Update @_ @KeyboardSystem []

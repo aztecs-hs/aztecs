@@ -18,6 +18,7 @@ module Data.Aztecs.System
     command,
     System (..),
     runSystem,
+    runSystem',
     Cache (..),
   )
 where
@@ -198,8 +199,13 @@ command = CommandA
 class (Typeable a) => System m a where
   access :: Access m ()
 
-runSystem :: forall a. (System IO a) => Cache -> World -> IO (Maybe (Access IO ()), Cache, [Command IO ()], World)
-runSystem cache w = do
+runSystem :: forall a. (System IO a) => World -> IO World
+runSystem w = do
+  (_, _, _, w') <- runSystem' @a (Cache mempty) w
+  return w'
+
+runSystem' :: forall a. (System IO a) => Cache -> World -> IO (Maybe (Access IO ()), Cache, [Command IO ()], World)
+runSystem' cache w = do
   (result, w', cache', cmds) <- runAccess (access @IO @a) w cache
   case result of
     Left a -> return (Just a, cache', cmds, w')
