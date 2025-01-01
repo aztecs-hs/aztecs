@@ -162,13 +162,13 @@ all' arch (BindQ a f) = do
 all' arch (LiftQ m) = do
   a <- LiftA m
   return ([a], arch)
-all' arch (ReadQ p arch') = do
+all' arch (ReadQ arch') = do
   let arch'' = (arch <> arch')
-  as <- AllA arch'' (ReadQ p arch')
+  as <- AllA arch'' (ReadQ arch')
   return (as, arch'')
-all' arch (WriteQ p f arch') = do
+all' arch (WriteQ f arch') = do
   let arch'' = (arch <> arch')
-  as <- AllA arch'' (WriteQ p f arch')
+  as <- AllA arch'' (WriteQ f arch')
   return (as, arch'')
 all' arch EntityQ = do
   es <- AllA arch EntityQ
@@ -189,13 +189,13 @@ get' arch e (BindQ a f) = do
 get' arch _ (LiftQ m) = do
   a <- LiftA m
   return (Just a, arch)
-get' arch e (ReadQ p arch') = do
+get' arch e (ReadQ arch') = do
   let arch'' = (arch <> arch')
-  a <- GetA arch'' (ReadQ p arch') e
+  a <- GetA arch'' (ReadQ arch') e
   return (a, arch'')
-get' arch e (WriteQ p f arch') = do
+get' arch e (WriteQ f arch') = do
   let arch'' = (arch <> arch')
-  a <- GetA arch'' (WriteQ p f arch') e
+  a <- GetA arch'' (WriteQ f arch') e
   return (a, arch'')
 get' arch e EntityQ = return (Just e, arch)
 

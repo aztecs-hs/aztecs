@@ -45,8 +45,8 @@ data Query m a where
   AppQ :: Query m (a -> b) -> Query m a -> Query m b
   BindQ :: Query m a -> (a -> Query m b) -> Query m b
   EntityQ :: Query m Entity
-  ReadQ :: (Component c) => Proxy c -> Archetype -> Query m c
-  WriteQ :: (Component c) => Proxy c -> (c -> c) -> Archetype -> Query m c
+  ReadQ :: (Component c) => Archetype -> Query m c
+  WriteQ :: (Component c) => (c -> c) -> Archetype -> Query m c
   LiftQ :: m a -> Query m a
 
 instance Functor (Query m) where
@@ -64,19 +64,19 @@ entity = EntityQ
 
 -- | Read a `Component`.
 read :: forall m c. (Component c) => Query m c
-read = ReadQ (Proxy :: Proxy c) (archetype @c)
+read = ReadQ (archetype @c)
 
 -- | Alter a `Component`.
 write :: forall m c. (Component c) => (c -> c) -> Query m c
-write c = WriteQ (Proxy :: Proxy c) c (archetype @c)
+write c = WriteQ c (archetype @c)
 
 buildQuery :: Query m a -> Archetype
 buildQuery (PureQ _) = mempty
 buildQuery (MapQ _ qb) = buildQuery qb
 buildQuery (AppQ f a) = buildQuery f <> buildQuery a
 buildQuery EntityQ = mempty
-buildQuery (ReadQ _ a) = a
-buildQuery (WriteQ _ _ a) = a
+buildQuery (ReadQ a) = a
+buildQuery (WriteQ _ a) = a
 buildQuery (BindQ a _) = buildQuery a
 buildQuery (LiftQ _) = mempty
 
@@ -112,11 +112,11 @@ get' e es (AppQ fqb aqb) w = do
   a <- get' e es aqb w
   return $ f <*> a
 get' e _ EntityQ _ = return $ Just e
-get' e (ArchetypeState _ m _) (ReadQ _ _) _ = return $ do
+get' e (ArchetypeState _ m _) (ReadQ _) _ = return $ do
   cs <- Map.lookup e m
   (c, _) <- A.getArchetypeComponent cs
   return c
-get' e (ArchetypeState _ m _) (WriteQ _ f _) _ = do
+get' e (ArchetypeState _ m _) (WriteQ f _) _ = do
   let res = do
         cs <- Map.lookup e m
         A.getArchetypeComponent cs
