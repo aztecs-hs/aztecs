@@ -10,11 +10,11 @@ import qualified Data.Aztecs.System as S
 import qualified Data.Aztecs.World as W
 import Data.Foldable (foldrM)
 
-data Position = Position Int deriving (Show)
+newtype Position = Position Int deriving (Show)
 
 instance Component Position
 
-data Velocity = Velocity Int deriving (Show)
+newtype Velocity = Velocity Int deriving (Show)
 
 instance Component Velocity
 

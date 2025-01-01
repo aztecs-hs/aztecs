@@ -18,11 +18,11 @@ import qualified Data.Aztecs.System as S
 
 -- Components
 
-data Position = Position Int deriving (Show)
+newtype Position = Position Int deriving (Show)
 
 instance Component Position
 
-data Velocity = Velocity Int deriving (Show)
+newtype Velocity = Velocity Int deriving (Show)
 
 instance Component Velocity
 

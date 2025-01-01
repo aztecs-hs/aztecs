@@ -10,7 +10,7 @@ import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.SDL
 import qualified Data.Aztecs.System as S
 
-data A = A (Query Keyboard)
+data A
 
 instance System IO A where
   access = do
