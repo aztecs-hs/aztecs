@@ -45,10 +45,10 @@ data Access (m :: Type -> Type) a where
   MapA :: (a -> b) -> Access m a -> Access m b
   AppA :: Access m (a -> b) -> Access m a -> Access m b
   BindA :: Access m a -> (a -> Access m b) -> Access m b
-  AllA :: Archetype -> Query a -> Access m [a]
-  GetA :: Archetype -> Query a -> Entity -> Access m (Maybe a)
+  AllA :: Archetype -> Query m a -> Access m [a]
+  GetA :: Archetype -> Query m a -> Entity -> Access m (Maybe a)
   CommandA :: Command m () -> Access m ()
-  LiftIO :: IO a -> Access m a
+  LiftA :: m a -> Access m a
 
 instance Functor (Access m) where
   fmap = MapA
@@ -61,7 +61,7 @@ instance (Monad m) => Monad (Access m) where
   (>>=) = BindA
 
 instance (MonadIO m) => MonadIO (Access m) where
-  liftIO = LiftIO
+  liftIO io = LiftA (liftIO io)
 
 runAccess :: Access IO a -> World -> Cache -> IO (Either (Access IO a) a, World, Cache, [Command IO ()])
 runAccess (PureA a) w c = return (Right a, w, c, [])
@@ -104,7 +104,7 @@ runAccess (GetA arch q e) w (Cache cache) = do
       return (Right a, w, Cache cache, [])
     Nothing -> return (Left (GetA arch q e), w, Cache cache, [])
 runAccess (CommandA cmd) w cache = return (Right (), w, cache, [cmd])
-runAccess (LiftIO io) w cache = do
+runAccess (LiftA io) w cache = do
   a <- liftIO io
   return (Right a, w, cache, [])
 
@@ -138,19 +138,19 @@ runAccess' (GetA arch q e) (World cs as) (Cache cache) = do
   a <- Q.get aId q e w
   return (a, w, Cache cache, [])
 runAccess' (CommandA cmd) w cache = return ((), w, cache, [cmd])
-runAccess' (LiftIO io) w cache = do
+runAccess' (LiftA io) w cache = do
   a <- liftIO io
   return (a, w, cache, [])
 
 -- | Query all matches.
-all :: (Monad m) => Query a -> Access m [a]
+all :: (Monad m) => Query m a -> Access m [a]
 all q = fst <$> all' mempty q
 
-all' :: (Monad m) => Archetype -> Query a -> Access m ([a], Archetype)
-all' arch (PureQB a) = pure ([a], arch)
-all' arch (MapQB f a) = all' arch (f <$> a)
-all' arch (AppQB f a) = all' arch (f <*> a)
-all' arch (BindQB a f) = do
+all' :: (Monad m) => Archetype -> Query m a -> Access m ([a], Archetype)
+all' arch (PureQ a) = pure ([a], arch)
+all' arch (MapQ f a) = all' arch (f <$> a)
+all' arch (AppQ f a) = all' arch (f <*> a)
+all' arch (BindQ a f) = do
   (a', arch') <- all' arch a
   foldrM
     ( \q (acc, archAcc) -> do
@@ -159,39 +159,45 @@ all' arch (BindQB a f) = do
     )
     ([], arch')
     a'
-all' arch (ReadQB p arch') = do
+all' arch (LiftQ m) = do
+  a <- LiftA m
+  return ([a], arch)
+all' arch (ReadQ p arch') = do
   let arch'' = (arch <> arch')
-  as <- AllA arch'' (ReadQB p arch')
+  as <- AllA arch'' (ReadQ p arch')
   return (as, arch'')
-all' arch (WriteQB p f arch') = do
+all' arch (WriteQ p f arch') = do
   let arch'' = (arch <> arch')
-  as <- AllA arch'' (WriteQB p f arch')
+  as <- AllA arch'' (WriteQ p f arch')
   return (as, arch'')
-all' arch EntityQB = do
-  es <- AllA arch EntityQB
+all' arch EntityQ = do
+  es <- AllA arch EntityQ
   return (es, arch)
 
-get :: (Monad m) => Entity -> Query a -> Access m (Maybe a)
+get :: (Monad m) => Entity -> Query m a -> Access m (Maybe a)
 get e q = fst <$> get' mempty e q
 
-get' :: (Monad m) => Archetype -> Entity -> Query a -> Access m (Maybe a, Archetype)
-get' arch _ (PureQB a) = pure (Just a, arch)
-get' arch e (MapQB f qb) = get' arch e (f <$> qb)
-get' arch e (AppQB f a) = get' arch e (f <*> a)
-get' arch e (BindQB a f) = do
+get' :: (Monad m) => Archetype -> Entity -> Query m a -> Access m (Maybe a, Archetype)
+get' arch _ (PureQ a) = pure (Just a, arch)
+get' arch e (MapQ f qb) = get' arch e (f <$> qb)
+get' arch e (AppQ f a) = get' arch e (f <*> a)
+get' arch e (BindQ a f) = do
   (a', arch') <- get' arch e a
   case fmap f a' of
     Just a'' -> get' arch' e a''
     Nothing -> return (Nothing, arch')
-get' arch e (ReadQB p arch') = do
+get' arch _ (LiftQ m) = do
+  a <- LiftA m
+  return (Just a, arch)
+get' arch e (ReadQ p arch') = do
   let arch'' = (arch <> arch')
-  a <- GetA arch'' (ReadQB p arch') e
+  a <- GetA arch'' (ReadQ p arch') e
   return (a, arch'')
-get' arch e (WriteQB p f arch') = do
+get' arch e (WriteQ p f arch') = do
   let arch'' = (arch <> arch')
-  a <- GetA arch'' (WriteQB p f arch') e
+  a <- GetA arch'' (WriteQ p f arch') e
   return (a, arch'')
-get' arch e EntityQB = return (Just e, arch)
+get' arch e EntityQ = return (Just e, arch)
 
 command :: Command m () -> Access m ()
 command = CommandA

@@ -19,6 +19,7 @@ module Data.Aztecs.Query
   )
 where
 
+import Control.Monad.IO.Class (MonadIO (..))
 import qualified Data.Aztecs.Storage as S
 import Data.Aztecs.World (Component, Entity, EntityComponent (..), World (..), getRow)
 import Data.Aztecs.World.Archetypes (Archetype, ArchetypeId, archetype)
@@ -39,49 +40,51 @@ instance Monoid ReadWrites where
   mempty = ReadWrites mempty mempty
 
 -- | Builder for a `Query`.
-data Query a where
-  PureQB :: a -> Query a
-  MapQB :: (a -> b) -> Query a -> Query b
-  AppQB :: Query (a -> b) -> Query a -> Query b
-  BindQB :: Query a -> (a -> Query b) -> Query b
-  EntityQB :: Query Entity
-  ReadQB :: (Component c) => Proxy c -> Archetype -> Query c
-  WriteQB :: (Component c) => Proxy c -> (c -> c) -> Archetype -> Query c
+data Query m a where
+  PureQ :: a -> Query m a
+  MapQ :: (a -> b) -> Query m a -> Query m b
+  AppQ :: Query m (a -> b) -> Query m a -> Query m b
+  BindQ :: Query m a -> (a -> Query m b) -> Query m b
+  EntityQ :: Query m Entity
+  ReadQ :: (Component c) => Proxy c -> Archetype -> Query m c
+  WriteQ :: (Component c) => Proxy c -> (c -> c) -> Archetype -> Query m c
+  LiftQ :: m a -> Query m a
 
-instance Functor Query where
-  fmap = MapQB
+instance Functor (Query m) where
+  fmap = MapQ
 
-instance Applicative Query where
-  pure = PureQB
-  (<*>) = AppQB
+instance Applicative (Query m) where
+  pure = PureQ
+  (<*>) = AppQ
 
-instance Monad Query where
-  (>>=) = BindQB
+instance Monad (Query m) where
+  (>>=) = BindQ
 
-entity :: Query Entity
-entity = EntityQB
+entity :: Query m Entity
+entity = EntityQ
 
 -- | Read a `Component`.
-read :: forall c. (Component c) => Query c
-read = ReadQB (Proxy :: Proxy c) (archetype @c)
+read :: forall m c. (Component c) => Query m c
+read = ReadQ (Proxy :: Proxy c) (archetype @c)
 
 -- | Alter a `Component`.
-write :: forall c. (Component c) => (c -> c) -> Query c
-write c = WriteQB (Proxy :: Proxy c) c (archetype @c)
+write :: forall m c. (Component c) => (c -> c) -> Query m c
+write c = WriteQ (Proxy :: Proxy c) c (archetype @c)
 
-buildQuery :: Query a -> Archetype
-buildQuery (PureQB _) = mempty
-buildQuery (MapQB _ qb) = buildQuery qb
-buildQuery (AppQB f a) = buildQuery f <> buildQuery a
-buildQuery EntityQB = mempty
-buildQuery (ReadQB _ a) = a
-buildQuery (WriteQB _ _ a) = a
-buildQuery (BindQB a _) = buildQuery a
+buildQuery :: Query m a -> Archetype
+buildQuery (PureQ _) = mempty
+buildQuery (MapQ _ qb) = buildQuery qb
+buildQuery (AppQ f a) = buildQuery f <> buildQuery a
+buildQuery EntityQ = mempty
+buildQuery (ReadQ _ a) = a
+buildQuery (WriteQ _ _ a) = a
+buildQuery (BindQ a _) = buildQuery a
+buildQuery (LiftQ _) = mempty
 
-all :: ArchetypeId -> Query a -> World -> IO [a]
+all :: (MonadIO m) => ArchetypeId -> Query m a -> World -> m [a]
 all a qb w@(World _ as) = all' (A.getArchetype a as) qb w
 
-all' :: [Entity] -> Query a -> World -> IO [a]
+all' :: (MonadIO m) => [Entity] -> Query m a -> World -> m [a]
 all' es q w =
   foldrM
     ( \e acc -> do
@@ -93,30 +96,31 @@ all' es q w =
     []
     es
 
-get :: ArchetypeId -> Query a -> Entity -> World -> IO (Maybe a)
+get :: (MonadIO m) => ArchetypeId -> Query m a -> Entity -> World -> m (Maybe a)
 get a qb e w@(World _ as) = get' e (A.getArchetype a as) qb w
 
-get' :: Entity -> [Entity] -> Query a -> World -> IO (Maybe a)
-get' _ _ (PureQB a) _ = return $ Just a
-get' e es (MapQB f qb) w = do
+get' :: (MonadIO m) => Entity -> [Entity] -> Query m a -> World -> m (Maybe a)
+get' _ _ (PureQ a) _ = return $ Just a
+get' e es (MapQ f qb) w = do
   a <- get' e es qb w
   return $ fmap f a
-get' e es (AppQB fqb aqb) w = do
+get' e es (AppQ fqb aqb) w = do
   f <- get' e es fqb w
   a <- get' e es aqb w
   return $ f <*> a
-get' e es EntityQB _ = return $ if e `elem` es then Just e else Nothing
-get' e _ (ReadQB p _) w = do
-  es' <- fromMaybe (pure []) (fmap S.toList (getRow p w))
+get' e es EntityQ _ = return $ if e `elem` es then Just e else Nothing
+get' e _ (ReadQ p _) w = do
+  es' <- liftIO $ fromMaybe (pure []) (fmap S.toList (getRow p w))
   let es'' = filter (\(EntityComponent e' _) -> e == e') es'
   return $ fmap (\(EntityComponent _ c) -> c) (listToMaybe es'')
-get' e _ (WriteQB p f _) w = do
-  es' <- fromMaybe (pure []) (fmap S.toList' (getRow p w))
+get' e _ (WriteQ p f _) w = do
+  es' <- liftIO $ fromMaybe (pure []) (fmap S.toList' (getRow p w))
   let es'' = filter (\(EntityComponent e' _, _) -> e == e') es'
-  mapM_ (\(EntityComponent _ c, g) -> g (f c)) es''
+  liftIO $ mapM_ (\(EntityComponent _ c, g) -> g (f c)) es''
   return $ fmap (\(EntityComponent _ c, _) -> c) (listToMaybe es'')
-get' e es (BindQB qb f) w = do
+get' e es (BindQ qb f) w = do
   a <- get' e es qb w
   case a of
     Just a' -> get' e es (f a') w
     Nothing -> return Nothing
+get' _ _ (LiftQ a) _ = fmap Just a
