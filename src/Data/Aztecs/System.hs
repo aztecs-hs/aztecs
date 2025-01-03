@@ -3,9 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -31,7 +29,6 @@ import Data.Aztecs.World (Entity, World (..))
 import Data.Aztecs.World.Archetypes (Archetype, ArchetypeId)
 import qualified Data.Aztecs.World.Archetypes as A
 import Data.Foldable (foldrM)
-import Data.Kind
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Typeable
@@ -40,7 +37,7 @@ import Prelude hiding (all, read)
 newtype Cache = Cache (Map Archetype ArchetypeId)
   deriving (Semigroup, Monoid)
 
-data Access (m :: Type -> Type) a where
+data Access m a where
   PureA :: a -> Access m a
   MapA :: (a -> b) -> Access m a -> Access m b
   AppA :: Access m (a -> b) -> Access m a -> Access m b
@@ -62,6 +59,16 @@ instance (Monad m) => Monad (Access m) where
 
 instance (MonadIO m) => MonadIO (Access m) where
   liftIO io = LiftA (liftIO io)
+
+buildQuery :: Query m a -> Archetype
+buildQuery (PureQ _) = mempty
+buildQuery (MapQ _ qb) = buildQuery qb
+buildQuery (AppQ f a) = buildQuery f <> buildQuery a
+buildQuery EntityQ = mempty
+buildQuery (ReadQ a) = a
+buildQuery (WriteQ _ a) = a
+buildQuery (BindQ a _) = buildQuery a
+buildQuery (LiftQ _) = mempty
 
 runAccess :: Access IO a -> World -> Cache -> IO (Either (Access IO a) a, World, Cache, [Command IO ()])
 runAccess (PureA a) w c = return (Right a, w, c, [])
@@ -92,7 +99,7 @@ runAccess (BindA a f) w cache = do
   case a' of
     Left a'' -> return (Left (BindA a'' f), w', cache', cmds)
     Right a'' -> runAccess (f a'') w' cache'
-runAccess (AllA a qb) w (Cache cache) = case Map.lookup (Q.buildQuery qb) cache of
+runAccess (AllA a qb) w (Cache cache) = case Map.lookup (buildQuery qb) cache of
   Just aId -> do
     es <- Q.all aId qb w
     return (Right es, w, Cache cache, [])
@@ -122,10 +129,10 @@ runAccess' (BindA a f) w cache = do
   (b, w'', cache'', cmds') <- runAccess' (f a') w' cache'
   return (b, w'', cache'', cmds ++ cmds')
 runAccess' (AllA _ qb) (World cs as) (Cache cache) = do
-  (aId, w) <- case Map.lookup (Q.buildQuery qb) cache of
+  (aId, w) <- case Map.lookup (buildQuery qb) cache of
     Just q' -> return (q', World cs as)
     Nothing -> do
-      (x, as') <- A.insertArchetype (Q.buildQuery qb) cs as
+      (x, as') <- A.insertArchetype (buildQuery qb) cs as
       return (x, World cs as')
   es <- Q.all aId qb w
   return (es, w, Cache cache, [])
@@ -205,14 +212,10 @@ command = CommandA
 class (Typeable a) => System m a where
   access :: Access m ()
 
-runSystem :: forall a. (System IO a) => World -> IO World
-runSystem w = do
-  (_, _, _, w') <- runSystem' @a (Cache mempty) w
-  return w'
+runSystem :: forall a. (System IO a) => World -> IO (World)
+runSystem w = snd <$> runSystem' @a (Cache mempty) w
 
-runSystem' :: forall a. (System IO a) => Cache -> World -> IO (Maybe (Access IO ()), Cache, [Command IO ()], World)
-runSystem' cache w = do
-  (result, w', cache', cmds) <- runAccess (access @IO @a) w cache
-  case result of
-    Left a -> return (Just a, cache', cmds, w')
-    Right _ -> return (Nothing, cache', cmds, w')
+runSystem' :: forall a. (System IO a) => Cache -> World -> IO (Cache, World)
+runSystem' c w = do
+  (_, w', c', _) <- runAccess' (access @_ @a) w c
+  return (c', w')

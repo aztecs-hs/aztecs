@@ -6,7 +6,6 @@ module Data.Aztecs.Command
   ( Command (..),
     spawn,
     insert,
-    Edit (..),
   )
 where
 
@@ -16,12 +15,7 @@ import qualified Control.Monad.State as S
 import Data.Aztecs.World (Component, Entity, World)
 import qualified Data.Aztecs.World as W
 import Data.Dynamic (Typeable)
-import Data.Proxy
 import Prelude hiding (all)
-
-data Edit where
-  Spawn :: (Component c) => Entity -> (Proxy c) -> Edit
-  Insert :: (Component c) => Entity -> (Proxy c) -> Edit
 
 -- | Command to update the `World`.
 newtype Command m a = Command (StateT World m a)

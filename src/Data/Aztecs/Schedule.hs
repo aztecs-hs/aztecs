@@ -119,7 +119,11 @@ runNode (Node p cache) w =
   runSystemProxy p cache w <&> (\(next, a', cmds, w') -> (Node p a', next, cmds, w'))
 
 runSystemProxy :: forall a. (System IO a) => Proxy a -> Cache -> World -> IO (Maybe (Access IO ()), Cache, [Command IO ()], World)
-runSystemProxy _ = runSystem' @a
+runSystemProxy _ cache w = do
+  (result, w', cache', cmds) <- runAccess (access @IO @a) w cache
+  case result of
+    Left a -> return (Just a, cache', cmds, w')
+    Right _ -> return (Nothing, cache', cmds, w')
 
 -- | Run a `Command`, returning any temporary `Entity`s and the updated `World`.
 runCommand :: Command IO () -> World -> IO (World)

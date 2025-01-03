@@ -5,7 +5,7 @@
 import Criterion.Main
 import Data.Aztecs
 import qualified Data.Aztecs.Query as Q
-import Data.Aztecs.System (runSystem)
+import Data.Aztecs.System (Cache, runSystem')
 import qualified Data.Aztecs.System as S
 import qualified Data.Aztecs.World as W
 import Data.Foldable (foldrM)
@@ -27,9 +27,9 @@ instance System IO S where
       Q.write (\(Position x) -> Position (x + y))
     return ()
 
-runner :: World -> IO ()
-runner w = do
-  !_ <- runSystem @S w
+runner :: Cache -> World -> IO ()
+runner c w = do
+  !_ <- runSystem' @S c w
   return ()
 
 main :: IO ()
@@ -37,9 +37,11 @@ main = do
   !w <-
     foldrM
       ( \_ wAcc -> do
-          (_, wAcc') <- W.spawn (Position 0) wAcc
-          return wAcc'
+          (e, wAcc') <- W.spawn (Position 0) wAcc
+          wAcc'' <- W.insert e (Velocity 1) wAcc'
+          return wAcc''
       )
       W.newWorld
       [0 :: Int .. 10000]
-  defaultMain [bench "iter" $ nfIO (runner w)]
+  !(c, w') <- runSystem' @S mempty w
+  defaultMain [bench "iter" $ nfIO (runner c w')]

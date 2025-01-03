@@ -19,9 +19,7 @@ module Data.Aztecs
   )
 where
 
-import Data.Aztecs.Query
-  ( Query (..),
-  )
+import Data.Aztecs.Query (Query (..))
 import Data.Aztecs.Schedule
 import Data.Aztecs.System
 import Data.Aztecs.Task (Task (..))

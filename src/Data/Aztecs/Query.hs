@@ -10,12 +10,9 @@ module Data.Aztecs.Query
     Query (..),
     entity,
     read,
-    buildQuery,
-    all,
-    all',
-    get,
-    get',
     write,
+    all,
+    get,
   )
 where
 
@@ -38,7 +35,7 @@ instance Semigroup ReadWrites where
 instance Monoid ReadWrites where
   mempty = ReadWrites mempty mempty
 
--- | Builder for a `Query`.
+-- | Query to access components.
 data Query m a where
   PureQ :: a -> Query m a
   MapQ :: (a -> b) -> Query m a -> Query m b
@@ -70,32 +67,19 @@ read = ReadQ (archetype @c)
 write :: forall m c. (Component c) => (c -> c) -> Query m c
 write c = WriteQ c (archetype @c)
 
-buildQuery :: Query m a -> Archetype
-buildQuery (PureQ _) = mempty
-buildQuery (MapQ _ qb) = buildQuery qb
-buildQuery (AppQ f a) = buildQuery f <> buildQuery a
-buildQuery EntityQ = mempty
-buildQuery (ReadQ a) = a
-buildQuery (WriteQ _ a) = a
-buildQuery (BindQ a _) = buildQuery a
-buildQuery (LiftQ _) = mempty
-
 all :: (MonadIO m) => ArchetypeId -> Query m a -> World -> m [a]
-all a qb w@(World _ as) = case A.getArchetype a as of
-  Just s -> all' s qb w
+all aId q w@(World _ as) = case A.getArchetype aId as of
+  Just s@(ArchetypeState _ m _) ->
+    foldrM
+      ( \e acc -> do
+          a <- get' e s q w
+          return $ case a of
+            Just a' -> (a' : acc)
+            Nothing -> acc
+      )
+      []
+      (Map.keys m)
   Nothing -> return []
-
-all' :: (MonadIO m) => ArchetypeState -> Query m a -> World -> m [a]
-all' es@(ArchetypeState _ m _) q w =
-  foldrM
-    ( \e acc -> do
-        a <- get' e es q w
-        return $ case a of
-          Just a' -> (a' : acc)
-          Nothing -> acc
-    )
-    []
-    (Map.keys m)
 
 get :: (MonadIO m) => ArchetypeId -> Query m a -> Entity -> World -> m (Maybe a)
 get a qb e w@(World _ as) = case A.getArchetype a as of
