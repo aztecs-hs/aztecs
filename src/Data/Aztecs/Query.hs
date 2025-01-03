@@ -67,14 +67,14 @@ read = ReadQ (archetype @c)
 write :: forall m c. (Component c) => (c -> c) -> Query m c
 write c = WriteQ c (archetype @c)
 
-all :: (MonadIO m) => ArchetypeId -> Query m a -> World -> m [a]
+all :: (MonadIO m) => ArchetypeId -> Query m a -> World -> m [(Entity, a)]
 all aId q w@(World _ as) = case A.getArchetype aId as of
   Just s@(ArchetypeState _ m _) ->
     foldrM
       ( \e acc -> do
           a <- get' e s q w
           return $ case a of
-            Just a' -> (a' : acc)
+            Just a' -> ((e, a') : acc)
             Nothing -> acc
       )
       []

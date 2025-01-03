@@ -42,7 +42,7 @@ data Access m a where
   MapA :: (a -> b) -> Access m a -> Access m b
   AppA :: Access m (a -> b) -> Access m a -> Access m b
   BindA :: Access m a -> (a -> Access m b) -> Access m b
-  AllA :: Archetype -> Query m a -> Access m [a]
+  AllA :: Archetype -> Query m a -> Access m [(Entity, a)]
   GetA :: Archetype -> Query m a -> Entity -> Access m (Maybe a)
   CommandA :: Command m () -> Access m ()
   LiftA :: m a -> Access m a
@@ -151,24 +151,28 @@ runAccess' (LiftA io) w cache = do
 
 -- | Query all matches.
 all :: (Monad m) => Query m a -> Access m [a]
-all q = fst <$> all' mempty q
+all q = do
+  (as, _) <- all' mempty q
+  return (map snd as)
 
-all' :: (Monad m) => Archetype -> Query m a -> Access m ([a], Archetype)
-all' arch (PureQ a) = pure ([a], arch)
+all' :: (Monad m) => Archetype -> Query m a -> Access m ([(Entity, a)], Archetype)
+all' arch (PureQ _) = pure ([], arch)
 all' arch (MapQ f a) = all' arch (f <$> a)
 all' arch (AppQ f a) = all' arch (f <*> a)
 all' arch (BindQ a f) = do
-  (a', arch') <- all' arch a
+  (as, arch') <- all' arch a
   foldrM
-    ( \q (acc, archAcc) -> do
-        (as, archAcc') <- all' archAcc (f q)
-        return (as ++ acc, archAcc')
+    ( \(e, a') (acc, archAcc) -> do
+        (b, archAcc') <- get' archAcc e (f a')
+        case b of
+          Just b' -> return ((e, b') : acc, archAcc')
+          Nothing -> return (acc, archAcc')
     )
     ([], arch')
-    a'
+    as
 all' arch (LiftQ m) = do
-  a <- LiftA m
-  return ([a], arch)
+  _ <- LiftA m
+  return ([], arch)
 all' arch (ReadQ arch') = do
   let arch'' = (arch <> arch')
   as <- AllA arch'' (ReadQ arch')
