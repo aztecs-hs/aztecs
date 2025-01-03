@@ -45,6 +45,8 @@ spawn c (Components w (Entity e)) = do
   w' <- insert (Entity e) c (Components w (Entity $ e + 1))
   return (Entity e, w')
 
+-- | Insert a component into an `Entity`.
+-- If the component already exists, it will be replaced.
 insert :: forall c. (Component c) => Entity -> c -> Components -> IO Components
 insert e c (Components w e') = do
   w' <-

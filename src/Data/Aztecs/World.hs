@@ -33,6 +33,24 @@ newWorld = World newComponents newArchetypes
 union :: World -> World -> World
 union (World cs as) (World cs' _) = World (C.union cs cs') as
 
+-- | Spawn an entity with a component.
+--
+-- == Examples
+--
+-- >>> :set -XTypeApplications
+-- >>>
+-- >>> -- Define a component.
+-- >>> newtype Position = Position Int deriving (Show)
+-- >>>
+-- >>> instance Component Position
+-- >>>
+-- >>> -- Spawn an entity with a `Position` component.
+-- >>> (e, w) <- spawn (Position 0) newWorld
+-- >>>
+-- >>> -- Get the `Position` component of the newly spawned entity.
+-- >>> res <- get @Position e w
+-- >>> res
+-- Just (Position 0)
 spawn :: forall c. (Component c) => c -> World -> IO (Entity, World)
 spawn c (World cs as) = do
   (e, cs') <- C.spawn c cs
@@ -43,8 +61,15 @@ insert e c (World cs as) = do
   cs' <- C.insert e c cs
   return $ World cs' (A.insert @c e cs' as)
 
-get :: forall c. (Component c) => Entity -> World -> IO (Maybe (c, c -> World -> IO World))
-get e (World cs _) = do
+get :: forall c. (Component c) => Entity -> World -> IO (Maybe c)
+get e w = do
+  c <- get' e w
+  case c of
+    Just (c', _) -> return $ Just c'
+    Nothing -> return Nothing
+
+get' :: forall c. (Component c) => Entity -> World -> IO (Maybe (c, c -> World -> IO World))
+get' e (World cs _) = do
   res <- C.get e cs
   case res of
     Just (c, f) ->
