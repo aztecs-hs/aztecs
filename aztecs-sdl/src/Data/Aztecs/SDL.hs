@@ -22,7 +22,7 @@ newtype Keyboard = Keyboard (Map Keycode InputMotion) deriving (Show)
 
 instance Component Keyboard
 
-setupKeyboard :: Access IO ()
+setupKeyboard :: System IO ()
 setupKeyboard = do
   initializeAll
   _ <- createWindow "SDL" defaultWindow
@@ -31,7 +31,7 @@ setupKeyboard = do
     _ <- C.spawn $ Keyboard Map.empty
     return ()
 
-updateKeyboard :: Access IO ()
+updateKeyboard :: System IO ()
 updateKeyboard = do
   events <- pollEvents
 

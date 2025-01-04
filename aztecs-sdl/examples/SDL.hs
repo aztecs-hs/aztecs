@@ -9,7 +9,7 @@ import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.SDL
 import qualified Data.Aztecs.System as S
 
-run :: Access IO ()
+run :: System IO ()
 run = do
   keys <- S.all (Q.read @_ @Keyboard)
   liftIO $ print keys

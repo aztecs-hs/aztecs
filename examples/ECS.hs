@@ -21,12 +21,12 @@ instance Component Velocity
 
 -- Systems
 
-setup :: Access IO ()
+setup :: System IO ()
 setup = S.command $ do
   e <- C.spawn (Position 0)
   C.insert e (Velocity 1)
 
-run :: Access IO ()
+run :: System IO ()
 run = do
   -- Update all entities with a `Position` and `Velocity` component.
   positions <- S.all $ do

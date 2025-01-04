@@ -4,7 +4,6 @@ module Data.Aztecs
     Component (..),
     World,
     Query,
-    Access (..),
     System (..),
     SystemId (..),
     Constraint (..),

@@ -58,7 +58,7 @@ after :: SystemId -> Constraint
 after = After
 
 data Node m where
-  Node :: Access m () -> Cache -> Node m
+  Node :: System m () -> Cache -> Node m
 
 data ScheduleNode m = ScheduleNode (Node m) [Constraint]
 
@@ -118,13 +118,13 @@ build (Schedule s) =
         )
         nodes
 
-runNode :: Node IO -> World -> IO (Node IO, Maybe (Access IO ()), [Command IO ()], World)
+runNode :: Node IO -> World -> IO (Node IO, Maybe (System IO ()), [Command IO ()], World)
 runNode (Node s cache) w =
   runSystemProxy s cache w <&> (\(next, a', cmds, w') -> (Node s a', next, cmds, w'))
 
-runSystemProxy :: Access IO () -> Cache -> World -> IO (Maybe (Access IO ()), Cache, [Command IO ()], World)
+runSystemProxy :: System IO () -> Cache -> World -> IO (Maybe (System IO ()), Cache, [Command IO ()], World)
 runSystemProxy s cache w = do
-  (result, w', cache', cmds) <- runAccess s w cache
+  (result, w', cache', cmds) <- runSystem s w cache
   case result of
     Left a -> return (Just a, cache', cmds, w')
     Right _ -> return (Nothing, cache', cmds, w')
@@ -158,7 +158,7 @@ runSchedule nodes w =
           foldrM
             ( \(a, (GraphNode (Node p cache) as bs)) (wAcc, nodeAcc', cmdAcc) -> case a of
                 Just a' -> do
-                  ((), wAcc', cache', cmdAcc') <- runAccess' a' wAcc cache
+                  ((), wAcc', cache', cmdAcc') <- runSystem' a' wAcc cache
                   return (wAcc', (GraphNode (Node p cache') as bs) : nodeAcc', cmdAcc' ++ cmdAcc)
                 Nothing -> return (w, (GraphNode (Node p cache) as bs) : nodeAcc', cmdAcc)
             )
@@ -177,7 +177,7 @@ newtype Scheduler m a = Scheduler (StateT (Map Stage (Schedule m), SystemId) m a
 data Stage = Startup | Update
   deriving (Eq, Ord)
 
-schedule :: (Monad m) => Stage -> [Constraint] -> Access m () -> Scheduler m SystemId
+schedule :: (Monad m) => Stage -> [Constraint] -> System m () -> Scheduler m SystemId
 schedule stage cs s = Scheduler $ do
   (m, SystemId i) <- S.get
   let m' = Map.insert stage (Schedule (Map.singleton (SystemId i) (ScheduleNode (Node s mempty) cs))) m

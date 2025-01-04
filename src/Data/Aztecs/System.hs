@@ -8,15 +8,14 @@
 {-# LANGUAGE TypeApplications #-}
 
 module Data.Aztecs.System
-  ( Access (..),
-    runAccess,
-    runAccess',
+  ( System (..),
+    runSystem,
+    runSystem',
     all,
     get,
     command,
-    System (..),
-    runSystem,
-    runSystem',
+    runSystemOnce,
+    runSystemOnce',
     Cache (..),
   )
 where
@@ -37,27 +36,27 @@ import Prelude hiding (all, read)
 newtype Cache = Cache (Map Archetype ArchetypeId)
   deriving (Semigroup, Monoid)
 
-data Access m a where
-  PureA :: a -> Access m a
-  MapA :: (a -> b) -> Access m a -> Access m b
-  AppA :: Access m (a -> b) -> Access m a -> Access m b
-  BindA :: Access m a -> (a -> Access m b) -> Access m b
-  AllA :: Archetype -> Query m a -> Access m [(Entity, a)]
-  GetA :: Archetype -> Query m a -> Entity -> Access m (Maybe a)
-  CommandA :: Command m () -> Access m ()
-  LiftA :: m a -> Access m a
+data System m a where
+  PureA :: a -> System m a
+  MapA :: (a -> b) -> System m a -> System m b
+  AppA :: System m (a -> b) -> System m a -> System m b
+  BindA :: System m a -> (a -> System m b) -> System m b
+  AllA :: Archetype -> Query m a -> System m [(Entity, a)]
+  GetA :: Archetype -> Query m a -> Entity -> System m (Maybe a)
+  CommandA :: Command m () -> System m ()
+  LiftA :: m a -> System m a
 
-instance Functor (Access m) where
+instance Functor (System m) where
   fmap = MapA
 
-instance (Monad m) => Applicative (Access m) where
+instance (Monad m) => Applicative (System m) where
   pure = PureA
   (<*>) = AppA
 
-instance (Monad m) => Monad (Access m) where
+instance (Monad m) => Monad (System m) where
   (>>=) = BindA
 
-instance (MonadIO m) => MonadIO (Access m) where
+instance (MonadIO m) => MonadIO (System m) where
   liftIO io = LiftA (liftIO io)
 
 buildQuery :: Query m a -> Archetype
@@ -70,10 +69,10 @@ buildQuery (WriteQ _ a) = a
 buildQuery (BindQ a _) = buildQuery a
 buildQuery (LiftQ _) = mempty
 
-runAccess :: Access IO a -> World -> Cache -> IO (Either (Access IO a) a, World, Cache, [Command IO ()])
-runAccess (PureA a) w c = return (Right a, w, c, [])
-runAccess (MapA f a) w cache = do
-  (a', w', cache', cmds) <- runAccess a w cache
+runSystem :: System IO a -> World -> Cache -> IO (Either (System IO a) a, World, Cache, [Command IO ()])
+runSystem (PureA a) w c = return (Right a, w, c, [])
+runSystem (MapA f a) w cache = do
+  (a', w', cache', cmds) <- runSystem a w cache
   return
     ( case a' of
         Left a'' -> Left (MapA f a'')
@@ -82,9 +81,9 @@ runAccess (MapA f a) w cache = do
       cache',
       cmds
     )
-runAccess (AppA f a) w cache = do
-  (f', w', cache', cmds) <- runAccess f w cache
-  (a', w'', cache'', cmds') <- runAccess a w' cache'
+runSystem (AppA f a) w cache = do
+  (f', w', cache', cmds) <- runSystem f w cache
+  (a', w'', cache'', cmds') <- runSystem a w' cache'
   return
     ( case (f', a') of
         (Right f'', Right a'') -> Right (f'' a'')
@@ -94,41 +93,41 @@ runAccess (AppA f a) w cache = do
       cache'',
       cmds ++ cmds'
     )
-runAccess (BindA a f) w cache = do
-  (a', w', cache', cmds) <- runAccess a w cache
+runSystem (BindA a f) w cache = do
+  (a', w', cache', cmds) <- runSystem a w cache
   case a' of
     Left a'' -> return (Left (BindA a'' f), w', cache', cmds)
-    Right a'' -> runAccess (f a'') w' cache'
-runAccess (AllA a qb) w (Cache cache) = case Map.lookup (buildQuery qb) cache of
+    Right a'' -> runSystem (f a'') w' cache'
+runSystem (AllA a qb) w (Cache cache) = case Map.lookup (buildQuery qb) cache of
   Just aId -> do
     es <- Q.all aId qb w
     return (Right es, w, Cache cache, [])
   Nothing -> return (Left (AllA a qb), w, Cache cache, [])
-runAccess (GetA arch q e) w (Cache cache) = do
+runSystem (GetA arch q e) w (Cache cache) = do
   case Map.lookup arch cache of
     Just aId -> do
       a <- Q.get aId q e w
       return (Right a, w, Cache cache, [])
     Nothing -> return (Left (GetA arch q e), w, Cache cache, [])
-runAccess (CommandA cmd) w cache = return (Right (), w, cache, [cmd])
-runAccess (LiftA io) w cache = do
+runSystem (CommandA cmd) w cache = return (Right (), w, cache, [cmd])
+runSystem (LiftA io) w cache = do
   a <- liftIO io
   return (Right a, w, cache, [])
 
-runAccess' :: Access IO a -> World -> Cache -> IO (a, World, Cache, [Command IO ()])
-runAccess' (PureA a) w c = return (a, w, c, [])
-runAccess' (MapA f a) w cache = do
-  (a', w', cache', cmds) <- runAccess' a w cache
+runSystem' :: System IO a -> World -> Cache -> IO (a, World, Cache, [Command IO ()])
+runSystem' (PureA a) w c = return (a, w, c, [])
+runSystem' (MapA f a) w cache = do
+  (a', w', cache', cmds) <- runSystem' a w cache
   return (f a', w', cache', cmds)
-runAccess' (AppA f a) w cache = do
-  (f', w', cache', cmds) <- runAccess' f w cache
-  (a', w'', cache'', cmds') <- runAccess' a w' cache'
+runSystem' (AppA f a) w cache = do
+  (f', w', cache', cmds) <- runSystem' f w cache
+  (a', w'', cache'', cmds') <- runSystem' a w' cache'
   return (f' a', w'', cache'', cmds ++ cmds')
-runAccess' (BindA a f) w cache = do
-  (a', w', cache', cmds) <- runAccess' a w cache
-  (b, w'', cache'', cmds') <- runAccess' (f a') w' cache'
+runSystem' (BindA a f) w cache = do
+  (a', w', cache', cmds) <- runSystem' a w cache
+  (b, w'', cache'', cmds') <- runSystem' (f a') w' cache'
   return (b, w'', cache'', cmds ++ cmds')
-runAccess' (AllA arch q) (World cs as) (Cache cache) = do
+runSystem' (AllA arch q) (World cs as) (Cache cache) = do
   (aId, w, cache') <- case Map.lookup arch cache of
     Just q' -> return (q', World cs as, cache)
     Nothing -> do
@@ -136,7 +135,7 @@ runAccess' (AllA arch q) (World cs as) (Cache cache) = do
       return (x, World cs as', Map.insert arch x cache)
   es <- Q.all aId q w
   return (es, w, Cache cache', [])
-runAccess' (GetA arch q e) (World cs as) (Cache cache) = do
+runSystem' (GetA arch q e) (World cs as) (Cache cache) = do
   (aId, w, cache') <- case Map.lookup arch cache of
     Just q' -> return (q', World cs as, cache)
     Nothing -> do
@@ -144,18 +143,18 @@ runAccess' (GetA arch q e) (World cs as) (Cache cache) = do
       return (x, World cs as', Map.insert arch x cache)
   a <- Q.get aId q e w
   return (a, w, Cache cache', [])
-runAccess' (CommandA cmd) w cache = return ((), w, cache, [cmd])
-runAccess' (LiftA io) w cache = do
+runSystem' (CommandA cmd) w cache = return ((), w, cache, [cmd])
+runSystem' (LiftA io) w cache = do
   a <- liftIO io
   return (a, w, cache, [])
 
 -- | Query all matches.
-all :: (Monad m) => Query m a -> Access m [a]
+all :: (Monad m) => Query m a -> System m [a]
 all q = do
   (as, _) <- all' mempty q
   return (map snd as)
 
-all' :: (Monad m) => Archetype -> Query m a -> Access m ([(Entity, a)], Archetype)
+all' :: (Monad m) => Archetype -> Query m a -> System m ([(Entity, a)], Archetype)
 all' arch (PureQ _) = pure ([], arch)
 all' arch (MapQ f a) = all' arch (f <$> a)
 all' arch (AppQ f a) = all' arch (f <*> a)
@@ -185,10 +184,10 @@ all' arch EntityQ = do
   es <- AllA arch EntityQ
   return (es, arch)
 
-get :: (Monad m) => Entity -> Query m a -> Access m (Maybe a)
+get :: (Monad m) => Entity -> Query m a -> System m (Maybe a)
 get e q = fst <$> get' mempty e q
 
-get' :: (Monad m) => Archetype -> Entity -> Query m a -> Access m (Maybe a, Archetype)
+get' :: (Monad m) => Archetype -> Entity -> Query m a -> System m (Maybe a, Archetype)
 get' arch _ (PureQ a) = pure (Just a, arch)
 get' arch e (MapQ f qb) = get' arch e (f <$> qb)
 get' arch e (AppQ f a) = get' arch e (f <*> a)
@@ -210,16 +209,13 @@ get' arch e (WriteQ f arch') = do
   return (a, arch'')
 get' arch e EntityQ = return (Just e, arch)
 
-command :: Command m () -> Access m ()
+command :: Command m () -> System m ()
 command = CommandA
 
-class (Typeable a) => System m a where
-  access :: Access m ()
+runSystemOnce :: System IO () -> World -> IO (World)
+runSystemOnce s w = snd <$> runSystemOnce' s (Cache mempty) w
 
-runSystem :: forall a. (System IO a) => World -> IO (World)
-runSystem w = snd <$> runSystem' @a (Cache mempty) w
-
-runSystem' :: forall a. (System IO a) => Cache -> World -> IO (Cache, World)
-runSystem' c w = do
-  (_, w', c', _) <- runAccess' (access @_ @a) w c
+runSystemOnce' :: System IO () -> Cache -> World -> IO (Cache, World)
+runSystemOnce' s c w = do
+  (_, w', c', _) <- runSystem' s w c
   return (c', w')
