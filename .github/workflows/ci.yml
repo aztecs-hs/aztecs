@@ -15,18 +15,13 @@ jobs:
 
     steps:
       - name: Cache
-        uses: actions/cache@v3
-        env:
-          cache-name: cache-cabal
+        uses: actions/cache@v4
+
         with:
           path: |
             ~/.cabal
             dist-newstyle
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
+          key: ${{ runner.os }}-build-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}
 
       - uses: actions/checkout@v4
       - uses: actions/setup-haskell@v1
@@ -50,18 +45,12 @@ jobs:
 
     steps:
       - name: Cache
-        uses: actions/cache@v3
-        env:
-          cache-name: cache-cabal
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cabal
             dist-newstyle
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
+          key: ${{ runner.os }}-build-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}
 
       - uses: actions/checkout@v4
       - uses: actions/setup-haskell@v1
