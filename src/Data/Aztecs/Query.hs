@@ -96,16 +96,23 @@ get' e es (AppQ fqb aqb) w = do
   a <- get' e es aqb w
   return $ f <*> a
 get' e _ EntityQ _ = return $ Just e
-get' e (ArchetypeState _ m _) (ReadQ _) _ = return $ do
-  cs <- Map.lookup e m
-  (c, _) <- A.getArchetypeComponent cs
-  return c
+get' e (ArchetypeState _ m _) (ReadQ _) _ = do
+  let res = do
+        cs <- Map.lookup e m
+        (io, _) <- A.getArchetypeComponent cs
+        return io
+  case res of
+    Just io -> do
+      c <- liftIO io
+      return $ Just c
+    Nothing -> return Nothing
 get' e (ArchetypeState _ m _) (WriteQ f _) _ = do
   let res = do
         cs <- Map.lookup e m
         A.getArchetypeComponent cs
   case res of
-    Just (c, g) -> do
+    Just (io, g) -> do
+      c<- liftIO io
       let c' = f c
       liftIO $ g c'
       return $ Just c'

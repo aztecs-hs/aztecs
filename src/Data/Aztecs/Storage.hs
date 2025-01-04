@@ -11,7 +11,7 @@ data Storage a = Storage
     spawn :: Entity -> a -> IO (Storage a),
     get :: Entity -> IO (Maybe (a, a -> Storage a -> IO (Storage a))),
     toList :: IO [EntityComponent a],
-    toList' :: IO [(EntityComponent a, a -> IO ())],
+    toList' :: IO [(EntityComponent (IO a), a -> IO ())],
     remove :: Entity -> IO (Storage a)
   }
 
@@ -43,9 +43,12 @@ table' cs =
       toList' =
         mapM
           ( \r -> do
-              (EntityComponent e a) <- readIORef r
+              (EntityComponent e _) <- readIORef r
+              let f = do
+                    (EntityComponent _ a) <- readIORef r
+                    return a
               return
-                ( (EntityComponent e a),
+                ( EntityComponent e f,
                   \a' -> writeIORef r (EntityComponent e a')
                 )
           )

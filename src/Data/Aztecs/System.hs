@@ -128,22 +128,22 @@ runAccess' (BindA a f) w cache = do
   (a', w', cache', cmds) <- runAccess' a w cache
   (b, w'', cache'', cmds') <- runAccess' (f a') w' cache'
   return (b, w'', cache'', cmds ++ cmds')
-runAccess' (AllA _ qb) (World cs as) (Cache cache) = do
-  (aId, w) <- case Map.lookup (buildQuery qb) cache of
-    Just q' -> return (q', World cs as)
-    Nothing -> do
-      (x, as') <- A.insertArchetype (buildQuery qb) cs as
-      return (x, World cs as')
-  es <- Q.all aId qb w
-  return (es, w, Cache cache, [])
-runAccess' (GetA arch q e) (World cs as) (Cache cache) = do
-  (aId, w) <- case Map.lookup arch cache of
-    Just q' -> return (q', World cs as)
+runAccess' (AllA arch q) (World cs as) (Cache cache) = do
+  (aId, w, cache') <- case Map.lookup arch cache of
+    Just q' -> return (q', World cs as, cache)
     Nothing -> do
       (x, as') <- A.insertArchetype arch cs as
-      return (x, World cs as')
+      return (x, World cs as', Map.insert arch x cache)
+  es <- Q.all aId q w
+  return (es, w, Cache cache', [])
+runAccess' (GetA arch q e) (World cs as) (Cache cache) = do
+  (aId, w, cache') <- case Map.lookup arch cache of
+    Just q' -> return (q', World cs as, cache)
+    Nothing -> do
+      (x, as') <- A.insertArchetype arch cs as
+      return (x, World cs as', Map.insert arch x cache)
   a <- Q.get aId q e w
-  return (a, w, Cache cache, [])
+  return (a, w, Cache cache', [])
 runAccess' (CommandA cmd) w cache = return ((), w, cache, [cmd])
 runAccess' (LiftA io) w cache = do
   a <- liftIO io

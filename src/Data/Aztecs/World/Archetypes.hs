@@ -60,12 +60,12 @@ newtype ArchetypeId = ArchetypeId Int deriving (Eq, Ord, Show)
 newtype ArchetypeComponents = ArchetypeComponents (Map TypeRep Dynamic)
   deriving (Show)
 
-getArchetypeComponent :: forall c. (Component c) => ArchetypeComponents -> Maybe (c, c -> IO ())
+getArchetypeComponent :: forall c. (Component c) => ArchetypeComponents -> Maybe (IO c, c -> IO ())
 getArchetypeComponent (ArchetypeComponents m) = do
   d <- Map.lookup (typeOf (Proxy @c)) m
   fromDynamic d
 
-insertArchetypeComponent :: forall c. (Component c) => c -> (c -> IO ()) -> ArchetypeComponents -> ArchetypeComponents
+insertArchetypeComponent :: forall c. (Component c) => IO c -> (c -> IO ()) -> ArchetypeComponents -> ArchetypeComponents
 insertArchetypeComponent c f (ArchetypeComponents m) = ArchetypeComponents $ Map.insert (typeOf (Proxy @c)) (toDyn (c, f)) m
 
 data ArchetypeState = ArchetypeState Archetype (Map Entity ArchetypeComponents) [ArchetypeId]
