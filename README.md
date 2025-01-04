@@ -56,6 +56,11 @@ main :: IO ()
 main = runScheduler app
 ```
 
+## Benchmarks
+Aztecs currently beats the Bevy ECS for simple iterations.
+
+<img width=300 alt="Benchmark results" src="https://github.com/user-attachments/assets/7264a08a-a04b-4217-86a7-27f4b7fefe54" />
+
 ## Inspiration
 
 Aztecs' approach to type-safety is inspired by [Bevy](https://github.com/bevyengine/bevy/)
