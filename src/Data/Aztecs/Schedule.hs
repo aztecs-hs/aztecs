@@ -7,12 +7,12 @@
 {-# LANGUAGE TypeApplications #-}
 
 module Data.Aztecs.Schedule
-  ( Node (..),
+  ( SystemId (..),
+    Node (..),
     Schedule (..),
     ScheduleNode (..),
     runSchedule,
-    Startup,
-    Update,
+    Stage (..),
     Constraint (..),
     before,
     after,
@@ -27,6 +27,7 @@ where
 
 import Control.Concurrent.Async (mapConcurrently)
 import Control.Monad.State (StateT (runStateT))
+import qualified Control.Monad.State as S
 import Data.Aztecs.Command
 import Data.Aztecs.System
 import Data.Aztecs.World
@@ -45,20 +46,23 @@ import qualified Data.Set as Set
 import Data.Typeable
 import Prelude hiding (all, read)
 
-data Constraint = Before TypeRep | After TypeRep
+newtype SystemId = SystemId Int
+  deriving (Eq, Ord)
 
-before :: forall m a. (System m a) => Constraint
-before = Before $ typeOf (Proxy :: Proxy a)
+data Constraint = Before SystemId | After SystemId
 
-after :: forall m a. (System m a) => Constraint
-after = After $ typeOf (Proxy :: Proxy a)
+before :: SystemId -> Constraint
+before = Before
+
+after :: SystemId -> Constraint
+after = After
 
 data Node m where
-  Node :: (System m a) => Proxy a -> Cache -> Node m
+  Node :: Access m () -> Cache -> Node m
 
 data ScheduleNode m = ScheduleNode (Node m) [Constraint]
 
-data Schedule m = Schedule (Map TypeRep (ScheduleNode m))
+data Schedule m = Schedule (Map SystemId (ScheduleNode m))
 
 instance Semigroup (Schedule m) where
   Schedule a <> Schedule b = Schedule $ a <> b
@@ -66,7 +70,7 @@ instance Semigroup (Schedule m) where
 instance Monoid (Schedule m) where
   mempty = Schedule mempty
 
-data GraphNode m = GraphNode (Node m) (Set TypeRep) (Set TypeRep)
+data GraphNode m = GraphNode (Node m) (Set SystemId) (Set SystemId)
 
 build :: (Monad m) => Schedule m -> [[GraphNode m]]
 build (Schedule s) =
@@ -115,12 +119,12 @@ build (Schedule s) =
         nodes
 
 runNode :: Node IO -> World -> IO (Node IO, Maybe (Access IO ()), [Command IO ()], World)
-runNode (Node p cache) w =
-  runSystemProxy p cache w <&> (\(next, a', cmds, w') -> (Node p a', next, cmds, w'))
+runNode (Node s cache) w =
+  runSystemProxy s cache w <&> (\(next, a', cmds, w') -> (Node s a', next, cmds, w'))
 
-runSystemProxy :: forall a. (System IO a) => Proxy a -> Cache -> World -> IO (Maybe (Access IO ()), Cache, [Command IO ()], World)
-runSystemProxy _ cache w = do
-  (result, w', cache', cmds) <- runAccess (access @IO @a) w cache
+runSystemProxy :: Access IO () -> Cache -> World -> IO (Maybe (Access IO ()), Cache, [Command IO ()], World)
+runSystemProxy s cache w = do
+  (result, w', cache', cmds) <- runAccess s w cache
   case result of
     Left a -> return (Just a, cache', cmds, w')
     Right _ -> return (Nothing, cache', cmds, w')
@@ -167,45 +171,39 @@ runSchedule nodes w =
     ([], w)
     nodes
 
-newtype Scheduler m = Scheduler (Map TypeRep (Schedule m))
-  deriving (Monoid)
+newtype Scheduler m a = Scheduler (StateT (Map Stage (Schedule m), SystemId) m a)
+  deriving (Functor, Applicative, Monad)
 
-instance Semigroup (Scheduler m) where
-  Scheduler a <> Scheduler b = Scheduler $ Map.unionWith (<>) a b
+data Stage = Startup | Update
+  deriving (Eq, Ord)
 
-data Startup
+schedule :: (Monad m) => Stage -> [Constraint] -> Access m () -> Scheduler m SystemId
+schedule stage cs s = Scheduler $ do
+  (m, SystemId i) <- S.get
+  let m' = Map.insert stage (Schedule (Map.singleton (SystemId i) (ScheduleNode (Node s mempty) cs))) m
+  S.put (m', SystemId (i + 1))
+  return (SystemId i)
 
-data Update
+newtype SchedulerGraph m = SchedulerGraph (Map Stage [[GraphNode m]])
 
-schedule :: forall l m s. (Typeable l, System m s) => [Constraint] -> Scheduler m
-schedule cs =
-  Scheduler $
-    Map.singleton
-      (typeOf (Proxy :: Proxy l))
-      ( Schedule $
-          Map.singleton
-            (typeOf (Proxy :: Proxy s))
-            (ScheduleNode (Node (Proxy :: Proxy s) mempty) cs)
-      )
+buildScheduler :: (Monad m) => Scheduler m () -> m (SchedulerGraph m)
+buildScheduler (Scheduler s) = do
+  (_, (m, _)) <- runStateT s (mempty, SystemId 0)
+  return $ SchedulerGraph $ fmap build m
 
-newtype SchedulerGraph m = SchedulerGraph (Map TypeRep [[GraphNode m]])
-
-buildScheduler :: (Monad m) => Scheduler m -> SchedulerGraph m
-buildScheduler (Scheduler s) = SchedulerGraph $ fmap build s
-
-runSchedulerGraph :: forall l. (Typeable l) => SchedulerGraph IO -> World -> IO (SchedulerGraph IO, World)
-runSchedulerGraph (SchedulerGraph g) w = case Map.lookup (typeOf (Proxy :: Proxy l)) g of
+runSchedulerGraph :: Stage -> SchedulerGraph IO -> World -> IO (SchedulerGraph IO, World)
+runSchedulerGraph stage (SchedulerGraph g) w = case Map.lookup stage g of
   Just s -> do
     (nodes, w') <- runSchedule s w
-    let g' = Map.insert (typeOf (Proxy :: Proxy l)) nodes g
+    let g' = Map.insert stage nodes g
     return (SchedulerGraph g', w')
   Nothing -> return (SchedulerGraph g, w)
 
-runScheduler :: Scheduler IO -> IO ()
+runScheduler :: Scheduler IO () -> IO ()
 runScheduler s = do
-  let g = buildScheduler s
-  (g', w) <- runSchedulerGraph @Startup g newWorld
+  g <- buildScheduler s
+  (g', w) <- runSchedulerGraph Startup g newWorld
   let go gAcc wAcc = do
-        (gAcc', wAcc') <- runSchedulerGraph @Update gAcc wAcc
+        (gAcc', wAcc') <- runSchedulerGraph Update gAcc wAcc
         go gAcc' wAcc'
   go g' w

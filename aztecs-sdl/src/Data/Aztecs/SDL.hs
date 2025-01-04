@@ -1,9 +1,11 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Data.Aztecs.SDL
   ( Keyboard (..),
+    SDLPlugin (..),
     sdlPlugin,
   )
 where
@@ -20,35 +22,39 @@ newtype Keyboard = Keyboard (Map Keycode InputMotion) deriving (Show)
 
 instance Component Keyboard
 
-data SetupKeyboard
+setupKeyboard :: Access IO ()
+setupKeyboard = do
+  initializeAll
+  _ <- createWindow "SDL" defaultWindow
 
-instance System IO SetupKeyboard where
-  access = do
-    initializeAll
-    _ <- createWindow "SDL" defaultWindow
-
-    S.command $ do
-      _ <- C.spawn $ Keyboard Map.empty
-      return ()
-
-data KeyboardSystem
-
-instance System IO KeyboardSystem where
-  access = do
-    events <- pollEvents
-
-    let f event (Keyboard kb) = case eventPayload event of
-          KeyboardEvent keyboardEvent ->
-            let keyCode = keysymKeycode (keyboardEventKeysym keyboardEvent)
-                motion = keyboardEventKeyMotion keyboardEvent
-             in Keyboard $ Map.insert keyCode motion kb
-          _ -> Keyboard kb
-        g kb = foldr f kb events
-
-    _ <- S.all $ do
-      Q.write g
-
+  S.command $ do
+    _ <- C.spawn $ Keyboard Map.empty
     return ()
 
-sdlPlugin :: Scheduler IO
-sdlPlugin = schedule @Startup @_ @SetupKeyboard [] <> schedule @Update @_ @KeyboardSystem []
+updateKeyboard :: Access IO ()
+updateKeyboard = do
+  events <- pollEvents
+
+  let f event (Keyboard kb) = case eventPayload event of
+        KeyboardEvent keyboardEvent ->
+          let keyCode = keysymKeycode (keyboardEventKeysym keyboardEvent)
+              motion = keyboardEventKeyMotion keyboardEvent
+           in Keyboard $ Map.insert keyCode motion kb
+        _ -> Keyboard kb
+      g kb = foldr f kb events
+
+  _ <- S.all $ do
+    Q.write g
+
+  return ()
+
+data SDLPlugin = SDLPlugin
+  { setupKeyboardId :: SystemId,
+    updateKeyboardId :: SystemId
+  }
+
+sdlPlugin :: Scheduler IO SDLPlugin
+sdlPlugin = do
+  setupKeyboardId <- schedule Update [] setupKeyboard
+  updateKeyboardId <- schedule Startup [] updateKeyboard
+  return SDLPlugin {..}

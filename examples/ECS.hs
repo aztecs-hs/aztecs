@@ -21,26 +21,25 @@ instance Component Velocity
 
 -- Systems
 
-data A
+setup :: Access IO ()
+setup = S.command $ do
+  e <- C.spawn (Position 0)
+  C.insert e (Velocity 1)
 
-instance System IO A where
-  access = S.command $ do
-    e <- C.spawn (Position 0)
-    C.insert e (Velocity 1)
+run :: Access IO ()
+run = do
+  -- Update all entities with a `Position` and `Velocity` component.
+  positions <- S.all $ do
+    Velocity v <- Q.read
+    Q.write (\(Position p) -> Position (p + v))
 
-data B
+  liftIO $ print positions
 
-instance System IO B where
-  access = do
-    -- Update all entities with a `Position` and `Velocity` component.
-    positions <- S.all $ do
-      Velocity v <- Q.read
-      Q.write (\(Position p) -> Position (p + v))
-
-    liftIO $ print positions
-
-app :: Scheduler IO
-app = schedule @Startup @_ @A [] <> schedule @Update @_ @B []
+app :: Scheduler IO ()
+app = do
+  _ <- schedule Startup [] setup
+  _ <- schedule Update [] run
+  return ()
 
 main :: IO ()
 main = runScheduler app

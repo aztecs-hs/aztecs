@@ -9,15 +9,16 @@ import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.SDL
 import qualified Data.Aztecs.System as S
 
-data A
+run :: Access IO ()
+run = do
+  keys <- S.all (Q.read @_ @Keyboard)
+  liftIO $ print keys
 
-instance System IO A where
-  access = do
-    keys <- S.all (Q.read @_ @Keyboard)
-    liftIO $ print keys
-
-app :: Scheduler IO
-app = sdlPlugin <> schedule @Update @_ @A []
+app :: Scheduler IO ()
+app = do
+  _ <- sdlPlugin
+  _ <- schedule Update [] run
+  return ()
 
 main :: IO ()
 main = runScheduler app
