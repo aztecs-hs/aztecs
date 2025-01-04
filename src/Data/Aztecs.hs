@@ -5,7 +5,6 @@ module Data.Aztecs
     World,
     Query,
     Access (..),
-    Task,
     System (..),
     Constraint (..),
     before,
@@ -22,7 +21,6 @@ where
 import Data.Aztecs.Query (Query (..))
 import Data.Aztecs.Schedule
 import Data.Aztecs.System
-import Data.Aztecs.Task (Task (..))
 import Data.Aztecs.World
   ( Component (..),
     Entity,

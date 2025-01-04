@@ -17,7 +17,6 @@ library
         Data.Aztecs.Schedule
         Data.Aztecs.System
         Data.Aztecs.Storage
-        Data.Aztecs.Task
         Data.Aztecs.Query
         Data.Aztecs.World
         Data.Aztecs.World.Archetypes
