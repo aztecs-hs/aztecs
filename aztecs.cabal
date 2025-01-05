@@ -48,7 +48,8 @@ test-suite aztecs-test
     ghc-options:      -Wall
     build-depends:
         base >=4 && <5,
-        aztecs
+        aztecs,
+        hspec >=2
 
 benchmark aztecs-bench
     type:             exitcode-stdio-1.0

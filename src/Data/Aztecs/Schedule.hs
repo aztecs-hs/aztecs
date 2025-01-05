@@ -40,10 +40,8 @@ import Data.Functor ((<&>))
 import Data.List (groupBy, sortBy)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Proxy
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Data.Typeable
 import Prelude hiding (all, read)
 
 newtype SystemId = SystemId Int

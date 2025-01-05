@@ -30,7 +30,6 @@ import qualified Data.Aztecs.World.Archetypes as A
 import Data.Foldable (foldrM)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Typeable
 import Prelude hiding (all, read)
 
 newtype Cache = Cache (Map Archetype ArchetypeId)
