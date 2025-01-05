@@ -33,9 +33,6 @@ main = hspec $ do
     it "queries all components" $ do
       (_, w) <- W.spawn (X 1) newWorld
       (_, w') <- W.spawn (X 2) w
-
-      error $ show (w')
-
       let s = do
             xs <- S.all Q.read
             liftIO $ xs `shouldBe` [X 1, X 2]

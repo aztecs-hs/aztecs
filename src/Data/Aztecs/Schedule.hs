@@ -120,7 +120,11 @@ runNode :: Node IO -> World -> IO (Node IO, Maybe (System IO ()), [Command IO ()
 runNode (Node s cache) w =
   runSystemProxy s cache w <&> (\(next, a', cmds, w') -> (Node s a', next, cmds, w'))
 
-runSystemProxy :: System IO () -> Cache -> World -> IO (Maybe (System IO ()), Cache, [Command IO ()], World)
+runSystemProxy ::
+  System IO () ->
+  Cache ->
+  World ->
+  IO (Maybe (System IO ()), Cache, [Command IO ()], World)
 runSystemProxy s cache w = do
   (result, w', cache', cmds) <- runSystem s w cache
   case result of
@@ -157,7 +161,11 @@ runSchedule nodes w =
             ( \(a, (GraphNode (Node p cache) as bs)) (wAcc, nodeAcc', cmdAcc) -> case a of
                 Just a' -> do
                   ((), wAcc', cache', cmdAcc') <- runSystem' a' wAcc cache
-                  return (wAcc', (GraphNode (Node p cache') as bs) : nodeAcc', cmdAcc' ++ cmdAcc)
+                  return
+                    ( wAcc',
+                      (GraphNode (Node p cache') as bs) : nodeAcc',
+                      cmdAcc' ++ cmdAcc
+                    )
                 Nothing -> return (w, (GraphNode (Node p cache) as bs) : nodeAcc', cmdAcc)
             )
             (w'', [], [])
@@ -178,7 +186,8 @@ data Stage = Startup | Update
 schedule :: (Monad m) => Stage -> [Constraint] -> System m () -> Scheduler m SystemId
 schedule stage cs s = Scheduler $ do
   (m, SystemId i) <- S.get
-  let m' = Map.insert stage (Schedule (Map.singleton (SystemId i) (ScheduleNode (Node s mempty) cs))) m
+  let node = ScheduleNode (Node s mempty) cs
+      m' = Map.insert stage (Schedule (Map.singleton (SystemId i) node)) m
   S.put (m', SystemId (i + 1))
   return (SystemId i)
 
