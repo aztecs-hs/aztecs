@@ -41,9 +41,13 @@ newComponents = Components empty (Entity 0) (empty) (ComponentId 0)
 union :: Components -> Components -> Components
 union (Components a e ids i) (Components b _ _ _) = Components (Map.union a b) e ids i
 
-insertComponentId :: forall c. (Component c) => Components -> (ComponentId,Components)
+insertComponentId :: forall c. (Component c) => Components -> (ComponentId, Components)
 insertComponentId (Components w e ids (ComponentId i)) =
-  (ComponentId i, Components w e (Map.insert (typeOf @(Proxy c) Proxy) (ComponentId i) ids) (ComponentId $ i + 1))
+  case Map.lookup (typeOf @(Proxy c) Proxy) ids of
+    Just cId -> (cId, Components w e ids (ComponentId i))
+    Nothing ->
+      let ids' = Map.insert (typeOf @(Proxy c) Proxy) (ComponentId i) ids
+       in (ComponentId i, Components w e ids' (ComponentId $ i + 1))
 
 spawn :: forall c. (Component c) => c -> Components -> IO (Entity, Components)
 spawn c (Components w (Entity e) ids i) = do
