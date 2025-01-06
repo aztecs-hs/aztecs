@@ -13,13 +13,15 @@ module Data.Aztecs.Query
     write,
     all,
     get,
+    QueryComponent (..),
   )
 where
 
 import Control.Monad.IO.Class (MonadIO (..))
 import Data.Aztecs.World (Component, Entity, World (..))
-import Data.Aztecs.World.Archetypes (Archetype, ArchetypeId, ArchetypeState (..), archetype)
+import Data.Aztecs.World.Archetypes (ArchetypeId, ArchetypeState (..))
 import qualified Data.Aztecs.World.Archetypes as A
+import qualified Data.Aztecs.World.Components as C
 import Data.Foldable (foldrM)
 import qualified Data.Map as Map
 import Data.Set (Set)
@@ -35,6 +37,9 @@ instance Semigroup ReadWrites where
 instance Monoid ReadWrites where
   mempty = ReadWrites mempty mempty
 
+data QueryComponent where
+  QueryComponent :: (Component c) => Proxy c -> QueryComponent
+
 -- | Query to access components.
 data Query m a where
   PureQ :: a -> Query m a
@@ -42,8 +47,8 @@ data Query m a where
   AppQ :: Query m (a -> b) -> Query m a -> Query m b
   BindQ :: Query m a -> (a -> Query m b) -> Query m b
   EntityQ :: Query m Entity
-  ReadQ :: (Component c) => Archetype -> Query m c
-  WriteQ :: (Component c) => (c -> c) -> Archetype -> Query m c
+  ReadQ :: (Component c) => [QueryComponent] -> Proxy c -> Query m c
+  WriteQ :: (Component c) => (c -> c) -> [QueryComponent] -> Proxy c -> Query m c
   LiftQ :: m a -> Query m a
 
 instance Functor (Query m) where
@@ -61,11 +66,11 @@ entity = EntityQ
 
 -- | Read a `Component`.
 read :: forall m c. (Component c) => Query m c
-read = ReadQ (archetype @c)
+read = ReadQ [QueryComponent (Proxy @c)] (Proxy @c)
 
 -- | Alter a `Component`.
 write :: forall m c. (Component c) => (c -> c) -> Query m c
-write c = WriteQ c (archetype @c)
+write f = WriteQ f [QueryComponent (Proxy @c)] (Proxy @c)
 
 all :: (MonadIO m) => ArchetypeId -> Query m a -> World -> m [(Entity, a)]
 all aId q w@(World _ as) = case A.getArchetype aId as of
@@ -96,23 +101,25 @@ get' e es (AppQ fqb aqb) w = do
   a <- get' e es aqb w
   return $ f <*> a
 get' e _ EntityQ _ = return $ Just e
-get' e (ArchetypeState _ m _) (ReadQ _) _ = do
+get' e (ArchetypeState _ m _) (ReadQ _ p) (World cs _) = do
   let res = do
-        cs <- Map.lookup e m
-        (io, _) <- A.getArchetypeComponent cs
+        cId <- C.getComponentID' p cs
+        aCs <- Map.lookup e m
+        (io, _) <- A.getArchetypeComponent cId aCs
         return io
   case res of
     Just io -> do
       c <- liftIO io
       return $ Just c
     Nothing -> return Nothing
-get' e (ArchetypeState _ m _) (WriteQ f _) _ = do
+get' e (ArchetypeState _ m _) (WriteQ f _ p) (World cs _) = do
   let res = do
-        cs <- Map.lookup e m
-        A.getArchetypeComponent cs
+        cId <- C.getComponentID' p cs
+        aCs <- Map.lookup e m
+        A.getArchetypeComponent cId aCs
   case res of
     Just (io, g) -> do
-      c<- liftIO io
+      c <- liftIO io
       let c' = f c
       liftIO $ g c'
       return $ Just c'

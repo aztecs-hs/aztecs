@@ -58,8 +58,8 @@ spawn c (World cs as) = do
 
 insert :: forall c. (Component c) => Entity -> c -> World -> IO World
 insert e c (World cs as) = do
-  cs' <- C.insert e c cs
-  return $ World cs' (A.insert @c e cs' as)
+  (i, cs') <- C.insert e c cs
+  return $ World cs' (A.insert @c i e cs' as)
 
 get :: forall c. (Component c) => Entity -> World -> IO (Maybe c)
 get e w = do

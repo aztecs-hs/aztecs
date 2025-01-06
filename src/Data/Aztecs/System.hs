@@ -22,14 +22,16 @@ where
 
 import Control.Monad.IO.Class
 import Data.Aztecs.Command
-import Data.Aztecs.Query (Query (..))
+import Data.Aztecs.Query (Query (..), QueryComponent (..))
 import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.World (Entity, World (..))
-import Data.Aztecs.World.Archetypes (Archetype, ArchetypeId)
+import Data.Aztecs.World.Archetypes (Archetype, ArchetypeId, archetype')
 import qualified Data.Aztecs.World.Archetypes as A
+import Data.Aztecs.World.Components (Components, getComponentID')
 import Data.Foldable (foldrM)
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Maybe (mapMaybe)
 import Prelude hiding (all, read)
 
 newtype Cache = Cache (Map Archetype ArchetypeId)
@@ -40,8 +42,8 @@ data System m a where
   MapA :: (a -> b) -> System m a -> System m b
   AppA :: System m (a -> b) -> System m a -> System m b
   BindA :: System m a -> (a -> System m b) -> System m b
-  AllA :: Archetype -> Query m a -> System m [(Entity, a)]
-  GetA :: Archetype -> Query m a -> Entity -> System m (Maybe a)
+  AllA :: [QueryComponent] -> Query m a -> System m [(Entity, a)]
+  GetA :: [QueryComponent] -> Query m a -> Entity -> System m (Maybe a)
   CommandA :: Command m () -> System m ()
   LiftA :: m a -> System m a
 
@@ -58,15 +60,18 @@ instance (Monad m) => Monad (System m) where
 instance (MonadIO m) => MonadIO (System m) where
   liftIO io = LiftA (liftIO io)
 
-buildQuery :: Query m a -> Archetype
-buildQuery (PureQ _) = mempty
-buildQuery (MapQ _ qb) = buildQuery qb
-buildQuery (AppQ f a) = buildQuery f <> buildQuery a
-buildQuery EntityQ = mempty
-buildQuery (ReadQ a) = a
-buildQuery (WriteQ _ a) = a
-buildQuery (BindQ a _) = buildQuery a
-buildQuery (LiftQ _) = mempty
+buildQuery :: Query m a -> Components -> Archetype
+buildQuery (PureQ _) _ = mempty
+buildQuery (MapQ _ qb) cs = buildQuery qb cs
+buildQuery (AppQ f a) cs = buildQuery f cs <> buildQuery a cs
+buildQuery EntityQ _ = mempty
+buildQuery (ReadQ ps _) cs = buildArch ps cs
+buildQuery (WriteQ _ ps _) cs = buildArch ps cs
+buildQuery (BindQ a _) cs = buildQuery a cs
+buildQuery (LiftQ _) _ = mempty
+
+buildArch :: [QueryComponent] -> Components -> Archetype
+buildArch ps cs = mconcat $ mapMaybe (\(QueryComponent p) -> archetype' p <$> getComponentID' p cs) ps
 
 runSystem :: System IO a -> World -> Cache -> IO (Either (System IO a) a, World, Cache, [Command IO ()])
 runSystem (PureA a) w c = return (Right a, w, c, [])
@@ -97,13 +102,13 @@ runSystem (BindA a f) w cache = do
   case a' of
     Left a'' -> return (Left (BindA a'' f), w', cache', cmds)
     Right a'' -> runSystem (f a'') w' cache'
-runSystem (AllA a qb) w (Cache cache) = case Map.lookup (buildQuery qb) cache of
+runSystem (AllA a qb) w@(World cs _) (Cache cache) = case Map.lookup (buildQuery qb cs) cache of
   Just aId -> do
     es <- Q.all aId qb w
     return (Right es, w, Cache cache, [])
   Nothing -> return (Left (AllA a qb), w, Cache cache, [])
-runSystem (GetA arch q e) w (Cache cache) = do
-  case Map.lookup arch cache of
+runSystem (GetA arch q e) w@(World cs _) (Cache cache) = do
+  case Map.lookup (buildArch arch cs) cache of
     Just aId -> do
       a <- Q.get aId q e w
       return (Right a, w, Cache cache, [])
@@ -126,7 +131,8 @@ runSystem' (BindA a f) w cache = do
   (a', w', cache', cmds) <- runSystem' a w cache
   (b, w'', cache'', cmds') <- runSystem' (f a') w' cache'
   return (b, w'', cache'', cmds ++ cmds')
-runSystem' (AllA arch q) (World cs as) (Cache cache) = do
+runSystem' (AllA qCs q) (World cs as) (Cache cache) = do
+  let arch = buildArch qCs cs
   (aId, w, cache') <- case Map.lookup arch cache of
     Just q' -> return (q', World cs as, cache)
     Nothing -> do
@@ -134,7 +140,8 @@ runSystem' (AllA arch q) (World cs as) (Cache cache) = do
       return (x, World cs as', Map.insert arch x cache)
   es <- Q.all aId q w
   return (es, w, Cache cache', [])
-runSystem' (GetA arch q e) (World cs as) (Cache cache) = do
+runSystem' (GetA qCs q e) (World cs as) (Cache cache) = do
+  let arch = buildArch qCs cs
   (aId, w, cache') <- case Map.lookup arch cache of
     Just q' -> return (q', World cs as, cache)
     Nothing -> do
@@ -153,7 +160,7 @@ all q = do
   (as, _) <- all' mempty q
   return (map snd as)
 
-all' :: (Monad m) => Archetype -> Query m a -> System m ([(Entity, a)], Archetype)
+all' :: (Monad m) => [QueryComponent] -> Query m a -> System m ([(Entity, a)], [QueryComponent])
 all' arch (PureQ _) = pure ([], arch)
 all' arch (MapQ f a) = all' arch (f <$> a)
 all' arch (AppQ f a) = all' arch (f <*> a)
@@ -171,13 +178,13 @@ all' arch (BindQ a f) = do
 all' arch (LiftQ m) = do
   _ <- LiftA m
   return ([], arch)
-all' arch (ReadQ arch') = do
+all' arch (ReadQ arch' p) = do
   let arch'' = (arch <> arch')
-  as <- AllA arch'' (ReadQ arch')
+  as <- AllA arch'' (ReadQ arch' p)
   return (as, arch'')
-all' arch (WriteQ f arch') = do
+all' arch (WriteQ f arch' p) = do
   let arch'' = (arch <> arch')
-  as <- AllA arch'' (WriteQ f arch')
+  as <- AllA arch'' (WriteQ f arch' p)
   return (as, arch'')
 all' arch EntityQ = do
   es <- AllA arch EntityQ
@@ -186,7 +193,7 @@ all' arch EntityQ = do
 get :: (Monad m) => Entity -> Query m a -> System m (Maybe a)
 get e q = fst <$> get' mempty e q
 
-get' :: (Monad m) => Archetype -> Entity -> Query m a -> System m (Maybe a, Archetype)
+get' :: (Monad m) => [QueryComponent] -> Entity -> Query m a -> System m (Maybe a, [QueryComponent])
 get' arch _ (PureQ a) = pure (Just a, arch)
 get' arch e (MapQ f qb) = get' arch e (f <$> qb)
 get' arch e (AppQ f a) = get' arch e (f <*> a)
@@ -198,13 +205,13 @@ get' arch e (BindQ a f) = do
 get' arch _ (LiftQ m) = do
   a <- LiftA m
   return (Just a, arch)
-get' arch e (ReadQ arch') = do
+get' arch e (ReadQ arch' p) = do
   let arch'' = (arch <> arch')
-  a <- GetA arch'' (ReadQ arch') e
+  a <- GetA arch'' (ReadQ arch' p) e
   return (a, arch'')
-get' arch e (WriteQ f arch') = do
+get' arch e (WriteQ f arch' p) = do
   let arch'' = (arch <> arch')
-  a <- GetA arch'' (WriteQ f arch') e
+  a <- GetA arch'' (WriteQ f arch' p) e
   return (a, arch'')
 get' arch e EntityQ = return (Just e, arch)
 

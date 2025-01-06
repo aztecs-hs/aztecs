@@ -5,10 +5,14 @@
 
 module Data.Aztecs.World.Components
   ( Component (..),
+    ComponentID (..),
     Components,
     union,
     spawn,
     insert,
+    insertComponentID,
+    getComponentID,
+    getComponentID',
     adjust,
     get,
     getRow,
@@ -31,34 +35,40 @@ class (Typeable a) => Component a where
   storage :: Storage a
   storage = table
 
-newtype ComponentId = ComponentId Int deriving (Eq, Ord, Show)
+newtype ComponentID = ComponentID Int deriving (Eq, Ord, Show)
 
-data Components = Components (Map ComponentId Dynamic) Entity (Map TypeRep ComponentId) ComponentId deriving (Show)
+data Components = Components (Map ComponentID Dynamic) Entity (Map TypeRep ComponentID) ComponentID deriving (Show)
 
 newComponents :: Components
-newComponents = Components empty (Entity 0) (empty) (ComponentId 0)
+newComponents = Components empty (Entity 0) (empty) (ComponentID 0)
 
 union :: Components -> Components -> Components
 union (Components a e ids i) (Components b _ _ _) = Components (Map.union a b) e ids i
 
-insertComponentId :: forall c. (Component c) => Components -> (ComponentId, Components)
-insertComponentId (Components w e ids (ComponentId i)) =
+insertComponentID :: forall c. (Component c) => Components -> (ComponentID, Components)
+insertComponentID (Components w e ids (ComponentID i)) =
   case Map.lookup (typeOf @(Proxy c) Proxy) ids of
-    Just cId -> (cId, Components w e ids (ComponentId i))
+    Just cId -> (cId, Components w e ids (ComponentID i))
     Nothing ->
-      let ids' = Map.insert (typeOf @(Proxy c) Proxy) (ComponentId i) ids
-       in (ComponentId i, Components w e ids' (ComponentId $ i + 1))
+      let ids' = Map.insert (typeOf @(Proxy c) Proxy) (ComponentID i) ids
+       in (ComponentID i, Components w e ids' (ComponentID $ i + 1))
+
+getComponentID :: forall c. (Component c) => Components -> Maybe ComponentID
+getComponentID = getComponentID' (Proxy @c)
+
+getComponentID' :: (Component c) => Proxy c -> Components -> Maybe ComponentID
+getComponentID' p (Components _ _ ids _) = Map.lookup (typeOf p) ids
 
 spawn :: forall c. (Component c) => c -> Components -> IO (Entity, Components)
 spawn c (Components w (Entity e) ids i) = do
-  w' <- insert (Entity e) c (Components w (Entity $ e + 1) ids i)
+  (_, w') <- insert (Entity e) c (Components w (Entity $ e + 1) ids i)
   return (Entity e, w')
 
 -- | Insert a component into an `Entity`.
 -- If the component already exists, it will be replaced.
-insert :: forall c. (Component c) => Entity -> c -> Components -> IO Components
+insert :: forall c. (Component c) => Entity -> c -> Components -> IO (ComponentID, Components)
 insert e c cs = do
-  let (cId, (Components w e' ids i)) = insertComponentId @c cs
+  let (cId, (Components w e' ids i)) = insertComponentID @c cs
   w' <-
     Map.alterF
       ( \maybeRow -> do
@@ -67,10 +77,10 @@ insert e c cs = do
       )
       cId
       w
-  return $ Components w' e' ids i
+  return (cId, Components w' e' ids i)
 
 adjust :: (Component c) => c -> (c -> c) -> Entity -> Components -> IO Components
-adjust a f w = insert w (f a)
+adjust a f e cs = snd <$> insert e (f a) cs
 
 getRow :: (Component c) => Proxy c -> Components -> Maybe (Storage c)
 getRow p (Components w _ ids _) = do
