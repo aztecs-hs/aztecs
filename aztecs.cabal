@@ -12,15 +12,6 @@ category:      Game Engine
 library
     exposed-modules:
         Data.Aztecs
-        Data.Aztecs.Core
-        Data.Aztecs.Command
-        Data.Aztecs.Schedule
-        Data.Aztecs.System
-        Data.Aztecs.Storage
-        Data.Aztecs.Query
-        Data.Aztecs.World
-        Data.Aztecs.World.Archetypes
-        Data.Aztecs.World.Components
 
     hs-source-dirs:   src
     default-language: Haskell2010
