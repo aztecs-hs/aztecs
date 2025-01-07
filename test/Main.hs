@@ -39,6 +39,20 @@ main = hspec $ do
             return ()
       _ <- runSystemOnce s w'
       return ()
+    it "queries all groups of components" $ do
+      (e, w) <- W.spawn (X 1) newWorld
+      w' <- W.insert e (Y 2) w
+      (e', w'') <- W.spawn (X 3) w'
+      w''' <- W.insert e' (Y 4) w''
+      let s = do
+            xs <- S.all $ do
+              X x <- Q.read
+              Y y <- Q.read
+              return (X x, Y y)
+            liftIO $ xs `shouldBe` [(X 1, Y 2), (X 3, Y 4)]
+            return ()
+      _ <- runSystemOnce s w'''
+      return ()
   describe "Data.Aztecs.System.get" $ do
     it "queries grouped components" $ do
       (e, w) <- W.spawn (X 1) newWorld

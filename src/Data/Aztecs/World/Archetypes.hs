@@ -42,10 +42,10 @@ data ArchetypeComponent where
   ArchetypeComponent :: (Component c) => ComponentID -> Proxy c -> ArchetypeComponent
 
 instance Eq ArchetypeComponent where
-  ArchetypeComponent a _ == ArchetypeComponent b _ = typeOf a == typeOf b
+  ArchetypeComponent a _ == ArchetypeComponent b _ = a == b
 
 instance Ord ArchetypeComponent where
-  ArchetypeComponent a _ `compare` ArchetypeComponent b _ = typeOf a `compare` typeOf b
+  ArchetypeComponent a _ `compare` ArchetypeComponent b _ = a `compare` b
 
 instance Show ArchetypeComponent where
   show (ArchetypeComponent p _) = show (typeOf p)
