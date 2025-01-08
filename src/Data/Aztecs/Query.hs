@@ -24,6 +24,24 @@ data Query a
       (Components -> (s, Archetype, Components))
       (Entity -> s -> ArchetypeState -> Components -> Maybe a)
 
+instance Functor Query where
+  fmap f (Query f' g) = Query f' (\e s archState cs -> f <$> g e s archState cs)
+
+instance Applicative Query where
+  pure a = Query (\cs -> ((), mempty, cs)) (\_ _ _ _ -> Just a)
+  Query f g <*> Query f' g' =
+    Query
+      ( \cs ->
+          let (s, arch, cs') = f cs
+              (s', arch', cs'') = f' cs'
+           in ((s, s'), arch <> arch', cs'')
+      )
+      ( \e (s, s') archState cs -> do
+          a <- g e s archState cs
+          a' <- g' e s' archState cs
+          return $ a a'
+      )
+
 fetch :: forall c. (Component c) => Query c
 fetch =
   Query
