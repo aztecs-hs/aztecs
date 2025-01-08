@@ -43,7 +43,7 @@ insert e c cs =
 
 insert' :: (Component c) => Entity -> ComponentID -> c -> Components -> Components
 insert' e cId c (Components cs ids i) = do
-  let f s = Just . toDyn $ S.insert (fromMaybe storage (s >>= fromDynamic)) e c
+  let f s = Just . toDyn $ S.insertComponent e c (fromMaybe storage (s >>= fromDynamic))
    in Components (Map.alter f cId cs) ids i
 
 lookup :: forall c. (Component c) => Entity -> Components -> Maybe c
@@ -55,7 +55,7 @@ lookup' :: (Component c) => ComponentID -> Entity -> Components -> (Maybe c)
 lookup' cId e (Components cs _ _) = do
   s <- Map.lookup cId cs
   s' <- fromDynamic s
-  S.lookup s' e
+  S.lookupComponent e s'
 
 getComponentId :: forall c. (Component c) => Components -> Maybe ComponentID
 getComponentId (Components _ ids _) = Map.lookup (typeOf (Proxy @c)) ids

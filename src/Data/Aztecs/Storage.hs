@@ -1,29 +1,41 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 module Data.Aztecs.Storage
   ( Storage (..),
     Table (..),
     table,
-    table',
+    ComponentStorage (..),
+    lookupComponent,
+    insertComponent,
   )
 where
 
 import Data.Aztecs.Core (Entity)
+import Data.Data (Typeable)
 import Data.Vector (Vector)
 import qualified Data.Vector as V
 import Prelude hiding (lookup)
 
-data Storage a = Storage
-  { insert :: Entity -> a -> Storage a,
-    lookup :: Entity -> Maybe a
-  }
+class (Typeable s) => Storage s a where
+  insert :: Entity -> a -> s a -> s a
+  lookup :: Entity -> s a -> Maybe a
 
 newtype Table c = Table (Vector (Entity, c))
 
-table :: Storage c
-table = table' (Table (V.empty))
+table :: ComponentStorage c
+table = ComponentStorage $ Table (V.empty)
 
-table' :: Table c -> Storage c
-table' (Table t) =
-  Storage
-    { insert = \e c -> table' $ Table (V.concat [V.singleton (e, c), t]),
-      lookup = \e -> snd <$> V.find (\(e', _) -> e' == e) t
-    }
+instance Storage Table c where
+  insert e c (Table t) = Table (V.cons (e, c) t)
+  lookup e (Table t) = snd <$> V.find (\(e', _) -> e' == e) t
+
+data ComponentStorage c where
+  ComponentStorage :: (Storage s c) => s c -> ComponentStorage c
+
+insertComponent :: Entity -> c -> ComponentStorage c -> ComponentStorage c
+insertComponent e c (ComponentStorage s) = ComponentStorage (insert e c s)
+
+lookupComponent :: Entity -> ComponentStorage c -> Maybe c
+lookupComponent e (ComponentStorage s) = lookup e s
