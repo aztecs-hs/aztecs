@@ -23,7 +23,9 @@ spawn :: (Component c) => c -> World -> (Entity, World)
 spawn c (World cs e) = (e, insert e c (World cs (Entity (unEntity e + 1))))
 
 insert :: (Component c) => Entity -> c -> World -> World
-insert e c (World cs e') = World (C.insert e c cs) e'
+insert e c (World cs e') =
+  let (f, cs') = C.insert e c cs
+   in World cs' e'
 
 lookup :: (Component c) => Entity -> World -> Maybe c
 lookup e (World cs _) = C.lookup e cs
