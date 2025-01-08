@@ -13,12 +13,10 @@ where
 import Data.Aztecs.Component (Component)
 import Data.Aztecs.Core (Entity)
 import Data.Aztecs.World (World (..))
-import Data.Aztecs.World.Archetypes (Archetype, ArchetypeComponents (ArchetypeComponents), ArchetypeState (..), archetype)
+import Data.Aztecs.World.Archetypes (Archetype, ArchetypeState (..), archetype)
 import qualified Data.Aztecs.World.Archetypes as A
 import Data.Aztecs.World.Components (ComponentRef (..), Components)
 import qualified Data.Aztecs.World.Components as CS
-import Data.Dynamic (fromDynamic)
-import qualified Data.Map as Map
 import Prelude hiding (lookup)
 
 data Query a
@@ -33,13 +31,9 @@ fetch =
         let (cId, cs') = CS.insertComponentId @c cs
          in (cId, archetype @c cId, cs')
     )
-    ( \e cId (ArchetypeState _ archCs _) cs ->
-        case Map.lookup e archCs of
-          Just (ArchetypeComponents archCs') -> do
-            d <- Map.lookup cId archCs'
-            (ComponentRef f) <- fromDynamic d
-            return $ f cs
-          Nothing -> Nothing
+    ( \e cId (ArchetypeState _ archCs _) cs -> do
+        (ComponentRef f) <- A.getArchetypeComponent e cId archCs
+        return $ f cs
     )
 
 lookup :: Entity -> Query a -> World -> (Maybe a, World)

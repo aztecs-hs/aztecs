@@ -61,10 +61,10 @@ lookup e cs = case getComponentId @c cs of
   Just cId -> lookup' cId e cs
   Nothing -> Nothing
 
-lookup' :: (Component c) => ComponentID -> Entity -> Components -> (Maybe c)
+lookup' :: forall c. (Component c) => ComponentID -> Entity -> Components -> (Maybe c)
 lookup' cId e (Components cs _ _) = do
   s <- Map.lookup cId cs
-  s' <- fromDynamic s
+  s' <- fromDynamic @(ComponentStorage c c) s
   lookupComponent e s'
 
 lookupStorage :: forall a c. (Typeable a, Component c) => Components -> Maybe (ComponentStorage a c)
@@ -92,7 +92,7 @@ insertComponent e c (ComponentStorage s) =
       g x = f $ fromMaybe (error "TODO") (fromDynamic x)
    in (g, ComponentStorage s')
 
-lookupComponent :: Entity -> ComponentStorage c c -> Maybe c
+lookupComponent :: Entity -> ComponentStorage a c -> Maybe c
 lookupComponent e (ComponentStorage s) = S.lookup e s
 
 componentRef :: (Dynamic -> c) -> ComponentID -> ComponentRef c
