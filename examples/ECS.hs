@@ -13,6 +13,7 @@ instance Component Position
 
 main :: IO ()
 main = do
-  let (e, w) = W.spawn (Position 0) (W.empty)
-      (x, w') = Q.lookup e (Q.fetch @Position) w
-  print x
+  let (_, w) = W.spawn (Position 0) (W.empty)
+      (_, w') = W.spawn (Position 1) w
+      (x, w'') = Q.all (Q.fetch @Position) w'
+  print (x, w'')

@@ -10,6 +10,7 @@ module Data.Aztecs.World.Archetypes
     ArchetypeComponent (..),
     ArchetypeComponents (..),
     getArchetypeComponent,
+    getArchetypeComponents,
     ArchetypeState (..),
     ArchetypeId (..),
     Archetypes (..),
@@ -72,6 +73,14 @@ getArchetypeComponent e i (ArchetypeComponents m) = do
   s <- fromDynamic @(ComponentStorage c (ComponentRef c)) d
   lookupComponent e s
 
+getArchetypeComponents :: forall c. (Component c) => ComponentID -> ArchetypeComponents -> [(Entity, ComponentRef c)]
+getArchetypeComponents i (ArchetypeComponents m) =
+  let res = do
+        d <- Map.lookup i m
+        s <- fromDynamic @(ComponentStorage c (ComponentRef c)) d
+        return $ toList' s
+   in fromMaybe [] res
+
 insertArchetypeComponent :: forall c. (Component c) => Entity -> ComponentID -> ComponentRef c -> ArchetypeComponents -> ArchetypeComponents
 insertArchetypeComponent e i r (ArchetypeComponents cs) =
   let s = fromMaybe storage (lookupStorage @c @(ComponentRef c) i (ArchetypeComponents cs))
@@ -131,6 +140,9 @@ toList (ComponentStorage s) =
           )
         )
    in map f (S.toList s)
+
+toList' :: forall a c. (Typeable a, Typeable c) => ComponentStorage a c -> [(Entity, c)]
+toList' (ComponentStorage s) = S.toList' s
 
 getArchetype :: ArchetypeId -> Archetypes -> Maybe ArchetypeState
 getArchetype (ArchetypeId i) (Archetypes es _ _ _) = IntMap.lookup i es

@@ -20,6 +20,7 @@ class (Typeable s) => Storage s a where
   insert :: Entity -> a -> s a -> (s a -> a, s a)
   lookup :: Entity -> s a -> Maybe a
   toList :: s a -> [(Entity, s a -> a)]
+  toList' :: s a -> [(Entity, a)]
 
 newtype Table c = Table (Vector (Entity, c))
 
@@ -33,6 +34,7 @@ instance Storage Table c where
      in ((\(Table newT) -> snd $ newT V.! idx), Table (t'))
   lookup e (Table t) = snd <$> V.find (\(e', _) -> e' == e) t
   toList (Table t) = map (\((e, _), idx) -> (e, \(Table newT) -> snd $ newT V.! idx)) (zip (V.toList t) [0 ..])
+  toList' (Table t) = V.toList t
 
 data ComponentStorage a c where
   ComponentStorage :: (Storage s c) => s c -> ComponentStorage a c

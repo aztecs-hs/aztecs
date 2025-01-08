@@ -1,7 +1,9 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Data.Aztecs.World.Components
   ( ComponentID (..),
@@ -37,6 +39,7 @@ newtype ComponentID = ComponentID {unComponentId :: Int}
   deriving (Eq, Ord, Show)
 
 newtype ComponentRef c = ComponentRef (Components -> c)
+  deriving (Functor, Applicative)
 
 data Components = Components (Map ComponentID Dynamic) (Map TypeRep ComponentID) ComponentID
   deriving (Show)
