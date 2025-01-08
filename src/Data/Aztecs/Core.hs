@@ -4,4 +4,4 @@ module Data.Aztecs.Core
 where
 
 newtype Entity = Entity {unEntity :: Int}
-  deriving (Eq, Show)
+  deriving (Eq, Ord, Show)

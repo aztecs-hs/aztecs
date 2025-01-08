@@ -14,8 +14,10 @@ library
         Data.Aztecs
         Data.Aztecs.Component
         Data.Aztecs.Core
-        Data.Aztecs.World
+        Data.Aztecs.Query
         Data.Aztecs.Storage
+        Data.Aztecs.World
+        Data.Aztecs.World.Archetypes
         Data.Aztecs.World.Components
 
     hs-source-dirs:   src

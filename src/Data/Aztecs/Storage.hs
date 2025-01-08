@@ -19,10 +19,11 @@ import Prelude hiding (lookup)
 class (Typeable s) => Storage s a where
   insert :: Entity -> a -> s a -> (s a -> a, s a)
   lookup :: Entity -> s a -> Maybe a
+  toList :: s a -> [(Entity, s a -> a)]
 
 newtype Table c = Table (Vector (Entity, c))
 
-table :: ComponentStorage c
+table :: ComponentStorage a c
 table = ComponentStorage $ Table (V.empty)
 
 instance Storage Table c where
@@ -31,6 +32,7 @@ instance Storage Table c where
         idx = V.length t' - 1
      in ((\(Table newT) -> snd $ newT V.! idx), Table (t'))
   lookup e (Table t) = snd <$> V.find (\(e', _) -> e' == e) t
+  toList (Table t) = map (\((e, _), idx) -> (e, \(Table newT) -> snd $ newT V.! idx)) (zip (V.toList t) [0 ..])
 
-data ComponentStorage c where
-  ComponentStorage :: (Storage s c) => s c -> ComponentStorage c
+data ComponentStorage a c where
+  ComponentStorage :: (Storage s c) => s c -> ComponentStorage a c
