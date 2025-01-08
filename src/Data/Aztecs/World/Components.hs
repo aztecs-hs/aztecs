@@ -1,9 +1,9 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Data.Aztecs.World.Components
   ( ComponentID (..),
@@ -47,10 +47,11 @@ data Components = Components (Map ComponentID Dynamic) (Map TypeRep ComponentID)
 empty :: Components
 empty = Components Map.empty Map.empty (ComponentID 0)
 
-insert :: forall c. (Component c) => Entity -> c -> Components -> (ComponentRef c, Components)
+insert :: forall c. (Component c) => Entity -> c -> Components -> (ComponentID, ComponentRef c, Components)
 insert e c cs =
   let (cId, cs') = insertComponentId @c cs
-   in insert' e cId c cs'
+      (r, cs'') = insert' e cId c cs'
+   in (cId, r, cs'')
 
 insert' :: forall c. (Component c) => Entity -> ComponentID -> c -> Components -> (ComponentRef c, Components)
 insert' e cId c (Components cs ids i) =

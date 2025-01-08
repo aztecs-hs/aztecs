@@ -150,8 +150,8 @@ getArchetype (ArchetypeId i) (Archetypes es _ _ _) = IntMap.lookup i es
 lookupStorageProxy :: (Component c) => Proxy c -> Components -> Maybe (ComponentStorage c c)
 lookupStorageProxy _ = CS.lookupStorage
 
-insert :: (Component c) => ComponentID -> Entity -> Components -> Archetypes -> Archetypes
-insert i e cs (Archetypes es ids as j) = case Map.lookup i ids of
+insert :: (Component c) => Entity -> ComponentID -> ComponentRef c -> Components -> Archetypes -> Archetypes
+insert e i c cs (Archetypes es ids as j) = case Map.lookup i ids of
   Just (ids') ->
     let insertInArchetype :: Int -> IntMap ArchetypeState -> IntMap ArchetypeState
         insertInArchetype archetypeId acc =
@@ -166,7 +166,7 @@ insert i e cs (Archetypes es ids as j) = case Map.lookup i ids of
                     (Set.toList $ unwrapArchetype arch)
              in if isMatch
                   then
-                    Just $ ArchetypeState arch (ArchetypeComponents mempty <> esAcc) deps
+                    Just $ ArchetypeState arch (insertArchetypeComponent e i c esAcc) deps
                   else state
           Nothing -> state
 
