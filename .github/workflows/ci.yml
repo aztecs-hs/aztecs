@@ -50,7 +50,7 @@ jobs:
           path: |
             ~/.cabal
             dist-newstyle
-          key: ${{ runner.os }}-build-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}
+          key: ${{ runner.os }}-doctest-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}
 
       - uses: actions/checkout@v4
       - uses: actions/setup-haskell@v1
