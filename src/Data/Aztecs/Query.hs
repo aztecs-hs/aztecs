@@ -4,7 +4,8 @@
 
 module Data.Aztecs.Query where
 
-import Data.Aztecs (Archetype (Archetype), ArchetypeID, ComponentIDSet (ComponentIDSet), ComponentState (componentColumnIds), Entity, EntityRecord (recordTableId), World (..), insertId)
+import Data.Aztecs (Archetype (Archetype), ArchetypeID, ComponentIDSet (ComponentIDSet), ComponentState (componentColumnIds), Entity, EntityRecord (recordTableId), World (..))
+import qualified Data.Aztecs.Components as CS
 import Data.Aztecs.Table (Column)
 import qualified Data.Aztecs.Table as Table
 import Data.Data (Typeable)
@@ -43,10 +44,10 @@ instance Applicative Query where
 
 read :: forall c. (Typeable c) => Query c
 read = Query $ \w ->
-  let (cId, w') = insertId @c w
+  let (cId, cs) = CS.insert @c (components w)
    in ( ComponentIDSet (Set.singleton cId),
         cId,
-        w',
+        w {components = cs},
         \archId col cId' wAcc -> do
           cState <- Map.lookup cId' (componentStates wAcc)
           colId <- Map.lookup archId (componentColumnIds cState)
