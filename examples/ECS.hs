@@ -1,45 +1,20 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Main where
 
-import Control.Monad.IO.Class
-import Data.Aztecs
-import qualified Data.Aztecs.Command as C
+import qualified Data.Aztecs as W
 import qualified Data.Aztecs.Query as Q
-import qualified Data.Aztecs.System as S
+import Text.Pretty.Simple
 
--- Components
+newtype X = X Int deriving (Show)
 
-newtype Position = Position Int deriving (Show)
-
-instance Component Position
-
-newtype Velocity = Velocity Int deriving (Show)
-
-instance Component Velocity
-
--- Systems
-
-setup :: System IO ()
-setup = S.command $ do
-  e <- C.spawn (Position 0)
-  C.insert e (Velocity 1)
-
-run :: System IO ()
-run = do
-  -- Update all entities with a `Position` and `Velocity` component.
-  positions <- S.all $ do
-    Velocity v <- Q.read
-    Q.write (\(Position p) -> Position (p + v))
-
-  liftIO $ print positions
-
-app :: Scheduler IO ()
-app = do
-  _ <- schedule Startup [] setup
-  _ <- schedule Update [] run
-  return ()
+newtype Y = Y Int deriving (Show)
 
 main :: IO ()
-main = runScheduler app
+main = do
+  let (e, w) = W.spawn (X 0) W.empty
+      w' = W.insert e (Y 0) w
+      (e', w'') = W.spawn (X 1) w'
+      w''' = W.insert e' (Y 1) w''
+      (x, w'''') = Q.all (Q.read @X) w'''
+  pPrint (w'''', x)

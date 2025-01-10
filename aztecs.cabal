@@ -11,16 +11,11 @@ category:      Game Engine
 
 library
     exposed-modules:
-        Data.Aztecs
-        Data.Aztecs.Core
-        Data.Aztecs.Command
-        Data.Aztecs.Schedule
-        Data.Aztecs.System
-        Data.Aztecs.Storage
-        Data.Aztecs.Query
-        Data.Aztecs.World
-        Data.Aztecs.World.Archetypes
-        Data.Aztecs.World.Components
+        Data.Aztecs,
+        Data.Aztecs.Archetypes,
+        Data.Aztecs.Components,
+        Data.Aztecs.Query,
+        Data.Aztecs.Table
 
     hs-source-dirs:   src
     default-language: Haskell2010
@@ -29,7 +24,8 @@ library
         base >=4 && <5,
         async >=2,
         containers >=0.7,
-        mtl >=2
+        mtl >=2,
+        vector >=0.13
 
 executable ecs
     main-is:          ECS.hs
@@ -38,7 +34,8 @@ executable ecs
     ghc-options:      -Wall
     build-depends:
         base >=4 && <5,
-        aztecs
+        aztecs,
+        pretty-simple
 
 test-suite aztecs-test
     type:             exitcode-stdio-1.0
