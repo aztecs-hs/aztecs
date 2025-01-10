@@ -14,6 +14,7 @@ module Data.Aztecs.Archetypes
     Archetypes (..),
     empty,
     insert,
+    insertDyn,
     insertUnchecked,
     insertNewDyn,
     insertNewComponent,
@@ -112,15 +113,18 @@ insertUnchecked e cId c w = case Map.lookup e (entities w) of
 
 -- | Insert a component into an `Entity` with its `ComponentID`.
 insert :: forall c. (Typeable c) => Entity -> ComponentID -> c -> Archetypes -> Archetypes
-insert e cId c w = case Map.lookup e (entities w) of
+insert e cId c = insertDyn e cId $ toDyn c
+
+insertDyn :: Entity -> ComponentID -> Dynamic -> Archetypes -> Archetypes
+insertDyn e cId c w = case Map.lookup e (entities w) of
   Just record ->
     let arch@(Archetype (ComponentIDSet idSet) table) = archetypes w Map.! (recordArchetypeId record)
         w' = despawnRecord arch record w
         idSet' = ComponentIDSet $ Set.insert cId idSet
      in case Map.lookup idSet' (archetypeIds w') of
           Just archId ->
-            let table' = Table.cons (recordTableId record) c table
-                f tId colId t = fromMaybe t $ snd <$> Table.remove @c tId colId t
+            let table' = Table.consDyn (recordTableId record) c table
+                f tId colId t = fromMaybe t $ snd <$> Table.removeDyn tId colId t
                 g (i, idx) acc = Map.insert i (ComponentState (Map.singleton archId (ColumnID idx)) f) acc
              in w'
                   { archetypes = Map.insert archId (Archetype idSet' table') (archetypes w'),
@@ -129,8 +133,8 @@ insert e cId c w = case Map.lookup e (entities w) of
                   }
           Nothing ->
             let archId = nextArchetypeId w'
-                table' = Table.cons (recordTableId record) c table
-                f tId colId t = fromMaybe t $ snd <$> Table.remove @c tId colId t
+                table' = Table.consDyn (recordTableId record) c table
+                f tId colId t = fromMaybe t $ snd <$> Table.removeDyn tId colId t
                 g (i, idx) acc = Map.insert i (ComponentState (Map.singleton archId (ColumnID idx)) f) acc
              in w'
                   { archetypes = Map.insert archId (Archetype idSet' table') (archetypes w'),
@@ -139,7 +143,7 @@ insert e cId c w = case Map.lookup e (entities w) of
                     entities = Map.insert e (EntityRecord archId (TableID $ Table.length table' - 1)) (entities w'),
                     componentStates = foldr g (componentStates w) (zip (reverse . Set.toList $ unComponentIdSet idSet') [0 ..])
                   }
-  Nothing -> insertNewDyn e cId (toDyn c) w
+  Nothing -> insertNewDyn e cId c w
 
 insertNewDyn :: Entity -> ComponentID -> Dynamic -> Archetypes -> Archetypes
 insertNewDyn e cId c w = case Map.lookup cId (componentStates w) of

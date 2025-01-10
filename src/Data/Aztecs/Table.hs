@@ -14,6 +14,7 @@ module Data.Aztecs.Table
     lookupDyn,
     lookupColumn,
     cons,
+    consDyn,
     insert,
     remove,
     removeDyn,
@@ -88,7 +89,10 @@ insert (TableID tableId) (ColumnID colId) c (Table table) =
    in Table $ V.modify f table
 
 cons :: (Typeable c) => TableID -> c -> Table -> Table
-cons (TableID tableId) c (Table table) = Table $ table V.// [(tableId, Column (V.cons (toDyn c) col))]
+cons tId c = consDyn tId $ toDyn c
+
+consDyn :: TableID -> Dynamic -> Table -> Table
+consDyn (TableID tableId) c (Table table) = Table $ table V.// [(tableId, Column (V.cons c col))]
   where
     Column col = table V.! tableId
 

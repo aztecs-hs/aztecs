@@ -76,11 +76,15 @@ spawnDyn cId c w = do
 -- | Insert a component into an `Entity`.
 insert :: forall c. (Typeable c) => Entity -> c -> World -> World
 insert e c w = case CS.lookup @c (components w) of
-  Just cId -> w {archetypes = AS.insert e cId c (archetypes w)}
+  Just cId -> insertDyn e cId (toDyn c) w
   Nothing ->
     let (cId, cs) = CS.insert @c (components w)
         as = AS.insertUnchecked e cId c (archetypes w)
      in w {components = cs, archetypes = as}
+
+-- | Insert a dynamic component into an `Entity`.
+insertDyn :: Entity -> ComponentID -> Dynamic -> World -> World
+insertDyn e cId c w = w {archetypes = AS.insertDyn e cId c (archetypes w)}
 
 -- | Lookup a component in an `Entity`.
 lookup :: forall c. (Typeable c) => Entity -> World -> Maybe c
