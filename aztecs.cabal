@@ -12,6 +12,7 @@ category:      Game Engine
 library
     exposed-modules:
         Data.Aztecs,
+        Data.Aztecs.Query,
         Data.Aztecs.Table
 
     hs-source-dirs:   src

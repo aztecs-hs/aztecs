@@ -8,9 +8,12 @@ module Data.Aztecs
     ArchetypeID (..),
     Archetype (..),
     ComponentID (..),
+    ComponentIDSet (..),
+    ComponentState (..),
     EntityRecord (..),
     World (..),
     empty,
+    insertId,
     spawn,
     spawnWithId,
     insert,
@@ -60,7 +63,7 @@ data ComponentState = ComponentState
   }
 
 instance Show ComponentState where
-  show _ = "ComponentState"
+  show (ComponentState cs _) = "ComponentState " ++ show cs
 
 data World = World
   { archetypes :: Map ArchetypeID Archetype,
@@ -87,8 +90,20 @@ empty =
       nextEntity = Entity 0
     }
 
+insertId :: forall c. (Typeable c) => World -> (ComponentID, World)
+insertId w = case Map.lookup (typeOf (Proxy @c)) (componentIds w) of
+  Just cId -> (cId, w)
+  Nothing ->
+    let cId = nextComponentId w
+        w' =
+          w
+            { componentIds = Map.insert (typeOf (Proxy @c)) cId (componentIds w),
+              nextComponentId = ComponentID (unComponentId cId + 1)
+            }
+     in (cId, w')
+
 spawn :: forall c. (Typeable c) => c -> World -> (Entity, World)
-spawn c w = case Map.lookup (typeOf c) (componentIds w) of
+spawn c w = case Map.lookup (typeOf (Proxy @c)) (componentIds w) of
   Just cId -> spawnWithId cId c w
   Nothing ->
     let cId = nextComponentId w
@@ -106,8 +121,8 @@ spawnWithId cId c w = do
       w' = insertNew e cId c (w {nextEntity = Entity (unEntity e + 1)})
    in (e, w')
 
-insert :: (Typeable c) => Entity -> c -> World -> World
-insert e c w = case Map.lookup (typeOf c) (componentIds w) of
+insert :: forall c. (Typeable c) => Entity -> c -> World -> World
+insert e c w = case Map.lookup (typeOf (Proxy @c)) (componentIds w) of
   Just cId -> insertWithId e cId c w
   Nothing -> case Map.lookup e (entities w) of
     Just record ->
@@ -120,12 +135,15 @@ insert e c w = case Map.lookup (typeOf c) (componentIds w) of
             Nothing ->
               let archId = nextArchetypeId w'
                   table' = Table.cons c table
+                  f tId colId t = fromMaybe t $ snd <$> Table.remove @c tId colId t
+                  g (i, idx) acc = Map.insert i (ComponentState (Map.singleton archId (ColumnID idx)) f) acc
                in w'
                     { archetypes = Map.insert archId (Archetype idSet' table') (archetypes w'),
                       archetypeIds = Map.insert idSet' archId (archetypeIds w'),
                       nextArchetypeId = ArchetypeID (unArchetypeId archId + 1),
                       entities = Map.insert e (EntityRecord archId (TableID $ Table.length table' - 1)) (entities w'),
-                      nextComponentId = ComponentID (unComponentId cId + 1)
+                      componentStates =
+                        foldr g (componentStates w) (zip (reverse $ Set.toList $ unComponentIdSet idSet') [0..])
                     }
     Nothing -> insertNewComponent e (nextComponentId w) c (w {nextComponentId = ComponentID (unComponentId (nextComponentId w) + 1)})
 

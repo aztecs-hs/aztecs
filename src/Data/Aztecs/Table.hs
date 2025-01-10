@@ -40,7 +40,7 @@ length (Table t) = V.length t
 lookup :: (Typeable c) => Table -> TableID -> ColumnID -> Maybe c
 lookup (Table table) (TableID tableId) (ColumnID colId) = do
   dyn <- table V.!? tableId
-  Column (col) <- fromDynamic dyn
+  Column col <- fromDynamic dyn
   col V.!? colId
 
 remove :: (Typeable c) => TableID -> ColumnID -> Table -> Maybe (c, Table)
