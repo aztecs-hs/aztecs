@@ -170,19 +170,25 @@ insertNew e cId c w = case Map.lookup cId (componentStates w) of
     let archId = archetypeIds w Map.! (ComponentIDSet (Set.singleton cId))
         Archetype _ table = archetypes w Map.! archId
         table' = Table.singleton c <> table
-        archetypes' = Map.insert archId (Archetype (ComponentIDSet (Set.singleton cId)) table') (archetypes w)
         f tId colId t = fromMaybe t $ snd <$> Table.remove @c tId colId t
-        componentStates' =
-          Map.insert
-            cId
-            (ComponentState (Map.insert archId (ColumnID 0) (componentColumnIds cState)) f)
-            (componentStates w)
-        entities' = Map.insert e (EntityRecord archId (TableID (Table.length table' - 1))) (entities w)
      in w
-          { archetypes = archetypes',
-            archetypeIds = Map.insert (ComponentIDSet (Set.singleton cId)) archId (archetypeIds w),
-            componentStates = componentStates',
-            entities = entities',
+          { archetypes =
+              Map.insert
+                archId
+                (Archetype (ComponentIDSet (Set.singleton cId)) table')
+                (archetypes w),
+            archetypeIds =
+              Map.insert (ComponentIDSet (Set.singleton cId)) archId (archetypeIds w),
+            componentStates =
+              Map.insert
+                cId
+                (ComponentState (Map.insert archId (ColumnID 0) (componentColumnIds cState)) f)
+                (componentStates w),
+            entities =
+              Map.insert
+                e
+                (EntityRecord archId (TableID (Table.length table' - 1)))
+                (entities w),
             nextArchetypeId = ArchetypeID (unArchetypeId archId + 1)
           }
   Nothing -> insertNewComponent e cId c w
@@ -191,19 +197,16 @@ insertNewComponent :: forall c. (Typeable c) => Entity -> ComponentID -> c -> Wo
 insertNewComponent e cId c w =
   let archId = nextArchetypeId w
       table = Table.singleton c
-      archetypes' = Map.insert archId (Archetype (ComponentIDSet (Set.singleton cId)) table) (archetypes w)
       f tId colId t = fromMaybe t $ snd <$> Table.remove @c tId colId t
-      componentStates' =
-        Map.insert
-          cId
-          (ComponentState (Map.singleton archId (ColumnID 0)) f)
-          (componentStates w)
-      entities' = Map.insert e (EntityRecord archId (TableID 0)) (entities w)
    in w
-        { archetypes = archetypes',
+        { archetypes = Map.insert archId (Archetype (ComponentIDSet (Set.singleton cId)) table) (archetypes w),
           archetypeIds = Map.insert (ComponentIDSet (Set.singleton cId)) archId (archetypeIds w),
-          componentStates = componentStates',
-          entities = entities',
+          componentStates =
+            Map.insert
+              cId
+              (ComponentState (Map.singleton archId (ColumnID 0)) f)
+              (componentStates w),
+          entities = Map.insert e (EntityRecord archId (TableID 0)) (entities w),
           nextArchetypeId = ArchetypeID (unArchetypeId archId + 1)
         }
 
@@ -215,15 +218,12 @@ lookup e w = case Map.lookup (typeOf (Proxy @c)) (componentIds w) of
 
 -- | Lookup a component in an `Entity` with its `ComponentID`.
 lookupWithId :: (Typeable c) => Entity -> ComponentID -> World -> Maybe c
-lookupWithId e cId w = case Map.lookup e (entities w) of
-  Just (EntityRecord archId tableId) -> case Map.lookup cId (componentStates w) of
-    Just cState -> case Map.lookup archId (componentColumnIds cState) of
-      Just colId -> do
-        let Archetype _ table = (archetypes w) Map.! archId
-        Table.lookup table tableId colId
-      Nothing -> Nothing
-    Nothing -> Nothing
-  Nothing -> Nothing
+lookupWithId e cId w = do
+  (EntityRecord archId tableId) <- Map.lookup e (entities w)
+  cState <- Map.lookup cId (componentStates w)
+  colId <- Map.lookup archId (componentColumnIds cState)
+  let Archetype _ table = (archetypes w) Map.! archId
+  Table.lookup table tableId colId
 
 -- | Despawn an `Entity`.
 despawn :: Entity -> World -> World
