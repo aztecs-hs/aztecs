@@ -10,6 +10,7 @@ module Data.Aztecs.Table
     singleton,
     length,
     lookup,
+    lookupDyn,
     lookupColumn,
     cons,
     insert,
@@ -45,11 +46,16 @@ singleton c = Table . V.singleton . Column . V.singleton $ toDyn c
 length :: Table -> Int
 length (Table t) = V.length t
 
-lookup :: (Typeable c) => Table -> TableID -> ColumnID -> Maybe c
-lookup (Table table) (TableID tableId) (ColumnID colId) = do
-  Column col <- table V.!? tableId
-  dyn <- col V.!? colId
-  fromDynamic dyn
+lookup :: (Typeable c) => TableID -> Table -> ColumnID -> Maybe c
+lookup tId t colId = lookupDyn tId colId t >>= fromDynamic
+
+lookupDyn :: TableID -> ColumnID -> Table -> Maybe Dynamic
+lookupDyn tId (ColumnID colId) t = do
+  Column col <- lookupColumn tId t
+  col V.!? colId
+
+lookupColumn :: TableID -> Table -> Maybe Column
+lookupColumn (TableID tableId) (Table table) = table V.!? tableId
 
 remove :: (Typeable c) => TableID -> ColumnID -> Table -> Maybe (c, Table)
 remove (TableID tableId) (ColumnID colId) (Table table) = do
@@ -72,9 +78,6 @@ cons :: (Typeable c) => TableID -> c -> Table -> Table
 cons (TableID tableId) c (Table table) = Table $ table V.// [(tableId, Column (V.cons (toDyn c) col))]
   where
     Column col = table V.! tableId
-
-lookupColumn :: TableID -> Table -> Maybe Column
-lookupColumn (TableID tableId) (Table table) = table V.!? tableId
 
 toList :: Table -> [Column]
 toList (Table t) = V.toList t

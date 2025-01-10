@@ -27,6 +27,7 @@ import Data.Aztecs.Components (ComponentID (..))
 import Data.Aztecs.Table (ColumnID (ColumnID), Table, TableID (..))
 import qualified Data.Aztecs.Table as Table
 import Data.Data (Typeable)
+import Data.Dynamic (Dynamic, fromDynamic)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
@@ -187,12 +188,15 @@ insertNewComponent e cId c w =
 
 -- | Lookup a component in an `Entity` with its `ComponentID`.
 lookupWithId :: (Typeable c) => Entity -> ComponentID -> Archetypes -> Maybe c
-lookupWithId e cId w = do
+lookupWithId e cId w = lookupDyn e cId w >>= fromDynamic
+
+lookupDyn :: Entity -> ComponentID -> Archetypes -> Maybe Dynamic
+lookupDyn e cId w = do
   (EntityRecord archId tableId) <- Map.lookup e (entities w)
   cState <- Map.lookup cId (componentStates w)
   colId <- Map.lookup archId (componentColumnIds cState)
   let Archetype _ table = (archetypes w) Map.! archId
-  Table.lookup table tableId colId
+  Table.lookupDyn tableId colId table
 
 -- | Despawn an `Entity`.
 despawn :: Entity -> Archetypes -> Archetypes
