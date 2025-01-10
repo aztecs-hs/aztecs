@@ -14,5 +14,7 @@ main :: IO ()
 main = do
   let (e, w) = W.spawn (X 0) W.empty
       w' = W.insert e (Y 1) w
-      (x, w'') = Q.lookup e ((,) <$> Q.read @X <*> Q.read @Y) w'
-  pPrint (w'', x)
+      (e', w'') = W.spawn (X 0) w'
+      w''' = W.insert e' (Y 1) w''
+      (x, w'''') = Q.all ((,) <$> Q.read @X <*> Q.read @Y) w'''
+  pPrint (w'''', x)

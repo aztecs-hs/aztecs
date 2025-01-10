@@ -5,10 +5,11 @@
 module Data.Aztecs.Query where
 
 import Data.Aztecs (Archetype (Archetype), ArchetypeID, ComponentIDSet (ComponentIDSet), ComponentState (componentColumnIds), Entity, EntityRecord (recordTableId), World (..), insertId)
-import Data.Aztecs.Table (Table)
+import Data.Aztecs.Table (Column)
 import qualified Data.Aztecs.Table as Table
 import Data.Data (Typeable)
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 
 data Query a
@@ -17,31 +18,26 @@ data Query a
         ( ComponentIDSet,
           s,
           World,
-          ArchetypeID ->
-          EntityRecord ->
-          Table ->
-          s ->
-          World ->
-          Maybe a
+          ArchetypeID -> Column -> s -> World -> Maybe a
         )
       )
 
 instance Functor Query where
   fmap f (Query q) = Query $ \w ->
     let (idSet, s, w', f') = q w
-     in (idSet, s, w', \archId record table s' w'' -> f <$> f' archId record table s' w'')
+     in (idSet, s, w', \archId table s' w'' -> f <$> f' archId table s' w'')
 
 instance Applicative Query where
-  pure a = Query $ \w -> (ComponentIDSet Set.empty, a, w, \_ _ _ a' _ -> Just a')
+  pure a = Query $ \w -> (ComponentIDSet Set.empty, a, w, \_ _ a' _ -> Just a')
   Query f <*> Query a = Query $ \w ->
     let (ComponentIDSet idSetF, s, w', f'') = f w
         (ComponentIDSet idSetA, s', w'', a'') = a w'
      in ( ComponentIDSet $ Set.union idSetF idSetA,
           (s, s'),
           w'',
-          \archId record table (sAcc, sAcc') wAcc -> do
-            f' <- f'' archId record table sAcc wAcc
-            a' <- a'' archId record table sAcc' wAcc
+          \archId table (sAcc, sAcc') wAcc -> do
+            f' <- f'' archId table sAcc wAcc
+            a' <- a'' archId table sAcc' wAcc
             return $ f' a'
         )
 
@@ -51,10 +47,10 @@ read = Query $ \w ->
    in ( ComponentIDSet (Set.singleton cId),
         cId,
         w',
-        \archId record table cId' wAcc -> do
+        \archId col cId' wAcc -> do
           cState <- Map.lookup cId' (componentStates wAcc)
           colId <- Map.lookup archId (componentColumnIds cState)
-          Table.lookup table (recordTableId record) colId
+          Table.lookupColumnId colId col
       )
 
 lookup :: Entity -> Query a -> World -> (Maybe a, World)
@@ -65,5 +61,15 @@ lookup e (Query f) w =
             archId <- Map.lookup idSet (archetypeIds w')
             let Archetype _ table = (archetypes w') Map.! archId
             record <- Map.lookup e (entities w')
-            f' archId record table s w'
+            col <- Table.lookupColumn (recordTableId record) table
+            f' archId col s w'
        in (res, w')
+
+all :: Query a -> World -> ([a], World)
+all (Query f) w =
+  case f w of
+    (idSet, s, w', f') -> case Map.lookup idSet (archetypeIds w') of
+      Just archId ->
+        let Archetype _ table = (archetypes w') Map.! archId
+         in (fromMaybe [] $ mapM (\col -> f' archId col s w') (Table.toList table), w')
+      Nothing -> ([], w')

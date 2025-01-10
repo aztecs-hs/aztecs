@@ -3,14 +3,17 @@
 module Data.Aztecs.Table
   ( ColumnID (..),
     Column (..),
+    lookupColumnId,
     TableID (..),
     Table (..),
     singleton,
     length,
     lookup,
+    lookupColumn,
     cons,
     insert,
     remove,
+    toList
   )
 where
 
@@ -25,6 +28,9 @@ newtype ColumnID = ColumnID {unColumnId :: Int}
   deriving (Eq, Ord, Show)
 
 newtype Column = Column (Vector Dynamic) deriving (Show)
+
+lookupColumnId :: (Typeable c) => ColumnID -> Column -> Maybe c
+lookupColumnId (ColumnID colId) (Column col) = col V.!? colId >>= fromDynamic
 
 newtype TableID = TableID {unTableId :: Int}
   deriving (Eq, Ord, Show)
@@ -64,3 +70,9 @@ cons :: (Typeable c) => TableID -> c -> Table -> Table
 cons (TableID tableId) c (Table table) = Table $ table V.// [(tableId, Column (V.cons (toDyn c) col))]
   where
     Column col = table V.! tableId
+
+lookupColumn :: TableID -> Table -> Maybe Column
+lookupColumn (TableID tableId) (Table table) = table V.!? tableId
+
+toList :: Table -> [Column]
+toList (Table t) = V.toList t
