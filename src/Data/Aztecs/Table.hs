@@ -4,6 +4,7 @@
 module Data.Aztecs.Table
   ( ColumnID (..),
     Column (..),
+    colFromList,
     lookupColumnId,
     TableID (..),
     Table (..),
@@ -18,6 +19,7 @@ module Data.Aztecs.Table
     insert,
     remove,
     removeDyn,
+    removeCol,
     fromDynList,
     fromList,
     toList,
@@ -34,7 +36,11 @@ import Prelude hiding (length, lookup, replicate)
 newtype ColumnID = ColumnID {unColumnId :: Int}
   deriving (Eq, Ord, Show)
 
-newtype Column = Column (Vector Dynamic) deriving (Show)
+newtype Column = Column (Vector Dynamic)
+  deriving (Show, Semigroup, Monoid)
+
+colFromList :: [Dynamic] -> Column
+colFromList = Column . V.fromList
 
 lookupColumnId :: (Typeable c) => ColumnID -> Column -> Maybe c
 lookupColumnId (ColumnID colId) (Column col) = col V.!? colId >>= fromDynamic
@@ -81,6 +87,13 @@ removeDyn (TableID tableId) (ColumnID colId) (Table table) = do
       dyn = V.head right
       col' = left V.++ V.tail right
   return (dyn, Table (table V.// [(tableId, Column col')]))
+
+removeCol :: TableID -> Table -> (Column, Table)
+removeCol (TableID tId) (Table t) =
+  let (left, right) = V.splitAt tId t
+      col = V.head right
+      t' = left V.++ V.tail right
+   in (col, Table t')
 
 insert :: (Typeable c) => TableID -> ColumnID -> c -> Table -> Table
 insert (TableID tableId) (ColumnID colId) c (Table table) =
