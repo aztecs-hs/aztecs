@@ -3,45 +3,31 @@ module Data.Aztecs.Table
     Column (..),
     TableID (..),
     Table (..),
-    empty,
-    replicate,
+    singleton,
     lookup,
   )
 where
 
 import Data.Dynamic (Dynamic, Typeable, fromDynamic, toDyn)
-import Data.Vector.Mutable (IOVector)
-import qualified Data.Vector.Mutable as MVector
+import Data.Vector (Vector)
+import qualified Data.Vector as V
 import Prelude hiding (lookup, replicate)
 
 newtype ColumnID = ColumnID {unColumnId :: Int}
   deriving (Eq, Ord, Show)
 
-newtype Column c = Column (IOVector c)
+newtype Column c = Column (Vector c)
 
 newtype TableID = TableID {unTableId :: Int}
   deriving (Eq, Ord, Show)
 
-newtype Table = Table (IOVector Dynamic)
+newtype Table = Table (Vector Dynamic)
 
-empty :: IO Table
-empty = Table <$> MVector.new 0
+singleton :: (Typeable c) => c -> Table
+singleton c = Table . V.singleton . toDyn . Column $ V.singleton c
 
-replicate :: (Typeable c) => Int -> c -> IO Table
-replicate n c =
-  Table
-    <$> MVector.replicateM
-      1
-      ( do
-          col <- MVector.replicate n c
-          return . toDyn $ Column col
-      )
-
-lookup :: (Typeable c) => Table -> TableID -> ColumnID -> IO (Maybe c)
+lookup :: (Typeable c) => Table -> TableID -> ColumnID -> Maybe c
 lookup (Table table) (TableID tableId) (ColumnID colId) = do
-  dyn <- MVector.read table tableId
-  case fromDynamic dyn of
-    Just (Column col) -> do
-      c <- MVector.read col colId
-      return . Just $ c
-    Nothing -> return Nothing
+  dyn <- table V.!? tableId
+  Column (col) <- fromDynamic dyn
+  col V.!? colId
