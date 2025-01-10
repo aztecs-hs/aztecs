@@ -113,7 +113,8 @@ insertUnchecked e cId c w = case Map.lookup e (entities w) of
                       Map.insert
                         e
                         (EntityRecord archId (TableID $ Table.length table' - 1))
-                        (entities w)
+                        (entities w),
+                    componentStates = Map.insert cId (ComponentState $ Map.singleton archId (ColumnID 0)) (componentStates w)
                   }
   Nothing -> error "TODO"
 
@@ -129,7 +130,7 @@ insertDyn e cId c w = case Map.lookup e (entities w) of
      in case Map.lookup idSet' (archetypeIds w) of
           Just archId ->
             let (col, arch') = despawnArch arch (recordTableId record)
-                col' = col <> Table.colFromList [c] 
+                col' = col <> Table.colFromList [c]
                 Archetype _ newTable = archetypes w Map.! archId
                 newTable' = Table.fromList [col'] <> newTable
                 archetypes' = Map.insert (recordArchetypeId record) arch' (archetypes w)
@@ -149,7 +150,8 @@ insertDyn e cId c w = case Map.lookup e (entities w) of
                   { archetypes = Map.insert archId (Archetype idSet' table') archetypes',
                     archetypeIds = Map.insert idSet' archId (archetypeIds w),
                     nextArchetypeId = ArchetypeID (unArchetypeId archId + 1),
-                    entities = Map.insert e (EntityRecord archId (TableID $ Table.length table' - 1)) (entities w)
+                    entities = Map.insert e (EntityRecord archId (TableID $ Table.length table' - 1)) (entities w),
+                    componentStates = Map.insert cId (ComponentState $ Map.singleton archId (ColumnID 0)) (componentStates w)
                   }
   Nothing -> insertNewDyn e cId c w
 
@@ -176,8 +178,7 @@ insertNewDyn e cId c w = case Map.lookup cId (componentStates w) of
               Map.insert
                 e
                 (EntityRecord archId (TableID (Table.length table' - 1)))
-                (entities w),
-            nextArchetypeId = ArchetypeID (unArchetypeId archId + 1)
+                (entities w)
           }
   Nothing -> insertNewComponent e cId c w
 

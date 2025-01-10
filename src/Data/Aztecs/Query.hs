@@ -74,6 +74,6 @@ all (Query f) w =
   case f w of
     (idSet, s, w', f') -> case Map.lookup idSet (archetypeIds (W.archetypes w')) of
       Just archId ->
-        let Archetype _ table = (AS.archetypes (W.archetypes w')) Map.! archId
+        let Archetype _ table = AS.archetypes (W.archetypes w') Map.! archId
          in (fromMaybe [] $ mapM (\col -> f' archId col s w') (Table.toList table), w')
       Nothing -> ([], w')
