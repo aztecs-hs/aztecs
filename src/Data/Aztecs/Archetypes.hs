@@ -98,13 +98,13 @@ insertUnchecked e cId c w = case Map.lookup e (entities w) of
     let arch@(Archetype (ComponentIDSet idSet) table) =
           archetypes w Map.! (recordArchetypeId record)
         (_, arch') = despawnArch arch (recordTableId record)
-        archetypes' = Map.insert (recordArchetypeId record ) arch' (archetypes w)
+        archetypes' = Map.insert (recordArchetypeId record) arch' (archetypes w)
         idSet' = ComponentIDSet $ Set.insert cId idSet
      in case Map.lookup idSet' (archetypeIds w) of
           Just archId -> error "TODO"
           Nothing ->
             let archId = nextArchetypeId w
-                table' = Table.cons (recordTableId record) c table
+                table' = Table.snocDyn (recordTableId record) (toDyn c) table
              in w
                   { archetypes = Map.insert archId (Archetype idSet' table') archetypes',
                     archetypeIds = Map.insert idSet' archId (archetypeIds w),
@@ -129,18 +129,22 @@ insertDyn e cId c w = case Map.lookup e (entities w) of
      in case Map.lookup idSet' (archetypeIds w) of
           Just archId ->
             let (col, arch') = despawnArch arch (recordTableId record)
+                col' = col <> Table.colFromList [c] 
                 Archetype _ newTable = archetypes w Map.! archId
-                newTable' = Table.fromList [Table.colFromList [c] <> col] <> newTable
+                newTable' = Table.fromList [col'] <> newTable
                 archetypes' = Map.insert (recordArchetypeId record) arch' (archetypes w)
+                cState = fromMaybe (ComponentState Map.empty) (Map.lookup cId (componentStates w))
+                cState' = cState {componentColumnIds = Map.insert archId (ColumnID $ Table.colLength col' - 1) (componentColumnIds cState)}
              in w
                   { archetypes = Map.insert archId (Archetype idSet' newTable') archetypes',
-                    entities = Map.insert e (EntityRecord archId (TableID $ Table.length newTable' - 1)) (entities w)
+                    entities = Map.insert e (EntityRecord archId (TableID $ Table.length newTable' - 1)) (entities w),
+                    componentStates = Map.insert cId cState' (componentStates w)
                   }
           Nothing ->
             let (_, arch') = despawnArch arch (recordTableId record)
                 archetypes' = Map.insert (recordArchetypeId record) arch' (archetypes w)
                 archId = nextArchetypeId w
-                table' = Table.consDyn (recordTableId record) c table
+                table' = Table.snocDyn (recordTableId record) c table
              in w
                   { archetypes = Map.insert archId (Archetype idSet' table') archetypes',
                     archetypeIds = Map.insert idSet' archId (archetypeIds w),

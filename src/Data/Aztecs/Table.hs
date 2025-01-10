@@ -4,6 +4,7 @@
 module Data.Aztecs.Table
   ( ColumnID (..),
     Column (..),
+    colLength,
     colFromList,
     lookupColumnId,
     TableID (..),
@@ -16,6 +17,7 @@ module Data.Aztecs.Table
     lookupColumn,
     cons,
     consDyn,
+    snocDyn,
     insert,
     remove,
     removeDyn,
@@ -38,6 +40,9 @@ newtype ColumnID = ColumnID {unColumnId :: Int}
 
 newtype Column = Column (Vector Dynamic)
   deriving (Show, Semigroup, Monoid)
+
+colLength :: Column -> Int
+colLength (Column c) = V.length c
 
 colFromList :: [Dynamic] -> Column
 colFromList = Column . V.fromList
@@ -105,6 +110,13 @@ insert (TableID tableId) (ColumnID colId) c (Table table) =
 
 cons :: (Typeable c) => TableID -> c -> Table -> Table
 cons tId c = consDyn tId $ toDyn c
+
+snocDyn :: TableID -> Dynamic -> Table -> Table
+snocDyn (TableID tableId) c (Table table) =
+  let g (Column col) = Column (V.snoc col c)
+      f :: MV.MVector s Column -> ST s ()
+      f v = MV.modify v g tableId
+   in Table $ V.modify f table
 
 consDyn :: TableID -> Dynamic -> Table -> Table
 consDyn (TableID tableId) c (Table table) =
