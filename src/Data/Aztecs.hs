@@ -12,8 +12,11 @@ module Data.Aztecs
     World (..),
     empty,
     spawn,
+    spawnWithId,
     insert,
+    insertWithId,
     lookup,
+    lookupWithId,
     remove,
     removeWithId,
     despawn,
@@ -76,14 +79,32 @@ empty =
     Map.empty
     (Entity 0)
 
-spawn :: (Typeable c) => ComponentID -> c -> World -> (Entity, World)
-spawn cId c w = do
+spawn :: forall c. (Typeable c) => c -> World -> (Entity, World)
+spawn c w = case Map.lookup (typeOf c) (componentIds w) of
+  Just cId -> spawnWithId cId c w
+  Nothing ->
+    let cId = nextComponentId w
+        w' =
+          w
+            { componentIds = Map.insert (typeOf (Proxy @c)) cId (componentIds w),
+              nextComponentId = ComponentID (unComponentId cId + 1)
+            }
+        e = nextEntity w'
+     in (e, insertNewComponent e cId c (w' {nextEntity = Entity (unEntity e + 1)}))
+
+spawnWithId :: (Typeable c) => ComponentID -> c -> World -> (Entity, World)
+spawnWithId cId c w = do
   let e = nextEntity w
       w' = insertNew e cId c (w {nextEntity = Entity (unEntity e + 1)})
    in (e, w')
 
-insert :: (Typeable c) => Entity -> ComponentID -> c -> World -> World
-insert e cId c w = case Map.lookup e (entities w) of
+insert :: (Typeable c) => Entity -> c -> World -> World
+insert e c w = case Map.lookup (typeOf c) (componentIds w) of
+  Just cId -> insertWithId e cId c w
+  Nothing -> insertNewComponent e (nextComponentId w) c (w {nextComponentId = ComponentID (unComponentId (nextComponentId w) + 1)})
+
+insertWithId :: (Typeable c) => Entity -> ComponentID -> c -> World -> World
+insertWithId e cId c w = case Map.lookup e (entities w) of
   Just record -> error "TODO"
   Nothing -> insertNew e cId c w
 
@@ -108,8 +129,32 @@ insertNew e cId c w = case Map.lookup cId (componentStates w) of
             nextArchetypeId = ArchetypeID (unArchetypeId archId + 1)
           }
 
-lookup :: (Typeable c) => Entity -> ComponentID -> World -> Maybe c
-lookup e cId w = case Map.lookup e (entities w) of
+insertNewComponent :: forall c. (Typeable c) => Entity -> ComponentID -> c -> World -> World
+insertNewComponent e cId c w =
+  let archId = nextArchetypeId w
+      table = Table.singleton c
+      archetypes' = Map.insert archId (Archetype (ComponentIDSet (Set.singleton cId)) table) (archetypes w)
+      f tId colId t = fromMaybe t $ snd <$> Table.remove @c tId colId t
+      componentStates' =
+        Map.insert
+          cId
+          (ComponentState (Map.singleton archId (ColumnID 0)) f)
+          (componentStates w)
+      entities' = Map.insert e (EntityRecord archId (TableID 0)) (entities w)
+   in w
+        { archetypes = archetypes',
+          componentStates = componentStates',
+          entities = entities',
+          nextArchetypeId = ArchetypeID (unArchetypeId archId + 1)
+        }
+
+lookup :: forall c. (Typeable c) => Entity -> World -> Maybe c
+lookup e w = case Map.lookup (typeOf (Proxy @c)) (componentIds w) of
+  Just cId -> lookupWithId e cId w
+  Nothing -> Nothing
+
+lookupWithId :: (Typeable c) => Entity -> ComponentID -> World -> Maybe c
+lookupWithId e cId w = case Map.lookup e (entities w) of
   Just (EntityRecord archId tableId) -> case Map.lookup cId (componentStates w) of
     Just cState -> case Map.lookup archId (componentColumnIds cState) of
       Just colId -> do
