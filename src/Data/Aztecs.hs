@@ -37,17 +37,22 @@ import qualified Data.Set as Set
 import Data.Typeable (Proxy (..), TypeRep, typeOf)
 import Prelude hiding (lookup)
 
+-- | Entity ID.
 newtype Entity = Entity {unEntity :: Int}
   deriving (Eq, Ord, Show)
 
+-- | Archetype ID.
 newtype ArchetypeID = ArchetypeID {unArchetypeId :: Int}
   deriving (Eq, Ord, Show)
 
+-- | Set of component IDs.
 newtype ComponentIDSet = ComponentIDSet {unComponentIdSet :: (Set ComponentID)}
   deriving (Eq, Ord, Show)
 
+-- | Archetype component storage.
 data Archetype = Archetype ComponentIDSet Table deriving (Show)
 
+-- | Component ID.
 newtype ComponentID = ComponentID {unComponentId :: Int}
   deriving (Eq, Ord, Show)
 
@@ -65,6 +70,7 @@ data ComponentState = ComponentState
 instance Show ComponentState where
   show (ComponentState cs _) = "ComponentState " ++ show cs
 
+-- | World of entities and components.
 data World = World
   { archetypes :: Map ArchetypeID Archetype,
     archetypeIds :: Map ComponentIDSet ArchetypeID,
@@ -77,6 +83,7 @@ data World = World
   }
   deriving (Show)
 
+-- | Empty world.
 empty :: World
 empty =
   World
@@ -90,6 +97,7 @@ empty =
       nextEntity = Entity 0
     }
 
+-- | Insert a `ComponentID` into the `World`.
 insertId :: forall c. (Typeable c) => World -> (ComponentID, World)
 insertId w = case Map.lookup (typeOf (Proxy @c)) (componentIds w) of
   Just cId -> (cId, w)
@@ -102,6 +110,7 @@ insertId w = case Map.lookup (typeOf (Proxy @c)) (componentIds w) of
             }
      in (cId, w')
 
+-- | Spawn an entity with a component.
 spawn :: forall c. (Typeable c) => c -> World -> (Entity, World)
 spawn c w = case Map.lookup (typeOf (Proxy @c)) (componentIds w) of
   Just cId -> spawnWithId cId c w
@@ -115,12 +124,14 @@ spawn c w = case Map.lookup (typeOf (Proxy @c)) (componentIds w) of
         e = nextEntity w'
      in (e, insertNewComponent e cId c (w' {nextEntity = Entity (unEntity e + 1)}))
 
+-- | Spawn an entity with a component and its `ComponentID`.
 spawnWithId :: (Typeable c) => ComponentID -> c -> World -> (Entity, World)
 spawnWithId cId c w = do
   let e = nextEntity w
       w' = insertNew e cId c (w {nextEntity = Entity (unEntity e + 1)})
    in (e, w')
 
+-- | Insert a component into an `Entity`.
 insert :: forall c. (Typeable c) => Entity -> c -> World -> World
 insert e c w = case Map.lookup (typeOf (Proxy @c)) (componentIds w) of
   Just cId -> insertWithId e cId c w
@@ -143,10 +154,11 @@ insert e c w = case Map.lookup (typeOf (Proxy @c)) (componentIds w) of
                       nextArchetypeId = ArchetypeID (unArchetypeId archId + 1),
                       entities = Map.insert e (EntityRecord archId (TableID $ Table.length table' - 1)) (entities w'),
                       componentStates =
-                        foldr g (componentStates w) (zip (reverse $ Set.toList $ unComponentIdSet idSet') [0..])
+                        foldr g (componentStates w) (zip (reverse $ Set.toList $ unComponentIdSet idSet') [0 ..])
                     }
     Nothing -> insertNewComponent e (nextComponentId w) c (w {nextComponentId = ComponentID (unComponentId (nextComponentId w) + 1)})
 
+-- | Insert a component into an `Entity` with its `ComponentID`.
 insertWithId :: (Typeable c) => Entity -> ComponentID -> c -> World -> World
 insertWithId e cId c w = case Map.lookup e (entities w) of
   Just record -> error "TODO"
@@ -177,11 +189,13 @@ insertNewComponent e cId c w =
           nextArchetypeId = ArchetypeID (unArchetypeId archId + 1)
         }
 
+-- | Lookup a component in an `Entity`.
 lookup :: forall c. (Typeable c) => Entity -> World -> Maybe c
 lookup e w = case Map.lookup (typeOf (Proxy @c)) (componentIds w) of
   Just cId -> lookupWithId e cId w
   Nothing -> Nothing
 
+-- | Lookup a component in an `Entity` with its `ComponentID`.
 lookupWithId :: (Typeable c) => Entity -> ComponentID -> World -> Maybe c
 lookupWithId e cId w = case Map.lookup e (entities w) of
   Just (EntityRecord archId tableId) -> case Map.lookup cId (componentStates w) of
@@ -193,6 +207,7 @@ lookupWithId e cId w = case Map.lookup e (entities w) of
     Nothing -> Nothing
   Nothing -> Nothing
 
+-- | Despawn an `Entity`.
 despawn :: Entity -> World -> World
 despawn e w =
   let res = do
@@ -208,11 +223,13 @@ despawnRecord (Archetype (ComponentIDSet cs) table) record w =
       archetypes' = Map.insert archId (Archetype (ComponentIDSet cs) table') (archetypes w)
    in w {archetypes = archetypes'}
 
+-- | Remove a component from an `Entity`.
 remove :: forall c. (Typeable c) => Entity -> World -> World
 remove e w = case Map.lookup (typeOf (Proxy @c)) (componentIds w) of
   Just cId -> removeWithId e cId w
   Nothing -> w
 
+-- | Remove a component from an `Entity` with its `ComponentID`.
 removeWithId :: Entity -> ComponentID -> World -> World
 removeWithId e cId w =
   let res = do
