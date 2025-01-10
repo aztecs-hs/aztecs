@@ -6,6 +6,7 @@ module Data.Aztecs.Table
     TableID (..),
     Table (..),
     singleton,
+    length,
     lookup,
     cons,
     insert,
@@ -18,7 +19,7 @@ import Data.Dynamic (Dynamic, Typeable, fromDynamic, toDyn)
 import Data.Vector (Vector)
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
-import Prelude hiding (lookup, replicate)
+import Prelude hiding (length, lookup, replicate)
 
 newtype ColumnID = ColumnID {unColumnId :: Int}
   deriving (Eq, Ord, Show)
@@ -28,10 +29,13 @@ newtype Column c = Column (Vector c)
 newtype TableID = TableID {unTableId :: Int}
   deriving (Eq, Ord, Show)
 
-newtype Table = Table (Vector Dynamic)
+newtype Table = Table (Vector Dynamic) deriving (Show)
 
 singleton :: (Typeable c) => c -> Table
 singleton c = Table . V.singleton . toDyn . Column $ V.singleton c
+
+length :: Table -> Int
+length (Table t) = V.length t
 
 lookup :: (Typeable c) => Table -> TableID -> ColumnID -> Maybe c
 lookup (Table table) (TableID tableId) (ColumnID colId) = do
@@ -58,12 +62,7 @@ insert (TableID tableId) (ColumnID colId) c (Table table) =
       f v = MV.modify v g tableId
    in Table $ V.modify f table
 
-cons :: (Typeable c) => TableID -> c -> Table -> (ColumnID, Table)
-cons (TableID tableId) c (Table table) =
-  let g d = case fromDynamic d of
-        Just (Column col) -> toDyn $ V.cons c col
-        Nothing -> error "TODO"
-      f :: MV.MVector s Dynamic -> ST s ()
-      f v = MV.modify v g tableId
-      table' = V.modify f table
-   in (ColumnID $ V.length table' - 1, Table table')
+cons :: (Typeable c) => c -> Table -> Table
+cons c (Table table) =
+  let newCol = toDyn . Column $ V.singleton c
+   in Table (V.cons newCol table)

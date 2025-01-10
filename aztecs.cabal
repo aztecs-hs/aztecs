@@ -31,7 +31,8 @@ executable ecs
     ghc-options:      -Wall
     build-depends:
         base >=4 && <5,
-        aztecs
+        aztecs,
+        pretty-simple
 
 test-suite aztecs-test
     type:             exitcode-stdio-1.0
