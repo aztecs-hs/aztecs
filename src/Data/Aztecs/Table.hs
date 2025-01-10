@@ -1,3 +1,4 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Data.Aztecs.Table
@@ -13,7 +14,7 @@ module Data.Aztecs.Table
     cons,
     insert,
     remove,
-    toList
+    toList,
   )
 where
 
@@ -35,7 +36,8 @@ lookupColumnId (ColumnID colId) (Column col) = col V.!? colId >>= fromDynamic
 newtype TableID = TableID {unTableId :: Int}
   deriving (Eq, Ord, Show)
 
-newtype Table = Table (Vector Column) deriving (Show)
+newtype Table = Table (Vector Column)
+  deriving (Show, Semigroup, Monoid)
 
 singleton :: (Typeable c) => c -> Table
 singleton c = Table . V.singleton . Column . V.singleton $ toDyn c

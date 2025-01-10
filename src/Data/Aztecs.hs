@@ -145,7 +145,7 @@ insert e c w = case Map.lookup (typeOf (Proxy @c)) (componentIds w) of
             Just archId -> error "TODO"
             Nothing ->
               let archId = nextArchetypeId w'
-                  table' = Table.cons (recordTableId record)  c table
+                  table' = Table.cons (recordTableId record) c table
                   f tId colId t = fromMaybe t $ snd <$> Table.remove @c tId colId t
                   g (i, idx) acc = Map.insert i (ComponentState (Map.singleton archId (ColumnID idx)) f) acc
                in w'
@@ -154,7 +154,7 @@ insert e c w = case Map.lookup (typeOf (Proxy @c)) (componentIds w) of
                       nextArchetypeId = ArchetypeID (unArchetypeId archId + 1),
                       entities = Map.insert e (EntityRecord archId (TableID $ Table.length table' - 1)) (entities w'),
                       componentStates =
-                        foldr g (componentStates w) (zip (reverse . Set.toList $ unComponentIdSet idSet') [0..])
+                        foldr g (componentStates w) (zip (reverse . Set.toList $ unComponentIdSet idSet') [0 ..])
                     }
     Nothing -> error "TODO"
 
@@ -166,7 +166,25 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
 
 insertNew :: forall c. (Typeable c) => Entity -> ComponentID -> c -> World -> World
 insertNew e cId c w = case Map.lookup cId (componentStates w) of
-  Just colIds -> error "TODO"
+  Just cState ->
+    let archId = archetypeIds w Map.! (ComponentIDSet (Set.singleton cId))
+        Archetype _ table = archetypes w Map.! archId
+        table' = Table.singleton c <> table
+        archetypes' = Map.insert archId (Archetype (ComponentIDSet (Set.singleton cId)) table') (archetypes w)
+        f tId colId t = fromMaybe t $ snd <$> Table.remove @c tId colId t
+        componentStates' =
+          Map.insert
+            cId
+            (ComponentState (Map.insert archId (ColumnID 0) (componentColumnIds cState)) f)
+            (componentStates w)
+        entities' = Map.insert e (EntityRecord archId (TableID (Table.length table' - 1))) (entities w)
+     in w
+          { archetypes = archetypes',
+            archetypeIds = Map.insert (ComponentIDSet (Set.singleton cId)) archId (archetypeIds w),
+            componentStates = componentStates',
+            entities = entities',
+            nextArchetypeId = ArchetypeID (unArchetypeId archId + 1)
+          }
   Nothing -> insertNewComponent e cId c w
 
 insertNewComponent :: forall c. (Typeable c) => Entity -> ComponentID -> c -> World -> World
