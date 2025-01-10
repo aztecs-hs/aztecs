@@ -18,6 +18,8 @@ module Data.Aztecs.Table
     insert,
     remove,
     removeDyn,
+    fromDynList,
+    fromList,
     toList,
   )
 where
@@ -92,9 +94,17 @@ cons :: (Typeable c) => TableID -> c -> Table -> Table
 cons tId c = consDyn tId $ toDyn c
 
 consDyn :: TableID -> Dynamic -> Table -> Table
-consDyn (TableID tableId) c (Table table) = Table $ table V.// [(tableId, Column (V.cons c col))]
-  where
-    Column col = table V.! tableId
+consDyn (TableID tableId) c (Table table) =
+  let g (Column col) = Column (V.cons c col)
+      f :: MV.MVector s Column -> ST s ()
+      f v = MV.modify v g tableId
+   in Table $ V.modify f table
+
+fromDynList :: [Dynamic] -> Table
+fromDynList cs = fromList [Column $ V.fromList cs]
+
+fromList :: [Column] -> Table
+fromList = Table . V.fromList
 
 toList :: Table -> [Column]
 toList (Table t) = V.toList t

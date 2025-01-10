@@ -89,7 +89,7 @@ insertUnchecked :: forall c. (Typeable c) => Entity -> ComponentID -> c -> Arche
 insertUnchecked e cId c w = case Map.lookup e (entities w) of
   Just record ->
     let arch@(Archetype (ComponentIDSet idSet) table) = archetypes w Map.! (recordArchetypeId record)
-        w' = despawnRecord arch record w
+        (_, w') = despawnRecord arch record w
         idSet' = ComponentIDSet $ Set.insert cId idSet
      in case Map.lookup idSet' (archetypeIds w') of
           Just archId -> error "TODO"
@@ -112,17 +112,18 @@ insertDyn :: Entity -> ComponentID -> Dynamic -> Archetypes -> Archetypes
 insertDyn e cId c w = case Map.lookup e (entities w) of
   Just record ->
     let arch@(Archetype (ComponentIDSet idSet) table) = archetypes w Map.! (recordArchetypeId record)
-        w' = despawnRecord arch record w
         idSet' = ComponentIDSet $ Set.insert cId idSet
-     in case Map.lookup idSet' (archetypeIds w') of
+     in case Map.lookup idSet' (archetypeIds w) of
           Just archId ->
-            let table' = Table.consDyn (recordTableId record) c table
-             in w'
-                  { archetypes = Map.insert archId (Archetype idSet' table') (archetypes w'),
-                    entities = Map.insert e (EntityRecord archId (TableID $ Table.length table' - 1)) (entities w')
+            let Archetype _ newTable = archetypes w Map.! archId
+                newTable' = (Table.singletonDyn c) <> newTable
+             in w
+                  { archetypes = Map.insert archId (Archetype idSet' newTable') (archetypes w),
+                    entities = Map.insert e (EntityRecord archId (TableID $ Table.length newTable' - 1)) (entities w)
                   }
           Nothing ->
-            let archId = nextArchetypeId w'
+            let (_, w') = despawnRecord arch record w
+                archId = nextArchetypeId w'
                 table' = Table.consDyn (recordTableId record) c table
              in w'
                   { archetypes = Map.insert archId (Archetype idSet' table') (archetypes w'),
@@ -194,38 +195,40 @@ despawn e w =
   let res = do
         record <- Map.lookup e (entities w)
         let arch = archetypes w Map.! (recordArchetypeId record)
-        return $ despawnRecord arch record w
+            (_, w') = despawnRecord arch record w
+        return w'
    in fromMaybe w res
 
-despawnRecord :: Archetype -> EntityRecord -> Archetypes -> Archetypes
+despawnRecord :: Archetype -> EntityRecord -> Archetypes -> ([(ComponentID, Dynamic)], Archetypes)
 despawnRecord (Archetype (ComponentIDSet idSet) table) record w =
   let archId = recordArchetypeId record
-      table' = foldr (removeWithId' archId (recordTableId record) w) table (Set.toList idSet)
+      f cId (acc, t) = case removeWithId' archId (recordTableId record) w cId t of
+        Just (dyn, t') -> ((cId, dyn) : acc, t')
+        Nothing -> (acc, t)
+
+      (cs, table') = foldr f ([], table) (Set.toList idSet)
       archetypes' = Map.insert archId (Archetype (ComponentIDSet idSet) table') (archetypes w)
       g (i, idx) acc = Map.insert i (ComponentState (Map.singleton archId (ColumnID idx))) acc
-   in w
-        { archetypes = archetypes',
-          componentStates =
-            foldr g (componentStates w) (zip (reverse $ Set.toList idSet) [0 ..])
-        }
+   in ( cs,
+        w
+          { archetypes = archetypes',
+            componentStates =
+              foldr g (componentStates w) (zip (reverse $ Set.toList idSet) [0 ..])
+          }
+      )
 
 -- | Remove a component from an `Entity` with its `ComponentID`.
-removeWithId :: Entity -> ComponentID -> Archetypes -> Archetypes
-removeWithId e cId w =
-  let res = do
-        record <- Map.lookup e (entities w)
-        let archId = recordArchetypeId record
-            (Archetype (ComponentIDSet cs) table) = archetypes w Map.! archId
-            table' = removeWithId' archId (recordTableId record) w cId table
-            archetypes' = Map.insert archId (Archetype (ComponentIDSet cs) table') (archetypes w)
-        return $ w {archetypes = archetypes'}
-   in fromMaybe w res
+removeWithId :: Entity -> ComponentID -> Archetypes -> Maybe (Dynamic, Archetypes)
+removeWithId e cId archs = do
+  record <- Map.lookup e (entities archs)
+  let archId = recordArchetypeId record
+      (Archetype (ComponentIDSet cs) table) = archetypes archs Map.! archId
+  (dyn, table') <- removeWithId' archId (recordTableId record) archs cId table
+  let archetypes' = Map.insert archId (Archetype (ComponentIDSet cs) table') (archetypes archs)
+  return (dyn, archs {archetypes = archetypes'})
 
-removeWithId' :: ArchetypeID -> TableID -> Archetypes -> ComponentID -> Table -> Table
-removeWithId' archId tId w cId t =
+removeWithId' :: ArchetypeID -> TableID -> Archetypes -> ComponentID -> Table -> Maybe (Dynamic, Table)
+removeWithId' archId tId w cId t = do
   let cState = componentStates w Map.! cId
-      res = do
-        colId <- Map.lookup archId (componentColumnIds cState)
-        (_, t') <- Table.removeDyn tId colId t
-        return t'
-   in fromMaybe t res
+  colId <- Map.lookup archId (componentColumnIds cState)
+  Table.removeDyn tId colId t
