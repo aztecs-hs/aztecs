@@ -4,7 +4,10 @@
 
 module Data.Aztecs.Query where
 
-import Data.Aztecs (Archetype (Archetype), ArchetypeID, ComponentIDSet (ComponentIDSet), ComponentState (componentColumnIds), Entity, EntityRecord (recordTableId), World (..))
+import Data.Aztecs
+import qualified Data.Aztecs as W
+import Data.Aztecs.Archetypes
+import qualified Data.Aztecs.Archetypes as AS
 import qualified Data.Aztecs.Components as CS
 import Data.Aztecs.Table (Column)
 import qualified Data.Aztecs.Table as Table
@@ -49,7 +52,7 @@ read = Query $ \w ->
         cId,
         w {components = cs},
         \archId col cId' wAcc -> do
-          cState <- Map.lookup cId' (componentStates wAcc)
+          cState <- Map.lookup cId' (componentStates (W.archetypes wAcc))
           colId <- Map.lookup archId (componentColumnIds cState)
           Table.lookupColumnId colId col
       )
@@ -59,9 +62,9 @@ lookup e (Query f) w =
   case f w of
     (idSet, s, w', f') ->
       let res = do
-            archId <- Map.lookup idSet (archetypeIds w')
-            let Archetype _ table = (archetypes w') Map.! archId
-            record <- Map.lookup e (entities w')
+            archId <- Map.lookup idSet (archetypeIds (W.archetypes w'))
+            let Archetype _ table = (AS.archetypes (W.archetypes w')) Map.! archId
+            record <- Map.lookup e (entities (W.archetypes w'))
             col <- Table.lookupColumn (recordTableId record) table
             f' archId col s w'
        in (res, w')
@@ -69,8 +72,8 @@ lookup e (Query f) w =
 all :: Query a -> World -> ([a], World)
 all (Query f) w =
   case f w of
-    (idSet, s, w', f') -> case Map.lookup idSet (archetypeIds w') of
+    (idSet, s, w', f') -> case Map.lookup idSet (archetypeIds (W.archetypes w')) of
       Just archId ->
-        let Archetype _ table = (archetypes w') Map.! archId
+        let Archetype _ table = (AS.archetypes (W.archetypes w')) Map.! archId
          in (fromMaybe [] $ mapM (\col -> f' archId col s w') (Table.toList table), w')
       Nothing -> ([], w')

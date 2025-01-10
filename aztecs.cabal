@@ -12,6 +12,7 @@ category:      Game Engine
 library
     exposed-modules:
         Data.Aztecs,
+        Data.Aztecs.Archetypes,
         Data.Aztecs.Components,
         Data.Aztecs.Query,
         Data.Aztecs.Table
