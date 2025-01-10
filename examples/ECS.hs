@@ -8,8 +8,11 @@ import Text.Pretty.Simple
 
 newtype X = X Int deriving (Show)
 
+newtype Y = Y Int deriving (Show)
+
 main :: IO ()
 main = do
   let (e, w) = W.spawn (X 0) W.empty
-      (x, w') = Q.lookup e (Q.read @X) w
-  pPrint x
+      w' = W.insert e (Y 1) w
+      (x, w'') = Q.lookup e ((,) <$> Q.read @X <*> Q.read @Y) w'
+  pPrint (w'', x)

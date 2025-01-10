@@ -145,7 +145,7 @@ insert e c w = case Map.lookup (typeOf (Proxy @c)) (componentIds w) of
             Just archId -> error "TODO"
             Nothing ->
               let archId = nextArchetypeId w'
-                  table' = Table.cons c table
+                  table' = Table.cons (recordTableId record)  c table
                   f tId colId t = fromMaybe t $ snd <$> Table.remove @c tId colId t
                   g (i, idx) acc = Map.insert i (ComponentState (Map.singleton archId (ColumnID idx)) f) acc
                in w'
@@ -154,9 +154,9 @@ insert e c w = case Map.lookup (typeOf (Proxy @c)) (componentIds w) of
                       nextArchetypeId = ArchetypeID (unArchetypeId archId + 1),
                       entities = Map.insert e (EntityRecord archId (TableID $ Table.length table' - 1)) (entities w'),
                       componentStates =
-                        foldr g (componentStates w) (zip (reverse $ Set.toList $ unComponentIdSet idSet') [0 ..])
+                        foldr g (componentStates w) (zip (reverse . Set.toList $ unComponentIdSet idSet') [0..])
                     }
-    Nothing -> insertNewComponent e (nextComponentId w) c (w {nextComponentId = ComponentID (unComponentId (nextComponentId w) + 1)})
+    Nothing -> error "TODO"
 
 -- | Insert a component into an `Entity` with its `ComponentID`.
 insertWithId :: (Typeable c) => Entity -> ComponentID -> c -> World -> World
