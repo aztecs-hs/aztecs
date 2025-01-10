@@ -15,8 +15,9 @@ module Data.Aztecs.Archetypes
     empty,
     insert,
     insertUnchecked,
-    insertNew,
+    insertNewDyn,
     insertNewComponent,
+    lookupDyn,
     lookupWithId,
     removeWithId,
     despawn,
@@ -27,7 +28,7 @@ import Data.Aztecs.Components (ComponentID (..))
 import Data.Aztecs.Table (ColumnID (ColumnID), Table, TableID (..))
 import qualified Data.Aztecs.Table as Table
 import Data.Data (Typeable)
-import Data.Dynamic (Dynamic, fromDynamic)
+import Data.Dynamic (Dynamic, fromDynamic, toDyn)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
@@ -138,15 +139,15 @@ insert e cId c w = case Map.lookup e (entities w) of
                     entities = Map.insert e (EntityRecord archId (TableID $ Table.length table' - 1)) (entities w'),
                     componentStates = foldr g (componentStates w) (zip (reverse . Set.toList $ unComponentIdSet idSet') [0 ..])
                   }
-  Nothing -> insertNew e cId c w
+  Nothing -> insertNewDyn e cId (toDyn c) w
 
-insertNew :: forall c. (Typeable c) => Entity -> ComponentID -> c -> Archetypes -> Archetypes
-insertNew e cId c w = case Map.lookup cId (componentStates w) of
+insertNewDyn :: Entity -> ComponentID -> Dynamic -> Archetypes -> Archetypes
+insertNewDyn e cId c w = case Map.lookup cId (componentStates w) of
   Just cState ->
     let archId = archetypeIds w Map.! (ComponentIDSet (Set.singleton cId))
         Archetype _ table = archetypes w Map.! archId
-        table' = Table.singleton c <> table
-        f tId colId t = fromMaybe t $ snd <$> Table.remove @c tId colId t
+        table' = Table.singletonDyn c <> table
+        f tId colId t = fromMaybe t $ snd <$> Table.removeDyn tId colId t
      in w
           { archetypes =
               Map.insert

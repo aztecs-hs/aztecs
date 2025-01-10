@@ -8,6 +8,7 @@ module Data.Aztecs.Table
     TableID (..),
     Table (..),
     singleton,
+    singletonDyn,
     length,
     lookup,
     lookupDyn,
@@ -15,6 +16,7 @@ module Data.Aztecs.Table
     cons,
     insert,
     remove,
+    removeDyn,
     toList,
   )
 where
@@ -41,7 +43,10 @@ newtype Table = Table (Vector Column)
   deriving (Show, Semigroup, Monoid)
 
 singleton :: (Typeable c) => c -> Table
-singleton c = Table . V.singleton . Column . V.singleton $ toDyn c
+singleton = singletonDyn . toDyn
+
+singletonDyn :: Dynamic -> Table
+singletonDyn c = Table . V.singleton . Column $ V.singleton c
 
 length :: Table -> Int
 length (Table t) = V.length t
@@ -65,6 +70,14 @@ remove (TableID tableId) (ColumnID colId) (Table table) = do
       col' = left V.++ V.tail right
   c <- fromDynamic dyn
   return (c, Table (table V.// [(tableId, Column col')]))
+
+removeDyn :: TableID -> ColumnID -> Table -> Maybe (Dynamic, Table)
+removeDyn (TableID tableId) (ColumnID colId) (Table table) = do
+  Column col <- table V.!? tableId
+  let (left, right) = V.splitAt colId col
+      dyn = V.head right
+      col' = left V.++ V.tail right
+  return (dyn, Table (table V.// [(tableId, Column col')]))
 
 insert :: (Typeable c) => TableID -> ColumnID -> c -> Table -> Table
 insert (TableID tableId) (ColumnID colId) c (Table table) =

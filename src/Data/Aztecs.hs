@@ -10,8 +10,10 @@ module Data.Aztecs
     empty,
     spawn,
     spawnWithId,
+    spawnDyn,
     insert,
     lookup,
+    lookupDyn,
   )
 where
 
@@ -20,6 +22,7 @@ import qualified Data.Aztecs.Archetypes as AS
 import Data.Aztecs.Components (ComponentID (..), Components)
 import qualified Data.Aztecs.Components as CS
 import Data.Data (Typeable)
+import Data.Dynamic (Dynamic, toDyn)
 import Prelude hiding (lookup)
 
 -- | World of entities and components.
@@ -57,11 +60,15 @@ spawn c w = case CS.lookup @c (components w) of
 
 -- | Spawn an entity with a component and its `ComponentID`.
 spawnWithId :: (Typeable c) => ComponentID -> c -> World -> (Entity, World)
-spawnWithId cId c w = do
+spawnWithId cId c = spawnDyn cId (toDyn c)
+
+-- | Spawn an entity with a dynamic component and its `ComponentID`.
+spawnDyn :: ComponentID -> Dynamic -> World -> (Entity, World)
+spawnDyn cId c w = do
   let e = nextEntity w
    in ( e,
         w
-          { archetypes = AS.insertNew e cId c (archetypes w),
+          { archetypes = AS.insertNewDyn e cId c (archetypes w),
             nextEntity = Entity (unEntity e + 1)
           }
       )
@@ -77,6 +84,10 @@ insert e c w = case CS.lookup @c (components w) of
 
 -- | Lookup a component in an `Entity`.
 lookup :: forall c. (Typeable c) => Entity -> World -> Maybe c
-lookup e w = case CS.lookup @c (components w) of
-  Just cId -> AS.lookupWithId e cId (archetypes w)
-  Nothing -> Nothing
+lookup e w = do
+  cId <- CS.lookup @c (components w)
+  AS.lookupWithId e cId (archetypes w)
+
+-- | Lookup a dynamic component in an `Entity`.
+lookupDyn :: Entity -> ComponentID -> World -> Maybe Dynamic
+lookupDyn e cId w = AS.lookupDyn e cId (archetypes w)
