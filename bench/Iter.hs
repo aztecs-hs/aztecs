@@ -3,9 +3,8 @@
 {-# LANGUAGE TypeApplications #-}
 
 import Criterion.Main
-import qualified Data.Aztecs as W
 import qualified Data.Aztecs.Query as Q
-import Data.Foldable (foldrM)
+import qualified Data.Aztecs.World as W
 
 newtype Position = Position Int deriving (Show)
 

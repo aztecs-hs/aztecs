@@ -97,13 +97,17 @@ insertUnchecked ::
   Archetypes
 insertUnchecked e cId c w = case Map.lookup e (entities w) of
   Just record ->
-    let arch =
+    let archId = nextArchetypeId w
+        arch =
           archetypes w Map.! (recordArchetypeId record)
         (_, arch') = despawnArch arch (recordTableId record)
-        archetypes' = Map.insert (recordArchetypeId record) arch' (archetypes w)
+        arch'' =
+          arch'
+            { archetypeAdd = Map.insert cId archId (archetypeAdd arch')
+            }
+        archetypes' = Map.insert (recordArchetypeId record) arch'' (archetypes w)
         idSet = unComponentIdSet $ archetypeIdSet arch
         idSet' = ComponentIDSet $ Set.insert cId idSet
-        archId = nextArchetypeId w
         table' = Table.snocDyn (recordTableId record) (toDyn c) (archetypeTable arch)
         newArch =
           Archetype

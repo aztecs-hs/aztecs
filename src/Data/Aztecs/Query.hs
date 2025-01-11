@@ -63,6 +63,11 @@ all (Query f) w =
   case f w of
     (idSet, w', f') -> case Map.lookup idSet (archetypeIds (W.archetypes w')) of
       Just archId ->
-        let arch = AS.archetypes (W.archetypes w') Map.! archId
-         in (fromMaybe [] $ mapM (\col -> f' archId col w') (Table.toList (archetypeTable arch)), w')
+        let go i (cAcc, wAcc) =
+              let arch = AS.archetypes (W.archetypes w') Map.! i
+                  (cs', wAcc') = (fromMaybe [] $ mapM (\col -> f' archId col w') (Table.toList (archetypeTable arch)), wAcc)
+                  (cs'', wAcc'') = foldr go ([], wAcc') (Map.elems $ archetypeAdd arch)
+               in (cAcc ++ cs' ++ cs'', wAcc'')
+            (cs, w'') = go archId ([], w')
+         in (cs, w'')
       Nothing -> ([], w')
