@@ -101,15 +101,20 @@ insertUnchecked e cId c w = case Map.lookup e (entities w) of
           archetypes w Map.! (recordArchetypeId record)
         (_, arch') = despawnArch arch (recordTableId record)
         archetypes' = Map.insert (recordArchetypeId record) arch' (archetypes w)
-        idSet' = ComponentIDSet $ Set.insert cId (unComponentIdSet $ archetypeIdSet arch)
+        idSet = unComponentIdSet $ archetypeIdSet arch
+        idSet' = ComponentIDSet $ Set.insert cId idSet
         archId = nextArchetypeId w
         table' = Table.snocDyn (recordTableId record) (toDyn c) (archetypeTable arch)
         newArch =
           Archetype
             { archetypeIdSet = idSet',
               archetypeTable = table',
-              archetypeAdd = Map.insert cId archId (archetypeAdd arch),
-              archetypeRemove = archetypeRemove arch
+              archetypeAdd = Map.empty,
+              archetypeRemove =
+                Map.fromList $
+                  map
+                    (\x -> (x, archId))
+                    (Set.toList $ unComponentIdSet idSet')
             }
      in w
           { archetypes = Map.insert archId newArch archetypes',
@@ -167,16 +172,18 @@ insertDyn e cId c w = case Map.lookup e (entities w) of
                     componentStates = foldr f (componentStates w) (zip (Set.toList (unComponentIdSet $ archetypeIdSet arch)) [0 ..])
                   }
           Nothing ->
-            let (_, arch') = despawnArch arch (recordTableId record)
+            let archId = nextArchetypeId w
+                (_, arch') = despawnArch arch (recordTableId record)
+                arch'' =
+                  arch' {archetypeAdd = Map.insert cId archId (archetypeAdd arch')}
                 archetypes' = Map.insert (recordArchetypeId record) arch' (archetypes w)
-                archId = nextArchetypeId w
                 table' = Table.snocDyn (recordTableId record) c (archetypeTable arch)
                 newArch =
                   Archetype
                     { archetypeIdSet = idSet',
                       archetypeTable = table',
-                      archetypeAdd = Map.insert cId archId (archetypeAdd arch),
-                      archetypeRemove = archetypeRemove arch
+                      archetypeAdd = Map.empty,
+                      archetypeRemove = Map.insert cId (recordArchetypeId record) (archetypeRemove arch'')
                     }
              in w
                   { archetypes = Map.insert archId newArch archetypes',
@@ -225,7 +232,7 @@ insertNewComponent e cId c w =
         Archetype
           { archetypeIdSet = ComponentIDSet (Set.singleton cId),
             archetypeTable = table,
-            archetypeAdd = Map.singleton cId archId,
+            archetypeAdd = Map.empty,
             archetypeRemove = Map.empty
           }
    in w
