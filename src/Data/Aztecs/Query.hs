@@ -6,12 +6,13 @@
 module Data.Aztecs.Query where
 
 import Data.Aztecs
-import qualified Data.Aztecs as W
 import Data.Aztecs.Archetypes
 import qualified Data.Aztecs.Archetypes as AS
 import qualified Data.Aztecs.Components as CS
 import Data.Aztecs.Table (Column)
 import qualified Data.Aztecs.Table as Table
+import Data.Aztecs.World (World (..))
+import qualified Data.Aztecs.World as W
 import Data.Data (Typeable)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)

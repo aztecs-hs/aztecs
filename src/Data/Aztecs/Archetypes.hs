@@ -4,8 +4,7 @@
 {-# LANGUAGE TypeApplications #-}
 
 module Data.Aztecs.Archetypes
-  ( Entity (..),
-    ArchetypeID (..),
+  ( ArchetypeID (..),
     Archetype (..),
     ComponentID (..),
     ComponentIDSet (..),
@@ -25,6 +24,7 @@ module Data.Aztecs.Archetypes
   )
 where
 
+import Data.Aztecs
 import Data.Aztecs.Components (ComponentID (..))
 import Data.Aztecs.Table (Column, ColumnID (ColumnID), Table, TableID (..))
 import qualified Data.Aztecs.Table as Table
@@ -36,10 +36,6 @@ import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Prelude hiding (lookup)
-
--- | Entity ID.
-newtype Entity = Entity {unEntity :: Int}
-  deriving (Eq, Ord, Show)
 
 -- | Archetype ID.
 newtype ArchetypeID = ArchetypeID {unArchetypeId :: Int}
@@ -100,35 +96,32 @@ insertUnchecked e cId c w = case Map.lookup e (entities w) of
         (_, arch') = despawnArch arch (recordTableId record)
         archetypes' = Map.insert (recordArchetypeId record) arch' (archetypes w)
         idSet' = ComponentIDSet $ Set.insert cId idSet
-     in case Map.lookup idSet' (archetypeIds w) of
-          Just archId -> error "TODO"
-          Nothing ->
-            let archId = nextArchetypeId w
-                table' = Table.snocDyn (recordTableId record) (toDyn c) table
-             in w
-                  { archetypes = Map.insert archId (Archetype idSet' table') archetypes',
-                    archetypeIds = Map.insert idSet' archId (archetypeIds w),
-                    nextArchetypeId = ArchetypeID (unArchetypeId archId + 1),
-                    entities =
-                      Map.insert
-                        e
-                        (EntityRecord archId (TableID $ Table.length table' - 1))
-                        (entities w),
-                    componentStates =
-                      Map.insert
-                        cId
-                        ( ComponentState $
-                            Map.singleton
-                              archId
-                              ( ColumnID
-                                  ( fromMaybe 0 $
-                                      (\col -> Table.colLength col - 1)
-                                        <$> Table.lookupColumn (recordTableId record) table'
-                                  )
-                              )
-                        )
-                        (componentStates w)
-                  }
+        archId = nextArchetypeId w
+        table' = Table.snocDyn (recordTableId record) (toDyn c) table
+     in w
+          { archetypes = Map.insert archId (Archetype idSet' table') archetypes',
+            archetypeIds = Map.insert idSet' archId (archetypeIds w),
+            nextArchetypeId = ArchetypeID (unArchetypeId archId + 1),
+            entities =
+              Map.insert
+                e
+                (EntityRecord archId (TableID $ Table.length table' - 1))
+                (entities w),
+            componentStates =
+              Map.insert
+                cId
+                ( ComponentState $
+                    Map.singleton
+                      archId
+                      ( ColumnID
+                          ( fromMaybe 0 $
+                              (\col -> Table.colLength col - 1)
+                                <$> Table.lookupColumn (recordTableId record) table'
+                          )
+                      )
+                )
+                (componentStates w)
+          }
   Nothing -> error "TODO"
 
 -- | Insert a component into an `Entity` with its `ComponentID`.
