@@ -154,11 +154,11 @@ map f = Command $ do
   w <- get
   let (Query q) = query @(Entity q)
       (es, w') = case q w of
-        (idSet, w'', f') -> case Map.lookup idSet (archetypeIds (W.archetypes w')) of
+        (idSet, w'', f') -> case Map.lookup idSet (archetypeIds (W.archetypes w'')) of
           Just archId ->
             let go i (cAcc, wAcc) =
-                  let arch = AS.archetypes (W.archetypes w') Map.! i
-                      g col = fmap (\(e, _) -> (f e, Table.colFromList $ toDynColumn e)) (f' archId col w')
+                  let arch = AS.archetypes (W.archetypes w'') Map.! i
+                      g col = fmap (\(e, _) -> (f e, Table.colFromList $ toDynColumn e)) (f' archId col w'')
                       ((cs', cols), wAcc') = (unzip $ fromMaybe [] $ mapM g (Table.toList (archetypeTable arch)), wAcc)
                       (cs'', wAcc'') = foldr go ([], wAcc') (Map.elems $ archetypeAdd arch)
                       archs = (W.archetypes wAcc'')

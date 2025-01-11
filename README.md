@@ -27,21 +27,15 @@ newtype Velocity = Velocity Int deriving (Show)
 
 app :: Command IO ()
 app = do
-  e <- C.spawn (Position 0)
-  C.insert e (Velocity 0)
+  C.spawn_ $ entity (Position 0) <&> Velocity 1
+  C.spawn_ $ entity (Position 2) <&> Velocity 2
 
-  e' <- C.spawn (Position 1)
-  C.insert e' (Velocity 1)
+  positions <- Q.map @'[Position, Velocity] $ \e ->
+    let (Position p) = component e
+        (Velocity v) = component e
+     in entity $ Position (p + v)
 
-  q <-
-    Q.all
-      ( Q.writeWith
-          Q.read
-          ( \(Velocity v) (Position p) ->
-              (Position (p + v), (p, v))
-          )
-      )
-  liftIO $ pPrint q
+  liftIO $ pPrint positions
 
 main :: IO ()
 main = do

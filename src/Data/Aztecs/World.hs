@@ -1,18 +1,22 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Data.Aztecs.World
   ( ComponentID (..),
     World (..),
     empty,
-    spawn,
     spawnWithId,
     spawnDyn,
-    insert,
     lookup,
     lookupDyn,
+    Insertable (..),
   )
 where
 
@@ -21,6 +25,7 @@ import Data.Aztecs.Archetypes (Archetypes)
 import qualified Data.Aztecs.Archetypes as AS
 import Data.Aztecs.Components (ComponentID (..), Components)
 import qualified Data.Aztecs.Components as CS
+import Data.Aztecs.Entity
 import Data.Data (Typeable)
 import Data.Dynamic (Dynamic, toDyn)
 import Prelude hiding (lookup)
@@ -29,7 +34,7 @@ import Prelude hiding (lookup)
 data World = World
   { archetypes :: Archetypes,
     components :: Components,
-    nextEntityID:: EntityID
+    nextEntityID :: EntityID
   }
   deriving (Show)
 
@@ -39,12 +44,12 @@ empty =
   World
     { archetypes = AS.empty,
       components = CS.empty,
-      nextEntityID= EntityID 0
+      nextEntityID = EntityID 0
     }
 
 -- | Spawn an entity with a component.
-spawn :: forall c. (Typeable c) => c -> World -> (EntityID, World)
-spawn c w = case CS.lookup @c (components w) of
+spawn' :: forall c. (Typeable c) => c -> World -> (EntityID, World)
+spawn' c w = case CS.lookup @c (components w) of
   Just cId -> spawnWithId cId c w
   Nothing ->
     let (cId, cs) = CS.insert @c (components w)
@@ -53,7 +58,7 @@ spawn c w = case CS.lookup @c (components w) of
      in ( e,
           ( w'
               { archetypes = AS.insertNewComponent e cId c (archetypes w),
-                nextEntityID= EntityID(unEntityID e + 1)
+                nextEntityID = EntityID (unEntityID e + 1)
               }
           )
         )
@@ -69,13 +74,13 @@ spawnDyn cId c w = do
    in ( e,
         w
           { archetypes = AS.insertNewDyn e cId c (archetypes w),
-            nextEntityID= EntityID(unEntityID e + 1)
+            nextEntityID = EntityID (unEntityID e + 1)
           }
       )
 
 -- | Insert a component into an `Entity`.
-insert :: forall c. (Typeable c) => EntityID-> c -> World -> World
-insert e c w = case CS.lookup @c (components w) of
+insert' :: forall c. (Typeable c) => EntityID -> c -> World -> World
+insert' e c w = case CS.lookup @c (components w) of
   Just cId -> insertDyn e cId (toDyn c) w
   Nothing ->
     let (cId, cs) = CS.insert @c (components w)
@@ -83,15 +88,27 @@ insert e c w = case CS.lookup @c (components w) of
      in w {components = cs, archetypes = as}
 
 -- | Insert a dynamic component into an `Entity`.
-insertDyn :: EntityID-> ComponentID -> Dynamic -> World -> World
+insertDyn :: EntityID -> ComponentID -> Dynamic -> World -> World
 insertDyn e cId c w = w {archetypes = AS.insertDyn e cId c (archetypes w)}
 
 -- | Lookup a component in an `Entity`.
-lookup :: forall c. (Typeable c) => EntityID-> World -> Maybe c
+lookup :: forall c. (Typeable c) => EntityID -> World -> Maybe c
 lookup e w = do
   cId <- CS.lookup @c (components w)
   AS.lookupWithId e cId (archetypes w)
 
 -- | Lookup a dynamic component in an `Entity`.
-lookupDyn :: EntityID-> ComponentID -> World -> Maybe Dynamic
+lookupDyn :: EntityID -> ComponentID -> World -> Maybe Dynamic
 lookupDyn e cId w = AS.lookupDyn e cId (archetypes w)
+
+class Insertable a where
+  spawn :: a -> World -> (EntityID, World)
+  insert :: EntityID -> a -> World -> World
+
+instance Insertable (Entity '[]) where
+  spawn ENil w = (nextEntityID w, w)
+  insert _ ENil w = w
+
+instance (Typeable t, Insertable (Entity ts)) => Insertable (Entity (t ': ts)) where
+  spawn (ECons x xs) w = let (e, w') = spawn' x w in (e, insert e xs w')
+  insert eId (ECons x xs) w = insert eId xs $ insert' eId x w
