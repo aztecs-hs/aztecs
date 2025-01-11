@@ -52,9 +52,9 @@ lookup e (Query f) w =
     (idSet, w', f') ->
       let res = do
             archId <- Map.lookup idSet (archetypeIds (W.archetypes w'))
-            let Archetype _ table = (AS.archetypes (W.archetypes w')) Map.! archId
+            let arch = (AS.archetypes (W.archetypes w')) Map.! archId
             record <- Map.lookup e (entities (W.archetypes w'))
-            col <- Table.lookupColumn (recordTableId record) table
+            col <- Table.lookupColumn (recordTableId record) (archetypeTable arch)
             f' archId col w'
        in (res, w')
 
@@ -63,6 +63,6 @@ all (Query f) w =
   case f w of
     (idSet, w', f') -> case Map.lookup idSet (archetypeIds (W.archetypes w')) of
       Just archId ->
-        let Archetype _ table = AS.archetypes (W.archetypes w') Map.! archId
-         in (fromMaybe [] $ mapM (\col -> f' archId col w') (Table.toList table), w')
+        let arch = AS.archetypes (W.archetypes w') Map.! archId
+         in (fromMaybe [] $ mapM (\col -> f' archId col w') (Table.toList (archetypeTable arch)), w')
       Nothing -> ([], w')

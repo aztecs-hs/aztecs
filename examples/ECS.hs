@@ -2,8 +2,8 @@
 
 module Main where
 
-import qualified Data.Aztecs.World as W
 import qualified Data.Aztecs.Query as Q
+import qualified Data.Aztecs.World as W
 import Text.Pretty.Simple
 
 newtype X = X Int deriving (Show)

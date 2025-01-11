@@ -2,7 +2,7 @@
 
 module Main (main) where
 
-import qualified Data.Aztecs as W
+import qualified Data.Aztecs.World as W
 import qualified Data.Aztecs.Query as Q
 import Test.Hspec
 
