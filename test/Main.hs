@@ -32,3 +32,10 @@ main = hspec $ do
           w''' = W.insert e' (Y 1) w''
           (x, _) = Q.all Q.read w'''
       x `shouldMatchList` [X 0, X 1]
+    it "writes to nested components" $ do
+      let (e, w) = W.spawn (X 0) W.empty
+          w' = W.insert e (Y 0) w
+          (e', w'') = W.spawn (X 1) w'
+          w''' = W.insert e' (Y 1) w''
+          (q, _) = Q.all (Q.write (\(X x) -> X $ x + 1)) w'''
+      q `shouldMatchList` [X 1, X 2]

@@ -7,6 +7,7 @@ module Data.Aztecs.Table
     colLength,
     colFromList,
     lookupColumnId,
+    colInsert,
     TableID (..),
     Table (..),
     singleton,
@@ -19,6 +20,7 @@ module Data.Aztecs.Table
     consDyn,
     snocDyn,
     insert,
+    insertCol,
     remove,
     removeDyn,
     removeCol,
@@ -29,7 +31,7 @@ module Data.Aztecs.Table
 where
 
 import Control.Monad.ST
-import Data.Dynamic (Dynamic, Typeable, fromDynamic, toDyn)
+import Data.Dynamic (Dynamic (Dynamic), Typeable, fromDynamic, toDyn)
 import Data.Vector (Vector)
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
@@ -49,6 +51,11 @@ colFromList = Column . V.fromList
 
 lookupColumnId :: (Typeable c) => ColumnID -> Column -> Maybe c
 lookupColumnId (ColumnID colId) (Column col) = col V.!? colId >>= fromDynamic
+
+colInsert :: (Typeable c) => ColumnID -> c -> Column -> Column
+colInsert (ColumnID colId) c (Column col) =
+  let f v = MV.write v colId (toDyn c)
+   in Column $ V.modify f col
 
 newtype TableID = TableID {unTableId :: Int}
   deriving (Eq, Ord, Show)
@@ -106,6 +113,12 @@ insert (TableID tableId) (ColumnID colId) c (Table table) =
       g (Column col) = Column (V.modify h col)
       f :: MV.MVector s Column -> ST s ()
       f v = MV.modify v g tableId
+   in Table $ V.modify f table
+
+insertCol :: TableID -> Column -> Table -> Table
+insertCol (TableID tableId) c (Table table) =
+  let f :: MV.MVector s Column -> ST s ()
+      f v = MV.write v tableId c
    in Table $ V.modify f table
 
 cons :: (Typeable c) => TableID -> c -> Table -> Table
