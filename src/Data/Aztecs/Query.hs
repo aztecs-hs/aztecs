@@ -1,7 +1,12 @@
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Data.Aztecs.Query
   ( Query (..),
@@ -21,18 +26,16 @@ import Data.Aztecs.Archetypes
 import qualified Data.Aztecs.Archetypes as AS
 import Data.Aztecs.Command (Command (..))
 import qualified Data.Aztecs.Components as CS
+import Data.Aztecs.Entity (Entity (..))
 import Data.Aztecs.Table (Column)
 import qualified Data.Aztecs.Table as Table
 import Data.Aztecs.World (World (..))
 import qualified Data.Aztecs.World as W
 import Data.Data (Typeable)
-import Data.Kind (Type)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import Prelude hiding (all, lookup, read)
-import Data.Dynamic (Dynamic, fromDynamic)
-
 
 newtype Query a
   = Query (World -> (ComponentIDSet, World, ArchetypeID -> Column -> World -> Maybe (a, Column)))
@@ -50,6 +53,15 @@ instance Applicative Query where
             (a', col'') <- a'' archId col' wAcc
             return (f' a', col'')
         )
+
+class Queryable a where
+  query :: Query a
+
+instance Queryable (Entity '[]) where
+  query = pure ENil
+
+instance (Typeable t, Queryable (Entity ts)) => Queryable (Entity (t ': ts)) where
+  query = ECons <$> read @t <*> query @(Entity ts)
 
 read :: forall c. (Typeable c) => Query c
 read = Query $ \w ->
@@ -91,8 +103,11 @@ writeWith (Query q) f = Query $ \w ->
           return (b, Table.colInsert colId c' col')
       )
 
-all :: (Monad m) => Query a -> Command m [a]
-all q = Command $ do
+all :: forall q m. (Queryable (Entity q), Monad m) => Command m [Entity q]
+all = queryAll (query @(Entity q))
+
+queryAll :: (Monad m) => Query a -> Command m [a]
+queryAll q = Command $ do
   w <- get
   let (as, w') = all' q w
   put w'
@@ -124,7 +139,7 @@ all' (Query f) w =
          in (cs, w'')
       Nothing -> ([], w')
 
-lookup' :: Entity -> Query a -> World -> Maybe (a, World)
+lookup' :: EntityID -> Query a -> World -> Maybe (a, World)
 lookup' e (Query f) w =
   case f w of
     (idSet, w', f') -> do
@@ -152,7 +167,7 @@ lookup' e (Query f) w =
             }
         )
 
-lookup :: (Monad m) => Entity -> Query a -> Command m (Maybe a)
+lookup :: (Monad m) => EntityID -> Query a -> Command m (Maybe a)
 lookup e q = Command $ do
   w <- get
   case lookup' e q w of

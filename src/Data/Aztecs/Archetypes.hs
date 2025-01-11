@@ -71,7 +71,7 @@ data Archetypes = Archetypes
     archetypeIds :: Map ComponentIDSet ArchetypeID,
     nextArchetypeId :: ArchetypeID,
     componentStates :: Map ComponentID ComponentState,
-    entities :: Map Entity EntityRecord
+    entities :: Map EntityID EntityRecord
   }
   deriving (Show)
 
@@ -90,7 +90,7 @@ empty =
 insertUnchecked ::
   forall c.
   (Typeable c) =>
-  Entity ->
+  EntityID->
   ComponentID ->
   c ->
   Archetypes ->
@@ -147,10 +147,10 @@ insertUnchecked e cId c w = case Map.lookup e (entities w) of
   Nothing -> error "TODO"
 
 -- | Insert a component into an `Entity` with its `ComponentID`.
-insert :: forall c. (Typeable c) => Entity -> ComponentID -> c -> Archetypes -> Archetypes
+insert :: forall c. (Typeable c) => EntityID-> ComponentID -> c -> Archetypes -> Archetypes
 insert e cId c = insertDyn e cId $ toDyn c
 
-insertDyn :: Entity -> ComponentID -> Dynamic -> Archetypes -> Archetypes
+insertDyn :: EntityID-> ComponentID -> Dynamic -> Archetypes -> Archetypes
 insertDyn e cId c w = case Map.lookup e (entities w) of
   Just record ->
     let arch = archetypes w Map.! (recordArchetypeId record)
@@ -198,7 +198,7 @@ insertDyn e cId c w = case Map.lookup e (entities w) of
                   }
   Nothing -> insertNewDyn e cId c w
 
-insertNewDyn :: Entity -> ComponentID -> Dynamic -> Archetypes -> Archetypes
+insertNewDyn :: EntityID-> ComponentID -> Dynamic -> Archetypes -> Archetypes
 insertNewDyn e cId c w = case Map.lookup cId (componentStates w) of
   Just cState ->
     let archId = archetypeIds w Map.! (ComponentIDSet (Set.singleton cId))
@@ -228,7 +228,7 @@ insertNewDyn e cId c w = case Map.lookup cId (componentStates w) of
           }
   Nothing -> insertNewComponent e cId c w
 
-insertNewComponent :: forall c. (Typeable c) => Entity -> ComponentID -> c -> Archetypes -> Archetypes
+insertNewComponent :: forall c. (Typeable c) => EntityID-> ComponentID -> c -> Archetypes -> Archetypes
 insertNewComponent e cId c w =
   let archId = nextArchetypeId w
       table = Table.singleton c
@@ -252,10 +252,10 @@ insertNewComponent e cId c w =
         }
 
 -- | Lookup a component in an `Entity` with its `ComponentID`.
-lookupWithId :: (Typeable c) => Entity -> ComponentID -> Archetypes -> Maybe c
+lookupWithId :: (Typeable c) => EntityID-> ComponentID -> Archetypes -> Maybe c
 lookupWithId e cId w = lookupDyn e cId w >>= fromDynamic
 
-lookupDyn :: Entity -> ComponentID -> Archetypes -> Maybe Dynamic
+lookupDyn :: EntityID-> ComponentID -> Archetypes -> Maybe Dynamic
 lookupDyn e cId w = do
   (EntityRecord archId tableId) <- Map.lookup e (entities w)
   cState <- Map.lookup cId (componentStates w)
@@ -264,7 +264,7 @@ lookupDyn e cId w = do
   Table.lookupDyn tableId colId (archetypeTable arch)
 
 -- | Despawn an `Entity`.
-despawn :: Entity -> Archetypes -> Archetypes
+despawn :: EntityID-> Archetypes -> Archetypes
 despawn e w =
   let res = do
         record <- Map.lookup e (entities w)
@@ -279,7 +279,7 @@ despawnArch arch tableId =
    in (col, arch {archetypeTable = t'})
 
 -- | Remove a component from an `Entity` with its `ComponentID`.
-removeWithId :: Entity -> ComponentID -> Archetypes -> Maybe (Dynamic, Archetypes)
+removeWithId :: EntityID-> ComponentID -> Archetypes -> Maybe (Dynamic, Archetypes)
 removeWithId e cId archs = do
   record <- Map.lookup e (entities archs)
   let archId = recordArchetypeId record

@@ -1,5 +1,5 @@
-module Data.Aztecs (Entity (..)) where
+module Data.Aztecs (EntityID(..)) where
 
--- | Entity ID.
-newtype Entity = Entity {unEntity :: Int}
+-- | EntityIDID.
+newtype EntityID= EntityID{unEntityID:: Int}
   deriving (Eq, Ord, Show)

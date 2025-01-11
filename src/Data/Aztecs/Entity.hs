@@ -13,9 +13,6 @@
 
 module Data.Aztecs.Entity where
 
-import Data.Aztecs.Query (Query)
-import qualified Data.Aztecs.Query as Q
-import Data.Dynamic (Typeable)
 import Data.Kind (Type)
 
 data Entity (ts :: [Type]) where
@@ -45,12 +42,3 @@ instance {-# OVERLAPPING #-} Has a (Entity (a ': ts)) where
 
 instance {-# OVERLAPPING #-} (Has a (Entity ts)) => Has a (Entity (b ': ts)) where
   getL (ECons _ xs) = getL xs
-
-class Queryable (ts :: [Type]) where
-  query :: Query (Entity ts)
-
-instance Queryable '[] where
-  query = pure ENil
-
-instance (Typeable t, Queryable ts) => Queryable (t ': ts) where
-  query = ECons <$> Q.read @t <*> query @ts

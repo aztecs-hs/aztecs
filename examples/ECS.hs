@@ -1,5 +1,6 @@
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeApplications #-}
+
 module Main where
 
 import Control.Monad.IO.Class
@@ -8,7 +9,6 @@ import qualified Data.Aztecs.Command as C
 import qualified Data.Aztecs.Query as Q
 import qualified Data.Aztecs.World as W
 import Text.Pretty.Simple
-import Data.Aztecs.Entity (query)
 
 newtype Position = Position Int deriving (Show)
 
@@ -22,7 +22,7 @@ app = do
   e' <- C.spawn (Position 1)
   C.insert e' (Velocity 1)
 
-  q <-  Q.all $ (query @'[Position, Velocity])
+  q <- Q.all @'[Position, Velocity]
   liftIO $ pPrint q
 
 main :: IO ()
