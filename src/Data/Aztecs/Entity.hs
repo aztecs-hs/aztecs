@@ -35,10 +35,13 @@ instance (Show t, ShowEntity (Entity ts)) => ShowEntity (Entity (t ': ts)) where
   showEntity (ECons x xs) = ", " ++ show x ++ showEntity xs
 
 class Has a l where
-  getL :: l -> a
+  component :: l -> a
 
 instance {-# OVERLAPPING #-} Has a (Entity (a ': ts)) where
-  getL (ECons x _) = x
+  component (ECons x _) = x
 
 instance {-# OVERLAPPING #-} (Has a (Entity ts)) => Has a (Entity (b ': ts)) where
-  getL (ECons _ xs) = getL xs
+  component (ECons _ xs) = component xs
+
+entity :: t -> Entity '[t]
+entity t = ECons t ENil
