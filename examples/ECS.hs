@@ -16,5 +16,14 @@ main = do
       w' = W.insert e (Y 0) w
       (e', w'') = W.spawn (X 1) w'
       w''' = W.insert e' (Y 1) w''
-      (x, _) = Q.all ((,) <$> Q.read @X <*> Q.read @Y) w'''
-  pPrint (w''', x)
+      (q, _) =
+        Q.all
+          ( Q.writeWith
+              Q.read
+              ( \(X x) (Y y) ->
+                  let y' = x + y
+                   in (Y y', (x, y'))
+              )
+          )
+          w'''
+  pPrint (w''', q)

@@ -60,6 +60,21 @@ write f = Query $ \w ->
           return (c', Table.colInsert colId c' col)
       )
 
+writeWith :: forall a b c. (Typeable c) => Query a -> (a -> c -> (c, b)) -> Query b
+writeWith (Query q) f = Query $ \w ->
+  let (cId, cs) = CS.insert @c (components w)
+      (cIds, w', g) = q w
+   in ( ComponentIDSet (Set.insert cId (unComponentIdSet cIds)),
+        w' {components = cs},
+        \archId col wAcc -> do
+          (a, col') <- g archId col wAcc
+          cState <- Map.lookup cId (componentStates (W.archetypes wAcc))
+          colId <- Map.lookup archId (componentColumnIds cState)
+          c <- Table.lookupColumnId colId col'
+          let (c', b) = f a c
+          return (b, Table.colInsert colId c' col')
+      )
+
 lookup :: Entity -> Query a -> World -> Maybe (a, World)
 lookup e (Query f) w =
   case f w of

@@ -31,7 +31,7 @@ module Data.Aztecs.Table
 where
 
 import Control.Monad.ST
-import Data.Dynamic (Dynamic (Dynamic), Typeable, fromDynamic, toDyn)
+import Data.Dynamic (Dynamic, Typeable, fromDynamic, toDyn)
 import Data.Vector (Vector)
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
