@@ -3,11 +3,23 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Data.Aztecs.Query where
+module Data.Aztecs.Query
+  ( Query (..),
+    read,
+    write,
+    writeWith,
+    all,
+    all',
+    lookup,
+    lookup',
+  )
+where
 
+import Control.Monad.State (MonadState (..))
 import Data.Aztecs
 import Data.Aztecs.Archetypes
 import qualified Data.Aztecs.Archetypes as AS
+import Data.Aztecs.Command (Command (..))
 import qualified Data.Aztecs.Components as CS
 import Data.Aztecs.Table (Column)
 import qualified Data.Aztecs.Table as Table
@@ -17,6 +29,7 @@ import Data.Data (Typeable)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
+import Prelude hiding (all, lookup, read)
 
 newtype Query a
   = Query (World -> (ComponentIDSet, World, ArchetypeID -> Column -> World -> Maybe (a, Column)))
@@ -75,8 +88,41 @@ writeWith (Query q) f = Query $ \w ->
           return (b, Table.colInsert colId c' col')
       )
 
-lookup :: Entity -> Query a -> World -> Maybe (a, World)
-lookup e (Query f) w =
+all :: (Monad m) => Query a -> Command m [a]
+all q = Command $ do
+  w <- get
+  let (as, w') = all' q w
+  put w'
+  return as
+
+all' :: Query a -> World -> ([a], World)
+all' (Query f) w =
+  case f w of
+    (idSet, w', f') -> case Map.lookup idSet (archetypeIds (W.archetypes w')) of
+      Just archId ->
+        let go i (cAcc, wAcc) =
+              let arch = AS.archetypes (W.archetypes w') Map.! i
+                  ((cs', cols), wAcc') = (unzip $ fromMaybe [] $ mapM (\col -> f' archId col w') (Table.toList (archetypeTable arch)), wAcc)
+                  (cs'', wAcc'') = foldr go ([], wAcc') (Map.elems $ archetypeAdd arch)
+                  archs = (W.archetypes wAcc'')
+                  wAcc''' =
+                    wAcc''
+                      { W.archetypes =
+                          archs
+                            { AS.archetypes =
+                                Map.insert
+                                  archId
+                                  (arch {archetypeTable = Table.fromList cols})
+                                  (AS.archetypes $ archs)
+                            }
+                      }
+               in (cAcc ++ cs' ++ cs'', wAcc''')
+            (cs, w'') = go archId ([], w')
+         in (cs, w'')
+      Nothing -> ([], w')
+
+lookup' :: Entity -> Query a -> World -> Maybe (a, World)
+lookup' e (Query f) w =
   case f w of
     (idSet, w', f') -> do
       archId <- Map.lookup idSet (archetypeIds (W.archetypes w'))
@@ -103,28 +149,11 @@ lookup e (Query f) w =
             }
         )
 
-all :: Query a -> World -> ([a], World)
-all (Query f) w =
-  case f w of
-    (idSet, w', f') -> case Map.lookup idSet (archetypeIds (W.archetypes w')) of
-      Just archId ->
-        let go i (cAcc, wAcc) =
-              let arch = AS.archetypes (W.archetypes w') Map.! i
-                  ((cs', cols), wAcc') = (unzip $ fromMaybe [] $ mapM (\col -> f' archId col w') (Table.toList (archetypeTable arch)), wAcc)
-                  (cs'', wAcc'') = foldr go ([], wAcc') (Map.elems $ archetypeAdd arch)
-                  archs = (W.archetypes wAcc'')
-                  wAcc''' =
-                    wAcc''
-                      { W.archetypes =
-                          archs
-                            { AS.archetypes =
-                                Map.insert
-                                  archId
-                                  (arch {archetypeTable = Table.fromList cols})
-                                  (AS.archetypes $ archs)
-                            }
-                      }
-               in (cAcc ++ cs' ++ cs'', wAcc''')
-            (cs, w'') = go archId ([], w')
-         in (cs, w'')
-      Nothing -> ([], w')
+lookup :: (Monad m) => Entity -> Query a -> Command m (Maybe a)
+lookup e q = Command $ do
+  w <- get
+  case lookup' e q w of
+    Just (a, w') -> do
+      put w'
+      return $ Just a
+    Nothing -> return Nothing
