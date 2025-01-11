@@ -1,7 +1,7 @@
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DeriveFunctor #-}
 
 module Data.Aztecs.Query
   ( Query (..),
@@ -26,10 +26,13 @@ import qualified Data.Aztecs.Table as Table
 import Data.Aztecs.World (World (..))
 import qualified Data.Aztecs.World as W
 import Data.Data (Typeable)
+import Data.Kind (Type)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import Prelude hiding (all, lookup, read)
+import Data.Dynamic (Dynamic, fromDynamic)
+
 
 newtype Query a
   = Query (World -> (ComponentIDSet, World, ArchetypeID -> Column -> World -> Maybe (a, Column)))

@@ -1,0 +1,56 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
+
+module Data.Aztecs.Entity where
+
+import Data.Aztecs.Query (Query)
+import qualified Data.Aztecs.Query as Q
+import Data.Dynamic (Typeable)
+import Data.Kind (Type)
+
+data Entity (ts :: [Type]) where
+  ENil :: Entity '[]
+  ECons :: t -> Entity ts -> Entity (t ': ts)
+
+instance Show (Entity '[]) where
+  show ENil = "[]"
+
+instance (Show t, ShowEntity (Entity ts)) => Show (Entity (t ': ts)) where
+  show (ECons x xs) = "[ " ++ show x ++ showEntity xs
+
+class ShowEntity a where
+  showEntity :: a -> String
+
+instance ShowEntity (Entity '[]) where
+  showEntity ENil = "]"
+
+instance (Show t, ShowEntity (Entity ts)) => ShowEntity (Entity (t ': ts)) where
+  showEntity (ECons x xs) = ", " ++ show x ++ showEntity xs
+
+class Has a l where
+  getL :: l -> a
+
+instance {-# OVERLAPPING #-} Has a (Entity (a ': ts)) where
+  getL (ECons x _) = x
+
+instance {-# OVERLAPPING #-} (Has a (Entity ts)) => Has a (Entity (b ': ts)) where
+  getL (ECons _ xs) = getL xs
+
+class Queryable (ts :: [Type]) where
+  query :: Query (Entity ts)
+
+instance Queryable '[] where
+  query = pure ENil
+
+instance (Typeable t, Queryable ts) => Queryable (t ': ts) where
+  query = ECons <$> Q.read @t <*> query @ts

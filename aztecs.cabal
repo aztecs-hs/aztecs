@@ -15,6 +15,7 @@ library
         Data.Aztecs.Archetypes
         Data.Aztecs.Command
         Data.Aztecs.Components
+        Data.Aztecs.Entity
         Data.Aztecs.Query
         Data.Aztecs.Table
         Data.Aztecs.World
