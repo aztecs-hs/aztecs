@@ -113,16 +113,11 @@ all ::
   forall q m.
   (FromEntity q, Queryable (Entity (FromEntityType q)), Monad m) =>
   Command m [q]
-all = do
-  es <- queryAll query
-  return $ fmap fromEntity es
-
-queryAll :: (Monad m) => Query a -> Command m [a]
-queryAll q = Command $ do
+all = Command $ do
   w <- get
-  let (as, w') = all' q w
+  let (as, w') = all' query w
   put w'
-  return as
+  return (fmap fromEntity as)
 
 all' :: Query a -> World -> ([a], World)
 all' (Query f) w =
