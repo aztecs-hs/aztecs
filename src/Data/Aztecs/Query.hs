@@ -26,9 +26,9 @@ import Control.Monad.State (MonadState (..))
 import Data.Aztecs
 import Data.Aztecs.Archetypes
 import qualified Data.Aztecs.Archetypes as AS
-import Data.Aztecs.Command (Command (..))
+import Data.Aztecs.Edit (Edit (..))
 import qualified Data.Aztecs.Components as CS
-import Data.Aztecs.Entity (Entity (..), FromEntity (..), FromEntityType, ToEntity (toEntity), ToEntityType)
+import Data.Aztecs.Entity (Entity (..), EntityT, FromEntity (..), ToEntity (toEntity))
 import Data.Aztecs.Table (Column)
 import qualified Data.Aztecs.Table as Table
 import Data.Aztecs.World (World (..))
@@ -111,9 +111,9 @@ writeWith (Query q) f = Query $ \w ->
 
 all ::
   forall q m.
-  (FromEntity q, Queryable (Entity (FromEntityType q)), Monad m) =>
-  Command m [q]
-all = Command $ do
+  (FromEntity q, Queryable (Entity (EntityT q)), Monad m) =>
+  Edit m [q]
+all = Edit $ do
   w <- get
   let (as, w') = all' query w
   put w'
@@ -149,15 +149,15 @@ map ::
   forall q a m.
   ( FromEntity q,
     ToEntity a,
-    Queryable (Entity (FromEntityType q)),
-    Queryable (Entity (ToEntityType a)),
+    Queryable (Entity (EntityT q)),
+    Queryable (Entity (EntityT a)),
     Monad m
   ) =>
   (q -> a) ->
-  Command m [a]
-map f = Command $ do
+  Edit m [a]
+map f = Edit $ do
   w <- get
-  let (Query q) = query @(Entity (FromEntityType q))
+  let (Query q) = query @(Entity (EntityT q))
       (es, w') = case q w of
         (idSet, w'', f') -> case Map.lookup idSet (archetypeIds (W.archetypes w'')) of
           Just archId ->
@@ -218,8 +218,8 @@ lookup' e (Query f) w =
             }
         )
 
-lookup :: (Monad m) => EntityID -> Query a -> Command m (Maybe a)
-lookup e q = Command $ do
+lookup :: (Monad m) => EntityID -> Query a -> Edit m (Maybe a)
+lookup e q = Edit $ do
   w <- get
   case lookup' e q w of
     Just (a, w') -> do

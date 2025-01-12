@@ -13,8 +13,8 @@ library
     exposed-modules:
         Data.Aztecs
         Data.Aztecs.Archetypes
-        Data.Aztecs.Command
         Data.Aztecs.Components
+        Data.Aztecs.Edit
         Data.Aztecs.Entity
         Data.Aztecs.Query
         Data.Aztecs.Table
