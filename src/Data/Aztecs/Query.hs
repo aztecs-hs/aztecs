@@ -28,7 +28,7 @@ import Data.Aztecs.Archetypes
 import qualified Data.Aztecs.Archetypes as AS
 import Data.Aztecs.Command (Command (..))
 import qualified Data.Aztecs.Components as CS
-import Data.Aztecs.Entity (Entity (..))
+import Data.Aztecs.Entity (Entity (..), FromEntity (..), FromEntityType, ToEntity (toEntity), ToEntityType)
 import Data.Aztecs.Table (Column)
 import qualified Data.Aztecs.Table as Table
 import Data.Aztecs.World (World (..))
@@ -109,8 +109,13 @@ writeWith (Query q) f = Query $ \w ->
           return (b, Table.colInsert colId c' col')
       )
 
-all :: forall q m. (Queryable (Entity q), Monad m) => Command m [Entity q]
-all = queryAll (query @(Entity q))
+all ::
+  forall q m.
+  (FromEntity q, Queryable (Entity (FromEntityType q)), Monad m) =>
+  Command m [q]
+all = do
+  es <- queryAll query
+  return $ fmap fromEntity es
 
 queryAll :: (Monad m) => Query a -> Command m [a]
 queryAll q = Command $ do
@@ -147,18 +152,29 @@ all' (Query f) w =
 
 map ::
   forall q a m.
-  (Queryable (Entity q), Queryable (Entity a), Monad m) =>
-  (Entity q -> Entity a) ->
-  Command m [Entity a]
+  ( FromEntity q,
+    ToEntity a,
+    Queryable (Entity (FromEntityType q)),
+    Queryable (Entity (ToEntityType a)),
+    Monad m
+  ) =>
+  (q -> a) ->
+  Command m [a]
 map f = Command $ do
   w <- get
-  let (Query q) = query @(Entity q)
+  let (Query q) = query @(Entity (FromEntityType q))
       (es, w') = case q w of
         (idSet, w'', f') -> case Map.lookup idSet (archetypeIds (W.archetypes w'')) of
           Just archId ->
             let go i (cAcc, wAcc) =
                   let arch = AS.archetypes (W.archetypes w'') Map.! i
-                      g col = fmap (\(e, _) -> (f e, Table.colFromList $ toDynColumn e)) (f' archId col w'')
+                      g col =
+                        fmap
+                          ( \(e, _) ->
+                              let a = f (fromEntity e)
+                               in (a, Table.colFromList $ toDynColumn (toEntity a))
+                          )
+                          (f' archId col w'')
                       ((cs', cols), wAcc') = (unzip $ fromMaybe [] $ mapM g (Table.toList (archetypeTable arch)), wAcc)
                       (cs'', wAcc'') = foldr go ([], wAcc') (Map.elems $ archetypeAdd arch)
                       archs = (W.archetypes wAcc'')

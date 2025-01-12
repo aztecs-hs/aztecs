@@ -3,11 +3,13 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -48,3 +50,41 @@ entity t = ECons t ENil
 
 (<&>) :: Entity ts -> t -> Entity (t ': ts)
 (<&>) = flip ECons
+
+data (:&) a b = (:&) a b
+
+class Component a
+
+type family FromEntityType a where
+  FromEntityType (a :& b) = a ': FromEntityType b
+  FromEntityType (Entity ts) = ts
+  FromEntityType a = '[a]
+
+class FromEntity a where
+  fromEntity :: Entity (FromEntityType a) -> a
+
+instance {-# OVERLAPS #-} (FromEntityType a ~ '[a]) => FromEntity a where
+  fromEntity (ECons a ENil) = a
+
+instance FromEntity (Entity ts) where
+  fromEntity = id
+
+instance (FromEntity a, FromEntity b, FromEntityType (a :& b) ~ (a ': FromEntityType b)) => FromEntity (a :& b) where
+  fromEntity (ECons a rest) = a :& fromEntity rest
+
+type family ToEntityType a where
+  ToEntityType (a :& b) = a ': ToEntityType b
+  ToEntityType (Entity ts) = ts
+  ToEntityType a = '[a]
+
+class ToEntity a where
+  toEntity :: a -> Entity (ToEntityType a)
+
+instance {-# OVERLAPS #-} (ToEntityType a ~ '[a]) => ToEntity a where
+  toEntity a = ECons a ENil
+
+instance ToEntity (Entity ts) where
+  toEntity = id
+
+instance (ToEntity a, ToEntity b, ToEntityType (a :& b) ~ (a ': ToEntityType b)) => ToEntity (a :& b) where
+  toEntity (a :& b) = ECons a (toEntity b)
