@@ -26,15 +26,14 @@ import Control.Monad.State (MonadState (..))
 import Data.Aztecs
 import Data.Aztecs.Archetypes
 import qualified Data.Aztecs.Archetypes as AS
-import Data.Aztecs.Edit (Edit (..))
 import qualified Data.Aztecs.Components as CS
+import Data.Aztecs.Edit (Edit (..))
 import Data.Aztecs.Entity (Entity (..), EntityT, FromEntity (..), ToEntity (toEntity))
 import Data.Aztecs.Table (Column)
 import qualified Data.Aztecs.Table as Table
 import Data.Aztecs.World (World (..))
 import qualified Data.Aztecs.World as W
 import Data.Data (Typeable)
-import Data.Dynamic (Dynamic, toDyn)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
@@ -59,15 +58,19 @@ instance Applicative Query where
 
 class Queryable a where
   query :: Query a
-  toDynColumn :: a -> [Dynamic]
+  toColumn :: ArchetypeID -> a -> World -> Column -> Column
 
 instance Queryable (Entity '[]) where
   query = pure ENil
-  toDynColumn _ = []
+  toColumn _ _ _ col = col
 
 instance (Typeable t, Queryable (Entity ts)) => Queryable (Entity (t ': ts)) where
   query = ECons <$> read @t <*> query @(Entity ts)
-  toDynColumn (ECons x xs) = toDyn x : toDynColumn xs
+  toColumn archId (ECons c es) w col =
+    let cId = fromMaybe (error "TODO") $ CS.lookup @t (components w)
+        cState = componentStates (W.archetypes w) Map.! cId
+        colId = componentColumnIds cState Map.! archId
+     in toColumn archId es w (Table.colInsert colId c col)
 
 read :: forall c. (Typeable c) => Query c
 read = Query $ \w ->
@@ -167,7 +170,7 @@ map f = Edit $ do
                         fmap
                           ( \(e, _) ->
                               let a = f (fromEntity e)
-                               in (a, Table.colFromList $ toDynColumn (toEntity a))
+                               in (a, toColumn archId (toEntity a) w col)
                           )
                           (f' archId col w'')
                       ((cs', cols), wAcc') = (unzip $ fromMaybe [] $ mapM g (Table.toList (archetypeTable arch)), wAcc)
