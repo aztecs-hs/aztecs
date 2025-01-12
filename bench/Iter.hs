@@ -19,13 +19,15 @@ instance Component Velocity
 
 app :: Edit IO ()
 app = do
-  _ <- Q.map $
+  !_ <- Q.map $
     \(Position p :& Velocity v) -> Position (p + v)
 
   return ()
 
-run :: W.World -> IO ((), W.World)
-run = E.runEdit app
+run :: W.World -> IO ()
+run w = do
+  !_ <- E.runEdit app w
+  return ()
 
 main :: IO ()
 main = do
@@ -35,4 +37,4 @@ main = do
           )
           W.empty
           [0 :: Int .. 10000]
-  defaultMain [bench "iter" $ whnf run w]
+  defaultMain [bench "iter" $ nfIO (run w)]
