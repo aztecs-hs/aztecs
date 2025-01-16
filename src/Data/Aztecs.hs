@@ -8,6 +8,8 @@
 
 module Data.Aztecs where
 
+import Data.Aztecs.Storage (Storage)
+import qualified Data.Aztecs.Storage as S
 import Data.Data (Proxy (..), TypeRep, Typeable)
 import Data.Dynamic (Dynamic, fromDynamic, toDyn)
 import Data.IntMap (IntMap)
@@ -17,18 +19,10 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Data.Typeable (typeOf)
-
-class (Typeable (s a)) => Storage s a where
-  singleton :: Int -> a -> s a
-  all :: s a -> [(Int, a)]
-  insert :: Int -> a -> s a -> s a
-
-instance (Typeable a) => Storage IntMap a where
-  singleton = IntMap.singleton
-  all = IntMap.toList
-  insert = IntMap.insert
+import Prelude hiding (all, lookup)
 
 newtype EntityID = EntityID {unEntityId :: Int}
+  deriving (Show)
 
 class (Typeable a, Storage (StorageT a) a) => Component a where
   type StorageT a :: Type -> Type
@@ -38,6 +32,7 @@ data World = World
   { storages :: Map TypeRep Dynamic,
     nextEntityId :: EntityID
   }
+  deriving (Show)
 
 world :: World
 world =
@@ -49,12 +44,23 @@ world =
 spawn :: forall a. (Component a) => a -> World -> (EntityID, World)
 spawn c w =
   let e = nextEntityId w
-      storage = case Map.lookup (typeOf (Proxy @a)) (storages w) of
-        Just s -> insert (unEntityId e) c (fromMaybe (error "TODO") (fromDynamic s))
-        Nothing -> singleton @(StorageT a) @a (unEntityId e) c
-   in ( e,
-        w
-          { storages = Map.insert (typeOf (Proxy @a)) (toDyn storage) (storages w),
-            nextEntityId = EntityID (unEntityId e + 1)
-          }
-      )
+   in (e, insert e c w {nextEntityId = EntityID (unEntityId e + 1)})
+
+insert :: forall a. (Component a) => EntityID -> a -> World -> World
+insert e c w =
+  let storage = case Map.lookup (typeOf (Proxy @a)) (storages w) of
+        Just s -> S.insert (unEntityId e) c (fromMaybe (error "TODO") (fromDynamic s))
+        Nothing -> S.singleton @(StorageT a) @a (unEntityId e) c
+   in w {storages = Map.insert (typeOf (Proxy @a)) (toDyn storage) (storages w)}
+
+all :: forall a. (Component a) => World -> [(EntityID, a)]
+all w = fromMaybe [] $ do
+  dynS <- Map.lookup (typeOf (Proxy @a)) (storages w)
+  s <- fromDynamic @((StorageT a) a) dynS
+  return . map (\(i, c) -> (EntityID i, c)) $ S.all s
+
+lookup :: forall a. (Component a) => EntityID -> World -> Maybe a
+lookup e w = do
+  dynS <- Map.lookup (typeOf (Proxy @a)) (storages w)
+  s <- fromDynamic @((StorageT a) a) dynS
+  S.lookup (unEntityId e) s

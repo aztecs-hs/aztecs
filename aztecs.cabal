@@ -12,6 +12,7 @@ category:      Game Engine
 library
     exposed-modules:
         Data.Aztecs
+        Data.Aztecs.Storage
 
     hs-source-dirs:   src
     default-language: Haskell2010
