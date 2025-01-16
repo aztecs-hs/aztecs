@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -12,17 +13,20 @@ import Data.Aztecs.Storage (Storage)
 import qualified Data.Aztecs.Storage as S
 import Data.Data (Proxy (..), TypeRep, Typeable)
 import Data.Dynamic (Dynamic, fromDynamic, toDyn)
+import Data.Foldable (minimumBy)
+import Data.Function (on)
 import Data.IntMap (IntMap)
-import qualified Data.IntMap as IntMap
 import Data.Kind (Type)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Data.Typeable (typeOf)
 import Prelude hiding (all, lookup)
 
 newtype EntityID = EntityID {unEntityId :: Int}
-  deriving (Show)
+  deriving (Eq, Ord, Show)
 
 class (Typeable a, Storage (StorageT a) a) => Component a where
   type StorageT a :: Type -> Type
@@ -34,8 +38,8 @@ data World = World
   }
   deriving (Show)
 
-world :: World
-world =
+empty :: World
+empty =
   World
     { storages = Map.empty,
       nextEntityId = EntityID 0
@@ -64,3 +68,32 @@ lookup e w = do
   dynS <- Map.lookup (typeOf (Proxy @a)) (storages w)
   s <- fromDynamic @((StorageT a) a) dynS
   S.lookup (unEntityId e) s
+
+data QueryState = QueryState
+  { filter :: [EntityID],
+    world :: World
+  }
+
+newtype Query m a = Query {runQuery' :: (World -> (Set EntityID, Set EntityID -> m [a]))}
+  deriving (Functor)
+
+instance (Monad m) => Applicative (Query m) where
+  pure a = Query $ \_ -> (Set.empty, \_ -> pure [a])
+
+  Query f <*> Query a = Query $ \w ->
+    let (fEs, fRun) = f w
+        (aEs, aRun) = a w
+     in ( minimumBy (compare `on` length) [fEs, aEs],
+          \es -> do
+            fs <- fRun es
+            as <- aRun es
+            pure $ fs <*> as
+        )
+
+fetch :: forall a m. (Monad m, Component a) => Query m a
+fetch = Query $ \w ->
+  let x = all w
+   in (Set.fromList $ map fst x, \es -> return . Map.elems $ Map.restrictKeys (Map.fromList x) es)
+
+runQuery :: forall m a. (Monad m) => Query m a -> World -> m [a]
+runQuery q w = let (es, f) = runQuery' q w in f es
