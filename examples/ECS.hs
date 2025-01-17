@@ -18,6 +18,5 @@ main :: IO ()
 main = do
   let (e, w) = spawn (Position 0) empty
       w' = insert e (Velocity 1) w
-      w'' = mapComponents (\(Position x) -> (Position (x + 1))) w'
-  x <- runQuery ((,) <$> fetch @Position <*> fetch @Velocity) w''
+  (x, _) <- runQuery (mapFetch (\(Position p) -> Position $ p + 1)) w'
   pPrint x

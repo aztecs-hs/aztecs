@@ -9,6 +9,7 @@
 
 module Data.Aztecs where
 
+import Control.Monad.Writer (MonadWriter (..), runWriter)
 import Data.Aztecs.Storage (Storage)
 import qualified Data.Aztecs.Storage as S
 import Data.Data (Proxy (..), TypeRep, Typeable)
@@ -72,14 +73,17 @@ mapComponents f w =
         storages' <- Map.alterF go (typeOf (Proxy @a)) (storages w)
         return w {storages = storages'}
 
-mapComponentsFilter :: forall a. (Component a) => [EntityID] -> (a -> a) -> World -> World
+mapComponentsFilter :: forall a. (Component a) => [EntityID] -> (a -> a) -> World -> ([a], World)
 mapComponentsFilter es f w =
   let go dynS = case dynS >>= fromDynamic @((StorageT a) a) of
-        Just s -> return . Just . toDyn $ S.mapComponentsFilter (fmap unEntityId es) f s
+        Just s -> do
+          let (csAcc, sAcc) = S.mapComponentsFilter (fmap unEntityId es) f s
+          tell csAcc
+          return . Just $ toDyn sAcc
         Nothing -> return $ Nothing
-   in fromMaybe w $ do
-        storages' <- Map.alterF go (typeOf (Proxy @a)) (storages w)
-        return w {storages = storages'}
+      wat = Map.alterF go (typeOf (Proxy @a)) (storages w)
+      (s'', cs) = runWriter $ wat
+   in (map snd cs, w {storages = s''})
 
 lookup :: forall a. (Component a) => EntityID -> World -> Maybe a
 lookup e w = do
@@ -87,31 +91,32 @@ lookup e w = do
   s <- fromDynamic @((StorageT a) a) dynS
   S.lookup (unEntityId e) s
 
-data QueryState = QueryState
-  { filter :: [EntityID],
-    world :: World
-  }
-
-newtype Query m a = Query {runQuery' :: (World -> (Set EntityID, Set EntityID -> m [a]))}
+newtype Query m a
+  = Query {runQuery' :: (World -> (Set EntityID, Set EntityID -> World -> m ([a], World)))}
   deriving (Functor)
 
 instance (Monad m) => Applicative (Query m) where
-  pure a = Query $ \_ -> (Set.empty, \_ -> pure [a])
+  pure a = Query $ \_ -> (Set.empty, \_ w -> pure ([a], w))
 
   Query f <*> Query a = Query $ \w ->
     let (fEs, fRun) = f w
         (aEs, aRun) = a w
      in ( minimumBy (compare `on` length) [fEs, aEs],
-          \es -> do
-            fs <- fRun es
-            as <- aRun es
-            pure $ fs <*> as
+          \es w' -> do
+            (fs, w'') <- fRun es w'
+            (as, w''') <- aRun es w''
+            return (fs <*> as, w''')
         )
 
 fetch :: forall a m. (Monad m, Component a) => Query m a
 fetch = Query $ \w ->
   let x = all w
-   in (Set.fromList $ map fst x, \es -> return . Map.elems $ Map.restrictKeys (Map.fromList x) es)
+   in (Set.fromList $ map fst x, \es w' -> return (Map.elems $ Map.restrictKeys (Map.fromList x) es, w'))
 
-runQuery :: forall m a. (Monad m) => Query m a -> World -> m [a]
-runQuery q w = let (es, f) = runQuery' q w in f es
+mapFetch :: forall a m. (Monad m, Component a) => (a -> a) -> Query m a
+mapFetch f = Query $ \w ->
+  let x = all @a w
+   in (Set.fromList $ map fst x, \es w' -> return $ mapComponentsFilter (Set.toList es) f w')
+
+runQuery :: forall m a. (Monad m) => Query m a -> World -> m ([a], World)
+runQuery q w = let (es, f) = runQuery' q w in f es w
