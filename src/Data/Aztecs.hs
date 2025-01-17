@@ -63,6 +63,24 @@ all w = fromMaybe [] $ do
   s <- fromDynamic @((StorageT a) a) dynS
   return . map (\(i, c) -> (EntityID i, c)) $ S.all s
 
+mapComponents :: forall a. (Component a) => (a -> a) -> World -> World
+mapComponents f w =
+  let go dynS = case dynS >>= fromDynamic @((StorageT a) a) of
+        Just s -> return . Just . toDyn $ S.mapComponents f s
+        Nothing -> return $ Nothing
+   in fromMaybe w $ do
+        storages' <- Map.alterF go (typeOf (Proxy @a)) (storages w)
+        return w {storages = storages'}
+
+mapComponentsFilter :: forall a. (Component a) => [EntityID] -> (a -> a) -> World -> World
+mapComponentsFilter es f w =
+  let go dynS = case dynS >>= fromDynamic @((StorageT a) a) of
+        Just s -> return . Just . toDyn $ S.mapComponentsFilter (fmap unEntityId es) f s
+        Nothing -> return $ Nothing
+   in fromMaybe w $ do
+        storages' <- Map.alterF go (typeOf (Proxy @a)) (storages w)
+        return w {storages = storages'}
+
 lookup :: forall a. (Component a) => EntityID -> World -> Maybe a
 lookup e w = do
   dynS <- Map.lookup (typeOf (Proxy @a)) (storages w)
