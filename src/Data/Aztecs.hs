@@ -51,18 +51,27 @@ spawn c w =
   let e = nextEntityId w
    in (e, insert e c w {nextEntityId = EntityID (unEntityId e + 1)})
 
+lookupStorage :: forall a. (Component a) => World -> Maybe (StorageT a a)
+lookupStorage w = do
+  dynS <- Map.lookup (typeOf (Proxy @a)) (storages w)
+  fromDynamic dynS
+
 insert :: forall a. (Component a) => EntityID -> a -> World -> World
 insert e c w =
-  let storage = case Map.lookup (typeOf (Proxy @a)) (storages w) of
-        Just s -> S.insert (unEntityId e) c (fromMaybe (error "TODO") (fromDynamic s))
+  let storage = case lookupStorage @a w of
+        Just s -> S.insert (unEntityId e) c s
         Nothing -> S.singleton @(StorageT a) @a (unEntityId e) c
    in w {storages = Map.insert (typeOf (Proxy @a)) (toDyn storage) (storages w)}
 
-all :: forall a. (Component a) => World -> [(EntityID, a)]
+all :: (Component a) => World -> [(EntityID, a)]
 all w = fromMaybe [] $ do
-  dynS <- Map.lookup (typeOf (Proxy @a)) (storages w)
-  s <- fromDynamic @((StorageT a) a) dynS
+  s <- lookupStorage w
   return . map (\(i, c) -> (EntityID i, c)) $ S.all s
+
+allFilter :: (Component a, Typeable (StorageT a)) => Set EntityID -> World -> [a]
+allFilter es w =
+  let x = all w
+   in Map.elems $ Map.restrictKeys (Map.fromList x) es
 
 mapComponents :: forall a. (Component a) => (a -> a) -> World -> World
 mapComponents f w =
@@ -81,42 +90,8 @@ mapComponentsFilter es f w =
           tell csAcc
           return . Just $ toDyn sAcc
         Nothing -> return $ Nothing
-      wat = Map.alterF go (typeOf (Proxy @a)) (storages w)
-      (s'', cs) = runWriter $ wat
+      (s'', cs) = runWriter $ Map.alterF go (typeOf (Proxy @a)) (storages w)
    in (map snd cs, w {storages = s''})
 
 lookup :: forall a. (Component a) => EntityID -> World -> Maybe a
-lookup e w = do
-  dynS <- Map.lookup (typeOf (Proxy @a)) (storages w)
-  s <- fromDynamic @((StorageT a) a) dynS
-  S.lookup (unEntityId e) s
-
-newtype Query m a
-  = Query {runQuery' :: (World -> (Set EntityID, Set EntityID -> World -> m ([a], World)))}
-  deriving (Functor)
-
-instance (Monad m) => Applicative (Query m) where
-  pure a = Query $ \_ -> (Set.empty, \_ w -> pure ([a], w))
-
-  Query f <*> Query a = Query $ \w ->
-    let (fEs, fRun) = f w
-        (aEs, aRun) = a w
-     in ( minimumBy (compare `on` length) [fEs, aEs],
-          \es w' -> do
-            (fs, w'') <- fRun es w'
-            (as, w''') <- aRun es w''
-            return (fs <*> as, w''')
-        )
-
-fetch :: forall a m. (Monad m, Component a) => Query m a
-fetch = Query $ \w ->
-  let x = all w
-   in (Set.fromList $ map fst x, \es w' -> return (Map.elems $ Map.restrictKeys (Map.fromList x) es, w'))
-
-mapFetch :: forall a m. (Monad m, Component a) => (a -> a) -> Query m a
-mapFetch f = Query $ \w ->
-  let x = all @a w
-   in (Set.fromList $ map fst x, \es w' -> return $ mapComponentsFilter (Set.toList es) f w')
-
-runQuery :: forall m a. (Monad m) => Query m a -> World -> m ([a], World)
-runQuery q w = let (es, f) = runQuery' q w in f es w
+lookup e w = lookupStorage w >>= S.lookup (unEntityId e)
