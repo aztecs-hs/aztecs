@@ -6,10 +6,12 @@
 module Data.Aztecs.Query where
 
 import Data.Aztecs
-import Data.Aztecs.Archetype (Archetype, Component)
+import Data.Aztecs.Archetype (Archetype)
 import qualified Data.Aztecs.Archetype as A
+import Data.Aztecs.World (World (..))
 import Data.Data (Typeable)
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
 
@@ -28,13 +30,14 @@ Query a <&> Query b = Query $ \cs ->
            in (zip a'' b'', \new newArch -> let (as, bs) = unzip new in bF bs $ aF as newArch)
       )
 
-fetch :: forall a. (Component a, Typeable (A.StorageT a)) => Query a
+fetch :: forall a. (Component a, Typeable (StorageT a)) => Query a
 fetch = Query $ \cs ->
-  ( maybe Set.empty Set.singleton (lookupComponentId @a cs),
-    \arch ->
-      let as = A.all arch
-       in (fmap snd as, A.insertAscList @a . fmap (\((e, _), a) -> (e, a)) . zip as)
-  )
+  let cId = fromMaybe (error "TODO") (lookupComponentId @a cs)
+   in ( Set.singleton cId,
+        \arch ->
+          let as = A.all cId arch
+           in (fmap snd as, A.insertAscList cId . fmap (\((e, _), a) -> (e, a)) . zip as)
+      )
 
 all :: Query a -> World -> [a]
 all q w =

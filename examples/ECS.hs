@@ -3,8 +3,8 @@
 
 module Main where
 
-import qualified Data.Aztecs as W
-import Data.Aztecs.Archetype
+import qualified Data.Aztecs.World as W
+import Data.Aztecs
 import qualified Data.Aztecs.Query as Q
 import Text.Pretty.Simple
 
