@@ -9,6 +9,7 @@ module Data.Aztecs.World where
 import Data.Aztecs (Component (..), ComponentID, Components (..), EntityID (..), emptyComponents, insertComponentId)
 import Data.Aztecs.Archetype (Archetype)
 import qualified Data.Aztecs.Archetype as A
+import Data.Dynamic (Dynamic)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
@@ -24,6 +25,7 @@ data World = World
     archetypeIds :: Map (Set ComponentID) ArchetypeID,
     nextArchetypeId :: ArchetypeID,
     components :: Components,
+    entities :: Map EntityID ArchetypeID,
     nextEntityId :: EntityID
   }
   deriving (Show)
@@ -36,6 +38,7 @@ empty =
       archetypeIds = mempty,
       nextArchetypeId = ArchetypeID 0,
       components = emptyComponents,
+      entities = mempty,
       nextEntityId = EntityID 0
     }
 
@@ -62,8 +65,15 @@ spawnWithId ::
 spawnWithId cId c w =
   let (e, w') = spawnEmpty w
    in case Map.lookup (Set.singleton cId) (archetypeIds w) of
-        Just arch -> (e, w' {archetypes = Map.adjust (A.insert e cId c) arch (archetypes w)})
-        Nothing -> (e, snd $ insertArchetype (Set.singleton cId) (A.insert e cId c A.empty) w')
+        Just aId -> (e, spawnWithArchetypeId' e aId cId c w')
+        Nothing ->
+          ( e,
+            snd $
+              insertArchetype
+                (Set.singleton cId)
+                (A.insert e cId c A.empty)
+                w' {entities = Map.insert e (nextArchetypeId w) (entities w)}
+          )
 
 -- | Spawn an entity with a component and its `ComponentID` directly into an archetype.
 spawnWithArchetypeId ::
@@ -76,8 +86,23 @@ spawnWithArchetypeId ::
   (EntityID, World)
 spawnWithArchetypeId c cId aId w =
   let (e, w') = spawnEmpty w
-      f = A.insert e cId c
-   in (e, w' {archetypes = Map.adjust f aId (archetypes w)})
+   in (e, spawnWithArchetypeId' e aId cId c w')
+
+spawnWithArchetypeId' ::
+  forall a.
+  (Component a, Typeable (StorageT a)) =>
+  EntityID ->
+  ArchetypeID ->
+  ComponentID ->
+  a ->
+  World ->
+  World
+spawnWithArchetypeId' e aId cId c w =
+  let f = A.insert e cId c
+   in w
+        { archetypes = Map.adjust f aId (archetypes w),
+          entities = Map.insert e aId (entities w)
+        }
 
 -- | Insert an archetype by its set of `ComponentID`s.
 insertArchetype :: Set ComponentID -> Archetype -> World -> (ArchetypeID, World)
@@ -90,3 +115,20 @@ insertArchetype cIds a w =
             nextArchetypeId = ArchetypeID (unArchetypeId aId + 1)
           }
       )
+
+despawn :: EntityID -> World -> (Map ComponentID Dynamic, World)
+despawn e w =
+  let res = do
+        aId <- Map.lookup e (entities w)
+        arch <- Map.lookup aId (archetypes w)
+        return (aId, arch)
+   in case res of
+        Just (aId, arch) ->
+          let (dynAcc, arch') = A.remove e arch
+           in ( dynAcc,
+                w
+                  { archetypes = Map.insert aId arch' (archetypes w),
+                    entities = Map.delete e (entities w)
+                  }
+              )
+        Nothing -> (Map.empty, w)
