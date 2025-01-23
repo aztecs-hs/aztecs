@@ -44,6 +44,7 @@ insertComponentId cs =
           }
       )
 
+-- | World of entities and their components.
 data World = World
   { archetypes :: Map ArchetypeID Archetype,
     archetypeIds :: Map (Set ComponentID) ArchetypeID,
@@ -53,6 +54,7 @@ data World = World
   }
   deriving (Show)
 
+-- | Empty `World`.
 empty :: World
 empty =
   World
@@ -63,6 +65,7 @@ empty =
       nextEntityId = EntityID 0
     }
 
+-- | Spawn an entity with a component.
 spawn :: forall a. (Component a, Typeable (A.StorageT a)) => a -> World -> (EntityID, World)
 spawn c w = case Map.lookup (typeOf (Proxy @a)) (componentIds (components w)) of
   Just cId -> spawnWithId c cId w
@@ -70,6 +73,11 @@ spawn c w = case Map.lookup (typeOf (Proxy @a)) (componentIds (components w)) of
     let (cId, cs) = insertComponentId @a (components w)
      in spawnWithId c cId w {components = cs}
 
+-- | Spawn an empty entity.
+spawnEmpty :: World -> (EntityID, World)
+spawnEmpty w = let e = nextEntityId w in (e, w {nextEntityId = EntityID (unEntityId e + 1)})
+
+-- | Spawn an entity with a component and its `ComponentID`.
 spawnWithId ::
   forall a.
   (Component a, Typeable (A.StorageT a)) =>
@@ -78,19 +86,12 @@ spawnWithId ::
   World ->
   (EntityID, World)
 spawnWithId c cId w =
-  let e = nextEntityId w
+  let (e, w') = spawnEmpty w
    in case Map.lookup (Set.singleton cId) (archetypeIds w) of
-        Just arch ->
-          ( e,
-            w
-              { archetypes = Map.adjust (A.insert e c) arch (archetypes w),
-                nextEntityId = EntityID (unEntityId e + 1)
-              }
-          )
-        Nothing ->
-          let (_, w') = insertArchetype (Set.singleton cId) (A.insert e c A.empty) w
-           in (e, w' {nextEntityId = EntityID (unEntityId e + 1)})
+        Just arch -> (e, w' {archetypes = Map.adjust (A.insert e c) arch (archetypes w)})
+        Nothing -> (e, snd $ insertArchetype (Set.singleton cId) (A.insert e c A.empty) w')
 
+-- | Spawn an entity with a component and its `ComponentID` directly into an archetype.
 spawnWithArchetypeId ::
   forall a.
   (Component a, Typeable (A.StorageT a)) =>
@@ -100,15 +101,11 @@ spawnWithArchetypeId ::
   World ->
   (EntityID, World)
 spawnWithArchetypeId c cId aId w =
-  let e = nextEntityId w
+  let (e, w') = spawnEmpty w
       f = A.insert e c
-   in ( e,
-        w
-          { archetypes = Map.adjust f aId (archetypes w),
-            nextEntityId = EntityID (unEntityId e + 1)
-          }
-      )
+   in (e, w' {archetypes = Map.adjust f aId (archetypes w)})
 
+-- | Insert an archetype by its set of `ComponentID`s.
 insertArchetype :: Set ComponentID -> Archetype -> World -> (ArchetypeID, World)
 insertArchetype cIds a w =
   let aId = nextArchetypeId w
