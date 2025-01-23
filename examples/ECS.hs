@@ -5,6 +5,7 @@ module Main where
 
 import qualified Data.Aztecs as W
 import Data.Aztecs.Archetype
+import qualified Data.Aztecs.Query as Q
 import Text.Pretty.Simple
 
 newtype Position = Position Int deriving (Show)
@@ -17,5 +18,6 @@ instance Component Velocity
 
 main :: IO ()
 main = do
-  let (e, w) = W.spawn (Position 0) W.empty
-  pPrint w
+  let (_, w) = W.spawn (Position 0) W.empty
+      q = Q.map (Q.fetch @Position) (\(Position x) -> Position $ x + 1) w
+  pPrint q

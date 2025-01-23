@@ -15,6 +15,7 @@ class (Typeable (s a)) => Storage s a where
   lookup :: Int -> s a -> Maybe a
   mapComponents :: (a -> a) -> s a -> s a
   mapComponentsFilter :: [Int] -> (a -> a) -> s a -> ([(Int, a)], s a)
+  fromAscList :: [(Int, a)] -> s a
 
 instance (Typeable a) => Storage IntMap a where
   singleton = IntMap.singleton
@@ -25,3 +26,4 @@ instance (Typeable a) => Storage IntMap a where
   mapComponentsFilter es f s =
     let s' = IntMap.mapWithKey (\e c -> if e `elem` es then f c else c) s
      in (IntMap.toList s', s')
+  fromAscList = IntMap.fromAscList

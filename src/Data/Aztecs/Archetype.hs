@@ -28,9 +28,7 @@ class (Typeable a, Storage (StorageT a) a) => Component a where
   type StorageT a :: Type -> Type
   type StorageT a = IntMap
 
-newtype Archetype = Archetype
-  { storages :: Map TypeRep Dynamic
-  }
+newtype Archetype = Archetype {storages :: Map TypeRep Dynamic}
   deriving (Show)
 
 empty :: Archetype
@@ -80,3 +78,6 @@ mapComponentsFilter es f w =
 
 lookup :: forall a. (Component a) => EntityID -> Archetype -> Maybe a
 lookup e w = lookupStorage w >>= S.lookup (unEntityId e)
+
+insertAscList :: forall a. (Component a) => [(EntityID, a)] -> Archetype -> Archetype
+insertAscList as arch = arch {storages = Map.insert (typeOf (Proxy @a)) (toDyn $ S.fromAscList @(StorageT a) (map (first unEntityId) as)) (storages arch)}

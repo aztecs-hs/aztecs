@@ -1,7 +1,9 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Data.Aztecs where
@@ -11,6 +13,7 @@ import qualified Data.Aztecs.Archetype as A
 import Data.Aztecs.Entity (EntityID (..))
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Typeable (Proxy (..), TypeRep, Typeable, typeOf)
@@ -33,6 +36,9 @@ emptyComponents =
     { componentIds = mempty,
       nextComponentId = ComponentID 0
     }
+
+lookupComponentId :: forall a. (Typeable a) => Components -> Maybe ComponentID
+lookupComponentId cs = Map.lookup (typeOf (Proxy @a)) (componentIds cs)
 
 insertComponentId :: forall c. (Component c) => Components -> (ComponentID, Components)
 insertComponentId cs =
