@@ -21,7 +21,7 @@ instance (Typeable a) => Storage IntMap a where
   all = IntMap.toList
   insert = IntMap.insert
   lookup = IntMap.lookup
-  mapComponents f s = IntMap.map f s
+  mapComponents = IntMap.map
   mapComponentsFilter es f s =
     let s' = IntMap.mapWithKey (\e c -> if e `elem` es then f c else c) s
      in (IntMap.toList s', s')
