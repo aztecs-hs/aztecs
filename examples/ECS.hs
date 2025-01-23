@@ -3,7 +3,8 @@
 
 module Main where
 
-import Data.Aztecs
+import qualified Data.Aztecs as W
+import Data.Aztecs.Archetype
 import Text.Pretty.Simple
 
 newtype Position = Position Int deriving (Show)
@@ -16,7 +17,5 @@ instance Component Velocity
 
 main :: IO ()
 main = do
-  let (e, w) = spawn (Position 0) empty
-      w' = insert e (Velocity 1) w
-  (x, _) <- runQuery (mapFetch (\(Position p) -> Position $ p + 1)) w'
-  pPrint x
+  let (e, w) = W.spawn (Position 0) W.empty
+  pPrint w

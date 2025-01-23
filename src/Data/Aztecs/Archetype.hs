@@ -28,23 +28,13 @@ class (Typeable a, Storage (StorageT a) a) => Component a where
   type StorageT a :: Type -> Type
   type StorageT a = IntMap
 
-data Archetype = Archetype
-  { storages :: Map TypeRep Dynamic,
-    nextEntityId :: EntityID
+newtype Archetype = Archetype
+  { storages :: Map TypeRep Dynamic
   }
   deriving (Show)
 
 empty :: Archetype
-empty =
-  Archetype
-    { storages = Map.empty,
-      nextEntityId = EntityID 0
-    }
-
-spawn :: forall a. (Component a) => a -> Archetype -> (EntityID, Archetype)
-spawn c w =
-  let e = nextEntityId w
-   in (e, insert e c w {nextEntityId = EntityID (unEntityId e + 1)})
+empty = Archetype {storages = Map.empty}
 
 lookupStorage :: forall a. (Component a) => Archetype -> Maybe (StorageT a a)
 lookupStorage w = do
