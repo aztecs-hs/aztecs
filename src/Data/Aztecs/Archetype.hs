@@ -19,7 +19,9 @@ import Prelude hiding (all, lookup)
 
 data AnyStorage = AnyStorage
   { storageDyn :: Dynamic,
-    removeDyn :: Int -> Dynamic -> (Maybe Dynamic, Dynamic)
+    insertDyn :: Int -> Dynamic -> Dynamic -> Dynamic,
+    removeDyn :: Int -> Dynamic -> (Maybe Dynamic, Dynamic),
+    removeAny :: Int -> Dynamic -> (Maybe AnyStorage, Dynamic)
   }
 
 instance Show AnyStorage where
@@ -29,8 +31,16 @@ anyStorage :: forall s a. (S.Storage s a) => s a -> AnyStorage
 anyStorage s =
   AnyStorage
     { storageDyn = toDyn s,
+      insertDyn = \i cDyn sDyn ->
+        fromMaybe sDyn $ do
+          s' <- fromDynamic @(s a) sDyn
+          c <- fromDynamic cDyn
+          return . toDyn $ S.insert i c s',
       removeDyn = \i dyn -> case fromDynamic @(s a) dyn of
         Just s' -> let (a, b) = S.remove i s' in (fmap toDyn a, toDyn b)
+        Nothing -> (Nothing, dyn),
+      removeAny = \i dyn -> case fromDynamic @(s a) dyn of
+        Just s' -> let (a, b) = S.remove i s' in (fmap (anyStorage . S.singleton @s i) a, toDyn b)
         Nothing -> (Nothing, dyn)
     }
 
@@ -68,6 +78,21 @@ remove e arch =
   foldr
     ( \(cId, s) (dynAcc, archAcc) ->
         let (dynA, dynS) = removeDyn s (unEntityId e) (storageDyn s)
+            dynAcc' = case dynA of
+              Just d -> Map.insert cId d dynAcc
+              Nothing -> dynAcc
+         in ( dynAcc',
+              archAcc {storages = Map.insert cId (s {storageDyn = dynS}) (storages archAcc)}
+            )
+    )
+    (Map.empty, arch)
+    (Map.toList $ storages arch)
+
+removeStorages :: EntityID -> Archetype -> (Map ComponentID AnyStorage, Archetype)
+removeStorages e arch =
+  foldr
+    ( \(cId, s) (dynAcc, archAcc) ->
+        let (dynA, dynS) = removeAny s (unEntityId e) (storageDyn s)
             dynAcc' = case dynA of
               Just d -> Map.insert cId d dynAcc
               Nothing -> dynAcc

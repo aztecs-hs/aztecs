@@ -7,7 +7,7 @@
 module Data.Aztecs.World where
 
 import Data.Aztecs (Component (..), ComponentID, Components (..), EntityID (..), emptyComponents, insertComponentId)
-import Data.Aztecs.Archetype (Archetype)
+import Data.Aztecs.Archetype (Archetype (..))
 import qualified Data.Aztecs.Archetype as A
 import Data.Dynamic (Dynamic)
 import Data.Map (Map)
@@ -23,6 +23,7 @@ newtype ArchetypeID = ArchetypeID {unArchetypeId :: Int}
 data World = World
   { archetypes :: Map ArchetypeID Archetype,
     archetypeIds :: Map (Set ComponentID) ArchetypeID,
+    archetypeComponents :: Map ArchetypeID (Set ComponentID),
     nextArchetypeId :: ArchetypeID,
     components :: Components,
     entities :: Map EntityID ArchetypeID,
@@ -36,6 +37,7 @@ empty =
   World
     { archetypes = mempty,
       archetypeIds = mempty,
+      archetypeComponents = mempty,
       nextArchetypeId = ArchetypeID 0,
       components = emptyComponents,
       entities = mempty,
@@ -112,9 +114,51 @@ insertArchetype cIds a w =
         w
           { archetypes = Map.insert aId a (archetypes w),
             archetypeIds = Map.insert cIds aId (archetypeIds w),
+            archetypeComponents = Map.insert aId cIds (archetypeComponents w),
             nextArchetypeId = ArchetypeID (unArchetypeId aId + 1)
           }
       )
+
+insert :: forall a. (Component a, Typeable (StorageT a)) => EntityID -> a -> World -> World
+insert e c w =
+  let (cId, components') = insertComponentId @a (components w)
+   in insertWithId e cId c w {components = components'}
+
+insertWithId :: (Component a, Typeable (StorageT a)) => EntityID -> ComponentID -> a -> World -> World
+insertWithId e cId c w = case Map.lookup e (entities w) of
+  Just aId -> case Map.lookup aId (archetypeComponents w) of
+    Just cIds ->
+      if Set.member cId cIds
+        then w {archetypes = Map.adjust (A.insert e cId c) aId (archetypes w)}
+        else
+          let arch = archetypes w Map.! aId
+           in case Map.lookup (Set.insert cId cIds) (archetypeIds w) of
+                Just nextAId ->
+                  let (cs, arch') = A.remove e arch
+                      w' = w {archetypes = Map.insert aId arch' (archetypes w)}
+                      f (itemCId, dyn) archAcc =
+                        archAcc
+                          { A.storages =
+                              Map.adjust
+                                (\s -> s {A.storageDyn = A.insertDyn s (unEntityId e) dyn (A.storageDyn s)})
+                                itemCId
+                                (A.storages archAcc)
+                          }
+                   in w'
+                        { archetypes =
+                            Map.adjust
+                              (\nextArch -> foldr f nextArch (Map.toList cs))
+                              nextAId
+                              (archetypes w')
+                        }
+                Nothing ->
+                  let (s, arch') = A.removeStorages e arch
+                      w' = w {archetypes = Map.insert aId arch' (archetypes w)}
+                      newArch = Archetype {A.storages = s}
+                      newArch' = A.insert e cId c newArch
+                   in snd $ insertArchetype (Set.insert cId cIds) newArch' w'
+    Nothing -> w
+  Nothing -> w
 
 despawn :: EntityID -> World -> (Map ComponentID Dynamic, World)
 despawn e w =
