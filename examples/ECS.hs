@@ -27,8 +27,8 @@ main :: IO ()
 main = do
   let w =
         foldr
-          ( \_ wAcc ->
-              let (e, wAcc') = W.spawn (Position 0) wAcc
+          ( \i wAcc ->
+              let (e, wAcc') = W.spawn (Position i) wAcc
                in W.insert e (Velocity 1) wAcc'
           )
           W.empty

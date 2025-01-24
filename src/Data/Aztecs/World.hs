@@ -167,7 +167,7 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
                    in w'
                         { archetypes =
                             Map.adjust
-                              (\nextArch -> foldr f nextArch (Map.toList cs))
+                              (\nextArch -> A.insert e cId c $ foldr f nextArch (Map.toList cs))
                               nextAId
                               (archetypes w')
                         }
