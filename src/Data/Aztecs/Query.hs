@@ -3,7 +3,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -109,9 +108,6 @@ mapWith a b f w =
 
 class ToQuery a where
   query :: Query a
-
-instance ToQuery '[] where
-  query = Query $ const (Set.empty, \arch -> ([], const id))
 
 instance {-# OVERLAPPING #-} (Component a, Typeable (StorageT a)) => ToQuery '[a] where
   query = fetch @a

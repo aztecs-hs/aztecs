@@ -3,7 +3,6 @@
 
 import Criterion.Main
 import Data.Aztecs
-import Data.Aztecs.Entity
 import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.World (World)
 import qualified Data.Aztecs.World as W
