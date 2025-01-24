@@ -25,10 +25,8 @@ library
     ghc-options:      -Wall
     build-depends:
         base >=4 && <5,
-        async >=2,
         containers >=0.7,
-        mtl >=2,
-        vector >=0.13
+        mtl >=2
 
 executable ecs
     main-is:          ECS.hs
@@ -37,8 +35,7 @@ executable ecs
     ghc-options:      -Wall
     build-depends:
         base >=4 && <5,
-        aztecs,
-        pretty-simple
+        aztecs
 
 test-suite aztecs-test
     type:             exitcode-stdio-1.0
