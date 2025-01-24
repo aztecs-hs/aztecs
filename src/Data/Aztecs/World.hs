@@ -4,7 +4,20 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Data.Aztecs.World where
+module Data.Aztecs.World
+  ( ArchetypeID (..),
+    World (..),
+    empty,
+    spawn,
+    spawnWithId,
+    spawnWithArchetypeId,
+    spawnEmpty,
+    insert,
+    insertWithId,
+    insertArchetype,
+    despawn,
+  )
+where
 
 import Data.Aztecs.Archetype (Archetype (..))
 import qualified Data.Aztecs.Archetype as A

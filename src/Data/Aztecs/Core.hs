@@ -5,7 +5,16 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Data.Aztecs.Core where
+module Data.Aztecs.Core
+  ( EntityID (..),
+    Component (..),
+    ComponentID (..),
+    Components (..),
+    emptyComponents,
+    insertComponentId,
+    lookupComponentId,
+  )
+where
 
 import Data.Aztecs.Storage (Storage)
 import Data.IntMap (IntMap)

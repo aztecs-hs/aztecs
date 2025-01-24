@@ -8,9 +8,19 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Data.Aztecs.Query where
+module Data.Aztecs.Query
+  ( Query (..),
+    (<?>),
+    fetch,
+    all,
+    allWorld,
+    map,
+    mapWorld,
+    mapWith,
+  )
+where
 
-import Control.Monad.State (MonadState (..))
+import Control.Monad.State (MonadState (..), gets)
 import Data.Aztecs.Access (Access (Access))
 import Data.Aztecs.Archetype (Archetype)
 import qualified Data.Aztecs.Archetype as A
@@ -23,6 +33,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Prelude hiding (all, map)
 
 -- | Query into the `World`.
 newtype Query a
@@ -56,8 +67,11 @@ fetch = Query $ \cs ->
               )
       )
 
-all :: Query a -> World -> [Entity a]
-all q w =
+all :: forall m a. (Monad m, ToEntity a, FromEntity a, ToQuery (EntityT a)) => Access m [a]
+all = Access $ gets (fmap fromEntity . allWorld (query @(EntityT a)))
+
+allWorld :: Query a -> World -> [Entity a]
+allWorld q w =
   let (cIds, g) = runQuery' q (components w)
       res = do
         aId <- Map.lookup cIds (archetypeIds w)
@@ -65,26 +79,6 @@ all q w =
    in case res of
         Just arch -> fst $ g arch
         Nothing -> []
-
-map' ::
-  (FromEntity i, ToEntity o, EntityT i ~ a, EntityT o ~ a) =>
-  Query a ->
-  (i -> o) ->
-  World ->
-  ([o], World)
-map' q f w =
-  let (cIds, g) = runQuery' q (components w)
-      res = do
-        aId <- Map.lookup cIds (archetypeIds w)
-        arch <- Map.lookup aId (archetypes w)
-        return (aId, arch)
-   in case res of
-        Just (aId, arch) ->
-          let (as, h) = g arch
-              as' = fmap (f . fromEntity) as
-              arch' = h (fmap toEntity as') arch
-           in (as', w {archetypes = Map.insert aId arch' (archetypes w)})
-        Nothing -> ([], w)
 
 mapWith ::
   (FromEntity i, ToEntity o, EntityT i ~ ConcatT a b, EntityT o ~ b) =>

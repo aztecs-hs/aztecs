@@ -11,7 +11,23 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Data.Aztecs.Entity where
+module Data.Aztecs.Entity
+  ( Entity (..),
+    EntityT,
+    FromEntity (..),
+    ToEntity (..),
+    ConcatT,
+    IntersectT,
+    Intersect (..),
+    DifferenceT,
+    Difference (..),
+    SplitT,
+    Split (..),
+    concat,
+    (<&>),
+    (:&) (..),
+  )
+where
 
 import Data.Kind (Type)
 import Prelude hiding (concat)
@@ -34,9 +50,6 @@ instance Show' (Entity '[]) where
 
 instance (Show a, Show' (Entity as)) => Show' (Entity (a ': as)) where
   showRow (ECons x xs) = ", " ++ show x ++ showRow xs
-
-entity :: a -> Entity '[a]
-entity = flip ECons ENil
 
 (<&>) :: Entity as -> a -> Entity (a : as)
 (<&>) es c = ECons c es

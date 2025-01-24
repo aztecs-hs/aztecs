@@ -2,7 +2,7 @@
 {-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Data.Aztecs.Storage where
+module Data.Aztecs.Storage (Storage(..)) where
 
 import Data.Data (Typeable)
 import Data.IntMap (IntMap)
