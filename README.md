@@ -46,6 +46,10 @@ main = do
   return ()
 ```
 
+## Benchmarks
+Aztecs is currently faster than [bevy-ecs](https://github.com/bevyengine/bevy/), a popular and high-performance ECS written in Rust, for simple mutating queries.
+<img alt="benchmark results: Aztecs 932us vs Bevy 6,966us" src="https://github.com/user-attachments/assets/348c7539-0e7b-4429-9cc1-06e8a819156d" />
+
 ## Inspiration
 
 Aztecs' approach to type-safety is inspired by [Bevy](https://github.com/bevyengine/bevy/)
