@@ -13,6 +13,7 @@ library
     exposed-modules:
         Data.Aztecs
         Data.Aztecs.Archetype
+        Data.Aztecs.Entity
         Data.Aztecs.Query
         Data.Aztecs.Storage
         Data.Aztecs.World

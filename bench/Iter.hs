@@ -1,9 +1,9 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications #-}
 
 import Criterion.Main
 import Data.Aztecs
+import Data.Aztecs.Entity
 import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.World (World)
 import qualified Data.Aztecs.World as W
@@ -18,11 +18,7 @@ instance Component Velocity
 
 run :: World -> World
 run w =
-  let !(_, w') =
-        Q.map
-          (Q.fetch @Position Q.<&> Q.fetch @Velocity)
-          (\(Position x, Velocity v) -> (Position $ x + 1, Velocity v))
-          w
+  let !(_, w') = Q.mapWith Q.fetch Q.fetch (\(Velocity v :& Position x) -> Position (x + v)) w
    in w'
 
 main :: IO ()
