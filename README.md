@@ -14,13 +14,9 @@ A type-safe and friendly [ECS](https://en.wikipedia.org/wiki/Entity_component_sy
 - Modular design: Aztecs can be extended for a variety of use cases
 
 ```hs
-import Control.Monad.IO.Class
-import Data.Aztecs.Edit (Edit)
-import qualified Data.Aztecs.Edit as C
-import Data.Aztecs.Entity
+import Data.Aztecs
 import qualified Data.Aztecs.Query as Q
 import qualified Data.Aztecs.World as W
-import Text.Pretty.Simple
 
 newtype Position = Position Int deriving (Show)
 
@@ -30,26 +26,24 @@ newtype Velocity = Velocity Int deriving (Show)
 
 instance Component Velocity
 
-app :: Edit IO ()
-app = do
-  C.spawn_ $ entity (Position 0) <&> Velocity 1
-  C.spawn_ $ entity (Position 2) <&> Velocity 2
-
-  positions <- Q.map $
-    \(Position p :& Velocity v) -> Position (p + v)
-
-  liftIO $ pPrint positions
-
 main :: IO ()
 main = do
-  _ <- C.runEdit app W.empty
-  return ()
+  let (e, w) = W.spawn (Position 0) W.empty
+      w' = W.insert e (Velocity 0) w
+      (q, _) =
+        Q.map
+          (Q.fetch @Position Q.<&> Q.fetch @Velocity)
+          (\(Position x, Velocity v) -> (Position $ x + 1, Velocity v))
+          w'
+  print q
 ```
 
 ## Benchmarks
 Aztecs is currently faster than [bevy-ecs](https://github.com/bevyengine/bevy/), a popular and high-performance ECS written in Rust, for simple mutating queries.
-<img alt="benchmark results: Aztecs 932us vs Bevy 6,966us" src="https://github.com/user-attachments/assets/348c7539-0e7b-4429-9cc1-06e8a819156d" />
+
+<img alt="benchmark results: Aztecs 932us vs Bevy 6,966us" width=300 src="https://github.com/user-attachments/assets/348c7539-0e7b-4429-9cc1-06e8a819156d" />
 
 ## Inspiration
 
-Aztecs' approach to type-safety is inspired by [Bevy](https://github.com/bevyengine/bevy/)
+Aztecs' approach to type-safety is inspired by [Bevy](https://github.com/bevyengine/bevy/),
+but with direct archetype-based storage similar to [Flecs](https://github.com/SanderMertens/flecs).
