@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
 
     steps:
@@ -30,7 +30,9 @@ jobs:
           cabal-version: "3.2"
 
       - name: Install linux dependencies
-        run: sudo apt-get install libsdl2-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install libsdl2-dev
 
       - name: Update the package index
         run: cabal update
