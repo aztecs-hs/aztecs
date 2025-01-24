@@ -3,10 +3,9 @@
 {-# LANGUAGE TypeApplications #-}
 
 import Criterion.Main
-import Data.Aztecs.Edit (Edit)
-import qualified Data.Aztecs.Edit as E
-import Data.Aztecs.Entity (Component, entity, (:&) (..), (<&>))
+import Data.Aztecs
 import qualified Data.Aztecs.Query as Q
+import Data.Aztecs.World (World)
 import qualified Data.Aztecs.World as W
 
 newtype Position = Position Int deriving (Show)
@@ -17,24 +16,23 @@ newtype Velocity = Velocity Int deriving (Show)
 
 instance Component Velocity
 
-app :: Edit IO ()
-app = do
-  !_ <- Q.map $
-    \(Position p :& Velocity v) -> Position (p + v)
-
-  return ()
-
-run :: W.World -> IO ()
-run w = do
-  !_ <- E.runEdit app w
-  return ()
+run :: World -> World
+run w =
+  let !(_, w') =
+        Q.map
+          (Q.fetch @Position Q.<&> Q.fetch @Velocity)
+          (\(Position x, Velocity v) -> (Position $ x + 1, Velocity v))
+          w
+   in w'
 
 main :: IO ()
 main = do
   let w =
         foldr
-          ( \_ wAcc -> snd $ W.spawn (entity (Position 0) <&> Velocity 1) wAcc
+          ( \_ wAcc ->
+              let (e, wAcc') = W.spawn (Position 0) wAcc
+               in W.insert e (Velocity 1) wAcc'
           )
           W.empty
           [0 :: Int .. 10000]
-  defaultMain [bench "iter" $ nfIO (run w)]
+  defaultMain [bench "iter" $ whnf run w]
