@@ -21,7 +21,14 @@ where
 
 import Data.Aztecs.Archetype (Archetype (..))
 import qualified Data.Aztecs.Archetype as A
-import Data.Aztecs.Core (Component (..), ComponentID, Components (..), EntityID (..), emptyComponents, insertComponentId)
+import Data.Aztecs.Core
+  ( Component (..),
+    ComponentID,
+    Components (..),
+    EntityID (..),
+    componentId,
+    emptyComponents,
+  )
 import Data.Dynamic (Dynamic)
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -62,7 +69,7 @@ spawn :: forall a. (Component a, Typeable (StorageT a)) => a -> World -> (Entity
 spawn c w = case Map.lookup (typeOf (Proxy @a)) (componentIds (components w)) of
   Just cId -> spawnWithId cId c w
   Nothing ->
-    let (cId, cs) = insertComponentId @a (components w)
+    let (cId, cs) = componentId @a (components w)
      in spawnWithId cId c w {components = cs}
 
 -- | Spawn an empty entity.
@@ -134,7 +141,7 @@ insertArchetype cIds a w =
 
 insert :: forall a. (Component a, Typeable (StorageT a)) => EntityID -> a -> World -> World
 insert e c w =
-  let (cId, components') = insertComponentId @a (components w)
+  let (cId, components') = componentId @a (components w)
    in insertWithId e cId c w {components = components'}
 
 insertWithId :: (Component a, Typeable (StorageT a)) => EntityID -> ComponentID -> a -> World -> World

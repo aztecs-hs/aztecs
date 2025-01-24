@@ -106,9 +106,6 @@ mapWith a b f w =
 class ToQuery a where
   query :: Query a
 
-instance ToQuery '[] where
-  query = Query $ const (Set.empty, const ([], \_ arch' -> arch'))
-
 instance {-# OVERLAPPING #-} (Component a, Typeable (StorageT a)) => ToQuery '[a] where
   query = fetch @a
 

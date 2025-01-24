@@ -13,6 +13,7 @@ module Data.Aztecs.Core
     emptyComponents,
     insertComponentId,
     lookupComponentId,
+    componentId
   )
 where
 
@@ -58,3 +59,8 @@ insertComponentId cs =
             nextComponentId = ComponentID (unComponentId cId + 1)
           }
       )
+
+componentId :: forall a. (Component a) => Components -> (ComponentID, Components)
+componentId cs = case lookupComponentId @a cs of
+  Just cId -> (cId, cs)
+  Nothing -> insertComponentId @a cs
