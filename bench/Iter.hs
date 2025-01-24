@@ -17,13 +17,11 @@ newtype Velocity = Velocity Int deriving (Show)
 instance Component Velocity
 
 run :: World -> World
-run w =
-  let !(_, w') = Q.mapWith Q.fetch Q.fetch (\(Velocity v :& Position x) -> Position (x + v)) w
-   in w'
+run w = let !(_, w') = Q.mapWorld (\(Velocity v :& Position x) -> Position (x + v)) w in w'
 
 main :: IO ()
 main = do
-  let w =
+  let !w =
         foldr
           ( \_ wAcc ->
               let (e, wAcc') = W.spawn (Position 0) wAcc
