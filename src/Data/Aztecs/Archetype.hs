@@ -8,7 +8,7 @@
 
 module Data.Aztecs.Archetype where
 
-import Data.Aztecs (Component (..), ComponentID, EntityID (..))
+import Data.Aztecs.Core (Component (..), ComponentID, EntityID (..))
 import qualified Data.Aztecs.Storage as S
 import Data.Bifunctor (Bifunctor (..))
 import Data.Dynamic (Dynamic, fromDynamic, toDyn)

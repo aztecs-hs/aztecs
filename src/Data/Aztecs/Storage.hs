@@ -14,7 +14,7 @@ class (Typeable (s a), Typeable a) => Storage s a where
   insert :: Int -> a -> s a -> s a
   lookup :: Int -> s a -> Maybe a
   fromAscList :: [(Int, a)] -> s a
-  remove :: Int -> s a ->(Maybe a, s a)
+  remove :: Int -> s a -> (Maybe a, s a)
 
 instance (Typeable a) => Storage IntMap a where
   singleton = IntMap.singleton

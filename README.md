@@ -14,7 +14,9 @@ A type-safe and friendly [ECS](https://en.wikipedia.org/wiki/Entity_component_sy
 - Modular design: Aztecs can be extended for a variety of use cases
 
 ```hs
+import Control.Monad.IO.Class (MonadIO (..))
 import Data.Aztecs
+import qualified Data.Aztecs.Access as A
 import qualified Data.Aztecs.Query as Q
 import qualified Data.Aztecs.World as W
 
@@ -26,16 +28,20 @@ newtype Velocity = Velocity Int deriving (Show)
 
 instance Component Velocity
 
+app :: Access IO ()
+app = do
+  -- Spawn an entity with position and velocity components
+  e <- A.spawn (Position 0)
+  A.insert e (Velocity 1)
+
+  -- Query for and update all matching entities
+  q <- Q.map (\(Velocity v :& Position x) -> Position (x + v))
+  liftIO $ print q
+
 main :: IO ()
 main = do
-  let (e, w) = W.spawn (Position 0) W.empty
-      w' = W.insert e (Velocity 0) w
-      (q, _) =
-        Q.map
-          (Q.fetch @Position Q.<&> Q.fetch @Velocity)
-          (\(Position x, Velocity v) -> (Position $ x + 1, Velocity v))
-          w'
-  print q
+  _ <- runAccess app W.empty
+  return ()
 ```
 
 ## Benchmarks

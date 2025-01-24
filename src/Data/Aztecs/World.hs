@@ -6,9 +6,9 @@
 
 module Data.Aztecs.World where
 
-import Data.Aztecs (Component (..), ComponentID, Components (..), EntityID (..), emptyComponents, insertComponentId)
 import Data.Aztecs.Archetype (Archetype (..))
 import qualified Data.Aztecs.Archetype as A
+import Data.Aztecs.Core (Component (..), ComponentID, Components (..), EntityID (..), emptyComponents, insertComponentId)
 import Data.Dynamic (Dynamic)
 import Data.Map (Map)
 import qualified Data.Map as Map

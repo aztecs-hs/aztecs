@@ -1,5 +1,7 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -8,10 +10,12 @@
 
 module Data.Aztecs.Query where
 
-import Data.Aztecs
+import Control.Monad.State (MonadState (..))
+import Data.Aztecs.Access (Access (Access))
 import Data.Aztecs.Archetype (Archetype)
 import qualified Data.Aztecs.Archetype as A
-import Data.Aztecs.Entity (ConcatT, Entity (..), EntityT, FromEntity (..), ToEntity (..))
+import Data.Aztecs.Core
+import Data.Aztecs.Entity (ConcatT, Difference, DifferenceT, Entity (..), EntityT, FromEntity (..), Intersect, IntersectT, ToEntity (..))
 import qualified Data.Aztecs.Entity as E
 import Data.Aztecs.World (World (..))
 import Data.Data (Typeable)
@@ -62,13 +66,13 @@ all q w =
         Just arch -> fst $ g arch
         Nothing -> []
 
-map ::
+map' ::
   (FromEntity i, ToEntity o, EntityT i ~ a, EntityT o ~ a) =>
   Query a ->
   (i -> o) ->
   World ->
   ([o], World)
-map q f w =
+map' q f w =
   let (cIds, g) = runQuery' q (components w)
       res = do
         aId <- Map.lookup cIds (archetypeIds w)
@@ -104,3 +108,67 @@ mapWith a b f w =
               arch' = bH (fmap (toEntity . toEntity) es) arch
            in (es, w {archetypes = Map.insert aId arch' (archetypes w)})
         Nothing -> ([], w)
+
+class ToQuery a where
+  query :: Query a
+
+instance ToQuery '[] where
+  query = Query $ const (Set.empty, const ([], \_ arch' -> arch'))
+
+instance {-# OVERLAPPING #-} (Component a, Typeable (StorageT a)) => ToQuery '[a] where
+  query = fetch @a
+
+instance (Component a, Typeable (StorageT a), ToQuery as) => ToQuery (a ': as) where
+  query = fetch @a <?> query @as
+
+mapWorld ::
+  forall i o.
+  ( FromEntity i,
+    ToEntity o,
+    Intersect (EntityT i) (EntityT o),
+    ToQuery (IntersectT (EntityT i) (EntityT o)),
+    Difference (EntityT i) (EntityT o),
+    ToQuery (DifferenceT (EntityT i) (EntityT o)),
+    ConcatT (DifferenceT (EntityT i) (EntityT o)) (IntersectT (EntityT i) (EntityT o)) ~ EntityT i,
+    IntersectT (EntityT i) (EntityT o) ~ EntityT o
+  ) =>
+  (i -> o) ->
+  World ->
+  ([o], World)
+mapWorld f w =
+  let i = query @(IntersectT (EntityT i) (EntityT o))
+      o = query @(DifferenceT (EntityT i) (EntityT o))
+      (aCIds, aG) = runQuery' i (components w)
+      (bCIds, bG) = runQuery' o (components w)
+      res = do
+        aId <- Map.lookup (aCIds <> bCIds) (archetypeIds w)
+        arch <- Map.lookup aId (archetypes w)
+        return (aId, arch)
+   in case res of
+        Just (aId, arch) ->
+          let (as, aH) = aG arch
+              (bs, _) = bG arch
+              es = fmap (\(aE, bE) -> f $ fromEntity @i (E.concat bE aE)) (zip as bs)
+              arch' = aH (fmap (\x -> let e = toEntity x in e) es) arch
+           in (es, w {archetypes = Map.insert aId arch' (archetypes w)})
+        Nothing -> ([], w)
+
+map ::
+  forall m i o.
+  ( Monad m,
+    FromEntity i,
+    ToEntity o,
+    Intersect (EntityT i) (EntityT o),
+    ToQuery (IntersectT (EntityT i) (EntityT o)),
+    Difference (EntityT i) (EntityT o),
+    ToQuery (DifferenceT (EntityT i) (EntityT o)),
+    ConcatT (DifferenceT (EntityT i) (EntityT o)) (IntersectT (EntityT i) (EntityT o)) ~ EntityT i,
+    IntersectT (EntityT i) (EntityT o) ~ EntityT o
+  ) =>
+  (i -> o) ->
+  Access m [o]
+map f = Access $ do
+  w <- get
+  let (out, w') = mapWorld @i @o f w
+  put w'
+  return out
