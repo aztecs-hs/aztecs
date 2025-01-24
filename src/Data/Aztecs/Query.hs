@@ -115,41 +115,11 @@ instance {-# OVERLAPPING #-} (Component a, Typeable (StorageT a)) => ToQuery '[a
 instance (Component a, Typeable (StorageT a), ToQuery as) => ToQuery (a ': as) where
   query = fetch @a <?> query @as
 
-mapWorldDiff ::
-  forall i o.
-  ( FromEntity i,
-    ToEntity o,
-    Intersect (EntityT i) (EntityT o),
-    ToQuery (IntersectT (EntityT i) (EntityT o)),
-    Difference (EntityT i) (EntityT o),
-    ToQuery (DifferenceT (EntityT i) (EntityT o)),
-    ConcatT (DifferenceT (EntityT i) (EntityT o)) (IntersectT (EntityT i) (EntityT o)) ~ EntityT i,
-    IntersectT (EntityT i) (EntityT o) ~ EntityT o
-  ) =>
-  (i -> o) ->
-  World ->
-  ([o], World)
-mapWorldDiff f w =
-  let i = query @(IntersectT (EntityT i) (EntityT o))
-      o = query @(DifferenceT (EntityT i) (EntityT o))
-      (aCIds, aG) = runQuery' i (components w)
-      (bCIds, bG) = runQuery' o (components w)
-      res = do
-        aId <- Map.lookup (aCIds <> bCIds) (archetypeIds w)
-        arch <- Map.lookup aId (archetypes w)
-        return (aId, arch)
-   in case res of
-        Just (aId, arch) ->
-          let (as, aH) = aG arch
-              (bs, _) = bG arch
-              es = fmap (\(aE, bE) -> f $ fromEntity @i (E.concat bE aE)) (zip as bs)
-              arch' = aH (fmap (\x -> let e = toEntity x in e) es) arch
-           in (es, w {archetypes = Map.insert aId arch' (archetypes w)})
-        Nothing -> ([], w)
-
+-- | Map over all entities that match this query,
+-- storing the resulting components in the @World@.
 map ::
   forall m i o.
-  (Monad m, Map' (IsEq (Entity (EntityT i)) (Entity (EntityT o))) i o) =>
+  (Monad m, Map (IsEq (Entity (EntityT i)) (Entity (EntityT o))) i o) =>
   (i -> o) ->
   Access m [o]
 map f = Access $ do
@@ -158,31 +128,45 @@ map f = Access $ do
   put w'
   return out
 
-mapEq ::
-  (FromEntity i, ToEntity o, EntityT i ~ a, EntityT o ~ a) =>
-  Query a ->
+-- | Map over all entities that match this query,
+-- storing the resulting components in the @World@.
+mapWorld ::
+  forall i o.
+  (Map (IsEq (Entity (EntityT i)) (Entity (EntityT o))) i o) =>
   (i -> o) ->
   World ->
   ([o], World)
-mapEq q f w =
-  let (cIds, g) = runQuery' q (components w)
-      res = do
-        aId <- Map.lookup cIds (archetypeIds w)
-        arch <- Map.lookup aId (archetypes w)
-        return (aId, arch)
-   in case res of
-        Just (aId, arch) ->
-          let (as, h) = g arch
-              as' = fmap (f . fromEntity) as
-              arch' = h (fmap toEntity as') arch
-           in (as', w {archetypes = Map.insert aId arch' (archetypes w)})
-        Nothing -> ([], w)
+mapWorld = mapWorld' @(IsEq (Entity (EntityT i)) (Entity (EntityT o)))
 
-class Map' (flag :: Bool) i o where
-  map' :: (i -> o) -> World -> ([o], World)
+-- Returns @True@ if @a@ and @b@ are the same type.
+type family IsEq a b :: Bool where
+  IsEq a a = 'True
+  IsEq a b = 'False
 
-instance (FromEntity i, ToEntity o, EntityT i ~ a, EntityT o ~ a, ToQuery a) => Map' 'True i o where
-  map' = mapEq (query @a)
+-- Map over an entity's components.
+--
+-- @flag@ indicates if the input and output entities are the same,
+-- in order to specialize at compile-time.
+--
+-- If the input and output entities are different, a reader and writer query are combined into one.
+-- Otherwise, if the input and output entities are the same, we can use a more efficient implementation.
+class Map (flag :: Bool) i o where
+  mapWorld' :: (i -> o) -> World -> ([o], World)
+
+instance (FromEntity i, ToEntity o, EntityT i ~ a, EntityT o ~ a, ToQuery a) => Map 'True i o where
+  mapWorld' f w =
+    let (cIds, g) = runQuery' (query @a) (components w)
+        res = do
+          aId <- Map.lookup cIds (archetypeIds w)
+          arch <- Map.lookup aId (archetypes w)
+          return (aId, arch)
+     in case res of
+          Just (aId, arch) ->
+            let (as, h) = g arch
+                as' = fmap (f . fromEntity) as
+                arch' = h (fmap toEntity as') arch
+             in (as', w {archetypes = Map.insert aId arch' (archetypes w)})
+          Nothing -> ([], w)
 
 instance
   ( FromEntity i,
@@ -194,18 +178,22 @@ instance
     ConcatT (DifferenceT (EntityT i) (EntityT o)) (IntersectT (EntityT i) (EntityT o)) ~ EntityT i,
     IntersectT (EntityT i) (EntityT o) ~ EntityT o
   ) =>
-  Map' 'False i o
+  Map 'False i o
   where
-  map' = mapWorldDiff
-
-type family IsEq a b :: Bool where
-  IsEq a a = 'True
-  IsEq a b = 'False
-
-mapWorld ::
-  forall i o.
-  (Map' (IsEq (Entity (EntityT i)) (Entity (EntityT o))) i o) =>
-  (i -> o) ->
-  World ->
-  ([o], World)
-mapWorld = map' @(IsEq (Entity (EntityT i)) (Entity (EntityT o)))
+  mapWorld' f w =
+    let i = query @(IntersectT (EntityT i) (EntityT o))
+        o = query @(DifferenceT (EntityT i) (EntityT o))
+        (aCIds, aG) = runQuery' i (components w)
+        (bCIds, bG) = runQuery' o (components w)
+        res = do
+          aId <- Map.lookup (aCIds <> bCIds) (archetypeIds w)
+          arch <- Map.lookup aId (archetypes w)
+          return (aId, arch)
+     in case res of
+          Just (aId, arch) ->
+            let (as, aH) = aG arch
+                (bs, _) = bG arch
+                es = fmap (\(aE, bE) -> f $ fromEntity @i (E.concat bE aE)) (zip as bs)
+                arch' = aH (fmap (\x -> let e = toEntity x in e) es) arch
+             in (es, w {archetypes = Map.insert aId arch' (archetypes w)})
+          Nothing -> ([], w)
