@@ -37,11 +37,8 @@ jobs:
       - name: Update the package index
         run: cabal update
 
-      - name: Build
-        run: cabal build --enable-tests --enable-benchmarks all
-
       - name: Run tests
-        run: cabal test all
+        run: cabal test
   doctest:
     runs-on: ubuntu-latest
 
