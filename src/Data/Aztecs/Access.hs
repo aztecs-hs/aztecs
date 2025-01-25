@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Data.Aztecs.Access where
+module Data.Aztecs.Access (Access (..), runAccess, spawn, insert) where
 
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.State (MonadState (..), StateT (..))

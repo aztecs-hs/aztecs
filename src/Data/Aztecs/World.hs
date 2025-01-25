@@ -19,16 +19,15 @@ module Data.Aztecs.World
   )
 where
 
-import Data.Aztecs.Archetype (Archetype (..))
-import qualified Data.Aztecs.Archetype as A
 import Data.Aztecs.Core
   ( Component (..),
     ComponentID,
-    Components (..),
     EntityID (..),
-    componentId,
-    emptyComponents,
   )
+import Data.Aztecs.World.Archetype (Archetype (..))
+import qualified Data.Aztecs.World.Archetype as A
+import Data.Aztecs.World.Components (Components (..))
+import qualified Data.Aztecs.World.Components as CS
 import Data.Dynamic (Dynamic)
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -59,7 +58,7 @@ empty =
       archetypeIds = mempty,
       archetypeComponents = mempty,
       nextArchetypeId = ArchetypeID 0,
-      components = emptyComponents,
+      components = CS.empty,
       entities = mempty,
       nextEntityId = EntityID 0
     }
@@ -69,7 +68,7 @@ spawn :: forall a. (Component a, Typeable (StorageT a)) => a -> World -> (Entity
 spawn c w = case Map.lookup (typeOf (Proxy @a)) (componentIds (components w)) of
   Just cId -> spawnWithId cId c w
   Nothing ->
-    let (cId, cs) = componentId @a (components w)
+    let (cId, cs) = CS.insert @a (components w)
      in spawnWithId cId c w {components = cs}
 
 -- | Spawn an empty entity.
@@ -141,7 +140,7 @@ insertArchetype cIds a w =
 
 insert :: forall a. (Component a, Typeable (StorageT a)) => EntityID -> a -> World -> World
 insert e c w =
-  let (cId, components') = componentId @a (components w)
+  let (cId, components') = CS.insert @a (components w)
    in insertWithId e cId c w {components = components'}
 
 insertWithId :: (Component a, Typeable (StorageT a)) => EntityID -> ComponentID -> a -> World -> World

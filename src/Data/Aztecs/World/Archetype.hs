@@ -6,7 +6,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Data.Aztecs.Archetype where
+module Data.Aztecs.World.Archetype where
 
 import Data.Aztecs.Core (Component (..), ComponentID, EntityID (..))
 import qualified Data.Aztecs.Storage as S

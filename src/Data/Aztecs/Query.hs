@@ -25,12 +25,14 @@ where
 
 import Control.Monad.State (MonadState (..), gets)
 import Data.Aztecs.Access (Access (Access))
-import Data.Aztecs.Archetype (Archetype)
-import qualified Data.Aztecs.Archetype as A
 import Data.Aztecs.Core
 import Data.Aztecs.Entity (ConcatT, Difference, DifferenceT, Entity (..), EntityT, FromEntity (..), Intersect, IntersectT, ToEntity (..))
 import qualified Data.Aztecs.Entity as E
 import Data.Aztecs.World (World (..))
+import Data.Aztecs.World.Archetype (Archetype)
+import qualified Data.Aztecs.World.Archetype as A
+import Data.Aztecs.World.Components (Components)
+import qualified Data.Aztecs.World.Components as CS
 import Data.Data (Typeable)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
@@ -61,7 +63,7 @@ newtype Query a
 
 fetch :: forall a. (Component a, Typeable (StorageT a)) => Query '[a]
 fetch = Query $ \cs ->
-  let cId = fromMaybe (error "TODO") (lookupComponentId @a cs)
+  let cId = fromMaybe (error "TODO") (CS.lookup @a cs)
    in ( Set.singleton cId,
         \arch ->
           let as = A.all cId arch
