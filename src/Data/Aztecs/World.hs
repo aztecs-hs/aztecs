@@ -17,6 +17,9 @@ module Data.Aztecs.World
     insertArchetype,
     despawn,
     Node (..),
+    lookupNode,
+    lookupArchetypes,
+    mapArchetypes,
   )
 where
 
@@ -32,6 +35,7 @@ import qualified Data.Aztecs.World.Components as CS
 import Data.Dynamic (Dynamic)
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Typeable (Proxy (..), Typeable, typeOf)
@@ -233,3 +237,19 @@ despawn e w =
                   }
               )
         Nothing -> (Map.empty, w)
+
+lookupNode :: ArchetypeID -> World -> Maybe Node
+lookupNode aId w = Map.lookup aId (archetypes w)
+
+lookupArchetypes :: ArchetypeID -> World -> [Archetype]
+lookupArchetypes aId w = case lookupNode aId w of
+  Just n -> nodeArchetype n : concatMap (`lookupArchetypes` w) (Map.elems (nodeAdd n))
+  Nothing -> []
+
+mapArchetypes :: ArchetypeID -> (Archetype -> Archetype) -> World -> World
+mapArchetypes aId f w = fromMaybe w $ do
+  node <- lookupNode aId w
+  let next = Map.elems (nodeAdd node)
+      node' = node {nodeArchetype = f (nodeArchetype node)}
+      w' = w {archetypes = Map.insert aId node' (archetypes w)}
+  return $ foldr (`mapArchetypes` f) w' next
