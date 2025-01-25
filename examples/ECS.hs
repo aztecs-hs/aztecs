@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Main where
 
@@ -26,6 +27,9 @@ app = do
   -- Query for and update all matching entities
   q <- Q.map (\(Velocity v :& Position x) -> Position (x + v))
   liftIO $ print q
+
+  x <- Q.all @_ @Position
+  liftIO $ print x
 
 main :: IO ()
 main = do

@@ -30,7 +30,7 @@ import Data.Aztecs.Access (Access (Access))
 import Data.Aztecs.Component
 import Data.Aztecs.Entity (ConcatT, Difference, DifferenceT, Entity (..), EntityT, FromEntity (..), Intersect, IntersectT, ToEntity (..))
 import qualified Data.Aztecs.Entity as E
-import Data.Aztecs.World (Node (..), World (..))
+import Data.Aztecs.World (Node (..), World (..), lookupArchetypes)
 import Data.Aztecs.World.Archetype (Archetype)
 import qualified Data.Aztecs.World.Archetype as A
 import Data.Aztecs.World.Components (Components)
@@ -92,14 +92,10 @@ all :: forall m a. (Monad m, ToEntity a, FromEntity a, Queryable (EntityT a)) =>
 all = Access $ gets (fmap fromEntity . allWorld (query @(EntityT a)))
 
 allWorld :: Query a -> World -> [Entity a]
-allWorld q w =
+allWorld q w = fromMaybe [] $ do
   let (cIds, g) = runQuery' q (components w)
-      res = do
-        aId <- Map.lookup cIds (archetypeIds w)
-        Map.lookup aId (archetypes w)
-   in case res of
-        Just node -> fst $ g (nodeArchetype node)
-        Nothing -> []
+  aId <- Map.lookup cIds (archetypeIds w)
+  return $ concatMap (fst . g) (lookupArchetypes aId w)
 
 mapWith ::
   (FromEntity i, ToEntity o, EntityT i ~ ConcatT a b, EntityT o ~ b) =>
