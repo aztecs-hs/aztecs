@@ -16,6 +16,7 @@ module Data.Aztecs.World
     insertWithId,
     insertArchetype,
     despawn,
+    Node (..),
   )
 where
 
@@ -38,9 +39,16 @@ import Data.Typeable (Proxy (..), Typeable, typeOf)
 newtype ArchetypeID = ArchetypeID {unArchetypeId :: Int}
   deriving (Eq, Ord, Show)
 
+data Node = Node
+  { nodeArchetype :: Archetype,
+    nodeAdd :: Map ComponentID ArchetypeID,
+    nodeRemove :: Map ComponentID ArchetypeID
+  }
+  deriving (Show)
+
 -- | World of entities and their components.
 data World = World
-  { archetypes :: Map ArchetypeID Archetype,
+  { archetypes :: Map ArchetypeID Node,
     archetypeIds :: Map (Set ComponentID) ArchetypeID,
     archetypeComponents :: Map ArchetypeID (Set ComponentID),
     nextArchetypeId :: ArchetypeID,
@@ -92,7 +100,12 @@ spawnWithId cId c w =
             snd $
               insertArchetype
                 (Set.singleton cId)
-                (A.insert e cId c A.empty)
+                ( Node
+                    { nodeArchetype = A.insert e cId c A.empty,
+                      nodeAdd = Map.empty,
+                      nodeRemove = Map.empty
+                    }
+                )
                 w' {entities = Map.insert e (nextArchetypeId w) (entities w)}
           )
 
@@ -119,19 +132,19 @@ spawnWithArchetypeId' ::
   World ->
   World
 spawnWithArchetypeId' e aId cId c w =
-  let f = A.insert e cId c
+  let f n = n {nodeArchetype = A.insert e cId c (nodeArchetype n)}
    in w
         { archetypes = Map.adjust f aId (archetypes w),
           entities = Map.insert e aId (entities w)
         }
 
 -- | Insert an archetype by its set of `ComponentID`s.
-insertArchetype :: Set ComponentID -> Archetype -> World -> (ArchetypeID, World)
-insertArchetype cIds a w =
+insertArchetype :: Set ComponentID -> Node -> World -> (ArchetypeID, World)
+insertArchetype cIds n w =
   let aId = nextArchetypeId w
    in ( aId,
         w
-          { archetypes = Map.insert aId a (archetypes w),
+          { archetypes = Map.insert aId n (archetypes w),
             archetypeIds = Map.insert cIds aId (archetypeIds w),
             archetypeComponents = Map.insert aId cIds (archetypeComponents w),
             nextArchetypeId = ArchetypeID (unArchetypeId aId + 1)
@@ -150,13 +163,13 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
   Just aId -> case Map.lookup aId (archetypeComponents w) of
     Just cIds ->
       if Set.member cId cIds
-        then w {archetypes = Map.adjust (A.insert e cId c) aId (archetypes w)}
+        then w {archetypes = Map.adjust (\n -> n {nodeArchetype = A.insert e cId c (nodeArchetype n)}) aId (archetypes w)}
         else
-          let arch = archetypes w Map.! aId
+          let node = archetypes w Map.! aId
            in case Map.lookup (Set.insert cId cIds) (archetypeIds w) of
                 Just nextAId ->
-                  let (cs, arch') = A.remove e arch
-                      w' = w {archetypes = Map.insert aId arch' (archetypes w)}
+                  let (cs, arch') = A.remove e (nodeArchetype node)
+                      w' = w {archetypes = Map.insert aId node {nodeArchetype = arch'} (archetypes w)}
                       f (itemCId, dyn) archAcc =
                         archAcc
                           { A.storages =
@@ -168,16 +181,38 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
                    in w'
                         { archetypes =
                             Map.adjust
-                              (\nextArch -> A.insert e cId c $ foldr f nextArch (Map.toList cs))
+                              ( \nextNode ->
+                                  nextNode
+                                    { nodeArchetype =
+                                        A.insert e cId c $
+                                          foldr
+                                            f
+                                            (nodeArchetype nextNode)
+                                            (Map.toList cs)
+                                    }
+                              )
                               nextAId
                               (archetypes w')
                         }
                 Nothing ->
-                  let (s, arch') = A.removeStorages e arch
-                      w' = w {archetypes = Map.insert aId arch' (archetypes w)}
-                      newArch = Archetype {A.storages = s}
-                      newArch' = A.insert e cId c newArch
-                   in snd $ insertArchetype (Set.insert cId cIds) newArch' w'
+                  let (s, arch') = A.removeStorages e (nodeArchetype node)
+                      n =
+                        Node
+                          { nodeArchetype = A.insert e cId c (Archetype {A.storages = s}),
+                            nodeAdd = Map.empty,
+                            nodeRemove = Map.singleton cId aId
+                          }
+                      (nextAId, w') = insertArchetype (Set.insert cId cIds) n w
+                   in w'
+                        { archetypes =
+                            Map.insert
+                              aId
+                              node
+                                { nodeArchetype = arch',
+                                  nodeAdd = Map.insert cId nextAId (nodeAdd node)
+                                }
+                              (archetypes w)
+                        }
     Nothing -> w
   Nothing -> w
 
@@ -189,11 +224,11 @@ despawn e w =
         arch <- Map.lookup aId (archetypes w)
         return (aId, arch)
    in case res of
-        Just (aId, arch) ->
-          let (dynAcc, arch') = A.remove e arch
+        Just (aId, node) ->
+          let (dynAcc, arch') = A.remove e (nodeArchetype node)
            in ( dynAcc,
                 w
-                  { archetypes = Map.insert aId arch' (archetypes w),
+                  { archetypes = Map.insert aId node {nodeArchetype = arch'} (archetypes w),
                     entities = Map.delete e (entities w)
                   }
               )
