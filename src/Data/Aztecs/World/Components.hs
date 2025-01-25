@@ -25,6 +25,7 @@ data Components = Components
   }
   deriving (Show)
 
+-- | Empty `Components`.
 empty :: Components
 empty =
   Components
@@ -32,16 +33,17 @@ empty =
       nextComponentId = ComponentID 0
     }
 
+-- | Lookup a component ID by type.
 lookup :: forall a. (Typeable a) => Components -> Maybe ComponentID
 lookup cs = Map.lookup (typeOf (Proxy @a)) (componentIds cs)
 
--- | Insert a component ID for this type, if it does not already exist.
+-- | Insert a component ID by type, if it does not already exist.
 insert :: forall a. (Component a) => Components -> (ComponentID, Components)
 insert cs = case lookup @a cs of
   Just cId -> (cId, cs)
   Nothing -> insert' @a cs
 
--- | Insert a component ID for this type.
+-- | Insert a component ID by type.
 insert' :: forall c. (Component c) => Components -> (ComponentID, Components)
 insert' cs =
   let cId = nextComponentId cs

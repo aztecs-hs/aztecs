@@ -138,11 +138,13 @@ insertArchetype cIds a w =
           }
       )
 
+-- | Insert a component into an entity.
 insert :: forall a. (Component a, Typeable (StorageT a)) => EntityID -> a -> World -> World
 insert e c w =
   let (cId, components') = CS.insert @a (components w)
    in insertWithId e cId c w {components = components'}
 
+-- | Insert a component into an entity with its `ComponentID`.
 insertWithId :: (Component a, Typeable (StorageT a)) => EntityID -> ComponentID -> a -> World -> World
 insertWithId e cId c w = case Map.lookup e (entities w) of
   Just aId -> case Map.lookup aId (archetypeComponents w) of
@@ -179,6 +181,7 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
     Nothing -> w
   Nothing -> w
 
+-- | Despawn an entity, returning its components.
 despawn :: EntityID -> World -> (Map ComponentID Dynamic, World)
 despawn e w =
   let res = do

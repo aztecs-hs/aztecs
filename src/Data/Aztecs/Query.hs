@@ -15,11 +15,13 @@ module Data.Aztecs.Query
   ( Query (..),
     (<?>),
     fetch,
+    fetchId,
     all,
     allWorld,
     map,
     mapWorld,
     mapWith,
+    Queryable (..),
   )
 where
 
@@ -41,8 +43,14 @@ import qualified Data.Set as Set
 import Prelude hiding (all, map)
 
 -- | Query into the `World`.
-newtype Query a
-  = Query {runQuery' :: Components -> (Set ComponentID, Archetype -> ([Entity a], [Entity a] -> Archetype -> Archetype))}
+newtype Query a = Query
+  { runQuery' ::
+      Components ->
+      ( Set ComponentID,
+        Archetype ->
+        ([Entity a], [Entity a] -> Archetype -> Archetype)
+      )
+  }
 
 (<?>) ::
   (E.Split a (ConcatT a b), E.SplitT a (ConcatT a b) ~ b) =>
@@ -61,9 +69,17 @@ newtype Query a
               )
       )
 
+-- | Fetch a `Component` by its type.
 fetch :: forall a. (Component a, Typeable (StorageT a)) => Query '[a]
-fetch = Query $ \cs ->
-  let cId = fromMaybe (error "TODO") (CS.lookup @a cs)
+fetch = fetch' (fromMaybe (error "TODO") . CS.lookup @a)
+
+-- | Fetch a `Component` by its `ComponentID`.
+fetchId :: forall a. (Component a, Typeable (StorageT a)) => ComponentID -> Query '[a]
+fetchId cId = fetch' @a (const cId)
+
+fetch' :: forall a. (Component a, Typeable (StorageT a)) => (Components -> ComponentID) -> Query '[a]
+fetch' f = Query $ \cs ->
+  let cId = f cs
    in ( Set.singleton cId,
         \arch ->
           let as = A.all cId arch
@@ -72,7 +88,7 @@ fetch = Query $ \cs ->
               )
       )
 
-all :: forall m a. (Monad m, ToEntity a, FromEntity a, ToQuery (EntityT a)) => Access m [a]
+all :: forall m a. (Monad m, ToEntity a, FromEntity a, Queryable (EntityT a)) => Access m [a]
 all = Access $ gets (fmap fromEntity . allWorld (query @(EntityT a)))
 
 allWorld :: Query a -> World -> [Entity a]
@@ -108,13 +124,13 @@ mapWith a b f w =
            in (es, w {archetypes = Map.insert aId arch' (archetypes w)})
         Nothing -> ([], w)
 
-class ToQuery a where
+class Queryable a where
   query :: Query a
 
-instance {-# OVERLAPPING #-} (Component a, Typeable (StorageT a)) => ToQuery '[a] where
+instance {-# OVERLAPPING #-} (Component a, Typeable (StorageT a)) => Queryable '[a] where
   query = fetch @a
 
-instance (Component a, Typeable (StorageT a), ToQuery as) => ToQuery (a ': as) where
+instance (Component a, Typeable (StorageT a), Queryable as) => Queryable (a ': as) where
   query = fetch @a <?> query @as
 
 -- | Map over all entities that match this query,
@@ -155,7 +171,7 @@ type family IsEq a b :: Bool where
 class Map (flag :: Bool) i o where
   mapWorld' :: (i -> o) -> World -> ([o], World)
 
-instance (FromEntity i, ToEntity o, EntityT i ~ a, EntityT o ~ a, ToQuery a) => Map 'True i o where
+instance (FromEntity i, ToEntity o, EntityT i ~ a, EntityT o ~ a, Queryable a) => Map 'True i o where
   mapWorld' f w =
     let (cIds, g) = runQuery' (query @a) (components w)
         res = do
@@ -174,9 +190,9 @@ instance
   ( FromEntity i,
     ToEntity o,
     Intersect (EntityT i) (EntityT o),
-    ToQuery (IntersectT (EntityT i) (EntityT o)),
+    Queryable (IntersectT (EntityT i) (EntityT o)),
     Difference (EntityT i) (EntityT o),
-    ToQuery (DifferenceT (EntityT i) (EntityT o)),
+    Queryable (DifferenceT (EntityT i) (EntityT o)),
     ConcatT (DifferenceT (EntityT i) (EntityT o)) (IntersectT (EntityT i) (EntityT o)) ~ EntityT i,
     IntersectT (EntityT i) (EntityT o) ~ EntityT o
   ) =>

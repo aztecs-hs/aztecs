@@ -16,5 +16,4 @@ newtype ComponentID = ComponentID {unComponentId :: Int}
 class (Typeable a, Storage (StorageT a) a) => Component a where
   -- | `Storage` of this component.
   type StorageT a :: Type -> Type
-
   type StorageT a = IntMap
