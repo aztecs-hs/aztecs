@@ -5,10 +5,11 @@ module Data.Aztecs.Access (Access (..), runAccess, spawn, insert) where
 
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.State (MonadState (..), StateT (..))
-import Data.Aztecs.Core (Component (..), EntityID)
+import Data.Aztecs.Component (Component (..))
 import Data.Aztecs.World (World)
 import qualified Data.Aztecs.World as W
 import Data.Data (Typeable)
+import Data.Aztecs.Entity (EntityID)
 
 -- | Access into the `World`.
 newtype Access m a = Access {unAccess :: StateT World m a}

@@ -19,11 +19,11 @@ module Data.Aztecs.World
   )
 where
 
-import Data.Aztecs.Core
+import Data.Aztecs.Component
   ( Component (..),
     ComponentID,
-    EntityID (..),
   )
+import Data.Aztecs.Entity (EntityID (..))
 import Data.Aztecs.World.Archetype (Archetype (..))
 import qualified Data.Aztecs.World.Archetype as A
 import Data.Aztecs.World.Components (Components (..))

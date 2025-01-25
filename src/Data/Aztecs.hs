@@ -9,5 +9,5 @@ module Data.Aztecs
 where
 
 import Data.Aztecs.Access (Access, runAccess)
-import Data.Aztecs.Core (Component (..), EntityID)
-import Data.Aztecs.Entity (Entity, (:&) (..))
+import Data.Aztecs.Component (Component (..))
+import Data.Aztecs.Entity (Entity, EntityID, (:&) (..))

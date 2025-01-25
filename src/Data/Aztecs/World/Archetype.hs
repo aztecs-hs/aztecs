@@ -8,7 +8,7 @@
 
 module Data.Aztecs.World.Archetype where
 
-import Data.Aztecs.Core (Component (..), ComponentID, EntityID (..))
+import Data.Aztecs.Component (Component (..), ComponentID)
 import qualified Data.Aztecs.Storage as S
 import Data.Bifunctor (Bifunctor (..))
 import Data.Dynamic (Dynamic, fromDynamic, toDyn)
@@ -16,6 +16,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Prelude hiding (all, lookup)
+import Data.Aztecs.Entity (EntityID (..))
 
 data AnyStorage = AnyStorage
   { storageDyn :: Dynamic,

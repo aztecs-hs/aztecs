@@ -12,7 +12,7 @@ module Data.Aztecs.World.Components
   )
 where
 
-import Data.Aztecs.Core (Component, ComponentID (..))
+import Data.Aztecs.Component (Component, ComponentID (..))
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Typeable (Proxy (..), TypeRep, Typeable, typeOf)

@@ -25,7 +25,7 @@ where
 
 import Control.Monad.State (MonadState (..), gets)
 import Data.Aztecs.Access (Access (Access))
-import Data.Aztecs.Core
+import Data.Aztecs.Component
 import Data.Aztecs.Entity (ConcatT, Difference, DifferenceT, Entity (..), EntityT, FromEntity (..), Intersect, IntersectT, ToEntity (..))
 import qualified Data.Aztecs.Entity as E
 import Data.Aztecs.World (World (..))

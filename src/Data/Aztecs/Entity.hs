@@ -12,7 +12,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Data.Aztecs.Entity
-  ( Entity (..),
+  ( EntityID (..),Entity (..),
     EntityT,
     FromEntity (..),
     ToEntity (..),
@@ -31,6 +31,12 @@ where
 
 import Data.Kind (Type)
 import Prelude hiding (concat)
+
+
+-- | Entity ID.
+newtype EntityID = EntityID {unEntityId :: Int}
+  deriving (Eq, Ord, Show)
+
 
 data Entity (ts :: [Type]) where
   ENil :: Entity '[]

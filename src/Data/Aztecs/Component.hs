@@ -1,21 +1,12 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Data.Aztecs.Core
-  ( EntityID (..),
-    Component (..),
-    ComponentID (..),
-  )
-where
+module Data.Aztecs.Component (Component (..), ComponentID (..)) where
 
 import Data.Aztecs.Storage (Storage)
 import Data.IntMap (IntMap)
 import Data.Kind (Type)
 import Data.Typeable (Typeable)
-
--- | Entity ID.
-newtype EntityID = EntityID {unEntityId :: Int}
-  deriving (Eq, Ord, Show)
 
 -- | Component ID.
 newtype ComponentID = ComponentID {unComponentId :: Int}

@@ -13,7 +13,7 @@ library
     exposed-modules:
         Data.Aztecs
         Data.Aztecs.Access
-        Data.Aztecs.Core
+        Data.Aztecs.Component
         Data.Aztecs.Entity
         Data.Aztecs.Query
         Data.Aztecs.Storage
