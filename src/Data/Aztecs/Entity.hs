@@ -12,7 +12,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Data.Aztecs.Entity
-  ( EntityID (..),Entity (..),
+  ( EntityID (..),
+    Entity (..),
     EntityT,
     FromEntity (..),
     ToEntity (..),
@@ -32,11 +33,9 @@ where
 import Data.Kind (Type)
 import Prelude hiding (concat)
 
-
 -- | Entity ID.
 newtype EntityID = EntityID {unEntityId :: Int}
   deriving (Eq, Ord, Show)
-
 
 data Entity (ts :: [Type]) where
   ENil :: Entity '[]
@@ -56,6 +55,12 @@ instance Show' (Entity '[]) where
 
 instance (Show a, Show' (Entity as)) => Show' (Entity (a ': as)) where
   showRow (ECons x xs) = ", " ++ show x ++ showRow xs
+
+instance Eq (Entity '[]) where
+  ENil == ENil = True
+
+instance (Eq a, Eq (Entity as)) => Eq (Entity (a ': as)) where
+  ECons x xs == ECons y ys = x == y && xs == ys
 
 (<&>) :: Entity as -> a -> Entity (a : as)
 (<&>) es c = ECons c es

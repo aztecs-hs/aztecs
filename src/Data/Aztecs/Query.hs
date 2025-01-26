@@ -71,7 +71,15 @@ newtype Query a = Query
 
 -- | Fetch a `Component` by its type.
 fetch :: forall a. (Component a, Typeable (StorageT a)) => Query '[a]
-fetch = fetch' (fromMaybe (error "TODO") . CS.lookup @a)
+fetch = Query $ \cs ->
+  let cId = fromMaybe (error "TODO") (CS.lookup @a cs)
+   in ( Set.singleton cId,
+        \arch ->
+          let as = A.all cId arch
+           in ( fmap (\x -> ECons (snd x) ENil) as,
+                A.insertAscList cId . fmap (\((e, _), ECons a ENil) -> (e, a)) . zip as
+              )
+      )
 
 -- | Fetch a `Component` by its `ComponentID`.
 fetchId :: forall a. (Component a, Typeable (StorageT a)) => ComponentID -> Query '[a]
@@ -89,10 +97,13 @@ fetch' f = Query $ \cs ->
       )
 
 all :: forall m a. (Monad m, ToEntity a, FromEntity a, Queryable (EntityT a)) => Access m [a]
-all = Access $ gets (fmap fromEntity . allWorld (query @(EntityT a)))
+all = Access $ gets (fmap fromEntity . allWorld' (query @(EntityT a)))
 
-allWorld :: Query a -> World -> [Entity a]
-allWorld q w = fromMaybe [] $ do
+allWorld :: forall a. (ToEntity a, FromEntity a, Queryable (EntityT a)) => World -> [a]
+allWorld = fmap fromEntity . allWorld' (query @(EntityT a))
+
+allWorld' :: Query a -> World -> [Entity a]
+allWorld' q w = fromMaybe [] $ do
   let (cIds, g) = runQuery' q (components w)
   aId <- Map.lookup cIds (archetypeIds w)
   return $ concatMap (fst . g) (lookupArchetypes aId w)

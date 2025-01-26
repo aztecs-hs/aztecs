@@ -1,6 +1,10 @@
 module Main (main) where
 
 import Data.Aztecs
+import qualified Data.Aztecs.Query as Q
+import qualified Data.Aztecs.World as W
+import Test.Hspec
+import Data.Aztecs.Entity (ToEntity(toEntity))
 
 newtype X = X Int deriving (Eq, Show)
 
@@ -11,4 +15,15 @@ newtype Y = Y Int deriving (Eq, Show)
 instance Component Y
 
 main :: IO ()
-main = return ()
+main = hspec $ do
+  describe "Data.Aztecs.Query.all" $ do
+    it "queries multiple components" $ do
+      let (_, w) = W.spawn (X 0) W.empty
+          (_, w') = W.spawn (X 1) w
+          xs = Q.allWorld w'
+      xs `shouldMatchList` [X 0, X 1]
+    it "queries a group of components" $ do
+      let (e, w) = W.spawn (X 0) W.empty
+          w' = W.insert e (Y 1) w
+          xs = Q.allWorld w'
+      xs `shouldMatchList` [toEntity (X 0 :& Y 1)]
