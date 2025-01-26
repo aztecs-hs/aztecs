@@ -28,6 +28,9 @@ app = do
   q <- Q.map (\(Velocity v :& Position x) -> Position (x + v))
   liftIO $ print q
 
+  q' <- Q.map (\(Position x) -> Position (x + 1))
+  liftIO $ print q'
+
   x <- Q.all @_ @Position
   liftIO $ print x
 

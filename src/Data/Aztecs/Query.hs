@@ -30,7 +30,7 @@ import Data.Aztecs.Access (Access (Access))
 import Data.Aztecs.Component
 import Data.Aztecs.Entity (ConcatT, Difference, DifferenceT, Entity (..), EntityT, FromEntity (..), Intersect, IntersectT, ToEntity (..))
 import qualified Data.Aztecs.Entity as E
-import Data.Aztecs.World (Node (..), World (..), lookupArchetypes)
+import Data.Aztecs.World (Node (..), World (..), lookupArchetypes, mapArchetypes)
 import Data.Aztecs.World.Archetype (Archetype)
 import qualified Data.Aztecs.World.Archetype as A
 import Data.Aztecs.World.Components (Components)
@@ -179,19 +179,16 @@ class Map (flag :: Bool) i o where
   mapWorld' :: (i -> o) -> World -> ([o], World)
 
 instance (FromEntity i, ToEntity o, EntityT i ~ a, EntityT o ~ a, Queryable a) => Map 'True i o where
-  mapWorld' f w =
+  mapWorld' f w = fromMaybe ([], w) $ do
     let (cIds, g) = runQuery' (query @a) (components w)
-        res = do
-          aId <- Map.lookup cIds (archetypeIds w)
-          arch <- Map.lookup aId (archetypes w)
-          return (aId, arch)
-     in case res of
-          Just (aId, node) ->
-            let (as, h) = g (nodeArchetype node)
-                as' = fmap (f . fromEntity) as
-                arch' = h (fmap toEntity as') (nodeArchetype node)
-             in (as', w {archetypes = Map.insert aId node {nodeArchetype = arch'} (archetypes w)})
-          Nothing -> ([], w)
+        go arch =
+          let (as, h) = g arch
+              as' = fmap (f . fromEntity) as
+              arch' = h (fmap toEntity as') arch
+           in (as', arch')
+    aId <- Map.lookup cIds (archetypeIds w)
+    let (es, w') = mapArchetypes aId go w
+    return (concat es, w')
 
 instance
   ( FromEntity i,
@@ -205,20 +202,18 @@ instance
   ) =>
   Map 'False i o
   where
-  mapWorld' f w =
+  mapWorld' f w = fromMaybe ([], w) $ do
     let i = query @(IntersectT (EntityT i) (EntityT o))
         o = query @(DifferenceT (EntityT i) (EntityT o))
         (aCIds, aG) = runQuery' i (components w)
         (bCIds, bG) = runQuery' o (components w)
-        res = do
-          aId <- Map.lookup (aCIds <> bCIds) (archetypeIds w)
-          arch <- Map.lookup aId (archetypes w)
-          return (aId, arch)
-     in case res of
-          Just (aId, node) ->
-            let (as, aH) = aG (nodeArchetype node)
-                (bs, _) = bG (nodeArchetype node)
-                es = fmap (\(aE, bE) -> f $ fromEntity @i (E.concat bE aE)) (zip as bs)
-                arch' = aH (fmap (\x -> let e = toEntity x in e) es) (nodeArchetype node)
-             in (es, w {archetypes = Map.insert aId node {nodeArchetype = arch'} (archetypes w)})
-          Nothing -> ([], w)
+
+    aId <- Map.lookup (aCIds <> bCIds) (archetypeIds w)
+    let g arch =
+          let (as, aH) = aG arch
+              (bs, _) = bG arch
+              es = fmap (\(aE, bE) -> f $ fromEntity @i (E.concat bE aE)) (zip as bs)
+              arch' = aH (fmap (\x -> let e = toEntity x in e) es) arch
+           in (es, arch')
+        (es', w') = mapArchetypes aId g w
+    return (concat es', w')

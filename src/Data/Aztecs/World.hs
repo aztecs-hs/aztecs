@@ -246,10 +246,17 @@ lookupArchetypes aId w = case lookupNode aId w of
   Just n -> nodeArchetype n : concatMap (`lookupArchetypes` w) (Map.elems (nodeAdd n))
   Nothing -> []
 
-mapArchetypes :: ArchetypeID -> (Archetype -> Archetype) -> World -> World
-mapArchetypes aId f w = fromMaybe w $ do
+mapArchetypes :: ArchetypeID -> (Archetype -> (a, Archetype)) -> World -> ([a], World)
+mapArchetypes aId f w = fromMaybe ([], w) $ do
   node <- lookupNode aId w
   let next = Map.elems (nodeAdd node)
-      node' = node {nodeArchetype = f (nodeArchetype node)}
+      (a, arch) = f (nodeArchetype node)
+      node' = node {nodeArchetype = arch}
       w' = w {archetypes = Map.insert aId node' (archetypes w)}
-  return $ foldr (`mapArchetypes` f) w' next
+  return $
+    foldr
+      ( \aId' (acc, wAcc) ->
+          let (as, wAcc') = mapArchetypes aId' f wAcc in (as ++ acc, wAcc')
+      )
+      ([a], w')
+      next
