@@ -215,7 +215,7 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
                                 { nodeArchetype = arch',
                                   nodeAdd = Map.insert cId nextAId (nodeAdd node)
                                 }
-                              (archetypes w)
+                              (archetypes w')
                         }
     Nothing -> w
   Nothing -> w
