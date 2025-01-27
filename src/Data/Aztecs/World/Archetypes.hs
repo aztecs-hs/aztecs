@@ -5,10 +5,22 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Data.Aztecs.World.Archetypes where
+module Data.Aztecs.World.Archetypes
+  ( ArchetypeID (..),
+    Node (..),
+    Archetypes (..),
+    empty,
+    insertArchetype,
+    lookupArchetypeId,
+    findArchetypeId,
+    lookupNode,
+    lookupArchetypes,
+    mapArchetypes,
+  )
+where
 
 import Data.Aztecs.Component (ComponentID)
-import Data.Aztecs.World.Archetype
+import Data.Aztecs.World.Archetype hiding (empty)
 import Data.Foldable (minimumBy)
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -59,8 +71,8 @@ insertArchetype cIds n arches =
           }
       )
 
-lookupArchetypeId :: Set ComponentID -> Archetypes -> Maybe ArchetypeID
-lookupArchetypeId cIds arches = case Map.lookup cIds (archetypeIds arches) of
+findArchetypeId :: Set ComponentID -> Archetypes -> Maybe ArchetypeID
+findArchetypeId cIds arches = case Map.lookup cIds (archetypeIds arches) of
   Just aId -> Just aId
   Nothing ->
     let allAIds = mapMaybe (\cId -> Map.lookup cId (componentIds arches)) (Set.elems cIds)
@@ -71,8 +83,8 @@ lookupArchetypeId cIds arches = case Map.lookup cIds (archetypeIds arches) of
         aId' = if null xs then Nothing else Just (snd $ minimumBy (\(len, _) (len', _) -> compare len len') xs)
      in aId'
 
-lookupArchetypeId' :: Set ComponentID -> Archetypes -> Maybe ArchetypeID
-lookupArchetypeId' cIds arches = Map.lookup cIds (archetypeIds arches)
+lookupArchetypeId :: Set ComponentID -> Archetypes -> Maybe ArchetypeID
+lookupArchetypeId cIds arches = Map.lookup cIds (archetypeIds arches)
 
 lookupNode :: ArchetypeID -> Archetypes -> Maybe Node
 lookupNode aId arches = Map.lookup aId (nodes arches)

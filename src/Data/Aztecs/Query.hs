@@ -107,7 +107,7 @@ allWorld = fmap fromEntity . allWorld' (query @(EntityT a))
 allWorld' :: Query a -> World -> [Entity a]
 allWorld' q w = fromMaybe [] $ do
   let (cIds, g) = runQuery' q (components w)
-  aId <- AS.lookupArchetypeId cIds (archetypes w)
+  aId <- AS.findArchetypeId cIds (archetypes w)
   return $ concatMap (fst . g) (AS.lookupArchetypes aId (archetypes w))
 
 mapWith ::
@@ -121,7 +121,7 @@ mapWith a b f w =
   let (aCIds, aG) = runQuery' a (components w)
       (bCIds, bG) = runQuery' b (components w)
       res = do
-        aId <- AS.lookupArchetypeId (aCIds <> bCIds) (archetypes w)
+        aId <- AS.findArchetypeId (aCIds <> bCIds) (archetypes w)
         n <- AS.lookupNode aId (archetypes w)
         return (aId, n)
    in case res of
@@ -188,7 +188,7 @@ instance (FromEntity i, ToEntity o, EntityT i ~ a, EntityT o ~ a, Queryable a) =
               as' = fmap (f . fromEntity) as
               arch' = h (fmap toEntity as') arch
            in (as', arch')
-    aId <- AS.lookupArchetypeId cIds (archetypes w)
+    aId <- AS.findArchetypeId cIds (archetypes w)
     let (es, arches) = AS.mapArchetypes aId go (archetypes w)
     return (concat es, w {archetypes = arches})
 
@@ -210,7 +210,7 @@ instance
         (aCIds, aG) = runQuery' i (components w)
         (bCIds, bG) = runQuery' o (components w)
 
-    aId <- AS.lookupArchetypeId (aCIds <> bCIds) (archetypes w)
+    aId <- AS.findArchetypeId (aCIds <> bCIds) (archetypes w)
     let g arch =
           let (as, aH) = aG arch
               (bs, _) = bG arch
