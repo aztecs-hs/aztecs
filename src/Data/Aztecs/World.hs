@@ -9,6 +9,7 @@ module Data.Aztecs.World
     World (..),
     empty,
     spawn,
+    spawnComponent,
     spawnWithId,
     spawnWithArchetypeId,
     spawnEmpty,
@@ -22,8 +23,9 @@ import Data.Aztecs.Component
   ( Component (..),
     ComponentID,
   )
-import Data.Aztecs.Entity (EntityID (..))
-import Data.Aztecs.World.Archetype (Archetype (..))
+import Data.Aztecs.Entity (ComponentIds, Entity, EntityID (..), ToEntity (..), EntityT)
+import qualified Data.Aztecs.Entity as E
+import Data.Aztecs.World.Archetype (Archetype (..), ToArchetype (..))
 import qualified Data.Aztecs.World.Archetype as A
 import Data.Aztecs.World.Archetypes (ArchetypeID, Archetypes, Node (..))
 import qualified Data.Aztecs.World.Archetypes as AS
@@ -32,6 +34,7 @@ import qualified Data.Aztecs.World.Components as CS
 import Data.Dynamic (Dynamic)
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import Data.Typeable (Proxy (..), Typeable, typeOf)
 
@@ -54,9 +57,51 @@ empty =
       nextEntityId = EntityID 0
     }
 
+spawn ::
+  forall a.
+  (ComponentIds (EntityT a), ToEntity a, ToArchetype (Entity (EntityT a))) =>
+   a ->
+  World ->
+  (EntityID, World)
+spawn e w =
+  let (eId, w') = spawnEmpty w
+      (cIds, components') = E.componentIds @(EntityT a) (components w)
+   in case AS.lookupArchetypeId cIds (archetypes w) of
+        Just aId -> fromMaybe (eId, w') $ do
+          node <- AS.lookupNode aId (archetypes w)
+          let (_, arch', components'') = toArchetype eId (toEntity e) (nodeArchetype node) components'
+          return
+            ( eId,
+              w
+                { archetypes = (archetypes w) {AS.nodes = Map.insert aId node {nodeArchetype = arch'} (AS.nodes $ archetypes w)},
+                  components = components'',
+                  entities = Map.insert eId aId (entities w)
+                }
+            )
+        Nothing ->
+          let (_, arch, components'') = toArchetype eId (toEntity e) A.empty components'
+              (aId, arches) =
+                AS.insertArchetype
+                  cIds
+                  ( Node
+                      { nodeComponentIds = cIds,
+                        nodeArchetype = arch,
+                        nodeAdd = Map.empty,
+                        nodeRemove = Map.empty
+                      }
+                  )
+                  (archetypes w')
+           in ( eId,
+                w'
+                  { archetypes = arches,
+                    entities = Map.insert eId aId (entities w),
+                    components = components''
+                  }
+              )
+
 -- | Spawn an entity with a component.
-spawn :: forall a. (Component a, Typeable (StorageT a)) => a -> World -> (EntityID, World)
-spawn c w = case Map.lookup (typeOf (Proxy @a)) (componentIds (components w)) of
+spawnComponent :: forall a. (Component a, Typeable (StorageT a)) => a -> World -> (EntityID, World)
+spawnComponent c w = case Map.lookup (typeOf (Proxy @a)) (componentIds (components w)) of
   Just cId -> spawnWithId cId c w
   Nothing ->
     let (cId, cs) = CS.insert @a (components w)

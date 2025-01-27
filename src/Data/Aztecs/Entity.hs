@@ -24,15 +24,21 @@ module Data.Aztecs.Entity
     Difference (..),
     SplitT,
     Split (..),
-    Has(..),
+    Has (..),
     Sort (..),
+    ComponentIds(..),
     concat,
     (<&>),
     (:&) (..),
   )
 where
 
+import Data.Aztecs.Component (Component, ComponentID)
+import Data.Aztecs.World.Components (Components)
+import qualified Data.Aztecs.World.Components as CS
 import Data.Kind (Type)
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Prelude hiding (concat)
 
 -- | Entity ID.
@@ -194,3 +200,16 @@ instance Sort as '[] where
 
 instance (Has b (Entity as), Sort as bs) => Sort as (b ': bs) where
   sort es = ECons (component es) (sort es)
+
+class ComponentIds (a :: [Type]) where
+  componentIds :: Components -> (Set ComponentID, Components)
+
+instance ComponentIds '[] where
+  componentIds cs = (Set.empty, cs)
+
+instance (Component a, ComponentIds as) => ComponentIds (a ': as) where
+  componentIds cs =
+    let (cId, cs') = CS.insert @a cs
+        (cIds, cs'') = componentIds @as cs'
+     in (Set.insert cId cIds, cs'')
+

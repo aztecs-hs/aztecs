@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -5,18 +6,23 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Data.Aztecs.World.Archetype where
 
 import Data.Aztecs.Component (Component (..), ComponentID)
+import Data.Aztecs.Entity (Entity (..), EntityID (..))
 import qualified Data.Aztecs.Storage as S
+import Data.Aztecs.World.Components (Components)
+import qualified Data.Aztecs.World.Components as CS
 import Data.Bifunctor (Bifunctor (..))
 import Data.Dynamic (Dynamic, fromDynamic, toDyn)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Prelude hiding (all, lookup)
-import Data.Aztecs.Entity (EntityID (..))
 
 data AnyStorage = AnyStorage
   { storageDyn :: Dynamic,
@@ -103,3 +109,16 @@ removeStorages e arch =
     )
     (Map.empty, arch)
     (Map.toList $ storages arch)
+
+class ToArchetype a where
+  toArchetype :: EntityID -> a -> Archetype -> Components -> (Set ComponentID, Archetype, Components)
+
+instance ToArchetype (Entity '[]) where
+  toArchetype _ ENil arch cs = (Set.empty, arch, cs)
+
+instance (Component a, ToArchetype (Entity as)) => ToArchetype (Entity (a ': as)) where
+  toArchetype eId (ECons e es) arch cs =
+    let (cId, cs') = CS.insert @a cs
+        arch' = insert eId cId e arch
+        (cIds, arch'', cs'') = toArchetype eId es arch' cs'
+     in (Set.insert cId cIds, arch'', cs'')

@@ -1,15 +1,16 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Data.Aztecs.Access (Access (..), runAccess, spawn, insert) where
+module Data.Aztecs.Access (Access (..), runAccess, spawn, spawn_, insert) where
 
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.State (MonadState (..), StateT (..))
 import Data.Aztecs.Component (Component (..))
+import Data.Aztecs.Entity (ComponentIds, Entity, EntityID, EntityT, ToEntity)
 import Data.Aztecs.World (World)
 import qualified Data.Aztecs.World as W
+import Data.Aztecs.World.Archetype (ToArchetype)
 import Data.Data (Typeable)
-import Data.Aztecs.Entity (EntityID)
 
 -- | Access into the `World`.
 newtype Access m a = Access {unAccess :: StateT World m a}
@@ -20,12 +21,20 @@ runAccess :: Access m a -> World -> m (a, World)
 runAccess a = runStateT (unAccess a)
 
 -- | Spawn an entity with a component.
-spawn :: (Monad m, Component a, Typeable (StorageT a)) => a -> Access m EntityID
+spawn ::
+  (Monad m, ComponentIds (EntityT a), ToEntity a, ToArchetype (Entity (EntityT a))) =>
+  a ->
+  Access m EntityID
 spawn c = Access $ do
   w <- get
   let (e, w') = W.spawn c w
   put w'
   return e
+
+spawn_ :: (Monad m, ComponentIds (EntityT a), ToEntity a, ToArchetype (Entity (EntityT a))) => a -> Access m ()
+spawn_ c = do
+  _ <- spawn c
+  return ()
 
 -- | Insert a component into an entity.
 insert :: (Monad m, Component a, Typeable (StorageT a)) => EntityID -> a -> Access m ()

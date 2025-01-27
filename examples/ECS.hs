@@ -21,8 +21,7 @@ instance Component Velocity
 app :: Access IO ()
 app = do
   -- Spawn an entity with position and velocity components
-  e <- A.spawn (Position 0)
-  A.insert e (Velocity 1)
+  A.spawn_ (Position 0 :& Velocity 1)
 
   -- Update all matching entities
   q <- Q.map (\(Position x :& Velocity v) -> Position (x + v))
