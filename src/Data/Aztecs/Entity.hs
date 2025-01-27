@@ -24,6 +24,8 @@ module Data.Aztecs.Entity
     Difference (..),
     SplitT,
     Split (..),
+    Has(..),
+    Sort (..),
     concat,
     (<&>),
     (:&) (..),
@@ -171,3 +173,24 @@ instance Difference '[] b where
 
 instance (Difference' (ElemT a bs) (a ': as) bs) => Difference (a ': as) bs where
   difference = difference' @(ElemT a bs)
+
+class Has a e where
+  component :: e -> a
+  setComponent :: a -> e -> e
+
+instance {-# OVERLAPPING #-} Has a (Entity (a ': ts)) where
+  component (ECons x _) = x
+  setComponent x (ECons _ xs) = ECons x xs
+
+instance {-# OVERLAPPING #-} (Has a (Entity ts)) => Has a (Entity (b ': ts)) where
+  component (ECons _ xs) = component xs
+  setComponent x (ECons y xs) = ECons y (setComponent x xs)
+
+class Sort (a :: [Type]) (b :: [Type]) where
+  sort :: Entity a -> Entity b
+
+instance Sort as '[] where
+  sort _ = ENil
+
+instance (Has b (Entity as), Sort as bs) => Sort as (b ': bs) where
+  sort es = ECons (component es) (sort es)

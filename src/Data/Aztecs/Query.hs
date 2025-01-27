@@ -27,7 +27,7 @@ where
 import Control.Monad.State (MonadState (..), gets)
 import Data.Aztecs.Access (Access (Access))
 import Data.Aztecs.Component
-import Data.Aztecs.Entity (ConcatT, Difference, DifferenceT, Entity (..), EntityT, FromEntity (..), Intersect, IntersectT, ToEntity (..))
+import Data.Aztecs.Entity (ConcatT, Difference, DifferenceT, Entity (..), EntityT, FromEntity (..), Intersect, IntersectT, Sort, ToEntity (..))
 import qualified Data.Aztecs.Entity as E
 import Data.Aztecs.World (World (..))
 import Data.Aztecs.World.Archetype (Archetype)
@@ -171,8 +171,8 @@ instance
     Queryable (IntersectT (EntityT i) (EntityT o)),
     Difference (EntityT i) (EntityT o),
     Queryable (DifferenceT (EntityT i) (EntityT o)),
-    ConcatT (DifferenceT (EntityT i) (EntityT o)) (IntersectT (EntityT i) (EntityT o)) ~ EntityT i,
-    IntersectT (EntityT i) (EntityT o) ~ EntityT o
+    Sort (ConcatT (DifferenceT (EntityT i) (EntityT o)) (IntersectT (EntityT i) (EntityT o))) (EntityT i),
+    Sort (EntityT o) (IntersectT (EntityT i) (EntityT o))
   ) =>
   Map 'False i o
   where
@@ -181,12 +181,11 @@ instance
         o = query @(DifferenceT (EntityT i) (EntityT o))
         (aCIds, aG) = runQuery' i (components w)
         (bCIds, bG) = runQuery' o (components w)
-
-    let g arch =
+        g arch =
           let (as, aH) = aG arch
               (bs, _) = bG arch
-              es = fmap (\(aE, bE) -> f $ fromEntity @i (E.concat bE aE)) (zip as bs)
-              arch' = aH (fmap (\x -> let e = toEntity x in e) es) arch
+              es = fmap (\(aE, bE) -> f $ fromEntity @i (E.sort $ E.concat bE aE)) (zip as bs)
+              arch' = aH (fmap (\x -> let e = E.sort $ toEntity x in e) es) arch
            in (es, arch')
         (es', arches) = AS.map (aCIds <> bCIds) g (archetypes w)
     return (concat es', w {archetypes = arches})

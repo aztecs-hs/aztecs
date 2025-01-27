@@ -24,8 +24,8 @@ app = do
   e <- A.spawn (Position 0)
   A.insert e (Velocity 1)
 
-  -- Query for and update all matching entities
-  q <- Q.map (\(Velocity v :& Position x) -> Position (x + v))
+  -- Update all matching entities
+  q <- Q.map (\(Position x :& Velocity v) -> Position (x + v))
   liftIO $ print q
 
   q' <- Q.map (\(Position x) -> Position (x + 1))
