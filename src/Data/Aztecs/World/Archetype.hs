@@ -8,7 +8,21 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Data.Aztecs.World.Archetype where
+module Data.Aztecs.World.Archetype
+  ( Archetype (..),
+    empty,
+    all,
+    lookup,
+    lookupStorage,
+    remove,
+    removeStorages,
+    insertComponent,
+    insertAscList,
+    Insert (..),
+    AnyStorage (..),
+    anyStorage,
+  )
+where
 
 import Data.Aztecs.Component (Component (..), ComponentID)
 import Data.Aztecs.Entity (Entity (..), EntityID (..))
@@ -62,8 +76,8 @@ lookupStorage cId w = do
   dynS <- Map.lookup cId (storages w)
   fromDynamic (storageDyn dynS)
 
-insert :: forall a. (Component a) => EntityID -> ComponentID -> a -> Archetype -> Archetype
-insert e cId c arch =
+insertComponent :: forall a. (Component a) => EntityID -> ComponentID -> a -> Archetype -> Archetype
+insertComponent e cId c arch =
   let storage = case lookupStorage cId arch of
         Just s -> S.insert (unEntityId e) c s
         Nothing -> S.singleton @(StorageT a) @a (unEntityId e) c
@@ -110,15 +124,15 @@ removeStorages e arch =
     (Map.empty, arch)
     (Map.toList $ storages arch)
 
-class ToArchetype a where
-  toArchetype :: EntityID -> a -> Archetype -> Components -> (Set ComponentID, Archetype, Components)
+class Insert a where
+  insert :: EntityID -> a -> Archetype -> Components -> (Set ComponentID, Archetype, Components)
 
-instance ToArchetype (Entity '[]) where
-  toArchetype _ ENil arch cs = (Set.empty, arch, cs)
+instance Insert (Entity '[]) where
+  insert _ ENil arch cs = (Set.empty, arch, cs)
 
-instance (Component a, ToArchetype (Entity as)) => ToArchetype (Entity (a ': as)) where
-  toArchetype eId (ECons e es) arch cs =
+instance (Component a, Insert (Entity as)) => Insert (Entity (a ': as)) where
+  insert eId (ECons e es) arch cs =
     let (cId, cs') = CS.insert @a cs
-        arch' = insert eId cId e arch
-        (cIds, arch'', cs'') = toArchetype eId es arch' cs'
+        arch' = insertComponent eId cId e arch
+        (cIds, arch'', cs'') = insert eId es arch' cs'
      in (Set.insert cId cIds, arch'', cs'')

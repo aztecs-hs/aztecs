@@ -9,7 +9,7 @@ import Data.Aztecs.Component (Component (..))
 import Data.Aztecs.Entity (ComponentIds, Entity, EntityID, EntityT, ToEntity)
 import Data.Aztecs.World (World)
 import qualified Data.Aztecs.World as W
-import Data.Aztecs.World.Archetype (ToArchetype)
+import Data.Aztecs.World.Archetype (Insert)
 import Data.Data (Typeable)
 
 -- | Access into the `World`.
@@ -22,7 +22,7 @@ runAccess a = runStateT (unAccess a)
 
 -- | Spawn an entity with a component.
 spawn ::
-  (Monad m, ComponentIds (EntityT a), ToEntity a, ToArchetype (Entity (EntityT a))) =>
+  (Monad m, ComponentIds (EntityT a), ToEntity a, Insert (Entity (EntityT a))) =>
   a ->
   Access m EntityID
 spawn c = Access $ do
@@ -31,7 +31,7 @@ spawn c = Access $ do
   put w'
   return e
 
-spawn_ :: (Monad m, ComponentIds (EntityT a), ToEntity a, ToArchetype (Entity (EntityT a))) => a -> Access m ()
+spawn_ :: (Monad m, ComponentIds (EntityT a), ToEntity a, Insert (Entity (EntityT a))) => a -> Access m ()
 spawn_ c = do
   _ <- spawn c
   return ()

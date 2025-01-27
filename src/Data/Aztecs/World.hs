@@ -25,7 +25,7 @@ import Data.Aztecs.Component
   )
 import Data.Aztecs.Entity (ComponentIds, Entity, EntityID (..), ToEntity (..), EntityT)
 import qualified Data.Aztecs.Entity as E
-import Data.Aztecs.World.Archetype (Archetype (..), ToArchetype (..))
+import Data.Aztecs.World.Archetype (Archetype (..), Insert)
 import qualified Data.Aztecs.World.Archetype as A
 import Data.Aztecs.World.Archetypes (ArchetypeID, Archetypes, Node (..))
 import qualified Data.Aztecs.World.Archetypes as AS
@@ -59,7 +59,7 @@ empty =
 
 spawn ::
   forall a.
-  (ComponentIds (EntityT a), ToEntity a, ToArchetype (Entity (EntityT a))) =>
+  (ComponentIds (EntityT a), ToEntity a, Insert (Entity (EntityT a))) =>
    a ->
   World ->
   (EntityID, World)
@@ -69,7 +69,7 @@ spawn e w =
    in case AS.lookupArchetypeId cIds (archetypes w) of
         Just aId -> fromMaybe (eId, w') $ do
           node <- AS.lookupNode aId (archetypes w)
-          let (_, arch', components'') = toArchetype eId (toEntity e) (nodeArchetype node) components'
+          let (_, arch', components'') = A.insert eId (toEntity e) (nodeArchetype node) components'
           return
             ( eId,
               w
@@ -79,7 +79,7 @@ spawn e w =
                 }
             )
         Nothing ->
-          let (_, arch, components'') = toArchetype eId (toEntity e) A.empty components'
+          let (_, arch, components'') = A.insert eId (toEntity e) A.empty components'
               (aId, arches) =
                 AS.insertArchetype
                   cIds
@@ -129,7 +129,7 @@ spawnWithId cId c w =
                   (Set.singleton cId)
                   ( Node
                       { nodeComponentIds = Set.singleton cId,
-                        nodeArchetype = A.insert e cId c A.empty,
+                        nodeArchetype = A.insertComponent e cId c A.empty,
                         nodeAdd = Map.empty,
                         nodeRemove = Map.empty
                       }
@@ -160,7 +160,7 @@ spawnWithArchetypeId' ::
   World ->
   World
 spawnWithArchetypeId' e aId cId c w =
-  let f n = n {nodeArchetype = A.insert e cId c (nodeArchetype n)}
+  let f n = n {nodeArchetype = A.insertComponent e cId c (nodeArchetype n)}
    in w
         { archetypes = (archetypes w) {AS.nodes = Map.adjust f aId (AS.nodes $ archetypes w)},
           entities = Map.insert e aId (entities w)
@@ -178,7 +178,7 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
   Just aId -> case AS.lookupNode aId (archetypes w) of
     Just node ->
       if Set.member cId (nodeComponentIds node)
-        then w {archetypes = (archetypes w) {AS.nodes = Map.adjust (\n -> n {nodeArchetype = A.insert e cId c (nodeArchetype n)}) aId (AS.nodes $ archetypes w)}}
+        then w {archetypes = (archetypes w) {AS.nodes = Map.adjust (\n -> n {nodeArchetype = A.insertComponent e cId c (nodeArchetype n)}) aId (AS.nodes $ archetypes w)}}
         else case AS.lookupArchetypeId (Set.insert cId (nodeComponentIds node)) (archetypes w) of
           Just nextAId ->
             let (cs, arch') = A.remove e (nodeArchetype node)
@@ -199,7 +199,7 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
                               ( \nextNode ->
                                   nextNode
                                     { nodeArchetype =
-                                        A.insert e cId c $
+                                        A.insertComponent e cId c $
                                           foldr
                                             f
                                             (nodeArchetype nextNode)
@@ -216,7 +216,7 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
                 n =
                   Node
                     { nodeComponentIds = Set.insert cId (nodeComponentIds node),
-                      nodeArchetype = A.insert e cId c (Archetype {A.storages = s}),
+                      nodeArchetype = A.insertComponent e cId c (Archetype {A.storages = s}),
                       nodeAdd = Map.empty,
                       nodeRemove = Map.singleton cId aId
                     }
