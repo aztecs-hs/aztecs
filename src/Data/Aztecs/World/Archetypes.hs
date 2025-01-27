@@ -16,35 +16,44 @@ module Data.Aztecs.World.Archetypes
     lookupNode,
     lookup,
     map,
-    lookupArchetypes,
-    mapArchetypes,
   )
 where
 
 import Data.Aztecs.Component (ComponentID)
-import Data.Aztecs.World.Archetype hiding (lookup, empty)
+import Data.Aztecs.World.Archetype hiding (empty, lookup)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (mapMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Prelude hiding (all, lookup, map)
 
+-- | `Archetype` ID.
 newtype ArchetypeID = ArchetypeID {unArchetypeId :: Int}
   deriving (Eq, Ord, Show)
 
+-- | Node in `Archetypes`.
 data Node = Node
-  { nodeComponentIds :: Set ComponentID,
+  { -- | Unique set of `ComponentID`s of this `Node`.
+    nodeComponentIds :: Set ComponentID,
+    -- | `Archetype` of this `Node`.
     nodeArchetype :: Archetype,
+    -- | Edges to other `Archetype`s by adding a `ComponentID`.
     nodeAdd :: Map ComponentID ArchetypeID,
+    -- | Edges to other `Archetype`s by removing a `ComponentID`.
     nodeRemove :: Map ComponentID ArchetypeID
   }
   deriving (Show)
 
+-- | `Archetype` graph.
 data Archetypes = Archetypes
-  { nodes :: Map ArchetypeID Node,
+  { -- | Archetype nodes in the graph.
+    nodes :: Map ArchetypeID Node,
+    -- | Mapping of unique `ComponentID` sets to `ArchetypeID`s.
     archetypeIds :: Map (Set ComponentID) ArchetypeID,
+    -- | Next unique `ArchetypeID`.
     nextArchetypeId :: ArchetypeID,
+    -- | Mapping of `ComponentID`s to `ArchetypeID`s of `Archetypes` that contain them.
     componentIds :: Map ComponentID (Set ArchetypeID)
   }
   deriving (Show)
@@ -72,14 +81,17 @@ insertArchetype cIds n arches =
           }
       )
 
+-- | Find `ArchetypeID`s containing a set of `ComponentID`s.
 findArchetypeIds :: Set ComponentID -> Archetypes -> Set ArchetypeID
 findArchetypeIds cIds arches = case mapMaybe (\cId -> Map.lookup cId (componentIds arches)) (Set.elems cIds) of
   (aId : aIds') -> foldr Set.intersection aId aIds'
   [] -> Set.empty
 
+-- | Lookup `Archetype`s containing a set of `ComponentID`s.
 lookup :: Set ComponentID -> Archetypes -> [Archetype]
 lookup cIds arches = fmap (\aId -> nodeArchetype $ nodes arches Map.! aId) (Set.toList $ findArchetypeIds cIds arches)
 
+-- | Map over `Archetype`s containing a set of `ComponentID`s.
 map :: Set ComponentID -> (Archetype -> (a, Archetype)) -> Archetypes -> ([a], Archetypes)
 map cIds f arches =
   foldr
@@ -96,23 +108,3 @@ lookupArchetypeId cIds arches = Map.lookup cIds (archetypeIds arches)
 
 lookupNode :: ArchetypeID -> Archetypes -> Maybe Node
 lookupNode aId arches = Map.lookup aId (nodes arches)
-
-lookupArchetypes :: ArchetypeID -> Archetypes -> [Archetype]
-lookupArchetypes aId arches = case lookupNode aId arches of
-  Just n -> nodeArchetype n : concatMap (`lookupArchetypes` arches) (Map.elems (nodeAdd n))
-  Nothing -> []
-
-mapArchetypes :: ArchetypeID -> (Archetype -> (a, Archetype)) -> Archetypes -> ([a], Archetypes)
-mapArchetypes aId f arches = fromMaybe ([], arches) $ do
-  node <- lookupNode aId arches
-  let next = Map.elems (nodeAdd node)
-      (a, arch) = f (nodeArchetype node)
-      node' = node {nodeArchetype = arch}
-      arches' = arches {nodes = Map.insert aId node' (nodes arches)}
-  return $
-    foldr
-      ( \aId' (acc, archAcc) ->
-          let (as, archAcc') = mapArchetypes aId' f archAcc in (as ++ acc, archAcc')
-      )
-      ([a], arches')
-      next
