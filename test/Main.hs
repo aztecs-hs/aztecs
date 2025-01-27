@@ -14,6 +14,10 @@ newtype Y = Y Int deriving (Eq, Show)
 
 instance Component Y
 
+newtype Z = Z Int deriving (Eq, Show)
+
+instance Component Z
+
 main :: IO ()
 main = hspec $ do
   describe "Data.Aztecs.Query.all" $ do
@@ -27,3 +31,9 @@ main = hspec $ do
           w' = W.insert e (Y 1) w
           xs = Q.allWorld w'
       xs `shouldMatchList` [toEntity (X 0 :& Y 1)]
+    it "queries a fragmented group of components" $ do
+      let (e, w) = W.spawn (X 0) W.empty
+          w' = W.insert e (Y 1) w
+          w'' = W.insert e (Z 2) w'
+          xs = Q.allWorld w''
+      xs `shouldMatchList` [toEntity (Y 1 :& Z 2)]

@@ -29,6 +29,7 @@ library
         Data.Aztecs.Storage
         Data.Aztecs.World
         Data.Aztecs.World.Archetype
+        Data.Aztecs.World.Archetypes
         Data.Aztecs.World.Components
 
     hs-source-dirs:   src
