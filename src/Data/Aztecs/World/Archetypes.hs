@@ -12,22 +12,23 @@ module Data.Aztecs.World.Archetypes
     empty,
     insertArchetype,
     lookupArchetypeId,
-    findArchetypeId,
+    findArchetypeIds,
     lookupNode,
+    lookup,
+    map,
     lookupArchetypes,
     mapArchetypes,
   )
 where
 
 import Data.Aztecs.Component (ComponentID)
-import Data.Aztecs.World.Archetype hiding (empty)
-import Data.Foldable (minimumBy)
+import Data.Aztecs.World.Archetype hiding (lookup, empty)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Prelude hiding (all, lookup)
+import Prelude hiding (all, lookup, map)
 
 newtype ArchetypeID = ArchetypeID {unArchetypeId :: Int}
   deriving (Eq, Ord, Show)
@@ -71,17 +72,24 @@ insertArchetype cIds n arches =
           }
       )
 
-findArchetypeId :: Set ComponentID -> Archetypes -> Maybe ArchetypeID
-findArchetypeId cIds arches = case Map.lookup cIds (archetypeIds arches) of
-  Just aId -> Just aId
-  Nothing ->
-    let allAIds = mapMaybe (\cId -> Map.lookup cId (componentIds arches)) (Set.elems cIds)
-        aIds = case allAIds of
-          (aId : aIds') -> foldr Set.intersection aId aIds'
-          [] -> Set.empty
-        xs = map (\aId -> (maybe 0 (length . nodeComponentIds) (Map.lookup aId (nodes arches)), aId)) (Set.toList aIds)
-        aId' = if null xs then Nothing else Just (snd $ minimumBy (\(len, _) (len', _) -> compare len len') xs)
-     in aId'
+findArchetypeIds :: Set ComponentID -> Archetypes -> Set ArchetypeID
+findArchetypeIds cIds arches = case mapMaybe (\cId -> Map.lookup cId (componentIds arches)) (Set.elems cIds) of
+  (aId : aIds') -> foldr Set.intersection aId aIds'
+  [] -> Set.empty
+
+lookup :: Set ComponentID -> Archetypes -> [Archetype]
+lookup cIds arches = fmap (\aId -> nodeArchetype $ nodes arches Map.! aId) (Set.toList $ findArchetypeIds cIds arches)
+
+map :: Set ComponentID -> (Archetype -> (a, Archetype)) -> Archetypes -> ([a], Archetypes)
+map cIds f arches =
+  foldr
+    ( \aId (acc, archAcc) ->
+        let node = nodes archAcc Map.! aId
+            (a, arch') = f (nodeArchetype node)
+         in (a : acc, archAcc {nodes = Map.insert aId (node {nodeArchetype = arch'}) (nodes archAcc)})
+    )
+    ([], arches)
+    (findArchetypeIds cIds arches)
 
 lookupArchetypeId :: Set ComponentID -> Archetypes -> Maybe ArchetypeID
 lookupArchetypeId cIds arches = Map.lookup cIds (archetypeIds arches)

@@ -20,7 +20,6 @@ module Data.Aztecs.Query
     allWorld,
     map,
     mapWorld,
-    mapWith,
     Queryable (..),
   )
 where
@@ -33,12 +32,10 @@ import qualified Data.Aztecs.Entity as E
 import Data.Aztecs.World (World (..))
 import Data.Aztecs.World.Archetype (Archetype)
 import qualified Data.Aztecs.World.Archetype as A
-import Data.Aztecs.World.Archetypes (Node (..))
 import qualified Data.Aztecs.World.Archetypes as AS
 import Data.Aztecs.World.Components (Components)
 import qualified Data.Aztecs.World.Components as CS
 import Data.Data (Typeable)
-import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -107,31 +104,7 @@ allWorld = fmap fromEntity . allWorld' (query @(EntityT a))
 allWorld' :: Query a -> World -> [Entity a]
 allWorld' q w = fromMaybe [] $ do
   let (cIds, g) = runQuery' q (components w)
-  aId <- AS.findArchetypeId cIds (archetypes w)
-  return $ concatMap (fst . g) (AS.lookupArchetypes aId (archetypes w))
-
-mapWith ::
-  (FromEntity i, ToEntity o, EntityT i ~ ConcatT a b, EntityT o ~ b) =>
-  Query a ->
-  Query b ->
-  (i -> o) ->
-  World ->
-  ([o], World)
-mapWith a b f w =
-  let (aCIds, aG) = runQuery' a (components w)
-      (bCIds, bG) = runQuery' b (components w)
-      res = do
-        aId <- AS.findArchetypeId (aCIds <> bCIds) (archetypes w)
-        n <- AS.lookupNode aId (archetypes w)
-        return (aId, n)
-   in case res of
-        Just (aId, node) ->
-          let (as, _) = aG (nodeArchetype node)
-              (bs, bH) = bG (nodeArchetype node)
-              es = fmap (\(aE, bE) -> f $ fromEntity (E.concat aE bE)) (zip as bs)
-              arch' = bH (fmap (toEntity . toEntity) es) (nodeArchetype node)
-           in (es, w {archetypes = (archetypes w) {AS.nodes = Map.insert aId node {nodeArchetype = arch'} (AS.nodes $ archetypes w)}})
-        Nothing -> ([], w)
+  return $ concatMap (fst . g) (AS.lookup cIds (archetypes w))
 
 class Queryable a where
   query :: Query a
@@ -188,8 +161,7 @@ instance (FromEntity i, ToEntity o, EntityT i ~ a, EntityT o ~ a, Queryable a) =
               as' = fmap (f . fromEntity) as
               arch' = h (fmap toEntity as') arch
            in (as', arch')
-    aId <- AS.findArchetypeId cIds (archetypes w)
-    let (es, arches) = AS.mapArchetypes aId go (archetypes w)
+    let (es, arches) = AS.map cIds go (archetypes w)
     return (concat es, w {archetypes = arches})
 
 instance
@@ -210,12 +182,11 @@ instance
         (aCIds, aG) = runQuery' i (components w)
         (bCIds, bG) = runQuery' o (components w)
 
-    aId <- AS.findArchetypeId (aCIds <> bCIds) (archetypes w)
     let g arch =
           let (as, aH) = aG arch
               (bs, _) = bG arch
               es = fmap (\(aE, bE) -> f $ fromEntity @i (E.concat bE aE)) (zip as bs)
               arch' = aH (fmap (\x -> let e = toEntity x in e) es) arch
            in (es, arch')
-        (es', arches) = AS.mapArchetypes aId g (archetypes w)
+        (es', arches) = AS.map (aCIds <> bCIds) g (archetypes w)
     return (concat es', w {archetypes = arches})
