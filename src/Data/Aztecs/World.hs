@@ -14,12 +14,7 @@ module Data.Aztecs.World
     spawnEmpty,
     insert,
     insertWithId,
-    insertArchetype,
     despawn,
-    Node (..),
-    lookupNode,
-    lookupArchetypes,
-    mapArchetypes,
   )
 where
 
@@ -30,32 +25,19 @@ import Data.Aztecs.Component
 import Data.Aztecs.Entity (EntityID (..))
 import Data.Aztecs.World.Archetype (Archetype (..))
 import qualified Data.Aztecs.World.Archetype as A
+import Data.Aztecs.World.Archetypes (ArchetypeID, Archetypes, Node (..))
+import qualified Data.Aztecs.World.Archetypes as AS
 import Data.Aztecs.World.Components (Components (..))
 import qualified Data.Aztecs.World.Components as CS
 import Data.Dynamic (Dynamic)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe)
-import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Typeable (Proxy (..), Typeable, typeOf)
 
-newtype ArchetypeID = ArchetypeID {unArchetypeId :: Int}
-  deriving (Eq, Ord, Show)
-
-data Node = Node
-  { nodeArchetype :: Archetype,
-    nodeAdd :: Map ComponentID ArchetypeID,
-    nodeRemove :: Map ComponentID ArchetypeID
-  }
-  deriving (Show)
-
 -- | World of entities and their components.
 data World = World
-  { archetypes :: Map ArchetypeID Node,
-    archetypeIds :: Map (Set ComponentID) ArchetypeID,
-    archetypeComponents :: Map ArchetypeID (Set ComponentID),
-    nextArchetypeId :: ArchetypeID,
+  { archetypes :: Archetypes,
     components :: Components,
     entities :: Map EntityID ArchetypeID,
     nextEntityId :: EntityID
@@ -66,10 +48,7 @@ data World = World
 empty :: World
 empty =
   World
-    { archetypes = mempty,
-      archetypeIds = mempty,
-      archetypeComponents = mempty,
-      nextArchetypeId = ArchetypeID 0,
+    { archetypes = AS.empty,
       components = CS.empty,
       entities = mempty,
       nextEntityId = EntityID 0
@@ -97,21 +76,21 @@ spawnWithId ::
   (EntityID, World)
 spawnWithId cId c w =
   let (e, w') = spawnEmpty w
-   in case Map.lookup (Set.singleton cId) (archetypeIds w) of
+   in case AS.lookupArchetypeId (Set.singleton cId) (archetypes w) of
         Just aId -> (e, spawnWithArchetypeId' e aId cId c w')
         Nothing ->
-          ( e,
-            snd $
-              insertArchetype
-                (Set.singleton cId)
-                ( Node
-                    { nodeArchetype = A.insert e cId c A.empty,
-                      nodeAdd = Map.empty,
-                      nodeRemove = Map.empty
-                    }
-                )
-                w' {entities = Map.insert e (nextArchetypeId w) (entities w)}
-          )
+          let (aId, arches) =
+                AS.insertArchetype
+                  (Set.singleton cId)
+                  ( Node
+                      { nodeComponentIds = Set.singleton cId,
+                        nodeArchetype = A.insert e cId c A.empty,
+                        nodeAdd = Map.empty,
+                        nodeRemove = Map.empty
+                      }
+                  )
+                  (archetypes w')
+           in (e, w' {archetypes = arches, entities = Map.insert e aId (entities w)})
 
 -- | Spawn an entity with a component and its `ComponentID` directly into an archetype.
 spawnWithArchetypeId ::
@@ -138,22 +117,9 @@ spawnWithArchetypeId' ::
 spawnWithArchetypeId' e aId cId c w =
   let f n = n {nodeArchetype = A.insert e cId c (nodeArchetype n)}
    in w
-        { archetypes = Map.adjust f aId (archetypes w),
+        { archetypes = (archetypes w) {AS.nodes = Map.adjust f aId (AS.nodes $ archetypes w)},
           entities = Map.insert e aId (entities w)
         }
-
--- | Insert an archetype by its set of `ComponentID`s.
-insertArchetype :: Set ComponentID -> Node -> World -> (ArchetypeID, World)
-insertArchetype cIds n w =
-  let aId = nextArchetypeId w
-   in ( aId,
-        w
-          { archetypes = Map.insert aId n (archetypes w),
-            archetypeIds = Map.insert cIds aId (archetypeIds w),
-            archetypeComponents = Map.insert aId cIds (archetypeComponents w),
-            nextArchetypeId = ArchetypeID (unArchetypeId aId + 1)
-          }
-      )
 
 -- | Insert a component into an entity.
 insert :: forall a. (Component a, Typeable (StorageT a)) => EntityID -> a -> World -> World
@@ -164,26 +130,26 @@ insert e c w =
 -- | Insert a component into an entity with its `ComponentID`.
 insertWithId :: (Component a, Typeable (StorageT a)) => EntityID -> ComponentID -> a -> World -> World
 insertWithId e cId c w = case Map.lookup e (entities w) of
-  Just aId -> case Map.lookup aId (archetypeComponents w) of
-    Just cIds ->
-      if Set.member cId cIds
-        then w {archetypes = Map.adjust (\n -> n {nodeArchetype = A.insert e cId c (nodeArchetype n)}) aId (archetypes w)}
-        else
-          let node = archetypes w Map.! aId
-           in case Map.lookup (Set.insert cId cIds) (archetypeIds w) of
-                Just nextAId ->
-                  let (cs, arch') = A.remove e (nodeArchetype node)
-                      w' = w {archetypes = Map.insert aId node {nodeArchetype = arch'} (archetypes w)}
-                      f (itemCId, dyn) archAcc =
-                        archAcc
-                          { A.storages =
-                              Map.adjust
-                                (\s -> s {A.storageDyn = A.insertDyn s (unEntityId e) dyn (A.storageDyn s)})
-                                itemCId
-                                (A.storages archAcc)
-                          }
-                   in w'
-                        { archetypes =
+  Just aId -> case AS.lookupNode aId (archetypes w) of
+    Just node ->
+      if Set.member cId (nodeComponentIds node)
+        then w {archetypes = (archetypes w) {AS.nodes = Map.adjust (\n -> n {nodeArchetype = A.insert e cId c (nodeArchetype n)}) aId (AS.nodes $ archetypes w)}}
+        else case AS.lookupArchetypeId (Set.insert cId (nodeComponentIds node)) (archetypes w) of
+          Just nextAId ->
+            let (cs, arch') = A.remove e (nodeArchetype node)
+                w' = w {archetypes = (archetypes w) {AS.nodes = Map.insert aId node {nodeArchetype = arch'} (AS.nodes $ archetypes w)}}
+                f (itemCId, dyn) archAcc =
+                  archAcc
+                    { A.storages =
+                        Map.adjust
+                          (\s -> s {A.storageDyn = A.insertDyn s (unEntityId e) dyn (A.storageDyn s)})
+                          itemCId
+                          (A.storages archAcc)
+                    }
+             in w'
+                  { archetypes =
+                      (archetypes w)
+                        { AS.nodes =
                             Map.adjust
                               ( \nextNode ->
                                   nextNode
@@ -196,27 +162,32 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
                                     }
                               )
                               nextAId
-                              (archetypes w')
+                              (AS.nodes $ archetypes w')
                         }
-                Nothing ->
-                  let (s, arch') = A.removeStorages e (nodeArchetype node)
-                      n =
-                        Node
-                          { nodeArchetype = A.insert e cId c (Archetype {A.storages = s}),
-                            nodeAdd = Map.empty,
-                            nodeRemove = Map.singleton cId aId
-                          }
-                      (nextAId, w') = insertArchetype (Set.insert cId cIds) n w
-                   in w'
-                        { archetypes =
+                  }
+          Nothing ->
+            let (s, arch') = A.removeStorages e (nodeArchetype node)
+                n =
+                  Node
+                    { nodeComponentIds = Set.insert cId (nodeComponentIds node),
+                      nodeArchetype = A.insert e cId c (Archetype {A.storages = s}),
+                      nodeAdd = Map.empty,
+                      nodeRemove = Map.singleton cId aId
+                    }
+                (nextAId, arches) = AS.insertArchetype (Set.insert cId (nodeComponentIds node)) n (archetypes w)
+             in w
+                  { archetypes =
+                      arches
+                        { AS.nodes =
                             Map.insert
                               aId
                               node
                                 { nodeArchetype = arch',
                                   nodeAdd = Map.insert cId nextAId (nodeAdd node)
                                 }
-                              (archetypes w')
+                              (AS.nodes arches)
                         }
+                  }
     Nothing -> w
   Nothing -> w
 
@@ -225,38 +196,15 @@ despawn :: EntityID -> World -> (Map ComponentID Dynamic, World)
 despawn e w =
   let res = do
         aId <- Map.lookup e (entities w)
-        arch <- Map.lookup aId (archetypes w)
-        return (aId, arch)
+        node <- AS.lookupNode aId (archetypes w)
+        return (aId, node)
    in case res of
         Just (aId, node) ->
           let (dynAcc, arch') = A.remove e (nodeArchetype node)
            in ( dynAcc,
                 w
-                  { archetypes = Map.insert aId node {nodeArchetype = arch'} (archetypes w),
+                  { archetypes = (archetypes w) {AS.nodes = Map.insert aId node {nodeArchetype = arch'} (AS.nodes $ archetypes w)},
                     entities = Map.delete e (entities w)
                   }
               )
         Nothing -> (Map.empty, w)
-
-lookupNode :: ArchetypeID -> World -> Maybe Node
-lookupNode aId w = Map.lookup aId (archetypes w)
-
-lookupArchetypes :: ArchetypeID -> World -> [Archetype]
-lookupArchetypes aId w = case lookupNode aId w of
-  Just n -> nodeArchetype n : concatMap (`lookupArchetypes` w) (Map.elems (nodeAdd n))
-  Nothing -> []
-
-mapArchetypes :: ArchetypeID -> (Archetype -> (a, Archetype)) -> World -> ([a], World)
-mapArchetypes aId f w = fromMaybe ([], w) $ do
-  node <- lookupNode aId w
-  let next = Map.elems (nodeAdd node)
-      (a, arch) = f (nodeArchetype node)
-      node' = node {nodeArchetype = arch}
-      w' = w {archetypes = Map.insert aId node' (archetypes w)}
-  return $
-    foldr
-      ( \aId' (acc, wAcc) ->
-          let (as, wAcc') = mapArchetypes aId' f wAcc in (as ++ acc, wAcc')
-      )
-      ([a], w')
-      next
