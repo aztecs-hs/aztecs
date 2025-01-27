@@ -9,10 +9,12 @@ module Data.Aztecs.World.Archetypes where
 
 import Data.Aztecs.Component (ComponentID)
 import Data.Aztecs.World.Archetype
+import Data.Foldable (minimumBy)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Set (Set)
+import qualified Data.Set as Set
 import Prelude hiding (all, lookup)
 
 newtype ArchetypeID = ArchetypeID {unArchetypeId :: Int}
@@ -29,7 +31,8 @@ data Node = Node
 data Archetypes = Archetypes
   { nodes :: Map ArchetypeID Node,
     archetypeIds :: Map (Set ComponentID) ArchetypeID,
-    nextArchetypeId :: ArchetypeID
+    nextArchetypeId :: ArchetypeID,
+    componentIds :: Map ComponentID (Set ArchetypeID)
   }
   deriving (Show)
 
@@ -39,7 +42,8 @@ empty =
   Archetypes
     { nodes = mempty,
       archetypeIds = mempty,
-      nextArchetypeId = ArchetypeID 0
+      nextArchetypeId = ArchetypeID 0,
+      componentIds = mempty
     }
 
 -- | Insert an archetype by its set of `ComponentID`s.
@@ -50,12 +54,25 @@ insertArchetype cIds n arches =
         arches
           { nodes = Map.insert aId n (nodes arches),
             archetypeIds = Map.insert cIds aId (archetypeIds arches),
-            nextArchetypeId = ArchetypeID (unArchetypeId aId + 1)
+            nextArchetypeId = ArchetypeID (unArchetypeId aId + 1),
+            componentIds = Map.unionWith (<>) (Map.fromSet (const (Set.singleton aId)) cIds) (componentIds arches)
           }
       )
 
 lookupArchetypeId :: Set ComponentID -> Archetypes -> Maybe ArchetypeID
-lookupArchetypeId cIds arches = Map.lookup cIds (archetypeIds arches)
+lookupArchetypeId cIds arches = case Map.lookup cIds (archetypeIds arches) of
+  Just aId -> Just aId
+  Nothing ->
+    let allAIds = mapMaybe (\cId -> Map.lookup cId (componentIds arches)) (Set.elems cIds)
+        aIds = case allAIds of
+          (aId : aIds') -> foldr Set.intersection aId aIds'
+          [] -> Set.empty
+        xs = map (\aId -> (maybe 0 (length . nodeComponentIds) (Map.lookup aId (nodes arches)), aId)) (Set.toList aIds)
+        aId' = if null xs then Nothing else Just (snd $ minimumBy (\(len, _) (len', _) -> compare len len') xs)
+     in aId'
+
+lookupArchetypeId' :: Set ComponentID -> Archetypes -> Maybe ArchetypeID
+lookupArchetypeId' cIds arches = Map.lookup cIds (archetypeIds arches)
 
 lookupNode :: ArchetypeID -> Archetypes -> Maybe Node
 lookupNode aId arches = Map.lookup aId (nodes arches)

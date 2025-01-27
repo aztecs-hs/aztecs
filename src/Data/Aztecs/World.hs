@@ -76,7 +76,7 @@ spawnWithId ::
   (EntityID, World)
 spawnWithId cId c w =
   let (e, w') = spawnEmpty w
-   in case AS.lookupArchetypeId (Set.singleton cId) (archetypes w) of
+   in case AS.lookupArchetypeId' (Set.singleton cId) (archetypes w) of
         Just aId -> (e, spawnWithArchetypeId' e aId cId c w')
         Nothing ->
           let (aId, arches) =
@@ -134,7 +134,7 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
     Just node ->
       if Set.member cId (nodeComponentIds node)
         then w {archetypes = (archetypes w) {AS.nodes = Map.adjust (\n -> n {nodeArchetype = A.insert e cId c (nodeArchetype n)}) aId (AS.nodes $ archetypes w)}}
-        else case AS.lookupArchetypeId (Set.insert cId (nodeComponentIds node)) (archetypes w) of
+        else case AS.lookupArchetypeId' (Set.insert cId (nodeComponentIds node)) (archetypes w) of
           Just nextAId ->
             let (cs, arch') = A.remove e (nodeArchetype node)
                 w' = w {archetypes = (archetypes w) {AS.nodes = Map.insert aId node {nodeArchetype = arch'} (AS.nodes $ archetypes w)}}
@@ -148,7 +148,7 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
                     }
              in w'
                   { archetypes =
-                      (archetypes w)
+                      (archetypes w')
                         { AS.nodes =
                             Map.adjust
                               ( \nextNode ->
@@ -163,7 +163,8 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
                               )
                               nextAId
                               (AS.nodes $ archetypes w')
-                        }
+                        },
+                    entities = Map.insert e aId (entities w)
                   }
           Nothing ->
             let (s, arch') = A.removeStorages e (nodeArchetype node)
@@ -186,7 +187,8 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
                                   nodeAdd = Map.insert cId nextAId (nodeAdd node)
                                 }
                               (AS.nodes arches)
-                        }
+                        },
+                    entities = Map.insert e nextAId (entities w)
                   }
     Nothing -> w
   Nothing -> w
