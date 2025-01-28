@@ -62,7 +62,7 @@ insert e c = Access $ do
   put w'
 
 all :: forall m a. (Monad m, ToEntity a, FromEntity a, Queryable (EntityT a)) => Access m [a]
-all = Access $ gets (fmap fromEntity . Q.all' (query @(EntityT a)))
+all = Access $ gets (fmap fromEntity . Q.queryAll (query @(EntityT a)))
 
 -- | Map over all entities that match this query,
 -- storing the resulting components in the @World@.

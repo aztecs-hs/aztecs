@@ -27,6 +27,7 @@ library
         Data.Aztecs.Entity
         Data.Aztecs.Query
         Data.Aztecs.Storage
+        Data.Aztecs.View
         Data.Aztecs.World
         Data.Aztecs.World.Archetype
         Data.Aztecs.World.Archetypes
