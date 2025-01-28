@@ -17,7 +17,6 @@ A type-safe and friendly [ECS](https://en.wikipedia.org/wiki/Entity_component_sy
 import Control.Monad.IO.Class (MonadIO (..))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
-import qualified Data.Aztecs.Query as Q
 import qualified Data.Aztecs.World as W
 
 newtype Position = Position Int deriving (Show)
@@ -34,7 +33,7 @@ app = do
   A.spawn_ (Position 0 :& Velocity 1)
 
   -- Update all matching entities
-  q <- Q.map (\(Position x :& Velocity v) -> Position (x + v))
+  q <- A.map (\(Position x :& Velocity v) -> Position (x + v))
   liftIO $ print q
 
 main :: IO ()
