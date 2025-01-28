@@ -21,33 +21,39 @@ module Data.Aztecs.Query
     map,
     mapWorld,
     Queryable (..),
+    lookup,
+    lookupQuery,
+    lookupWorld,
+    lookupQueryWorld,
   )
 where
 
 import Control.Monad.State (MonadState (..), gets)
 import Data.Aztecs.Access (Access (Access))
 import Data.Aztecs.Component
-import Data.Aztecs.Entity (ConcatT, Difference, DifferenceT, Entity (..), EntityT, FromEntity (..), Intersect, IntersectT, Sort, ToEntity (..))
+import Data.Aztecs.Entity (ConcatT, Difference, DifferenceT, Entity (..), EntityID, EntityT, FromEntity (..), Intersect, IntersectT, Sort, ToEntity (..))
 import qualified Data.Aztecs.Entity as E
 import Data.Aztecs.World (World (..))
 import Data.Aztecs.World.Archetype (Archetype)
 import qualified Data.Aztecs.World.Archetype as A
+import Data.Aztecs.World.Archetypes (Node (nodeArchetype))
 import qualified Data.Aztecs.World.Archetypes as AS
 import Data.Aztecs.World.Components (Components)
 import qualified Data.Aztecs.World.Components as CS
 import Data.Data (Typeable)
+import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Prelude hiding (all, map)
+import Prelude hiding (all, lookup, map)
 
 -- | Query into the `World`.
 newtype Query a = Query
   { runQuery' ::
       Components ->
       ( Set ComponentID,
-        Archetype ->
-        ([Entity a], [Entity a] -> Archetype -> Archetype)
+        Archetype -> ([Entity a], [Entity a] -> Archetype -> Archetype),
+        EntityID -> Archetype -> Maybe (Entity a)
       )
   }
 
@@ -57,15 +63,19 @@ newtype Query a = Query
   Query b ->
   Query (ConcatT a b)
 (Query a) <?> (Query b) = Query $ \cs ->
-  let (aIds, a') = a cs
-      (bIds, b') = b cs
+  let (aIds, a', aG) = a cs
+      (bIds, b', bG) = b cs
    in ( aIds <> bIds,
         \arch ->
           let (a'', aF) = a' arch
               (b'', bF) = b' arch
            in ( uncurry E.concat <$> zip a'' b'',
                 \new newArch -> let (as, bs) = unzip $ fmap E.split new in bF bs $ aF as newArch
-              )
+              ),
+        \eId arch -> do
+          aE <- aG eId arch
+          bE <- bG eId arch
+          return $ E.concat aE bE
       )
 
 -- | Fetch a `Component` by its type.
@@ -77,7 +87,10 @@ fetch = Query $ \cs ->
           let as = A.all cId arch
            in ( fmap (\x -> ECons (snd x) ENil) as,
                 A.insertAscList cId . fmap (\((e, _), ECons a ENil) -> (e, a)) . zip as
-              )
+              ),
+        \eId arch -> do
+          a <- A.lookup eId cId arch
+          return $ ECons a ENil
       )
 
 -- | Fetch a `Component` by its `ComponentID`.
@@ -92,7 +105,10 @@ fetch' f = Query $ \cs ->
           let as = A.all cId arch
            in ( fmap (\x -> ECons (snd x) ENil) as,
                 A.insertAscList cId . fmap (\((e, _), ECons a ENil) -> (e, a)) . zip as
-              )
+              ),
+        \eId arch -> do
+          a <- A.lookup eId cId arch
+          return $ ECons a ENil
       )
 
 all :: forall m a. (Monad m, ToEntity a, FromEntity a, Queryable (EntityT a)) => Access m [a]
@@ -103,7 +119,7 @@ allWorld = fmap fromEntity . allWorld' (query @(EntityT a))
 
 allWorld' :: Query a -> World -> [Entity a]
 allWorld' q w = fromMaybe [] $ do
-  let (cIds, g) = runQuery' q (components w)
+  let (cIds, g, _) = runQuery' q (components w)
   return $ concatMap (fst . g) (AS.lookup cIds (archetypes w))
 
 class Queryable a where
@@ -155,7 +171,7 @@ class Map (flag :: Bool) i o where
 
 instance (FromEntity i, ToEntity o, EntityT i ~ a, EntityT o ~ a, Queryable a) => Map 'True i o where
   mapWorld' f w = fromMaybe ([], w) $ do
-    let (cIds, g) = runQuery' (query @a) (components w)
+    let (cIds, g, _) = runQuery' (query @a) (components w)
         go arch =
           let (as, h) = g arch
               as' = fmap (f . fromEntity) as
@@ -179,8 +195,8 @@ instance
   mapWorld' f w = fromMaybe ([], w) $ do
     let i = query @(IntersectT (EntityT i) (EntityT o))
         o = query @(DifferenceT (EntityT i) (EntityT o))
-        (aCIds, aG) = runQuery' i (components w)
-        (bCIds, bG) = runQuery' o (components w)
+        (aCIds, aG, _) = runQuery' i (components w)
+        (bCIds, bG, _) = runQuery' o (components w)
         g arch =
           let (as, aH) = aG arch
               (bs, _) = bG arch
@@ -189,3 +205,19 @@ instance
            in (es, arch')
         (es', arches) = AS.map (aCIds <> bCIds) g (archetypes w)
     return (concat es', w {archetypes = arches})
+
+lookup :: forall a m. (Monad m, FromEntity a, Queryable (EntityT a)) => EntityID -> Access m (Maybe a)
+lookup eId = Access $ gets (lookupWorld eId)
+
+lookupQuery :: (Monad m) => EntityID -> Query a -> Access m (Maybe (Entity a))
+lookupQuery eId q = Access $ gets (lookupQueryWorld eId q)
+
+lookupWorld :: forall a. (FromEntity a, Queryable (EntityT a)) => EntityID -> World -> Maybe a
+lookupWorld eId w = fromEntity <$> lookupQueryWorld eId (query @(EntityT a)) w
+
+lookupQueryWorld :: EntityID -> Query a -> World -> Maybe (Entity a)
+lookupQueryWorld eId q w = do
+  let (_, _, g) = runQuery' q (components w)
+  aId <- Map.lookup eId (entities w)
+  node <- AS.lookupNode aId (archetypes w)
+  g eId (nodeArchetype node)
