@@ -37,6 +37,16 @@ view' cs as =
         cs'
       )
 
+unview :: View a -> World -> World
+unview v w =
+  w
+    { W.archetypes =
+        foldr
+          (\(aId, arch) as -> AS.adjustArchetype aId (const arch) as)
+          (W.archetypes w)
+          (Map.toList $ viewArchetypes v)
+    }
+
 queryAll :: View a -> Components -> [Entity a]
 queryAll v cs = fromMaybe [] $ do
   let qS = runQuery' (viewQuery v) cs

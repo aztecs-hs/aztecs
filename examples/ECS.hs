@@ -31,10 +31,11 @@ app = do
 
 data S
 
-instance System IO () S where
+instance System IO S where
   edit = S.mapM (S.all @_ @'[Position]) print
 
 main :: IO ()
 main = do
   (_, w) <- runAccess app W.empty
-  S.runSystem @IO @() @S w
+  _ <- S.runSystem @_ @S w
+  return ()

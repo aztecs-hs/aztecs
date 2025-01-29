@@ -16,6 +16,7 @@ module Data.Aztecs.World.Archetypes
     lookupNode,
     lookup,
     map,
+    adjustArchetype,
   )
 where
 
@@ -80,6 +81,9 @@ insertArchetype cIds n arches =
             componentIds = Map.unionWith (<>) (Map.fromSet (const (Set.singleton aId)) cIds) (componentIds arches)
           }
       )
+
+adjustArchetype :: ArchetypeID -> (Archetype -> Archetype) -> Archetypes -> Archetypes
+adjustArchetype aId f arches = arches {nodes = Map.adjust (\node -> node {nodeArchetype = f (nodeArchetype node)}) aId (nodes arches)}
 
 -- | Find `ArchetypeID`s containing a set of `ComponentID`s.
 findArchetypeIds :: Set ComponentID -> Archetypes -> Set ArchetypeID
