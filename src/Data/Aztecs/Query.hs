@@ -24,6 +24,7 @@ module Data.Aztecs.Query
     lookup,
     lookupQuery,
     alter,
+    QueryState (..),
     IsEq,
     Map (..),
   )

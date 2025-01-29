@@ -4,8 +4,9 @@
 
 module Data.Aztecs.View where
 
+import Data.Aztecs (Entity)
 import Data.Aztecs.Entity (ComponentIds, componentIds)
-import Data.Aztecs.Query (Query, Queryable (..))
+import Data.Aztecs.Query (Query (..), QueryState (..), Queryable (..))
 import Data.Aztecs.World (ArchetypeID, World)
 import qualified Data.Aztecs.World as W
 import Data.Aztecs.World.Archetype (Archetype)
@@ -13,6 +14,8 @@ import Data.Aztecs.World.Archetypes (Archetypes)
 import qualified Data.Aztecs.World.Archetypes as AS
 import Data.Aztecs.World.Components (Components)
 import Data.Map (Map)
+import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
 
 data View a = View
   { viewArchetypes :: Map ArchetypeID Archetype,
@@ -33,3 +36,8 @@ view' cs as =
           },
         cs'
       )
+
+queryAll :: View a -> Components -> [Entity a]
+queryAll v cs = fromMaybe [] $ do
+  let qS = runQuery' (viewQuery v) cs
+  return $ concatMap (fst . queryStateAll qS) (Map.elems $ viewArchetypes v)
