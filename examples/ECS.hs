@@ -8,7 +8,7 @@ module Main where
 import Control.Monad.IO.Class (MonadIO (..))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
-import Data.Aztecs.System (System (..))
+import Data.Aztecs.System (System (..), (<&>))
 import qualified Data.Aztecs.System as S
 import qualified Data.Aztecs.World as W
 
@@ -32,7 +32,7 @@ app = do
 data S
 
 instance System IO S where
-  edit = S.mapM (S.map (\(Position x :& Velocity v) -> Position (x + v))) print
+  task = S.map (\(Position x :& Velocity v) -> Position (x + v)) <&> S.run print
 
 main :: IO ()
 main = do
