@@ -5,8 +5,7 @@
 
 module Data.Aztecs.View where
 
-import Data.Aztecs (Entity)
-import Data.Aztecs.Entity (ComponentIds, EntityT, componentIds)
+import Data.Aztecs.Entity (ComponentIds, EntityT, componentIds, Entity)
 import Data.Aztecs.Query (IsEq, Query (..), QueryState (..), Queryable (..))
 import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.World (ArchetypeID, World)

@@ -5,10 +5,8 @@
 
 module Main where
 
-import Control.Monad.IO.Class (MonadIO (..))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
-import Data.Aztecs.System (System (..), (<&>))
 import qualified Data.Aztecs.System as S
 import qualified Data.Aztecs.World as W
 
@@ -20,22 +18,18 @@ newtype Velocity = Velocity Int deriving (Show)
 
 instance Component Velocity
 
-app :: Access IO ()
-app = do
-  -- Spawn an entity with position and velocity components
-  A.spawn_ (Position 0 :& Velocity 1)
+data Setup
 
-  -- Update all matching entities
-  q <- A.map (\(Position x :& Velocity v) -> Position (x + v))
-  liftIO $ print q
+instance System IO Setup where
+  task = S.queue (A.spawn_ (Position 0 :& Velocity 1))
 
-data S
+data Movement
 
-instance System IO S where
+instance System IO Movement where
   task = S.map (\(Position x :& Velocity v) -> Position (x + v)) <&> S.run print
 
 main :: IO ()
 main = do
-  (_, w) <- runAccess app W.empty
-  _ <- S.runSystem @_ @S w
+  w <- S.runSystem @_ @Setup W.empty
+  _ <- S.runSystem @_ @Movement w
   return ()
