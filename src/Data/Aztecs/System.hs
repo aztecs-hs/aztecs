@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -37,6 +38,21 @@ newtype Task m i o = Task
         i -> Components -> m (o, World -> World, Access m ())
       )
   }
+  deriving (Functor)
+
+instance (Monad m) => Applicative (Task m i) where
+  pure a = Task (,[],\_ _ -> pure (a, id, pure ()))
+  f <*> a =
+    Task $ \w ->
+      let (w', cIds, f') = runTask f w
+          (w'', cIds', a') = runTask a w'
+       in ( w'',
+            cIds <> cIds',
+            \i cs -> do
+              (f'', fG, access) <- f' i cs
+              (a'', aG, access') <- a' i cs
+              return (f'' a'', fG . aG, access >> access')
+          )
 
 (<&>) :: (Monad m) => Task m i o -> Task m o a -> Task m i a
 t1 <&> t2 =
