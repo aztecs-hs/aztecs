@@ -150,7 +150,9 @@ map ::
   (i -> o) ->
   World ->
   ([o], World)
-map = map' @(IsEq (Entity (EntityT i)) (Entity (EntityT o)))
+map f w =
+  let (o, arches) = map' @(IsEq (Entity (EntityT i)) (Entity (EntityT o))) f (components w) AS.map (archetypes w)
+   in (o, w {archetypes = arches})
 
 -- Returns @True@ if @a@ and @b@ are the same type.
 type family IsEq a b :: Bool where
@@ -165,18 +167,18 @@ type family IsEq a b :: Bool where
 -- If the input and output entities are different, a reader and writer query are combined into one.
 -- Otherwise, if the input and output entities are the same, we can use a more efficient implementation.
 class Map (flag :: Bool) i o where
-  map' :: (i -> o) -> World -> ([o], World)
+  map' :: (i -> o) -> Components -> (Set ComponentID -> (Archetype -> ([o], Archetype)) -> a -> ([[o]], a)) -> a -> ([o], a)
 
 instance (FromEntity i, ToEntity o, EntityT i ~ a, EntityT o ~ a, Queryable a) => Map 'True i o where
-  map' f w = fromMaybe ([], w) $ do
-    let qS = runQuery' (query @a) (components w)
+  map' f cs mapArches arches = fromMaybe ([], arches) $ do
+    let qS = runQuery' (query @a) cs
         go arch =
           let (as, h) = queryStateAll qS arch
               as' = fmap (f . fromEntity) as
               arch' = h (fmap toEntity as') arch
            in (as', arch')
-    let (es, arches) = AS.map (queryStateComponentIds qS) go (archetypes w)
-    return (concat es, w {archetypes = arches})
+    let (es, arches') = mapArches (queryStateComponentIds qS) go arches'
+    return (concat es, arches')
 
 instance
   ( FromEntity i,
@@ -190,19 +192,19 @@ instance
   ) =>
   Map 'False i o
   where
-  map' f w = fromMaybe ([], w) $ do
+  map' f cs mapArches arches = fromMaybe ([], arches) $ do
     let i = query @(IntersectT (EntityT i) (EntityT o))
         o = query @(DifferenceT (EntityT i) (EntityT o))
-        aQS = runQuery' i (components w)
-        bQS = runQuery' o (components w)
+        aQS = runQuery' i cs
+        bQS = runQuery' o cs
         g arch =
           let (as, aH) = queryStateAll aQS arch
               (bs, _) = queryStateAll bQS arch
               es = fmap (\(aE, bE) -> f $ fromEntity @i (E.sort $ E.concat bE aE)) (zip as bs)
               arch' = aH (fmap (\x -> let e = E.sort $ toEntity x in e) es) arch
            in (es, arch')
-        (es', arches) = AS.map (queryStateComponentIds aQS <> queryStateComponentIds bQS) g (archetypes w)
-    return (concat es', w {archetypes = arches})
+        (es', arches') = mapArches (queryStateComponentIds aQS <> queryStateComponentIds bQS) g arches
+    return (concat es', arches')
 
 lookup :: forall a. (FromEntity a, Queryable (EntityT a)) => EntityID -> World -> Maybe a
 lookup eId w = fromEntity <$> lookupQuery eId (query @(EntityT a)) w

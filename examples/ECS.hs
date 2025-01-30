@@ -32,7 +32,7 @@ app = do
 data S
 
 instance System IO S where
-  edit = S.mapM (S.all @_ @'[Position]) print
+  edit = S.mapM (S.map (\(Position x :& Velocity v) -> Position (x + v))) print
 
 main :: IO ()
 main = do

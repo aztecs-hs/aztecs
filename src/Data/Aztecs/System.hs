@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
@@ -7,8 +8,9 @@
 
 module Data.Aztecs.System where
 
-import Data.Aztecs.Entity (ComponentIds, Entity)
-import Data.Aztecs.Query (Queryable)
+import Data.Aztecs.Entity (ComponentIds, Entity, EntityT)
+import Data.Aztecs.Query (IsEq, Queryable)
+import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.View (View)
 import qualified Data.Aztecs.View as V
 import Data.Aztecs.World (World (..))
@@ -27,6 +29,17 @@ newtype Edit m a = Edit {runEdit :: World -> (World, Components -> m (a, World -
 
 all :: forall m v. (Applicative m, ComponentIds v, Queryable v) => Edit m [Entity v]
 all = view @v (\v cs -> pure $ V.queryAll v cs)
+
+map ::
+  forall m i o.
+  ( Applicative m,
+    ComponentIds (EntityT i),
+    Queryable (EntityT i),
+    Q.Map (IsEq (Entity (EntityT i)) (Entity (EntityT o))) i o
+  ) =>
+  (i -> o) ->
+  Edit m [o]
+map f = mapView (\v cs -> pure $ V.map f v cs)
 
 view :: forall v m a. (ComponentIds v, Queryable v, Functor m) => (View v -> Components -> m a) -> Edit m a
 view f = Edit $ \w -> let (v, w') = V.view @v w in (w', fmap (,const w) . f v)

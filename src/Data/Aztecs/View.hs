@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -5,8 +6,9 @@
 module Data.Aztecs.View where
 
 import Data.Aztecs (Entity)
-import Data.Aztecs.Entity (ComponentIds, componentIds)
-import Data.Aztecs.Query (Query (..), QueryState (..), Queryable (..))
+import Data.Aztecs.Entity (ComponentIds, EntityT, componentIds)
+import Data.Aztecs.Query (IsEq, Query (..), QueryState (..), Queryable (..))
+import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.World (ArchetypeID, World)
 import qualified Data.Aztecs.World as W
 import Data.Aztecs.World.Archetype (Archetype)
@@ -51,3 +53,29 @@ queryAll :: View a -> Components -> [Entity a]
 queryAll v cs = fromMaybe [] $ do
   let qS = runQuery' (viewQuery v) cs
   return $ concatMap (fst . queryStateAll qS) (Map.elems $ viewArchetypes v)
+
+-- | Map over all entities that match this query,
+-- storing the resulting components in the @View@.
+map ::
+  forall i o.
+  (Q.Map (IsEq (Entity (EntityT i)) (Entity (EntityT o))) i o) =>
+  (i -> o) ->
+  View (EntityT i) ->
+  Components ->
+  ([o], View (EntityT i))
+map f v cs =
+  let (o, arches) =
+        Q.map' @(IsEq (Entity (EntityT i)) (Entity (EntityT o)))
+          f
+          cs
+          ( \_ g arches' ->
+              foldr
+                ( \(aId, arch) (acc, archAcc) ->
+                    let (os, arch') = g arch
+                     in (os : acc, Map.insert aId arch' archAcc)
+                )
+                ([], Map.empty)
+                (Map.toList arches')
+          )
+          (viewArchetypes v)
+   in (o, v {viewArchetypes = arches})
