@@ -14,9 +14,10 @@ A type-safe and friendly [ECS](https://en.wikipedia.org/wiki/Entity_component_sy
 - Modular design: Aztecs can be extended for a variety of use cases
 
 ```hs
-import Control.Monad.IO.Class (MonadIO (..))
+import Control.Arrow
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
+import qualified Data.Aztecs.System as S
 import qualified Data.Aztecs.World as W
 
 newtype Position = Position Int deriving (Show)
@@ -27,22 +28,25 @@ newtype Velocity = Velocity Int deriving (Show)
 
 instance Component Velocity
 
-app :: Access IO ()
-app = do
-  -- Spawn an entity with position and velocity components
-  A.spawn_ (Position 0 :& Velocity 1)
+data Setup
 
-  -- Update all matching entities
-  q <- A.map (\(Position x :& Velocity v) -> Position (x + v))
-  liftIO $ print q
+instance System IO Setup where
+  task = S.queue (A.spawn_ (Position 0 :& Velocity 1))
+
+data Movement
+
+instance System IO Movement where
+  task = S.map (\(Position x :& Velocity v) -> Position (x + v)) >>> S.run print
 
 main :: IO ()
 main = do
-  _ <- runAccess app W.empty
+  w <- S.runSystem @_ @Setup W.empty
+  _ <- S.runSystem @_ @Movement w
   return ()
 ```
 
 ## Benchmarks
+
 Aztecs is currently faster than [bevy-ecs](https://github.com/bevyengine/bevy/), a popular and high-performance ECS written in Rust, for simple mutating queries.
 
 <img alt="benchmark results: Aztecs 932us vs Bevy 6,966us" width=300 src="https://github.com/user-attachments/assets/348c7539-0e7b-4429-9cc1-06e8a819156d" />

@@ -9,6 +9,8 @@
 
 module Data.Aztecs.System where
 
+import Control.Arrow (Arrow (..))
+import Control.Category (Category (..))
 import Data.Aztecs.Access (Access, runAccess)
 import Data.Aztecs.Entity (ComponentIds (componentIds), Entity, EntityT)
 import Data.Aztecs.Query (IsEq, Queryable)
@@ -41,7 +43,7 @@ newtype Task m i o = Task
   deriving (Functor)
 
 instance (Monad m) => Applicative (Task m i) where
-  pure a = Task (,[],\_ _ -> pure (a, id, pure ()))
+  pure a = Task (,[],\_ _ -> pure (a, Prelude.id, pure ()))
   f <*> a =
     Task $ \w ->
       let (w', cIds, f') = runTask f w
@@ -51,21 +53,33 @@ instance (Monad m) => Applicative (Task m i) where
             \i cs -> do
               (f'', fG, access) <- f' i cs
               (a'', aG, access') <- a' i cs
-              return (f'' a'', fG . aG, access >> access')
+              return (f'' a'', fG Prelude.. aG, access >> access')
           )
 
-(<&>) :: (Monad m) => Task m i o -> Task m o a -> Task m i a
-t1 <&> t2 =
-  Task $ \w ->
-    let (w', cIds, f) = runTask t1 w
-        (w'', cIds', g) = runTask t2 w'
+instance (Monad m) => Category (Task m) where
+  id = Task (,[],\i _ -> pure (i, Prelude.id, pure ()))
+  (.) t1 t2 = Task $ \w ->
+    let (w', cIds, f) = runTask t2 w
+        (w'', cIds', g) = runTask t1 w'
      in ( w'',
           cIds <> cIds',
           \i cs -> do
             (o, f', access) <- f i cs
             (a, g', access') <- g o cs
-            return (a, g' . f', access >> access')
+            return (a, g' Prelude.. f', access >> access')
         )
+
+instance (Monad m) => Arrow (Task m) where
+  arr f = Task (,[],\i _ -> pure (f i, Prelude.id, pure ()))
+  first t =
+    Task $ \w ->
+      let (w', cIds, f) = runTask t w
+       in ( w',
+            cIds,
+            \(i, x) cs -> do
+              (o, f', access) <- f i cs
+              return ((o, x), f', access)
+          )
 
 all :: forall m v. (Monad m, ComponentIds v, Queryable v) => Task m () [Entity v]
 all = view @_ @v (\v cs -> pure $ V.queryAll v cs)
@@ -103,11 +117,11 @@ mapView f = Task $ \w ->
 
 -- | Queue an `Access` to alter the world after this task is complete.
 queue :: (Monad m) => Access m () -> Task m () ()
-queue a = Task (,[],\_ _ -> pure ((), id, a))
+queue a = Task (,[],\_ _ -> pure ((), Prelude.id, a))
 
 run :: (Monad m) => (i -> m o) -> Task m i o
 run f =
   Task
     (,[],\i _ -> do
            o <- f i
-           return (o, id, pure ()))
+           return (o, Prelude.id, pure ()))

@@ -5,6 +5,7 @@
 
 module Main where
 
+import Control.Arrow
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import qualified Data.Aztecs.System as S
@@ -26,7 +27,7 @@ instance System IO Setup where
 data Movement
 
 instance System IO Movement where
-  task = S.map (\(Position x :& Velocity v) -> Position (x + v)) <&> S.run print
+  task = S.map (\(Position x :& Velocity v) -> Position (x + v)) >>> S.run print
 
 main :: IO ()
 main = do
