@@ -8,8 +8,8 @@ module Main where
 import Control.Arrow
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
+import Data.Aztecs.Scheduler (Startup, Update, schedule)
 import qualified Data.Aztecs.System as S
-import qualified Data.Aztecs.World as W
 
 newtype Position = Position Int deriving (Show)
 
@@ -31,6 +31,5 @@ instance System IO Movement where
 
 main :: IO ()
 main = do
-  w <- S.runSystem @_ @Setup W.empty
-  _ <- S.runSystem @_ @Movement w
-  return ()
+  let s = schedule @IO @Startup @Setup [] <> schedule @_ @Update @Movement []
+  print s

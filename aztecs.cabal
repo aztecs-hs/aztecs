@@ -26,6 +26,7 @@ library
         Data.Aztecs.Component
         Data.Aztecs.Entity
         Data.Aztecs.Query
+        Data.Aztecs.Scheduler
         Data.Aztecs.Storage
         Data.Aztecs.System
         Data.Aztecs.View

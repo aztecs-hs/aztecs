@@ -19,9 +19,10 @@ import Data.Aztecs.View (View (..))
 import qualified Data.Aztecs.View as V
 import Data.Aztecs.World (World (..))
 import Data.Aztecs.World.Components (ComponentID, Components)
+import Data.Data (Typeable)
 import Data.Set (Set)
 
-class System m a where
+class (Typeable a) => System m a where
   task :: Task m () ()
 
 runSystem :: forall m s. (System m s, Monad m) => World -> m World
