@@ -30,7 +30,7 @@ instance Show (Node m) where
       ++ show (nodeAfter n)
       ++ " }"
 
-data Constraint = Constraint {constraintKind :: ConstraintKind, constraintType :: TypeRep}
+data Constraint = Constraint {constraintKind :: ConstraintKind, constraintId :: TypeRep}
   deriving (Eq, Show)
 
 data ConstraintKind = Before | After deriving (Eq, Show)
@@ -44,6 +44,38 @@ after = Constraint After (typeOf (Proxy @a))
 data Startup
 
 data Update
+
+newtype Scheduler m = Scheduler {unScheduler :: Map TypeRep (Stage m)}
+  deriving (Show, Monoid)
+
+instance Semigroup (Scheduler m) where
+  s1 <> s2 = Scheduler (Map.unionWith (<>) (unScheduler s1) (unScheduler s2))
+
+schedule :: forall m l a. (Typeable l, System m a) => [Constraint] -> Scheduler m
+schedule cs =
+  let (bs, as) =
+        foldr
+          ( \c (bAcc, aAcc) -> case constraintKind c of
+              Before -> (constraintId c : bAcc, aAcc)
+              After -> (bAcc, constraintId c : aAcc)
+          )
+          ([], [])
+          cs
+   in Scheduler
+        ( Map.singleton
+            (typeOf (Proxy @l))
+            ( Stage
+                ( Map.singleton
+                    (typeOf (Proxy @a))
+                    ( Node
+                        { nodeTask = task @m @a,
+                          nodeBefore = Set.fromList bs,
+                          nodeAfter = Set.fromList as
+                        }
+                    )
+                )
+            )
+        )
 
 newtype Stage m = Stage {unStage :: Map TypeRep (Node m)}
   deriving (Show, Semigroup, Monoid)
@@ -121,38 +153,6 @@ buildStage s w =
             )
       (nodes, w') = foldr go (Map.empty, w) (Map.toList $ unScheduleBuilderStage s)
    in (ScheduleStage nodes, w')
-
-newtype Scheduler m = Scheduler {unScheduler :: Map TypeRep (Stage m)}
-  deriving (Show, Monoid)
-
-instance Semigroup (Scheduler m) where
-  s1 <> s2 = Scheduler (Map.unionWith (<>) (unScheduler s1) (unScheduler s2))
-
-schedule :: forall m l a. (Typeable l, System m a) => [Constraint] -> Scheduler m
-schedule cs =
-  let (bs, as) =
-        foldr
-          ( \c (bAcc, aAcc) -> case constraintKind c of
-              Before -> (constraintType c : bAcc, aAcc)
-              After -> (bAcc, constraintType c : aAcc)
-          )
-          ([], [])
-          cs
-   in Scheduler
-        ( Map.singleton
-            (typeOf (Proxy @l))
-            ( Stage
-                ( Map.singleton
-                    (typeOf (Proxy @a))
-                    ( Node
-                        { nodeTask = task @m @a,
-                          nodeBefore = Set.fromList bs,
-                          nodeAfter = Set.fromList as
-                        }
-                    )
-                )
-            )
-        )
 
 newtype ScheduleBuilder m = ScheduleBuilder {unScheduleBuilder :: Map TypeRep (ScheduleBuilderStage m)}
   deriving (Show)
