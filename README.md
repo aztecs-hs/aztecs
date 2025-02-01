@@ -17,7 +17,6 @@ A type-safe and friendly [ECS](https://en.wikipedia.org/wiki/Entity_component_sy
 import Control.Arrow ((>>>))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
-import Data.Aztecs.Scheduler (Scheduler, Startup, Update, run, schedule)
 import qualified Data.Aztecs.System as S
 
 newtype Position = Position Int deriving (Show)
@@ -39,7 +38,7 @@ instance System IO Movement where
   task = S.map (\(Position x :& Velocity v) -> Position (x + v)) >>> S.run print
 
 app :: Scheduler IO
-app = schedule @IO @Startup @Setup [] <> schedule @_ @Update @Movement []
+app = schedule @_ @Startup @Setup [] <> schedule @_ @Update @Movement []
 
 main :: IO ()
 main = run app
