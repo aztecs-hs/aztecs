@@ -27,18 +27,19 @@ class (Typeable a) => System m a where
 
 runSystem :: forall m s. (System m s, Monad m) => World -> m World
 runSystem w = do
-  let (w', _, f) = runTask (task @m @s) w
-  (_, g, access) <- f () (components w')
+  let (cs, _, f) = runTask (task @m @s) (components w)
+      w' = w {components = cs}
+  (_, g, access) <- f () w'
   (_, w'') <- runAccess access w'
   return $ g w''
 
 -- | System task.
 newtype Task m i o = Task
   { runTask ::
-      World ->
-      ( World,
+      Components ->
+      ( Components,
         [Set ComponentID],
-        i -> Components -> m (o, World -> World, Access m ())
+        i -> World -> m (o, World -> World, Access m ())
       )
   }
   deriving (Functor)
@@ -101,20 +102,28 @@ view ::
   (Monad m, ComponentIds v, Queryable v) =>
   (View v -> Components -> m a) ->
   Task m () a
-view f = Task $ \w ->
-  let (cIds, cs') = componentIds @v (components w)
-      (v, w') = V.view @v w {components = cs'}
-   in (w', [cIds], \_ cs -> (,Prelude.id,pure ()) <$> f v cs)
+view f = Task $ \cs ->
+  let (cIds, cs') = componentIds @v cs
+   in ( cs',
+        [cIds],
+        \_ w ->
+          let (v, w') = V.view @v w
+           in (,Prelude.id,pure ()) <$> f v (components w')
+      )
 
 mapView ::
   forall m v a.
   (Monad m, ComponentIds v, Queryable v) =>
   (View v -> Components -> m (a, View v)) ->
   Task m () a
-mapView f = Task $ \w ->
-  let (cIds, cs') = componentIds @v (components w)
-      (v, w') = V.view @v w {components = cs'}
-   in (w', [cIds], \_ cs -> (\(a, v') -> (a, V.unview v', pure ())) <$> f v cs)
+mapView f = Task $ \cs ->
+  let (cIds, cs') = componentIds @v cs
+   in ( cs',
+        [cIds],
+        \_ w ->
+          let (v, w') = V.view @v w
+           in (\(a, v') -> (a, V.unview v', pure ())) <$> f v (components w')
+      )
 
 -- | Queue an `Access` to alter the world after this task is complete.
 queue :: (Monad m) => Access m () -> Task m () ()

@@ -1,16 +1,13 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Main where
 
-import Control.Arrow
+import Control.Arrow ((>>>))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
-import Data.Aztecs.Scheduler (Startup, Update, build, run, schedule)
+import Data.Aztecs.Scheduler (Scheduler, Startup, Update, run, schedule)
 import qualified Data.Aztecs.System as S
-import qualified Data.Aztecs.World as W
 
 newtype Position = Position Int deriving (Show)
 
@@ -30,11 +27,8 @@ data Movement
 instance System IO Movement where
   task = S.map (\(Position x :& Velocity v) -> Position (x + v)) >>> S.run print
 
+app :: Scheduler IO
+app = schedule @IO @Startup @Setup [] <> schedule @_ @Update @Movement []
+
 main :: IO ()
-main = do
-  let s = schedule @IO @Startup @Setup [] <> schedule @_ @Update @Movement []
-      (s', w, _) = build s W.empty
-  w' <- run @Startup s' w
-  w'' <- run @Update s' w'
-  w''' <- run @Update s' w''
-  print w'''
+main = run app

@@ -8,7 +8,8 @@ module Data.Aztecs.Scheduler where
 import Data.Aztecs.Access (Access, runAccess)
 import Data.Aztecs.System (System (..), Task (runTask))
 import Data.Aztecs.World (World (..))
-import Data.Aztecs.World.Components (ComponentID, Components)
+import qualified Data.Aztecs.World as W
+import Data.Aztecs.World.Components (ComponentID)
 import Data.Data (Proxy (..), TypeRep, Typeable, typeOf)
 import Data.Foldable (foldrM)
 import Data.List (sortBy)
@@ -124,7 +125,7 @@ stageBuilder s =
 data ScheduleGraphNode m = ScheduleGraphNode
   { scheduleGraphNodeIds :: [Set ComponentID],
     scheduleGraphNodeBefore :: Set TypeRep,
-    runScheduleGraphNode :: Components -> m (World -> World, Access m ())
+    runScheduleGraphNode :: World -> m (World -> World, Access m ())
   }
 
 instance Show (ScheduleGraphNode m) where
@@ -142,7 +143,7 @@ newtype ScheduleGraphStage m = ScheduleGraphStage {unScheduleGraphStage :: Map T
 buildGraphStage :: (Functor m) => ScheduleBuilderStage m -> World -> (ScheduleGraphStage m, World)
 buildGraphStage s w =
   let go (nodeId, node) (acc, wAcc) =
-        let (wAcc', cIds, f) = runTask (scheduleBuilderNodeTask node) wAcc
+        let (cs, cIds, f) = runTask (scheduleBuilderNodeTask node) (components wAcc)
          in ( Map.insert
                 nodeId
                 ScheduleGraphNode
@@ -151,7 +152,7 @@ buildGraphStage s w =
                     runScheduleGraphNode = fmap (\(_, f', a) -> (f', a)) . f ()
                   }
                 acc,
-              wAcc'
+              wAcc {components = cs}
             )
       (nodes, w') = foldr go (Map.empty, w) (Map.toList $ unScheduleBuilderStage s)
    in (initGraphStage $ ScheduleGraphStage nodes, w')
@@ -197,7 +198,7 @@ buildGraph' (ScheduleBuilder s) w =
       (stages, w') = foldr go (Map.empty, w) (Map.toList s)
    in (ScheduleGraph stages, w')
 
-newtype ScheduleNode m = ScheduleNode {runScheduleNode :: Components -> m (World -> World, Access m ())}
+newtype ScheduleNode m = ScheduleNode {runScheduleNode :: World -> m (World -> World, Access m ())}
 
 newtype Schedule m = Schedule {unSchedule :: Map TypeRep [ScheduleNode m]}
 
@@ -207,12 +208,24 @@ build s w = let (s', w', errors) = buildGraph s w in (build' s', w', errors)
 build' :: (Functor m) => ScheduleGraph m -> Schedule m
 build' g = Schedule $ fmap buildStage (unScheduleGraph g)
 
-run :: forall l m. (Typeable l, Monad m) => Schedule m -> World -> m World
-run s w = case Map.lookup (typeOf (Proxy @l)) (unSchedule s) of
+runStage :: forall l m. (Typeable l, Monad m) => Schedule m -> World -> m World
+runStage s w = case Map.lookup (typeOf (Proxy @l)) (unSchedule s) of
   Just stage ->
     let go node wAcc = do
-          (f, access) <- runScheduleNode node (components wAcc)
+          (f, access) <- runScheduleNode node wAcc
           (_, wAcc') <- runAccess access (f wAcc)
           return wAcc'
      in foldrM go w stage
   Nothing -> return w
+
+runWorld :: (Monad m) => Scheduler m -> World -> m ()
+runWorld s w = do
+  let (s', w', _) = build s w
+  w'' <- runStage @Startup s' w'
+  let go wAcc = do
+        wAcc' <- runStage @Update s' wAcc
+        go wAcc'
+  go w''
+
+run :: (Monad m) => Scheduler m -> m ()
+run s = runWorld s W.empty
