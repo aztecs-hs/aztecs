@@ -1,1 +1,3 @@
+packages: ".", "packages/aztecs-sdl"
+
 tests: True

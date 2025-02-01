@@ -49,7 +49,7 @@ import Prelude hiding (all, lookup, map)
 
 data QueryState a = QueryState
   { queryStateComponentIds :: Set ComponentID,
-    queryStateAll :: Archetype -> ([Entity a], [Entity a] -> Archetype -> Archetype),
+    queryStateAll :: Archetype -> ([(Entity a)], [Entity a] -> Archetype -> Archetype),
     queryStateLookup :: EntityID -> Archetype -> Maybe (Entity a),
     queryStateInsert :: EntityID -> Archetype -> Entity a -> Archetype
   }
