@@ -8,7 +8,7 @@ module Main where
 import Control.Arrow
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
-import Data.Aztecs.Scheduler (Startup, Update, build, schedule)
+import Data.Aztecs.Scheduler (Startup, Update, build, run, schedule)
 import qualified Data.Aztecs.System as S
 import qualified Data.Aztecs.World as W
 
@@ -33,5 +33,8 @@ instance System IO Movement where
 main :: IO ()
 main = do
   let s = schedule @IO @Startup @Setup [] <> schedule @_ @Update @Movement []
-      (s', _, errors) = build s W.empty
-  print (s', errors)
+      (s', w, _) = build s W.empty
+  w' <- run @Startup s' w
+  w'' <- run @Update s' w'
+  w''' <- run @Update s' w''
+  print w'''

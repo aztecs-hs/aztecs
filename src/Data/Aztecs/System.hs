@@ -114,7 +114,7 @@ mapView ::
 mapView f = Task $ \w ->
   let (cIds, cs') = componentIds @v (components w)
       (v, w') = V.view @v w {components = cs'}
-   in (w', [cIds], \_ cs -> (\(a, v') -> (a, const $ V.unview v' w', pure ())) <$> f v cs)
+   in (w', [cIds], \_ cs -> (\(a, v') -> (a, V.unview v', pure ())) <$> f v cs)
 
 -- | Queue an `Access` to alter the world after this task is complete.
 queue :: (Monad m) => Access m () -> Task m () ()
