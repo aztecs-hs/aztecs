@@ -102,9 +102,9 @@ view ::
   (View v -> Components -> m a) ->
   Task m () a
 view f = Task $ \w ->
-  let (cIds, cs') = componentIds @v (components w')
+  let (cIds, cs') = componentIds @v (components w)
       (v, w') = V.view @v w {components = cs'}
-   in (w', [cIds], \_ cs -> (,const w',pure ()) <$> f v cs)
+   in (w', [cIds], \_ cs -> (,Prelude.id,pure ()) <$> f v cs)
 
 mapView ::
   forall m v a.
@@ -112,7 +112,7 @@ mapView ::
   (View v -> Components -> m (a, View v)) ->
   Task m () a
 mapView f = Task $ \w ->
-  let (cIds, cs') = componentIds @v (components w')
+  let (cIds, cs') = componentIds @v (components w)
       (v, w') = V.view @v w {components = cs'}
    in (w', [cIds], \_ cs -> (\(a, v') -> (a, const $ V.unview v' w', pure ())) <$> f v cs)
 
