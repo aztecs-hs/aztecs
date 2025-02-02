@@ -203,14 +203,23 @@ instance Sort as '[] where
 instance (Has b (Entity as), Sort as bs) => Sort as (b ': bs) where
   sort es = ECons (component es) (sort es)
 
+class HasComponentId a where
+  getComponentId :: Components -> (ComponentID, Components)
+
+instance (Component a) => HasComponentId a where
+  getComponentId = CS.insert @a
+
+instance {-# OVERLAPPING #-} (Component a) => HasComponentId (Maybe a) where
+  getComponentId = CS.insert @a
+
 class ComponentIds (a :: [Type]) where
   componentIds :: Components -> (Set ComponentID, Components)
 
 instance ComponentIds '[] where
   componentIds cs = (Set.empty, cs)
 
-instance (Component a, ComponentIds as) => ComponentIds (a ': as) where
+instance (HasComponentId a, ComponentIds as) => ComponentIds (a ': as) where
   componentIds cs =
-    let (cId, cs') = CS.insert @a cs
+    let (cId, cs') = getComponentId @a cs
         (cIds, cs'') = componentIds @as cs'
      in (Set.insert cId cIds, cs'')

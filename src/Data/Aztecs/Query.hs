@@ -16,6 +16,7 @@ module Data.Aztecs.Query
     (<?>),
     fetch,
     fetchId,
+    fetchMaybe,
     all,
     queryAll,
     queryAll',
@@ -120,6 +121,34 @@ fetch' f = Query $ \cs ->
           queryStateInsert = \eId arch e -> let (_, arch', _) = A.insert eId e arch cs in arch'
         }
 
+fetchMaybe :: forall a. (Component a, Typeable (StorageT a)) => Query '[Maybe a]
+fetchMaybe = fetchMaybe' @a (\cs -> (fromMaybe (error "TODO") (CS.lookup @a cs)))
+
+fetchMaybe' :: forall a. (Component a, Typeable (StorageT a)) => (Components -> ComponentID) -> Query '[Maybe a]
+fetchMaybe' f = Query $ \cs ->
+  let cId = f cs
+   in QueryState
+        { queryStateComponentIds = Set.singleton cId,
+          queryStateAll = \arch ->
+            let as = A.allMaybe cId arch
+             in ( fmap (\(eId, a) -> (eId, ECons a ENil)) as,
+                  A.insertAscList cId
+                    . fmap
+                      ( \((e, a'), ECons a ENil) ->
+                          (e, fromMaybe (fromMaybe (error "TODO") a') a)
+                      )
+                    . zip as
+                ),
+          queryStateLookup = \eId arch -> do
+            a <- A.lookupComponent eId cId arch
+            return $ ECons (Just a) ENil,
+          queryStateInsert = \eId arch (ECons e ENil) ->
+            let (cIds, arch', cs') = case e of
+                  Just e' -> A.insert eId (ECons e' ENil) arch cs'
+                  Nothing -> (cIds, arch, cs')
+             in arch'
+        }
+
 all :: (ToEntity a, FromEntity a, Queryable (EntityT a)) => World -> [a]
 all w = fmap snd (allWithId w)
 
@@ -137,14 +166,23 @@ queryAll' q as cs = fromMaybe [] $ do
   let qS = runQuery' q cs
   return $ concatMap (fst . queryStateAll qS) (AS.lookup (queryStateComponentIds qS) as)
 
+class QueryItem a where
+  queryItem :: Query a
+
+instance (Component c, Typeable (StorageT c)) => QueryItem '[c] where
+  queryItem = fetch @c
+
+instance  {-# OVERLAPPING #-} (Component c, Typeable (StorageT c)) => QueryItem '[Maybe c] where
+  queryItem = fetchMaybe @c
+
 class Queryable a where
   query :: Query a
 
-instance {-# OVERLAPPING #-} (Component a, Typeable (StorageT a)) => Queryable '[a] where
-  query = fetch @a
+instance {-# OVERLAPPING #-} (QueryItem '[a]) => Queryable '[a] where
+  query = queryItem @'[a]
 
-instance (Component a, Typeable (StorageT a), Queryable as) => Queryable (a ': as) where
-  query = fetch @a <?> query @as
+instance (QueryItem '[a], Queryable as) => Queryable (a ': as) where
+  query = queryItem @'[a] <?> query @as
 
 -- | Map over all entities that match this query,
 -- storing the resulting components in the @World@.

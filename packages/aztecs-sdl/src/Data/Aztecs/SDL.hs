@@ -9,7 +9,7 @@ module Data.Aztecs.SDL where
 
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
-import Data.Aztecs.Asset (Asset (..), AssetServer, Handle, lookupAsset)
+import Data.Aztecs.Asset (Asset (..), AssetServer, Handle, assetPlugin, lookupAsset)
 import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Transform (..))
 import Data.Maybe (catMaybes)
@@ -18,7 +18,6 @@ import Foreign.C (CInt)
 import SDL hiding (Texture, Window, windowTitle)
 import qualified SDL hiding (Texture)
 import qualified SDL.Image as IMG
-import Data.Aztecs.Asset (assetPlugin)
 
 data Window = Window
   { windowTitle :: String
@@ -175,17 +174,17 @@ data DrawImages
 
 instance System IO DrawImages where
   task = proc () -> do
-    imgs <- S.all @_ @Image -< ()
+    imgs <- S.all @_ @(Image :& Maybe Draw) -< ()
     assets <- S.single @_ @(AssetServer Texture) -< ()
     newAssets <-
       S.viewWith @_ @_ @'[Draw]
         ( \(imgs, assets) -> do
             maybeAssets <-
               mapM
-                ( \(eId, img) -> case lookupAsset (imageTexture img) assets of
-                    Just surface -> do
+                ( \(eId, img :& d) -> case (d, lookupAsset (imageTexture img) assets) of
+                    (Nothing, Just surface) -> do
                       return $ Just (surface, img, eId)
-                    Nothing -> return Nothing
+                    _ -> return Nothing
                 )
                 imgs
             return $ catMaybes maybeAssets
@@ -224,7 +223,8 @@ instance System IO DrawImages where
 
 sdlPlugin :: Scheduler IO
 sdlPlugin =
-  assetPlugin @Texture <> schedule @_ @PreStartup @Setup []
+  assetPlugin @Texture
+    <> schedule @_ @PreStartup @Setup []
     <> schedule @_ @Update @AddWindows []
     <> schedule @_ @Update @AddWindowTargets []
     <> schedule @_ @Update @DrawImages []

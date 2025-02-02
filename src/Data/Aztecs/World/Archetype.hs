@@ -12,7 +12,8 @@ module Data.Aztecs.World.Archetype
   ( Archetype (..),
     empty,
     all,
-    Lookup(..),
+    allMaybe,
+    Lookup (..),
     lookupComponent,
     lookupStorage,
     remove,
@@ -43,7 +44,8 @@ data AnyStorage = AnyStorage
   { storageDyn :: Dynamic,
     insertDyn :: Int -> Dynamic -> Dynamic -> Dynamic,
     removeDyn :: Int -> Dynamic -> (Maybe Dynamic, Dynamic),
-    removeAny :: Int -> Dynamic -> (Maybe AnyStorage, Dynamic)
+    removeAny :: Int -> Dynamic -> (Maybe AnyStorage, Dynamic),
+    entitiesDyn :: Dynamic -> [Int]
   }
 
 instance Show AnyStorage where
@@ -63,7 +65,10 @@ anyStorage s =
         Nothing -> (Nothing, dyn),
       removeAny = \i dyn -> case fromDynamic @(s a) dyn of
         Just s' -> let (a, b) = S.remove i s' in (fmap (anyStorage . S.singleton @s i) a, toDyn b)
-        Nothing -> (Nothing, dyn)
+        Nothing -> (Nothing, dyn),
+      entitiesDyn = \dyn -> case fromDynamic @(s a) dyn of
+        Just s' -> map fst $ S.all s'
+        Nothing -> []
     }
 
 newtype Archetype = Archetype {storages :: Map ComponentID AnyStorage}
@@ -88,6 +93,13 @@ all :: (Component a) => ComponentID -> Archetype -> [(EntityID, a)]
 all cId arch = fromMaybe [] $ do
   s <- lookupStorage cId arch
   return . map (first EntityID) $ S.all s
+
+allMaybe :: (Component a) => ComponentID -> Archetype -> [(EntityID, Maybe a)]
+allMaybe cId arch = case lookupStorage cId arch of
+  Just s -> map (\(i, a) -> (EntityID i, Just a)) $ S.all s
+  Nothing -> case Map.toList $ storages arch of
+    [] -> []
+    (_, s) : _ -> map (\i -> (EntityID i, Nothing)) $ entitiesDyn s (storageDyn s)
 
 class Lookup a where
   lookup :: EntityID -> Components -> Archetype -> Maybe a
