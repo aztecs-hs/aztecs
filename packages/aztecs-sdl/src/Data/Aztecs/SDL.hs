@@ -2,6 +2,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -12,7 +13,7 @@ import qualified Data.Aztecs.Access as A
 import Data.Aztecs.Asset (Asset (..), AssetServer, Handle, assetPlugin, lookupAsset)
 import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Transform (..))
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, mapMaybe)
 import qualified Data.Text as T
 import Foreign.C (CInt)
 import SDL hiding (Texture, Window, windowTitle)
@@ -167,50 +168,31 @@ instance System IO DrawImages where
   task = proc () -> do
     imgs <- S.allFilter @_ @Image (without @Draw) -< ()
     assets <- S.single @_ @(AssetServer Texture) -< ()
-    newAssets <-
-      S.viewWith @_ @_ @'[Draw]
-        ( \(imgs, assets) -> do
-            maybeAssets <-
-              mapM
-                ( \(eId, img) -> case lookupAsset (imageTexture img) assets of
-                    Just surface -> do
-                      return $ Just (surface, img, eId)
-                    _ -> return Nothing
-                )
-                imgs
-            return $ catMaybes maybeAssets
-        )
-        -<
-          (imgs, assets)
-    S.queueWith
-      ( \eIds ->
-          mapM_
-            ( \(texture, img, eId) -> do
-                A.insert
-                  eId
-                  ( Draw $
-                      \transform renderer -> do
-                        sdlTexture <- SDL.createTextureFromSurface renderer (textureSurface texture)
-                        copyEx
-                          renderer
-                          sdlTexture
-                          Nothing
-                          ( Just
-                              ( Rectangle
-                                  (fmap (fromIntegral @CInt . round) . P $ transformPosition transform)
-                                  (fmap fromIntegral $ imageSize img)
-                              )
-                          )
-                          (realToFrac $ transformRotation transform)
-                          Nothing
-                          (V2 False False)
-                        destroyTexture sdlTexture
+    let newAssets =
+          mapMaybe (\(eId, img) -> (,img,eId) <$> lookupAsset (imageTexture img) assets) imgs
+    S.queueWith (mapM_ go) -< newAssets
+    where
+      go (texture, img, eId) = do
+        A.insert
+          eId
+          ( Draw $
+              \transform renderer -> do
+                sdlTexture <- SDL.createTextureFromSurface renderer (textureSurface texture)
+                copyEx
+                  renderer
+                  sdlTexture
+                  Nothing
+                  ( Just
+                      ( Rectangle
+                          (fmap (fromIntegral @CInt . round) . P $ transformPosition transform)
+                          (fmap fromIntegral $ imageSize img)
+                      )
                   )
-            )
-            eIds
-      )
-      -<
-        newAssets
+                  (realToFrac $ transformRotation transform)
+                  Nothing
+                  (V2 False False)
+                destroyTexture sdlTexture
+          )
 
 sdlPlugin :: Scheduler IO
 sdlPlugin =
