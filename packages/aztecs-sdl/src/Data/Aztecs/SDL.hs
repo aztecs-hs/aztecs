@@ -43,19 +43,10 @@ data AddWindows
 
 instance System IO AddWindows where
   task = proc () -> do
-    windows <- S.all @_ @Window -< ()
-    newWindows <- S.viewWith @_ @_ @'[WindowRenderer] filterNewWindows -< windows
+    newWindows <- S.allFilter @_ @Window (without @WindowRenderer) -< ()
     newWindows' <- S.run createNewWindows -< newWindows
     S.queueWith insertNewWindows -< newWindows'
     where
-      filterNewWindows windows = do
-        maybeNewWindows <- mapM checkWindow windows
-        return $ catMaybes maybeNewWindows
-      checkWindow (eId, window) = do
-        res <- S.lookupView eId
-        return $ case res of
-          Just (WindowRenderer _ _) -> Nothing
-          Nothing -> Just (eId, window)
       createNewWindows newWindows = mapM createWindowRenderer newWindows
       createWindowRenderer (eId, window) = do
         sdlWindow <- createWindow (T.pack $ windowTitle window) defaultWindow

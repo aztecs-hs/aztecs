@@ -295,12 +295,12 @@ viewFilter ::
   Task m () a
 viewFilter f vt = Task $ \cs ->
   let (cIds, cs') = componentIds @v cs
-      with' = filterWith f cs'
-      without' = filterWithout f cs'
+      (with', cs'') = filterWith f cs'
+      (without', cs''') = filterWithout f cs''
       f' arch =
         F.all (\cId -> A.member cId arch) with'
           && F.all (\cId -> not (A.member cId arch)) without'
-   in ( cs',
+   in ( cs''',
         [cIds],
         \_ w ->
           let (v, w') = V.viewFilter @v f' w

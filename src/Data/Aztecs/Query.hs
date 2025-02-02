@@ -6,6 +6,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -53,30 +54,44 @@ import qualified Data.Set as Set
 import Prelude hiding (all, lookup, map)
 
 data QueryFilter = QueryFilter
-  { filterWith :: Components -> Set ComponentID,
-    filterWithout :: Components -> Set ComponentID
+  { filterWith :: Components -> (Set ComponentID, Components),
+    filterWithout :: Components -> (Set ComponentID, Components)
   }
 
 instance Semigroup QueryFilter where
   QueryFilter withA withoutA <> QueryFilter withB withoutB =
-    QueryFilter (\cs -> withA cs <> withB cs) (\cs -> withoutA cs <> withoutB cs)
+    QueryFilter
+      ( \cs ->
+          let (withA', cs') = withA cs
+              (withB', cs'') = withB cs'
+           in (withA' <> withB', cs'')
+      )
+      ( \cs ->
+          let (withoutA', cs') = withoutA cs
+              (withoutB', cs'') = withoutB cs'
+           in (withoutA' <> withoutB', cs'')
+      )
 
 instance Monoid QueryFilter where
   mempty = emptyFilter
 
 emptyFilter :: QueryFilter
-emptyFilter = QueryFilter (const Set.empty) (const Set.empty)
+emptyFilter = QueryFilter (Set.empty,) (Set.empty,)
 
 with :: forall a. (Component a, Typeable (StorageT a)) => QueryFilter
 with =
   emptyFilter
-    { filterWith = \cs -> fromMaybe (Set.empty) (Set.singleton <$> CS.lookup @a cs)
+    { filterWith = \cs ->
+        let (cId, cs') = CS.insert @a cs
+         in (Set.singleton cId, cs')
     }
 
 without :: forall a. (Component a, Typeable (StorageT a)) => QueryFilter
 without =
   emptyFilter
-    { filterWithout = \cs -> fromMaybe (Set.empty) (Set.singleton <$> CS.lookup @a cs)
+    { filterWithout = \cs ->
+        let (cId, cs') = CS.insert @a cs
+         in (Set.singleton cId, cs')
     }
 
 data QueryState a = QueryState
