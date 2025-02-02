@@ -3,7 +3,6 @@
 
 module Main where
 
-import Control.Arrow ((>>>))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import Data.Aztecs.SDL (Window (..), sdlPlugin)
