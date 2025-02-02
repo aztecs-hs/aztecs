@@ -1,8 +1,10 @@
 {-# LANGUAGE Arrows #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Data.Aztecs.SDL where
 
@@ -11,6 +13,7 @@ import qualified Data.Aztecs.Access as A
 import qualified Data.Aztecs.System as S
 import Data.Maybe (catMaybes)
 import qualified Data.Text as T
+import Foreign.C (CInt)
 import SDL hiding (Window, windowTitle)
 import qualified SDL
 
@@ -63,17 +66,95 @@ data RenderWindows
 
 instance System IO RenderWindows where
   task =
-    let go' (_, WindowRenderer _ renderer) = do
-          rendererDrawColor renderer $= V4 0 0 0 255
-          clear renderer
-          present renderer
-        go windows = mapM_ go' windows
+    let draw windowDraws =
+          mapM_
+            ( \(window, draws) ->
+                mapM_
+                  ( \d -> do
+                      let renderer = windowRenderer window
+                      rendererDrawColor renderer $= V4 0 0 0 255
+                      clear renderer
+                      runDraw d renderer
+                      present renderer
+                  )
+                  draws
+            )
+            windowDraws
      in proc () -> do
           windows <- S.all @_ @WindowRenderer -< ()
-          S.run go -< windows
+          draws <- S.all @_ @(Draw :& WindowTarget) -< ()
+          let windowDraws =
+                foldr
+                  ( \(eId, window) acc ->
+                      let draws' =
+                            foldr
+                              ( \(_, d :& target) acc' ->
+                                  if unWindowTarget target == eId
+                                    then d : acc'
+                                    else acc'
+                              )
+                              []
+                              draws
+                       in (window, draws') : acc
+                  )
+                  []
+                  windows
+          S.run draw -< windowDraws
+
+newtype WindowTarget = WindowTarget {unWindowTarget :: EntityID}
+  deriving (Eq, Show)
+
+instance Component WindowTarget
+
+newtype Draw = Draw {runDraw :: Renderer -> IO ()}
+
+instance Component Draw
+
+data AddWindowTargets
+
+instance System IO AddWindowTargets where
+  task = proc () -> do
+    windows <- S.all @_ @WindowRenderer -< ()
+    draws <- S.all @_ @Draw -< ()
+    newDraws <-
+      S.viewWith @_ @_ @'[WindowTarget]
+        ( \draws -> do
+            maybeTargets <-
+              mapM
+                ( \(eId, _) -> do
+                    maybeTarget <- S.lookupView @_ @WindowTarget eId
+                    case maybeTarget of
+                      Just _ -> return Nothing
+                      Nothing -> return $ Just eId
+                )
+                draws
+            return $ catMaybes maybeTargets
+        )
+        -<
+          draws
+    S.queueWith
+      ( \(newDraws, windows) -> case windows of
+          (windowEId, _) : _ -> do
+            mapM_
+              ( \eId -> do
+                  _ <- A.insert eId $ WindowTarget windowEId
+                  return ()
+              )
+              newDraws
+          _ -> return ()
+      )
+      -<
+        (newDraws, windows)
+
+rect :: Rectangle CInt -> Draw
+rect bounds = Draw $
+  \renderer -> do
+    rendererDrawColor renderer $= V4 255 0 0 255
+    fillRect renderer (Just bounds)
 
 sdlPlugin :: Scheduler IO
 sdlPlugin =
   schedule @_ @Startup @Setup []
     <> schedule @_ @Update @AddWindows []
+    <> schedule @_ @Update @AddWindowTargets []
     <> schedule @_ @Update @RenderWindows []
