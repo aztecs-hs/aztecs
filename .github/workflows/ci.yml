@@ -32,7 +32,7 @@ jobs:
       - name: Install linux dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install libsdl2-dev
+          sudo apt-get install libsdl2-dev libsdl2-image-dev
 
       - name: Update the package index
         run: cabal update
@@ -60,7 +60,7 @@ jobs:
       - name: Install linux dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install libsdl2-dev
+          sudo apt-get install libsdl2-dev libsdl2-image-dev
 
       - name: Install dependencies
         run: |
