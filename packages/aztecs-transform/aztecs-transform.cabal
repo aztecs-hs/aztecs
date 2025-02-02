@@ -1,5 +1,5 @@
 cabal-version: 2.4
-name:          aztecs-sdl
+name:          aztecs-transform
 version:       0.1.0.0
 license:       BSD-3-Clause
 license-file:  LICENSE
@@ -21,28 +21,12 @@ source-repository head
 
 library
     exposed-modules:
-        Data.Aztecs.SDL
+        Data.Aztecs.Transform
     hs-source-dirs:   src
     default-language: Haskell2010
     ghc-options:      -Wall
     build-depends:
         base >=4 && <5,
         aztecs >= 0.3,
-        aztecs-transform >= 0.1,
-        containers >=0.7,
         mtl >=2,
-        sdl2 >=2,
-        text >=1.2,
         linear >= 1
-
-executable window
-    main-is:          Window.hs
-    hs-source-dirs:   examples
-    default-language: Haskell2010
-    ghc-options:      -Wall
-    build-depends:
-        base >=4 && <5,
-        aztecs-sdl,
-        aztecs >= 0.3,
-        aztecs-transform >= 0.1,
-        sdl2 >=2

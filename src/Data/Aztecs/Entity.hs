@@ -112,7 +112,7 @@ instance {-# OVERLAPS #-} (EntityT a ~ '[a]) => FromEntity a where
 instance FromEntity (Entity ts) where
   fromEntity = id
 
-instance (FromEntity a, FromEntity b, EntityT (a :& b) ~ (a ': EntityT b)) => FromEntity (a :& b) where
+instance (FromEntity b) => FromEntity (a :& b) where
   fromEntity (ECons a rest) = a :& fromEntity rest
 
 class ToEntity a where

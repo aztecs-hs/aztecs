@@ -11,6 +11,7 @@ module Data.Aztecs.SDL where
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import qualified Data.Aztecs.System as S
+import Data.Aztecs.Transform (Transform (..))
 import Data.Maybe (catMaybes)
 import qualified Data.Text as T
 import Foreign.C (CInt)
@@ -70,11 +71,11 @@ instance System IO RenderWindows where
           mapM_
             ( \(window, draws) ->
                 mapM_
-                  ( \d -> do
+                  ( \(d, transform) -> do
                       let renderer = windowRenderer window
                       rendererDrawColor renderer $= V4 0 0 0 255
                       clear renderer
-                      runDraw d renderer
+                      runDraw d transform renderer
                       present renderer
                   )
                   draws
@@ -82,15 +83,15 @@ instance System IO RenderWindows where
             windowDraws
      in proc () -> do
           windows <- S.all @_ @WindowRenderer -< ()
-          draws <- S.all @_ @(Draw :& WindowTarget) -< ()
+          draws <- S.all @_ @(Draw :& (Transform :& WindowTarget)) -< ()
           let windowDraws =
                 foldr
                   ( \(eId, window) acc ->
                       let draws' =
                             foldr
-                              ( \(_, d :& target) acc' ->
+                              ( \(_, d :& (transform :& target)) acc' ->
                                   if unWindowTarget target == eId
-                                    then d : acc'
+                                    then (d, transform) : acc'
                                     else acc'
                               )
                               []
@@ -106,7 +107,7 @@ newtype WindowTarget = WindowTarget {unWindowTarget :: EntityID}
 
 instance Component WindowTarget
 
-newtype Draw = Draw {runDraw :: Renderer -> IO ()}
+newtype Draw = Draw {runDraw :: Transform -> Renderer -> IO ()}
 
 instance Component Draw
 
@@ -146,11 +147,22 @@ instance System IO AddWindowTargets where
       -<
         (newDraws, windows)
 
-rect :: Rectangle CInt -> Draw
-rect bounds = Draw $
-  \renderer -> do
-    rendererDrawColor renderer $= V4 255 0 0 255
-    fillRect renderer (Just bounds)
+rect :: V2 Int -> Draw
+rect size = Draw $
+  \transform renderer -> do
+    surface <- createRGBSurface (fmap fromIntegral size) RGBA8888
+    surfaceRenderer <- createSoftwareRenderer surface
+    rendererDrawColor surfaceRenderer $= V4 255 0 0 255
+    fillRect surfaceRenderer Nothing
+    texture <- SDL.createTextureFromSurface renderer surface
+    copyEx
+      renderer
+      texture
+      Nothing
+      (Just (Rectangle (fmap (fromIntegral @CInt . round) . P $ transformPosition transform) (fmap fromIntegral size)))
+      (realToFrac $ transformRotation transform)
+      Nothing
+      (V2 False False)
 
 sdlPlugin :: Scheduler IO
 sdlPlugin =
