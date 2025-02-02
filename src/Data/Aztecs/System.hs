@@ -12,7 +12,7 @@ module Data.Aztecs.System where
 
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
-import Control.Monad.Reader (MonadReader (..), MonadTrans (..), ReaderT (runReaderT))
+import Control.Monad.Reader (MonadReader (..), MonadTrans (..), ReaderT (runReaderT), MonadIO)
 import Control.Monad.Writer (MonadWriter (..), WriterT (runWriterT))
 import Data.Aztecs.Access (Access, runAccess)
 import Data.Aztecs.Entity (ComponentIds (componentIds), Entity, EntityID, EntityT, FromEntity)
@@ -28,6 +28,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Data.Set (Set)
+import Prelude hiding (all)
 
 class (Typeable a) => System m a where
   task :: Task m () ()
@@ -92,6 +93,42 @@ instance (Monad m) => Arrow (Task m) where
 
 all :: forall m a. (Monad m, FromEntity a, ComponentIds (EntityT a), Queryable (EntityT a)) => Task m () [(EntityID, a)]
 all = view @_ @(EntityT a) allView
+
+single ::
+  forall m a.
+  ( Monad m,
+    FromEntity a,
+    ComponentIds (EntityT a),
+    Queryable (EntityT a)
+  ) =>
+  Task m () a
+single = fmap (fromMaybe (error "TODO")) maybeSingle
+
+maybeSingle ::
+  forall m a.
+  ( Monad m,
+    FromEntity a,
+    ComponentIds (EntityT a),
+    Queryable (EntityT a)
+  ) =>
+  Task m () (Maybe a)
+maybeSingle = fmap (fmap snd) maybeSingleWithId
+
+maybeSingleWithId ::
+  forall m a.
+  ( Monad m,
+    FromEntity a,
+    ComponentIds (EntityT a),
+    Queryable (EntityT a)
+  ) =>
+  Task m () (Maybe (EntityID, a))
+maybeSingleWithId =
+  fmap
+    ( \xs -> case xs of
+        [(eId, a)] -> Just (eId, a)
+        _ -> Nothing
+    )
+    all
 
 lookup ::
   forall m a.
@@ -201,7 +238,7 @@ mapMaybeSingleWith f =
 
 newtype ViewT m v a = ViewT
   {unViewT :: ReaderT (View v, Components, Map EntityID ArchetypeID) m a}
-  deriving (Functor, Applicative, Monad)
+  deriving (Functor, Applicative, Monad, MonadIO)
 
 lookupView ::
   forall m a.

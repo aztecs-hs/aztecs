@@ -131,9 +131,9 @@ instance System IO AddWindowTargets where
               mapM
                 ( \(eId, _) -> do
                     maybeTarget <- S.lookupView @_ @WindowTarget eId
-                    case maybeTarget of
-                      Just _ -> return Nothing
-                      Nothing -> return $ Just eId
+                    return $ case maybeTarget of
+                      Just _ -> Nothing
+                      Nothing -> Just eId
                 )
                 draws
             return $ catMaybes maybeTargets
@@ -142,13 +142,7 @@ instance System IO AddWindowTargets where
           draws
     S.queueWith
       ( \(newDraws, windows) -> case windows of
-          (windowEId, _) : _ -> do
-            mapM_
-              ( \eId -> do
-                  _ <- A.insert eId $ WindowTarget windowEId
-                  return ()
-              )
-              newDraws
+          (windowEId, _) : _ -> mapM_ (\eId -> A.insert eId $ WindowTarget windowEId) newDraws
           _ -> return ()
       )
       -<
@@ -245,28 +239,27 @@ data DrawImages
 
 instance System IO DrawImages where
   task = proc () -> do
-    assets <- S.all @_ @Image -< ()
-    assetServers <- S.all @_ @AssetServer -< ()
+    imgs <- S.all @_ @Image -< ()
+    assets <- S.single @_ @AssetServer -< ()
     newAssets <-
       S.viewWith @_ @_ @'[Draw]
-        ( \(assets, assetServers) -> do
+        ( \(imgs, assets) -> do
             maybeAssets <-
               mapM
-                ( \(eId, img) -> case assetServers of
-                    [(_, server)] -> case lookupAsset (imageAssetId img) server of
-                      Just surface -> return $ Just (surface, img, eId)
-                      Nothing -> return Nothing
-                    _ -> error "TODO"
+                ( \(eId, img) -> case lookupAsset (imageAssetId img) assets of
+                    Just surface -> do
+                      return $ Just (surface, img, eId)
+                    Nothing -> return Nothing
                 )
-                assets
+                imgs
             return $ catMaybes maybeAssets
         )
         -<
-          (assets, assetServers)
+          (imgs, assets)
     S.queueWith
       ( \eIds ->
           mapM_
-            ( \(surface, img, eId) ->
+            ( \(surface, img, eId) -> do
                 A.insert
                   eId
                   ( Draw $
