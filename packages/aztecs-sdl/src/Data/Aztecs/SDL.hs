@@ -9,11 +9,13 @@
 module Data.Aztecs.SDL where
 
 import Control.Arrow ((>>>))
-import Control.Concurrent (MVar, forkIO, newMVar, putMVar)
+import Control.Concurrent (forkIO)
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Transform (..))
+import Data.Foldable (foldrM)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes)
@@ -174,13 +176,13 @@ rect size = Draw $
 newtype AssetId = AssetId {unAssetId :: Int}
   deriving (Eq, Ord, Show)
 
-instance Component AssetId
-
 data AssetServer = AssetServer
   { assetServerAssets :: Map AssetId Surface,
-    loadingAssets :: Map AssetId (MVar (Maybe Surface)),
+    loadingAssets :: Map AssetId (IORef (Maybe Surface)),
     nextAssetId :: AssetId
   }
+
+instance Component AssetServer
 
 assetServer :: AssetServer
 assetServer =
@@ -193,10 +195,11 @@ assetServer =
 load :: FilePath -> AssetServer -> IO (AssetId, AssetServer)
 load path server = do
   let assetId = nextAssetId server
-  v <- newMVar Nothing
+  v <- newIORef Nothing
   _ <- forkIO $ do
     surface <- IMG.load path
-    putMVar v (Just surface)
+    writeIORef v (Just surface)
+
   return
     ( assetId,
       server
@@ -205,11 +208,91 @@ load path server = do
         }
     )
 
-instance Component AssetServer
+lookupAsset :: AssetId -> AssetServer -> Maybe Surface
+lookupAsset assetId server = Map.lookup assetId (assetServerAssets server)
+
+data LoadAssets
+
+instance System IO LoadAssets where
+  task =
+    S.mapM_
+      ( \server ->
+          foldrM
+            ( \(aId, v) acc -> do
+                maybeSurface <- readIORef v
+                case maybeSurface of
+                  Just surface ->
+                    return
+                      acc
+                        { assetServerAssets = Map.insert aId surface (assetServerAssets acc),
+                          loadingAssets = Map.delete aId (loadingAssets acc)
+                        }
+                  Nothing -> return acc
+            )
+            server
+            (Map.toList $ loadingAssets server)
+      )
+
+data Image = Image
+  { imageAssetId :: AssetId,
+    imageSize :: V2 Int
+  }
+  deriving (Show)
+
+instance Component Image
+
+data DrawImages
+
+instance System IO DrawImages where
+  task = proc () -> do
+    assets <- S.all @_ @Image -< ()
+    assetServers <- S.all @_ @AssetServer -< ()
+    newAssets <-
+      S.viewWith @_ @_ @'[Draw]
+        ( \(assets, assetServers) -> do
+            maybeAssets <-
+              mapM
+                ( \(eId, img) -> case assetServers of
+                    [(_, server)] -> case lookupAsset (imageAssetId img) server of
+                      Just surface -> return $ Just (surface, img, eId)
+                      Nothing -> return Nothing
+                    _ -> error "TODO"
+                )
+                assets
+            return $ catMaybes maybeAssets
+        )
+        -<
+          (assets, assetServers)
+    S.queueWith
+      ( \eIds ->
+          mapM_
+            ( \(surface, img, eId) ->
+                A.insert
+                  eId
+                  ( Draw $
+                      \transform renderer -> do
+                        texture <- SDL.createTextureFromSurface renderer surface
+                        copyEx
+                          renderer
+                          texture
+                          Nothing
+                          (Just (Rectangle (fmap (fromIntegral @CInt . round) . P $ transformPosition transform) (fmap fromIntegral (imageSize img))))
+                          (realToFrac $ transformRotation transform)
+                          Nothing
+                          (V2 False False)
+                        destroyTexture texture
+                  )
+            )
+            eIds
+      )
+      -<
+        newAssets
 
 sdlPlugin :: Scheduler IO
 sdlPlugin =
-  schedule @_ @Startup @Setup []
+  schedule @_ @PreStartup @Setup []
     <> schedule @_ @Update @AddWindows []
     <> schedule @_ @Update @AddWindowTargets []
+    <> schedule @_ @Update @LoadAssets []
+    <> schedule @_ @Update @DrawImages []
     <> schedule @_ @Update @RenderWindows []

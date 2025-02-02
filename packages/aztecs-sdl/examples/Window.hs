@@ -6,7 +6,7 @@ module Main where
 import Control.Arrow ((>>>))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
-import Data.Aztecs.SDL (Window (..), load, sdlPlugin)
+import Data.Aztecs.SDL (Image (..), Window (..), load, sdlPlugin)
 import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Transform (transformPosition), transform)
 import SDL hiding (Window, windowTitle)
@@ -32,7 +32,9 @@ instance System IO Setup where
         ( \res -> case res of
             [(assetId, _)] -> do
               A.spawn_ (Window {windowTitle = "Aztecs"})
-              A.spawn_ $ assetId :& transform {transformPosition = V2 100 100}
+              A.spawn_ $
+                Image {imageAssetId = assetId, imageSize = V2 100 100}
+                  :& transform {transformPosition = V2 100 100}
             _ -> error "TODO"
         )
 

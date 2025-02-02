@@ -126,6 +126,17 @@ mapM ::
   Task m () [o]
 mapM f = mapView (\v cs -> V.mapM f v cs)
 
+mapM_ ::
+  forall m i o.
+  ( Monad m,
+    ComponentIds (EntityT i),
+    Queryable (EntityT i),
+    Q.Map (IsEq (Entity (EntityT i)) (Entity (EntityT o))) i o
+  ) =>
+  (i -> m o) ->
+  Task m () ()
+mapM_ f = mapView_ (\v cs -> snd <$> V.mapM f v cs)
+
 mapWith ::
   forall m i o a.
   ( Monad m,
@@ -218,6 +229,20 @@ mapView f = Task $ \cs ->
         \_ w ->
           let (v, w') = V.view @v w
            in (\(a, v') -> (a, V.unview v', pure ())) <$> f v (components w')
+      )
+
+mapView_ ::
+  forall m v.
+  (Monad m, ComponentIds v, Queryable v) =>
+  (View v -> Components -> m (View v)) ->
+  Task m () ()
+mapView_ f = Task $ \cs ->
+  let (cIds, cs') = componentIds @v cs
+   in ( cs',
+        [cIds],
+        \_ w ->
+          let (v, w') = V.view @v w
+           in (\v' -> ((), V.unview v', pure ())) <$> f v (components w')
       )
 
 -- | Queue an `Access` to alter the world after this task is complete.

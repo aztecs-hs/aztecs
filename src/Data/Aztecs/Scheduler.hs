@@ -44,10 +44,6 @@ before = Constraint Before (typeOf (Proxy @a))
 after :: forall m a. (System m a) => Constraint
 after = Constraint After (typeOf (Proxy @a))
 
-data Startup
-
-data Update
-
 newtype Scheduler m = Scheduler {unScheduler :: Map TypeRep (Stage m)}
   deriving (Show, Monoid)
 
@@ -218,14 +214,21 @@ runStage s w = case Map.lookup (typeOf (Proxy @l)) (unSchedule s) of
      in foldrM go w stage
   Nothing -> return w
 
+data PreStartup
+
+data Startup
+
+data Update
+
 runWorld :: (Monad m) => Scheduler m -> World -> m ()
 runWorld s w = do
   let (s', w', _) = build s w
-  w'' <- runStage @Startup s' w'
+  w'' <- runStage @PreStartup s' w'
+  w''' <- runStage @Startup s' w''
   let go wAcc = do
         wAcc' <- runStage @Update s' wAcc
         go wAcc'
-  go w''
+  go w'''
 
 run :: (Monad m) => Scheduler m -> m ()
 run s = runWorld s W.empty
