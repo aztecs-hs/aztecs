@@ -184,7 +184,7 @@ mapM_ ::
   Task m () ()
 mapM_ f = mapView_ (\v cs -> snd <$> V.mapM f v cs)
 
-mapWith ::
+mapAccum ::
   forall m i o a.
   ( Monad m,
     ComponentIds (EntityT i),
@@ -193,7 +193,7 @@ mapWith ::
   ) =>
   (i -> m (a, o)) ->
   Task m () ([(a, o)])
-mapWith f =
+mapAccum f =
   let f' i = do
         (a, o) <- lift $ f i
         tell [a]
@@ -208,7 +208,18 @@ mapWith f =
                 return (zip as os, g', pure ())
             )
 
-mapSingleWith ::
+mapSingleAccum_ ::
+  forall m i o a.
+  ( Monad m,
+    ComponentIds (EntityT i),
+    Queryable (EntityT i),
+    Q.Map (IsEq (Entity (EntityT i)) (Entity (EntityT o))) i o
+  ) =>
+  (i -> m (a, o)) ->
+  Task m () a
+mapSingleAccum_ f = fst <$> mapSingleAccum f
+
+mapSingleAccum ::
   forall m i o a.
   ( Monad m,
     ComponentIds (EntityT i),
@@ -217,9 +228,9 @@ mapSingleWith ::
   ) =>
   (i -> m (a, o)) ->
   Task m () (a, o)
-mapSingleWith f = fmap (fromMaybe (error "TODO")) (mapMaybeSingleWith f)
+mapSingleAccum f = fmap (fromMaybe (error "TODO")) (mapMaybeSingleAccum f)
 
-mapMaybeSingleWith ::
+mapMaybeSingleAccum ::
   forall m i o a.
   ( Monad m,
     ComponentIds (EntityT i),
@@ -228,7 +239,7 @@ mapMaybeSingleWith ::
   ) =>
   (i -> m (a, o)) ->
   Task m () (Maybe (a, o))
-mapMaybeSingleWith f =
+mapMaybeSingleAccum f =
   let f' i = do
         (a, o) <- lift $ f i
         tell [a]

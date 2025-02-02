@@ -59,9 +59,9 @@ data Setup
 
 instance System IO Setup where
   task =
-    S.mapSingleWith (\assetServer -> load "example.png" assetServer)
+    S.mapSingleAccum_ (load "example.png")
       >>> S.queueWith
-        ( \(texture, _) -> do
+        ( \texture -> do
             A.spawn_ Window {windowTitle = "Aztecs"}
             A.spawn_ $
               Image {imageTexture = texture, imageSize = V2 100 100}
