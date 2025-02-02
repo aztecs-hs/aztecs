@@ -8,10 +8,14 @@
 
 module Data.Aztecs.SDL where
 
+import Control.Arrow ((>>>))
+import Control.Concurrent (MVar, forkIO, newMVar, putMVar)
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Transform (..))
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Data.Maybe (catMaybes)
 import qualified Data.Text as T
 import Foreign.C (CInt)
@@ -37,7 +41,7 @@ instance Component WindowRenderer
 data Setup
 
 instance System IO Setup where
-  task = S.run $ const initializeAll
+  task = S.queue (A.spawn_ assetServer) >>> S.run (const initializeAll)
 
 data AddWindows
 
@@ -167,23 +171,41 @@ rect size = Draw $
     freeSurface surface
     destroyTexture texture
 
-img :: FilePath -> V2 Int -> Draw
-img path size = Draw $ \transform renderer -> do
-  surface <- IMG.load path
-  texture <-
-    SDL.createTextureFromSurface
-      renderer
-      surface
-  copyEx
-    renderer
-    texture
-    Nothing
-    (Just (Rectangle (fmap (fromIntegral @CInt . round) . P $ transformPosition transform) (fmap fromIntegral size)))
-    (realToFrac $ transformRotation transform)
-    Nothing
-    (V2 False False)
-  freeSurface surface
-  destroyTexture texture
+newtype AssetId = AssetId {unAssetId :: Int}
+  deriving (Eq, Ord, Show)
+
+instance Component AssetId
+
+data AssetServer = AssetServer
+  { assetServerAssets :: Map AssetId Surface,
+    loadingAssets :: Map AssetId (MVar (Maybe Surface)),
+    nextAssetId :: AssetId
+  }
+
+assetServer :: AssetServer
+assetServer =
+  AssetServer
+    { assetServerAssets = Map.empty,
+      loadingAssets = Map.empty,
+      nextAssetId = AssetId 0
+    }
+
+load :: FilePath -> AssetServer -> IO (AssetId, AssetServer)
+load path server = do
+  let assetId = nextAssetId server
+  v <- newMVar Nothing
+  _ <- forkIO $ do
+    surface <- IMG.load path
+    putMVar v (Just surface)
+  return
+    ( assetId,
+      server
+        { loadingAssets = Map.insert assetId v (loadingAssets server),
+          nextAssetId = AssetId (unAssetId assetId + 1)
+        }
+    )
+
+instance Component AssetServer
 
 sdlPlugin :: Scheduler IO
 sdlPlugin =

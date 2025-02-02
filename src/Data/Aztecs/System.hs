@@ -12,7 +12,8 @@ module Data.Aztecs.System where
 
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
-import Control.Monad.Reader (MonadReader (..), ReaderT (runReaderT))
+import Control.Monad.Reader (MonadReader (..), MonadTrans (..), ReaderT (runReaderT))
+import Control.Monad.Writer (MonadWriter (..), WriterT (runWriterT))
 import Data.Aztecs.Access (Access, runAccess)
 import Data.Aztecs.Entity (ComponentIds (componentIds), Entity, EntityID, EntityT, FromEntity)
 import Data.Aztecs.Query (IsEq, Queryable)
@@ -113,6 +114,41 @@ map ::
   (i -> o) ->
   Task m () [o]
 map f = mapView (\v cs -> pure $ V.map f v cs)
+
+mapM ::
+  forall m i o.
+  ( Monad m,
+    ComponentIds (EntityT i),
+    Queryable (EntityT i),
+    Q.Map (IsEq (Entity (EntityT i)) (Entity (EntityT o))) i o
+  ) =>
+  (i -> m o) ->
+  Task m () [o]
+mapM f = mapView (\v cs -> V.mapM f v cs)
+
+mapWith ::
+  forall m i o a.
+  ( Monad m,
+    ComponentIds (EntityT i),
+    Queryable (EntityT i),
+    Q.Map (IsEq (Entity (EntityT i)) (Entity (EntityT o))) i o
+  ) =>
+  (i -> m (a, o)) ->
+  Task m () ([(a, o)])
+mapWith f =
+  let f' i = do
+        (a, o) <- lift $ f i
+        tell [a]
+        return o
+      x = mapView (\v cs -> V.mapM f' v cs)
+   in Task $ \cs ->
+        let (cs', cIds, g) = runTask x cs
+         in ( cs',
+              cIds,
+              \_ w -> do
+                ((os, g', _), as) <- runWriterT $ g () w
+                return (zip as os, g', pure ())
+            )
 
 newtype ViewT m v a = ViewT
   {unViewT :: ReaderT (View v, Components, Map EntityID ArchetypeID) m a}

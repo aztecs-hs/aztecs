@@ -15,6 +15,7 @@ import qualified Data.Aztecs.World.Archetype as A
 import Data.Aztecs.World.Archetypes (Archetypes)
 import qualified Data.Aztecs.World.Archetypes as AS
 import Data.Aztecs.World.Components (Components)
+import Data.Foldable (foldrM)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
@@ -80,6 +81,30 @@ map f v cs =
           )
           (viewArchetypes v)
    in (o, v {viewArchetypes = arches})
+
+mapM ::
+  forall m i o.
+  (Monad m, Q.Map (IsEq (Entity (EntityT i)) (Entity (EntityT o))) i o) =>
+  (i -> m o) ->
+  View (EntityT i) ->
+  Components ->
+  m ([o], View (EntityT i))
+mapM f v cs = do
+  (o, arches) <-
+    Q.mapM' @(IsEq (Entity (EntityT i)) (Entity (EntityT o)))
+      f
+      cs
+      ( \_ g arches' ->
+          foldrM
+            ( \(aId, arch) (acc, archAcc) -> do
+                (os, arch') <- g arch
+                return (os : acc, Map.insert aId arch' archAcc)
+            )
+            ([], Map.empty)
+            (Map.toList arches')
+      )
+      (viewArchetypes v)
+  return (o, v {viewArchetypes = arches})
 
 lookup ::
   (FromEntity a, Lookup (Entity (EntityT a))) =>
