@@ -6,7 +6,8 @@ module Main where
 import Control.Arrow ((>>>))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
-import Data.Aztecs.SDL (Image (..), Window (..), load, sdlPlugin)
+import Data.Aztecs.Asset (load)
+import Data.Aztecs.SDL (Image (..), Window (..), sdlPlugin)
 import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Transform (transformPosition), transform)
 import SDL (V2 (..))
@@ -24,10 +25,10 @@ instance System IO Setup where
         ( \(assetId, _) -> do
             A.spawn_ (Window {windowTitle = "Aztecs"})
             A.spawn_ $
-              Image {imageAssetId = assetId, imageSize = V2 100 100}
+              Image {imageTexture = assetId, imageSize = V2 100 100}
                 :& transform {transformPosition = V2 100 100}
             A.spawn_ $
-              Image {imageAssetId = assetId, imageSize = V2 200 200}
+              Image {imageTexture = assetId, imageSize = V2 200 200}
                 :& transform {transformPosition = V2 500 100}
         )
 

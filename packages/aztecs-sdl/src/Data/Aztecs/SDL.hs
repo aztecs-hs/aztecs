@@ -2,28 +2,23 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Data.Aztecs.SDL where
 
-import Control.Arrow ((>>>))
-import Control.Concurrent (forkIO)
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
+import Data.Aztecs.Asset (Asset (..), AssetServer, Handle, lookupAsset)
 import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Transform (..))
-import Data.Foldable (foldrM)
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
-import Data.Map (Map)
-import qualified Data.Map as Map
 import Data.Maybe (catMaybes)
 import qualified Data.Text as T
 import Foreign.C (CInt)
-import SDL hiding (Window, windowTitle)
-import qualified SDL
+import SDL hiding (Texture, Window, windowTitle)
+import qualified SDL hiding (Texture)
 import qualified SDL.Image as IMG
+import Data.Aztecs.Asset (assetPlugin)
 
 data Window = Window
   { windowTitle :: String
@@ -43,7 +38,7 @@ instance Component WindowRenderer
 data Setup
 
 instance System IO Setup where
-  task = S.queue (A.spawn_ assetServer) >>> S.run (const initializeAll)
+  task = S.run (const initializeAll)
 
 data AddWindows
 
@@ -163,68 +158,13 @@ rect size = Draw $
     freeSurface surface
     destroyTexture texture
 
-newtype AssetId = AssetId {unAssetId :: Int}
-  deriving (Eq, Ord, Show)
+newtype Texture = Texture {textureSurface :: Surface}
 
-data AssetServer = AssetServer
-  { assetServerAssets :: Map AssetId Surface,
-    loadingAssets :: Map AssetId (IORef (Maybe Surface)),
-    nextAssetId :: AssetId
-  }
-
-instance Component AssetServer
-
-assetServer :: AssetServer
-assetServer =
-  AssetServer
-    { assetServerAssets = Map.empty,
-      loadingAssets = Map.empty,
-      nextAssetId = AssetId 0
-    }
-
-load :: FilePath -> AssetServer -> IO (AssetId, AssetServer)
-load path server = do
-  let assetId = nextAssetId server
-  v <- newIORef Nothing
-  _ <- forkIO $ do
-    surface <- IMG.load path
-    writeIORef v (Just surface)
-
-  return
-    ( assetId,
-      server
-        { loadingAssets = Map.insert assetId v (loadingAssets server),
-          nextAssetId = AssetId (unAssetId assetId + 1)
-        }
-    )
-
-lookupAsset :: AssetId -> AssetServer -> Maybe Surface
-lookupAsset assetId server = Map.lookup assetId (assetServerAssets server)
-
-data LoadAssets
-
-instance System IO LoadAssets where
-  task =
-    S.mapM_
-      ( \server ->
-          foldrM
-            ( \(aId, v) acc -> do
-                maybeSurface <- readIORef v
-                case maybeSurface of
-                  Just surface ->
-                    return
-                      acc
-                        { assetServerAssets = Map.insert aId surface (assetServerAssets acc),
-                          loadingAssets = Map.delete aId (loadingAssets acc)
-                        }
-                  Nothing -> return acc
-            )
-            server
-            (Map.toList $ loadingAssets server)
-      )
+instance Asset Texture where
+  loadAsset path = Texture <$> IMG.load path
 
 data Image = Image
-  { imageAssetId :: AssetId,
+  { imageTexture :: Handle Texture,
     imageSize :: V2 Int
   }
   deriving (Show)
@@ -236,13 +176,13 @@ data DrawImages
 instance System IO DrawImages where
   task = proc () -> do
     imgs <- S.all @_ @Image -< ()
-    assets <- S.single @_ @AssetServer -< ()
+    assets <- S.single @_ @(AssetServer Texture) -< ()
     newAssets <-
       S.viewWith @_ @_ @'[Draw]
         ( \(imgs, assets) -> do
             maybeAssets <-
               mapM
-                ( \(eId, img) -> case lookupAsset (imageAssetId img) assets of
+                ( \(eId, img) -> case lookupAsset (imageTexture img) assets of
                     Just surface -> do
                       return $ Just (surface, img, eId)
                     Nothing -> return Nothing
@@ -255,16 +195,15 @@ instance System IO DrawImages where
     S.queueWith
       ( \eIds ->
           mapM_
-            ( \(surface, img, eId) -> do
+            ( \(texture, img, eId) -> do
                 A.insert
                   eId
                   ( Draw $
                       \transform renderer -> do
-                        texture <- SDL.createTextureFromSurface renderer surface
-
+                        sdlTexture <- SDL.createTextureFromSurface renderer (textureSurface texture)
                         copyEx
                           renderer
-                          texture
+                          sdlTexture
                           Nothing
                           ( Just
                               ( Rectangle
@@ -275,7 +214,7 @@ instance System IO DrawImages where
                           (realToFrac $ transformRotation transform)
                           Nothing
                           (V2 False False)
-                        destroyTexture texture
+                        destroyTexture sdlTexture
                   )
             )
             eIds
@@ -285,9 +224,8 @@ instance System IO DrawImages where
 
 sdlPlugin :: Scheduler IO
 sdlPlugin =
-  schedule @_ @PreStartup @Setup []
+  assetPlugin @Texture <> schedule @_ @PreStartup @Setup []
     <> schedule @_ @Update @AddWindows []
     <> schedule @_ @Update @AddWindowTargets []
-    <> schedule @_ @Update @LoadAssets []
     <> schedule @_ @Update @DrawImages []
     <> schedule @_ @Update @RenderWindows []

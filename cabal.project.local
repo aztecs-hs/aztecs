@@ -1,3 +1,7 @@
-packages: ".", "packages/aztecs-sdl", "packages/aztecs-transform"
+packages: 
+    ".",
+    "packages/aztecs-asset",
+    "packages/aztecs-sdl",
+    "packages/aztecs-transform"
 
 tests: True
