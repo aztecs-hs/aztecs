@@ -209,7 +209,7 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
                               nextAId
                               (AS.nodes $ archetypes w')
                         },
-                    entities = Map.insert e aId (entities w)
+                    entities = Map.insert e nextAId (entities w)
                   }
           Nothing ->
             let (s, arch') = A.removeStorages e (nodeArchetype node)
