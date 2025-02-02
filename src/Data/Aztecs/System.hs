@@ -26,6 +26,7 @@ import Data.Aztecs.World.Components (ComponentID, Components)
 import Data.Data (Typeable)
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 
 class (Typeable a) => System m a where
@@ -159,6 +160,43 @@ mapWith f =
               \_ w -> do
                 ((os, g', _), as) <- runWriterT $ g () w
                 return (zip as os, g', pure ())
+            )
+
+mapSingleWith ::
+  forall m i o a.
+  ( Monad m,
+    ComponentIds (EntityT i),
+    Queryable (EntityT i),
+    Q.Map (IsEq (Entity (EntityT i)) (Entity (EntityT o))) i o
+  ) =>
+  (i -> m (a, o)) ->
+  Task m () (a, o)
+mapSingleWith f = fmap (fromMaybe (error "TODO")) (mapMaybeSingleWith f)
+
+mapMaybeSingleWith ::
+  forall m i o a.
+  ( Monad m,
+    ComponentIds (EntityT i),
+    Queryable (EntityT i),
+    Q.Map (IsEq (Entity (EntityT i)) (Entity (EntityT o))) i o
+  ) =>
+  (i -> m (a, o)) ->
+  Task m () (Maybe (a, o))
+mapMaybeSingleWith f =
+  let f' i = do
+        (a, o) <- lift $ f i
+        tell [a]
+        return o
+      x = mapView (\v cs -> V.mapM f' v cs)
+   in Task $ \cs ->
+        let (cs', cIds, g) = runTask x cs
+         in ( cs',
+              cIds,
+              \_ w -> do
+                ((os, g', _), as) <- runWriterT $ g () w
+                case (os, as) of
+                  ([o], [a]) -> return (Just (a, o), g', pure ())
+                  _ -> return (Nothing, g', pure ())
             )
 
 newtype ViewT m v a = ViewT

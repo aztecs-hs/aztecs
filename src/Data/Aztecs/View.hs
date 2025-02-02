@@ -106,6 +106,30 @@ mapM f v cs = do
       (viewArchetypes v)
   return (o, v {viewArchetypes = arches})
 
+mapSingleM ::
+  forall m i o.
+  (Monad m, Q.Map (IsEq (Entity (EntityT i)) (Entity (EntityT o))) i o) =>
+  (i -> m o) ->
+  View (EntityT i) ->
+  Components ->
+  m (Maybe o, View (EntityT i))
+mapSingleM f v cs = do
+  (o, arches) <-
+    Q.mapSingleM' @(IsEq (Entity (EntityT i)) (Entity (EntityT o)))
+      f
+      cs
+      ( \_ g arches' ->
+          foldrM
+            ( \(aId, arch) (acc, archAcc) -> do
+                (os, arch') <- g arch
+                return (os : acc, Map.insert aId arch' archAcc)
+            )
+            ([], Map.empty)
+            (Map.toList arches')
+      )
+      (viewArchetypes v)
+  return (o, v {viewArchetypes = arches})
+
 lookup ::
   (FromEntity a, Lookup (Entity (EntityT a))) =>
   EntityID ->

@@ -276,7 +276,12 @@ instance System IO DrawImages where
                           renderer
                           texture
                           Nothing
-                          (Just (Rectangle (fmap (fromIntegral @CInt . round) . P $ transformPosition transform) (fmap fromIntegral (imageSize img))))
+                          ( Just
+                              ( Rectangle
+                                  (fmap (fromIntegral @CInt . round) . P $ transformPosition transform)
+                                  (fmap fromIntegral (imageSize img))
+                              )
+                          )
                           (realToFrac $ transformRotation transform)
                           Nothing
                           (V2 False False)

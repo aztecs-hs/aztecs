@@ -23,19 +23,17 @@ data Setup
 
 instance System IO Setup where
   task =
-    S.mapWith
+    S.mapSingleWith
       ( \assetServer -> do
           (assetId, assetServer') <- load "example.png" assetServer
           return (assetId, assetServer')
       )
       >>> S.queueWith
-        ( \res -> case res of
-            [(assetId, _)] -> do
-              A.spawn_ (Window {windowTitle = "Aztecs"})
-              A.spawn_ $
-                Image {imageAssetId = assetId, imageSize = V2 100 100}
-                  :& transform {transformPosition = V2 100 100}
-            _ -> error "TODO"
+        ( \(assetId, _) -> do
+            A.spawn_ (Window {windowTitle = "Aztecs"})
+            A.spawn_ $
+              Image {imageAssetId = assetId, imageSize = V2 100 100}
+                :& transform {transformPosition = V2 100 100}
         )
 
 app :: Scheduler IO
