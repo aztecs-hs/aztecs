@@ -14,15 +14,19 @@ module Data.Aztecs
     schedule,
     before,
     after,
+    QueryFilter,
+    with,
+    without,
   )
 where
 
 import Data.Aztecs.Access (Access, runAccess)
 import Data.Aztecs.Component (Component (..))
 import Data.Aztecs.Entity (Entity, EntityID, (:&) (..))
+import Data.Aztecs.Query (QueryFilter, with, without)
 import Data.Aztecs.Scheduler
-  ( Scheduler,
-    PreStartup,
+  ( PreStartup,
+    Scheduler,
     Startup,
     Update,
     after,

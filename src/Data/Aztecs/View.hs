@@ -40,6 +40,32 @@ view' cs as =
         cs'
       )
 
+viewFilter ::
+  forall a.
+  (ComponentIds a, Queryable a) =>
+  (Archetype -> Bool) ->
+  World ->
+  (View a, World)
+viewFilter f w =
+  let (v, cs') = viewFilter' @a f (W.components w) (W.archetypes w)
+   in (v, w {W.components = cs'})
+
+viewFilter' ::
+  forall a.
+  (ComponentIds a, Queryable a) =>
+  (Archetype -> Bool) ->
+  Components ->
+  Archetypes ->
+  (View a, Components)
+viewFilter' f cs as =
+  let (cIds, cs') = componentIds @a cs
+   in ( View
+          { viewArchetypes = Map.filter f (AS.lookup cIds as),
+            viewQuery = query @a
+          },
+        cs'
+      )
+
 unview :: View a -> World -> World
 unview v w =
   w

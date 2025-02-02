@@ -16,6 +16,7 @@ module Data.Aztecs.World.Archetype
     Lookup (..),
     lookupComponent,
     lookupStorage,
+    member,
     remove,
     removeStorages,
     insertComponent,
@@ -93,6 +94,9 @@ all :: (Component a) => ComponentID -> Archetype -> [(EntityID, a)]
 all cId arch = fromMaybe [] $ do
   s <- lookupStorage cId arch
   return . map (first EntityID) $ S.all s
+
+member :: ComponentID -> Archetype -> Bool
+member cId arch = Map.member cId (storages arch)
 
 allMaybe :: (Component a) => ComponentID -> Archetype -> [(EntityID, Maybe a)]
 allMaybe cId arch = case lookupStorage cId arch of

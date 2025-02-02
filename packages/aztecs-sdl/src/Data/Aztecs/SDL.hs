@@ -174,15 +174,15 @@ data DrawImages
 
 instance System IO DrawImages where
   task = proc () -> do
-    imgs <- S.all @_ @(Image :& Maybe Draw) -< ()
+    imgs <- S.allFilter @_ @Image (without @Draw) -< ()
     assets <- S.single @_ @(AssetServer Texture) -< ()
     newAssets <-
       S.viewWith @_ @_ @'[Draw]
         ( \(imgs, assets) -> do
             maybeAssets <-
               mapM
-                ( \(eId, img :& d) -> case (d, lookupAsset (imageTexture img) assets) of
-                    (Nothing, Just surface) -> do
+                ( \(eId, img) -> case lookupAsset (imageTexture img) assets of
+                    Just surface -> do
                       return $ Just (surface, img, eId)
                     _ -> return Nothing
                 )

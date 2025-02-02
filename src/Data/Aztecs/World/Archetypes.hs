@@ -97,7 +97,10 @@ findArchetypeIds cIds arches = case mapMaybe (\cId -> Map.lookup cId (componentI
 
 -- | Lookup `Archetype`s containing a set of `ComponentID`s.
 lookup :: Set ComponentID -> Archetypes -> Map ArchetypeID Archetype
-lookup cIds arches = Map.fromSet (\aId -> nodeArchetype $ nodes arches Map.! aId) (findArchetypeIds cIds arches)
+lookup cIds arches =
+  Map.fromSet
+    (\aId -> nodeArchetype $ nodes arches Map.! aId)
+    (findArchetypeIds cIds arches)
 
 lookupById ::
   (FromEntity a, Lookup (Entity (EntityT a))) =>

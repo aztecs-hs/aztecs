@@ -12,7 +12,11 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Data.Aztecs.Query
-  ( Query (..),
+  ( QueryFilter (..),
+    emptyFilter,
+    with,
+    without,
+    Query (..),
     (<?>),
     fetch,
     fetchId,
@@ -47,6 +51,33 @@ import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Prelude hiding (all, lookup, map)
+
+data QueryFilter = QueryFilter
+  { filterWith :: Components -> Set ComponentID,
+    filterWithout :: Components -> Set ComponentID
+  }
+
+instance Semigroup QueryFilter where
+  QueryFilter withA withoutA <> QueryFilter withB withoutB =
+    QueryFilter (\cs -> withA cs <> withB cs) (\cs -> withoutA cs <> withoutB cs)
+
+instance Monoid QueryFilter where
+  mempty = emptyFilter
+
+emptyFilter :: QueryFilter
+emptyFilter = QueryFilter (const Set.empty) (const Set.empty)
+
+with :: forall a. (Component a, Typeable (StorageT a)) => QueryFilter
+with =
+  emptyFilter
+    { filterWith = \cs -> fromMaybe (Set.empty) (Set.singleton <$> CS.lookup @a cs)
+    }
+
+without :: forall a. (Component a, Typeable (StorageT a)) => QueryFilter
+without =
+  emptyFilter
+    { filterWithout = \cs -> fromMaybe (Set.empty) (Set.singleton <$> CS.lookup @a cs)
+    }
 
 data QueryState a = QueryState
   { queryStateComponentIds :: Set ComponentID,
@@ -172,7 +203,7 @@ class QueryItem a where
 instance (Component c, Typeable (StorageT c)) => QueryItem '[c] where
   queryItem = fetch @c
 
-instance  {-# OVERLAPPING #-} (Component c, Typeable (StorageT c)) => QueryItem '[Maybe c] where
+instance {-# OVERLAPPING #-} (Component c, Typeable (StorageT c)) => QueryItem '[Maybe c] where
   queryItem = fetchMaybe @c
 
 class Queryable a where

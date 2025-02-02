@@ -12,18 +12,20 @@ module Data.Aztecs.System where
 
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
-import Control.Monad.Reader (MonadReader (..), MonadTrans (..), ReaderT (runReaderT), MonadIO)
+import Control.Monad.Reader (MonadIO, MonadReader (..), MonadTrans (..), ReaderT (runReaderT))
 import Control.Monad.Writer (MonadWriter (..), WriterT (runWriterT))
 import Data.Aztecs.Access (Access, runAccess)
 import Data.Aztecs.Entity (ComponentIds (componentIds), Entity, EntityID, EntityT, FromEntity)
-import Data.Aztecs.Query (IsEq, Queryable)
+import Data.Aztecs.Query (IsEq, QueryFilter (..), Queryable)
 import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.View (View (..))
 import qualified Data.Aztecs.View as V
 import Data.Aztecs.World (ArchetypeID, World (..))
-import Data.Aztecs.World.Archetype (Lookup)
+import Data.Aztecs.World.Archetype (Archetype, Lookup)
+import qualified Data.Aztecs.World.Archetype as A
 import Data.Aztecs.World.Components (ComponentID, Components)
 import Data.Data (Typeable)
+import qualified Data.Foldable as F
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
@@ -93,6 +95,13 @@ instance (Monad m) => Arrow (Task m) where
 
 all :: forall m a. (Monad m, FromEntity a, ComponentIds (EntityT a), Queryable (EntityT a)) => Task m () [(EntityID, a)]
 all = view @_ @(EntityT a) allView
+
+allFilter ::
+  forall m a.
+  (Monad m, FromEntity a, ComponentIds (EntityT a), Queryable (EntityT a)) =>
+  QueryFilter ->
+  Task m () [(EntityID, a)]
+allFilter f = viewFilter @_ @(EntityT a) f allView
 
 single ::
   forall m a.
@@ -275,6 +284,41 @@ view vt = Task $ \cs ->
         [cIds],
         \_ w ->
           let (v, w') = V.view @v w
+           in (,Prelude.id,pure ()) <$> runReaderT (unViewT vt) (v, components w', entities w')
+      )
+
+viewFilter ::
+  forall m v a.
+  (Monad m, ComponentIds v, Queryable v) =>
+  QueryFilter ->
+  (ViewT m v a) ->
+  Task m () a
+viewFilter f vt = Task $ \cs ->
+  let (cIds, cs') = componentIds @v cs
+      with' = filterWith f cs'
+      without' = filterWithout f cs'
+      f' arch =
+        F.all (\cId -> A.member cId arch) with'
+          && F.all (\cId -> not (A.member cId arch)) without'
+   in ( cs',
+        [cIds],
+        \_ w ->
+          let (v, w') = V.viewFilter @v f' w
+           in (,Prelude.id,pure ()) <$> runReaderT (unViewT vt) (v, components w', entities w')
+      )
+
+viewFilterWith ::
+  forall m v a.
+  (Monad m, ComponentIds v, Queryable v) =>
+  (Archetype -> Bool) ->
+  (ViewT m v a) ->
+  Task m () a
+viewFilterWith f vt = Task $ \cs ->
+  let (cIds, cs') = componentIds @v cs
+   in ( cs',
+        [cIds],
+        \_ w ->
+          let (v, w') = V.viewFilter @v f w
            in (,Prelude.id,pure ()) <$> runReaderT (unViewT vt) (v, components w', entities w')
       )
 
