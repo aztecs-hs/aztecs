@@ -90,13 +90,13 @@ instance System IO RenderWindows where
             windowDraws
      in proc () -> do
           windows <- S.all @_ @WindowRenderer -< ()
-          draws <- S.all @_ @(Draw :& (Transform :& WindowTarget)) -< ()
+          draws <- S.all @_ @(Draw :& Transform :& WindowTarget) -< ()
           let windowDraws =
                 foldr
                   ( \(eId, window) acc ->
                       let draws' =
                             foldr
-                              ( \(_, d :& (transform :& target)) acc' ->
+                              ( \(_, d :& transform :& target) acc' ->
                                   if unWindowTarget target == eId
                                     then (d, transform) : acc'
                                     else acc'

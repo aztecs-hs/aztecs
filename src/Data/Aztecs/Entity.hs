@@ -26,7 +26,7 @@ module Data.Aztecs.Entity
     Split (..),
     Has (..),
     Sort (..),
-    ComponentIds(..),
+    ComponentIds (..),
     concat,
     (<&>),
     (:&) (..),
@@ -97,6 +97,8 @@ instance forall a as bs. (Split as bs) => Split (a ': as) (a ': bs) where
      in (ECons x as, bs)
 
 data a :& b = a :& b
+
+infixr 5 :&
 
 type family EntityT a where
   EntityT (a :& b) = a ': EntityT b
@@ -212,4 +214,3 @@ instance (Component a, ComponentIds as) => ComponentIds (a ': as) where
     let (cId, cs') = CS.insert @a cs
         (cIds, cs'') = componentIds @as cs'
      in (Set.insert cId cIds, cs'')
-

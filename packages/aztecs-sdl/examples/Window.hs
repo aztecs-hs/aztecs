@@ -33,14 +33,13 @@ instance System IO Setup where
             eId <- A.spawn (Window {windowTitle = "Aztecs"})
             A.spawn_ $
               Image {imageAssetId = assetId, imageSize = V2 100 100}
-                :& ( transform {transformPosition = V2 100 100}
-                       :& WindowTarget eId
-                   )
+                :& transform {transformPosition = V2 100 100}
+                :& WindowTarget eId
+
             A.spawn_ $
               Image {imageAssetId = assetId, imageSize = V2 200 200}
-                :& ( transform {transformPosition = V2 500 100}
-                       :& WindowTarget eId
-                   )
+                :& transform {transformPosition = V2 500 100}
+                :& WindowTarget eId
         )
 
 app :: Scheduler IO
