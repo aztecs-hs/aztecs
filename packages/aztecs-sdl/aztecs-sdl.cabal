@@ -32,6 +32,7 @@ library
         containers >=0.7,
         mtl >=2,
         sdl2 >=2,
+        sdl2-image >=2,
         text >=1.2,
         linear >= 1
 

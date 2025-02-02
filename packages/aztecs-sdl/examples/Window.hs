@@ -5,7 +5,7 @@ module Main where
 
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
-import Data.Aztecs.SDL (Window (..), rect, sdlPlugin)
+import Data.Aztecs.SDL (Window (..), img, sdlPlugin)
 import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Transform (transformPosition), transform)
 import SDL hiding (Window, windowTitle)
@@ -23,7 +23,7 @@ data Setup
 instance System IO Setup where
   task = S.queue $ do
     A.spawn_ (Window {windowTitle = "Aztecs"})
-    A.spawn_ $ rect (V2 50 50) :& transform {transformPosition = V2 100 100}
+    A.spawn_ $ img "example.png" (V2 100 100) :& transform {transformPosition = V2 100 100}
 
 app :: Scheduler IO
 app = sdlPlugin <> schedule @_ @Startup @Setup []

@@ -17,6 +17,7 @@ import qualified Data.Text as T
 import Foreign.C (CInt)
 import SDL hiding (Window, windowTitle)
 import qualified SDL
+import qualified SDL.Image as IMG
 
 data Window = Window
   { windowTitle :: String
@@ -163,6 +164,26 @@ rect size = Draw $
       (realToFrac $ transformRotation transform)
       Nothing
       (V2 False False)
+    freeSurface surface
+    destroyTexture texture
+
+img :: FilePath -> V2 Int -> Draw
+img path size = Draw $ \transform renderer -> do
+  surface <- IMG.load path
+  texture <-
+    SDL.createTextureFromSurface
+      renderer
+      surface
+  copyEx
+    renderer
+    texture
+    Nothing
+    (Just (Rectangle (fmap (fromIntegral @CInt . round) . P $ transformPosition transform) (fmap fromIntegral size)))
+    (realToFrac $ transformRotation transform)
+    Nothing
+    (V2 False False)
+  freeSurface surface
+  destroyTexture texture
 
 sdlPlugin :: Scheduler IO
 sdlPlugin =
