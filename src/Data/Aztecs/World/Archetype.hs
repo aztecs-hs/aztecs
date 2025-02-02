@@ -12,7 +12,8 @@ module Data.Aztecs.World.Archetype
   ( Archetype (..),
     empty,
     all,
-    lookup,
+    Lookup(..),
+    lookupComponent,
     lookupStorage,
     remove,
     removeStorages,
@@ -88,8 +89,20 @@ all cId arch = fromMaybe [] $ do
   s <- lookupStorage cId arch
   return . map (first EntityID) $ S.all s
 
-lookup :: forall a. (Component a) => EntityID -> ComponentID -> Archetype -> Maybe a
-lookup e cId w = lookupStorage cId w >>= S.lookup (unEntityId e)
+class Lookup a where
+  lookup :: EntityID -> Components -> Archetype -> Maybe a
+
+instance Lookup (Entity '[]) where
+  lookup _ _ _ = Just ENil
+
+instance (Component a, Lookup (Entity as)) => Lookup (Entity (a ': as)) where
+  lookup eId cs arch = do
+    a <- lookupComponent eId (fromMaybe (error "TODO") (CS.lookup @a cs)) arch
+    as <- lookup eId cs arch
+    return $ ECons a as
+
+lookupComponent :: forall a. (Component a) => EntityID -> ComponentID -> Archetype -> Maybe a
+lookupComponent e cId w = lookupStorage cId w >>= S.lookup (unEntityId e)
 
 insertAscList :: forall a. (Component a) => ComponentID -> [(EntityID, a)] -> Archetype -> Archetype
 insertAscList cId as arch = arch {storages = Map.insert cId (anyStorage $ S.fromAscList @(StorageT a) (map (first unEntityId) as)) (storages arch)}

@@ -95,7 +95,7 @@ fetch = Query $ \cs ->
                   A.insertAscList cId . fmap (\((e, _), ECons a ENil) -> (e, a)) . zip as
                 ),
           queryStateLookup = \eId arch -> do
-            a <- A.lookup eId cId arch
+            a <- A.lookupComponent eId cId arch
             return $ ECons a ENil,
           queryStateInsert = \eId arch e -> let (_, arch', _) = A.insert eId e arch cs in arch'
         }
@@ -115,7 +115,7 @@ fetch' f = Query $ \cs ->
                   A.insertAscList cId . fmap (\((e, _), ECons a ENil) -> (e, a)) . zip as
                 ),
           queryStateLookup = \eId arch -> do
-            a <- A.lookup eId cId arch
+            a <- A.lookupComponent eId cId arch
             return $ ECons a ENil,
           queryStateInsert = \eId arch e -> let (_, arch', _) = A.insert eId e arch cs in arch'
         }

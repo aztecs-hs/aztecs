@@ -10,7 +10,8 @@ import Data.Aztecs.Query (IsEq, Query (..), QueryState (..), Queryable (..))
 import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.World (ArchetypeID, World)
 import qualified Data.Aztecs.World as W
-import Data.Aztecs.World.Archetype (Archetype)
+import Data.Aztecs.World.Archetype (Archetype, Lookup)
+import qualified Data.Aztecs.World.Archetype as A
 import Data.Aztecs.World.Archetypes (Archetypes)
 import qualified Data.Aztecs.World.Archetypes as AS
 import Data.Aztecs.World.Components (Components)
@@ -79,3 +80,15 @@ map f v cs =
           )
           (viewArchetypes v)
    in (o, v {viewArchetypes = arches})
+
+lookup ::
+  (FromEntity a, Lookup (Entity (EntityT a))) =>
+  EntityID ->
+  View (EntityT a) ->
+  ArchetypeID ->
+  Components ->
+  Maybe a
+lookup eId v aId cs = do
+  arch <- Map.lookup aId (viewArchetypes v)
+  e <- A.lookup eId cs arch
+  return $ fromEntity e

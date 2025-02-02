@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
@@ -11,15 +12,19 @@ module Data.Aztecs.System where
 
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
+import Control.Monad.Reader (MonadReader (..), ReaderT (runReaderT))
 import Data.Aztecs.Access (Access, runAccess)
 import Data.Aztecs.Entity (ComponentIds (componentIds), Entity, EntityID, EntityT, FromEntity)
 import Data.Aztecs.Query (IsEq, Queryable)
 import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.View (View (..))
 import qualified Data.Aztecs.View as V
-import Data.Aztecs.World (World (..))
+import Data.Aztecs.World (ArchetypeID, World (..))
+import Data.Aztecs.World.Archetype (Lookup)
 import Data.Aztecs.World.Components (ComponentID, Components)
 import Data.Data (Typeable)
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Data.Set (Set)
 
 class (Typeable a) => System m a where
@@ -84,7 +89,19 @@ instance (Monad m) => Arrow (Task m) where
           )
 
 all :: forall m a. (Monad m, FromEntity a, ComponentIds (EntityT a), Queryable (EntityT a)) => Task m () [(EntityID, a)]
-all = view @_ @(EntityT a) (\v cs -> pure $ V.all @a v cs)
+all = view @_ @(EntityT a) allView
+
+lookup ::
+  forall m a.
+  ( Monad m,
+    FromEntity a,
+    ComponentIds (EntityT a),
+    Queryable (EntityT a),
+    Lookup (Entity (EntityT a))
+  ) =>
+  EntityID ->
+  Task m () (Maybe a)
+lookup eId = view @_ @(EntityT a) (lookupView eId)
 
 map ::
   forall m i o.
@@ -97,18 +114,60 @@ map ::
   Task m () [o]
 map f = mapView (\v cs -> pure $ V.map f v cs)
 
+newtype ViewT m v a = ViewT
+  {unViewT :: ReaderT (View v, Components, Map EntityID ArchetypeID) m a}
+  deriving (Functor, Applicative, Monad)
+
+lookupView ::
+  forall m a.
+  ( Monad m,
+    FromEntity a,
+    ComponentIds (EntityT a),
+    Queryable (EntityT a),
+    Lookup (Entity (EntityT a))
+  ) =>
+  EntityID ->
+  ViewT m (EntityT a) (Maybe a)
+lookupView eId = ViewT $ do
+  (v, cs, es) <- ask
+  return $ do
+    aId <- Map.lookup eId es
+    V.lookup eId v aId cs
+
+allView ::
+  forall m a.
+  (Monad m, FromEntity a, ComponentIds (EntityT a), Queryable (EntityT a)) =>
+  ViewT m (EntityT a) [(EntityID, a)]
+allView = ViewT $ do
+  (v, cs, _) <- ask
+  return $ V.all @a v cs
+
 view ::
   forall m v a.
   (Monad m, ComponentIds v, Queryable v) =>
-  (View v -> Components -> m a) ->
+  (ViewT m v a) ->
   Task m () a
-view f = Task $ \cs ->
+view vt = Task $ \cs ->
   let (cIds, cs') = componentIds @v cs
    in ( cs',
         [cIds],
         \_ w ->
           let (v, w') = V.view @v w
-           in (,Prelude.id,pure ()) <$> f v (components w')
+           in (,Prelude.id,pure ()) <$> runReaderT (unViewT vt) (v, components w', entities w')
+      )
+
+viewWith ::
+  forall m i v a.
+  (Monad m, ComponentIds v, Queryable v) =>
+  (i -> ViewT m v a) ->
+  Task m i a
+viewWith f = Task $ \cs ->
+  let (cIds, cs') = componentIds @v cs
+   in ( cs',
+        [cIds],
+        \i w ->
+          let (v, w') = V.view @v w
+           in (,Prelude.id,pure ()) <$> runReaderT (unViewT (f i)) (v, components w', entities w')
       )
 
 mapView ::
@@ -128,6 +187,9 @@ mapView f = Task $ \cs ->
 -- | Queue an `Access` to alter the world after this task is complete.
 queue :: (Monad m) => Access m () -> Task m () ()
 queue a = Task (,[],\_ _ -> pure ((), Prelude.id, a))
+
+queueWith :: (Monad m) => (i -> Access m ()) -> Task m i ()
+queueWith f = Task (,[],\i _ -> pure ((), Prelude.id, f i))
 
 run :: (Monad m) => (i -> m o) -> Task m i o
 run f =
