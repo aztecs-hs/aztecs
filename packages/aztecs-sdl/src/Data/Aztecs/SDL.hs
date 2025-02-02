@@ -9,6 +9,7 @@ module Data.Aztecs.SDL where
 import Control.Arrow
 import Data.Aztecs
 import qualified Data.Aztecs.System as S
+import qualified Data.Aztecs.View as V
 import SDL hiding (Window)
 
 data Window = Window
@@ -17,6 +18,13 @@ data Window = Window
   deriving (Show)
 
 instance Component Window
+
+newtype WindowRenderer = WindowRenderer
+  { windowRenderer :: Renderer
+  }
+  deriving (Show)
+
+instance Component WindowRenderer
 
 data Setup
 
@@ -27,7 +35,7 @@ data Run
 
 instance System IO Run where
   task = proc () -> do
-    windows <- S.all @_ @'[Window] -< ()
+    windows <- S.all @_ @Window -< ()
     S.run (\ws -> print ws) -< windows
     returnA -< ()
 

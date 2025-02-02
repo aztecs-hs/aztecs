@@ -5,7 +5,7 @@
 
 module Data.Aztecs.View where
 
-import Data.Aztecs.Entity (ComponentIds, EntityT, componentIds, Entity)
+import Data.Aztecs.Entity (ComponentIds, Entity, EntityID, EntityT, FromEntity (..), componentIds)
 import Data.Aztecs.Query (IsEq, Query (..), QueryState (..), Queryable (..))
 import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.World (ArchetypeID, World)
@@ -48,10 +48,11 @@ unview v w =
           (Map.toList $ viewArchetypes v)
     }
 
-queryAll :: View a -> Components -> [Entity a]
-queryAll v cs = fromMaybe [] $ do
+all :: (FromEntity a) => View (EntityT a) -> Components -> [(EntityID, a)]
+all v cs = fromMaybe [] $ do
   let qS = runQuery' (viewQuery v) cs
-  return $ concatMap (fst . queryStateAll qS) (Map.elems $ viewArchetypes v)
+      es = concatMap (fst . queryStateAll qS) (Map.elems $ viewArchetypes v)
+  return $ fmap (\(eId, e) -> (eId, fromEntity e)) es
 
 -- | Map over all entities that match this query,
 -- storing the resulting components in the @View@.

@@ -12,7 +12,7 @@ module Data.Aztecs.System where
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
 import Data.Aztecs.Access (Access, runAccess)
-import Data.Aztecs.Entity (ComponentIds (componentIds), Entity, EntityT)
+import Data.Aztecs.Entity (ComponentIds (componentIds), Entity, EntityID, EntityT, FromEntity)
 import Data.Aztecs.Query (IsEq, Queryable)
 import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.View (View (..))
@@ -83,8 +83,8 @@ instance (Monad m) => Arrow (Task m) where
               return ((o, x), f', access)
           )
 
-all :: forall m v. (Monad m, ComponentIds v, Queryable v) => Task m () [Entity v]
-all = view @_ @v (\v cs -> pure $ V.queryAll v cs)
+all :: forall m a. (Monad m, FromEntity a, ComponentIds (EntityT a), Queryable (EntityT a)) => Task m () [(EntityID, a)]
+all = view @_ @(EntityT a) (\v cs -> pure $ V.all @a v cs)
 
 map ::
   forall m i o.

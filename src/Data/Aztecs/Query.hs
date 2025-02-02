@@ -49,7 +49,7 @@ import Prelude hiding (all, lookup, map)
 
 data QueryState a = QueryState
   { queryStateComponentIds :: Set ComponentID,
-    queryStateAll :: Archetype -> ([(Entity a)], [Entity a] -> Archetype -> Archetype),
+    queryStateAll :: Archetype -> ([(EntityID, Entity a)], [Entity a] -> Archetype -> Archetype),
     queryStateLookup :: EntityID -> Archetype -> Maybe (Entity a),
     queryStateInsert :: EntityID -> Archetype -> Entity a -> Archetype
   }
@@ -68,10 +68,10 @@ newtype Query a = Query {runQuery' :: Components -> QueryState a}
    in QueryState
         { queryStateComponentIds = queryStateComponentIds aQS <> queryStateComponentIds bQS,
           queryStateAll = \arch ->
-            let (a'', aF) = queryStateAll aQS arch
-                (b'', bF) = queryStateAll bQS arch
-             in ( uncurry E.concat <$> zip a'' b'',
-                  \new newArch -> let (as, bs) = unzip $ fmap E.split new in bF bs $ aF as newArch
+            let (as, aF) = queryStateAll aQS arch
+                (bs, bF) = queryStateAll bQS arch
+             in ( fmap (\((eId, aE), (_, bE)) -> (eId, E.concat aE bE)) (zip as bs),
+                  \new newArch -> let (as', bs') = unzip $ fmap E.split new in bF bs' $ aF as' newArch
                 ),
           queryStateLookup = \eId arch -> do
             aE <- queryStateLookup aQS eId arch
@@ -91,7 +91,7 @@ fetch = Query $ \cs ->
         { queryStateComponentIds = Set.singleton cId,
           queryStateAll = \arch ->
             let as = A.all cId arch
-             in ( fmap (\x -> ECons (snd x) ENil) as,
+             in ( fmap (\(eId, a) -> (eId, ECons a ENil)) as,
                   A.insertAscList cId . fmap (\((e, _), ECons a ENil) -> (e, a)) . zip as
                 ),
           queryStateLookup = \eId arch -> do
@@ -111,7 +111,7 @@ fetch' f = Query $ \cs ->
         { queryStateComponentIds = Set.singleton cId,
           queryStateAll = \arch ->
             let as = A.all cId arch
-             in ( fmap (\x -> ECons (snd x) ENil) as,
+             in ( fmap (\(eId, a) -> (eId, ECons a ENil)) as,
                   A.insertAscList cId . fmap (\((e, _), ECons a ENil) -> (e, a)) . zip as
                 ),
           queryStateLookup = \eId arch -> do
@@ -120,15 +120,19 @@ fetch' f = Query $ \cs ->
           queryStateInsert = \eId arch e -> let (_, arch', _) = A.insert eId e arch cs in arch'
         }
 
-all :: forall a. (ToEntity a, FromEntity a, Queryable (EntityT a)) => World -> [a]
-all = fmap fromEntity . queryAll (query @(EntityT a))
+all :: (ToEntity a, FromEntity a, Queryable (EntityT a)) => World -> [a]
+all w = fmap snd (allWithId w)
 
-queryAll :: Query a -> World -> [Entity a]
+allWithId :: forall a. (ToEntity a, FromEntity a, Queryable (EntityT a)) => World -> [(EntityID, a)]
+allWithId = fmap (\(eId, e) -> (eId, fromEntity e)) . queryAll (query @(EntityT a))
+
+queryAll :: (FromEntity a) => Query (EntityT a) -> World -> [(EntityID, a)]
 queryAll q w = fromMaybe [] $ do
   let qS = runQuery' q (components w)
-  return $ concatMap (fst . queryStateAll qS) (AS.lookup (queryStateComponentIds qS) (archetypes w))
+      es = concatMap (fst . queryStateAll qS) (AS.lookup (queryStateComponentIds qS) (archetypes w))
+  return $ fmap (\(eId, e) -> (eId, fromEntity e)) es
 
-queryAll' :: Query a -> Archetypes -> Components -> [Entity a]
+queryAll' :: Query a -> Archetypes -> Components -> [(EntityID, Entity a)]
 queryAll' q as cs = fromMaybe [] $ do
   let qS = runQuery' q cs
   return $ concatMap (fst . queryStateAll qS) (AS.lookup (queryStateComponentIds qS) as)
@@ -174,7 +178,7 @@ instance (FromEntity i, ToEntity o, EntityT i ~ a, EntityT o ~ a, Queryable a) =
     let qS = runQuery' (query @a) cs
         go arch =
           let (as, h) = queryStateAll qS arch
-              as' = fmap (f . fromEntity) as
+              as' = fmap (f . fromEntity) (fmap snd as)
               arch' = h (fmap toEntity as') arch
            in (as', arch')
     let (es, arches') = mapArches (queryStateComponentIds qS) go arches'
@@ -200,7 +204,7 @@ instance
         g arch =
           let (as, aH) = queryStateAll aQS arch
               (bs, _) = queryStateAll bQS arch
-              es = fmap (\(aE, bE) -> f $ fromEntity @i (E.sort $ E.concat bE aE)) (zip as bs)
+              es = fmap (\(aE, bE) -> f $ fromEntity @i (E.sort $ E.concat bE aE)) (zip (fmap snd as) (fmap snd bs))
               arch' = aH (fmap (\x -> let e = E.sort $ toEntity x in e) es) arch
            in (es, arch')
         (es', arches') = mapArches (queryStateComponentIds aQS <> queryStateComponentIds bQS) g arches
