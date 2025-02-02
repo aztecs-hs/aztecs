@@ -76,16 +76,12 @@ instance System IO RenderWindows where
   task =
     let draw windowDraws =
           mapM_
-            ( \(window, draws) ->
-                mapM_
-                  ( \(d, transform) -> do
-                      let renderer = windowRenderer window
-                      rendererDrawColor renderer $= V4 0 0 0 255
-                      clear renderer
-                      runDraw d transform renderer
-                      present renderer
-                  )
-                  draws
+            ( \(window, draws) -> do
+                let renderer = windowRenderer window
+                rendererDrawColor renderer $= V4 0 0 0 255
+                clear renderer
+                mapM_ (\(d, transform) -> runDraw d transform renderer) draws
+                present renderer
             )
             windowDraws
      in proc () -> do
@@ -265,6 +261,7 @@ instance System IO DrawImages where
                   ( Draw $
                       \transform renderer -> do
                         texture <- SDL.createTextureFromSurface renderer surface
+
                         copyEx
                           renderer
                           texture
@@ -272,7 +269,7 @@ instance System IO DrawImages where
                           ( Just
                               ( Rectangle
                                   (fmap (fromIntegral @CInt . round) . P $ transformPosition transform)
-                                  (fmap fromIntegral (imageSize img))
+                                  (fmap fromIntegral $ imageSize img)
                               )
                           )
                           (realToFrac $ transformRotation transform)
