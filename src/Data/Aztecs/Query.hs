@@ -32,7 +32,6 @@ where
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
 import qualified Control.Monad as M
-import Control.Monad.Writer (MonadWriter (..))
 import Data.Aztecs.Component
 import Data.Aztecs.Entity (EntityID)
 import Data.Aztecs.World.Archetype (Archetype)
@@ -108,8 +107,8 @@ instance (Monad m) => Category (Query m) where
     ( Set.empty,
       cs,
       QueryState
-        { queryStateAll = \_ arch -> pure ([], arch),
-          queryStateLookup = \_ _ _ -> pure Nothing
+        { queryStateAll = \as arch -> pure (as, arch),
+          queryStateLookup = \a _ _ -> pure (Just a)
         }
     )
   (Query f) . (Query g) = Query $ \cs ->
@@ -202,21 +201,53 @@ mapM f = Query $ \cs ->
       )
 
 mapAccum ::
+  forall m b a.
+  (Monad m, Component a, Typeable (StorageT a)) =>
+  (a -> m (b, a)) ->
+  Query m () (b, a)
+mapAccum f = Query $ \cs ->
+  let (cId, cs') = CS.insert @a cs
+   in ( Set.singleton cId,
+        cs',
+        QueryState
+          { queryStateAll = \_ arch -> do
+              let as = A.all @a cId arch
+              bas <-
+                M.mapM
+                  ( \(eId, a) -> do
+                      (b, a') <- f a
+                      return ((b, a'), (eId, a'))
+                  )
+                  as
+              let (bs, as') = unzip bas
+              return (bs, A.insertAscList cId as' arch),
+            queryStateLookup = \_ eId arch -> case A.lookupComponent eId cId arch of
+              Just a -> do
+                (b, a') <- f a
+                pure $ Just (b, a')
+              Nothing -> pure Nothing
+          }
+      )
+
+zipMapAccum ::
   forall m i b a.
   (Monad m, Component a, Typeable (StorageT a)) =>
   (i -> a -> m (b, a)) ->
   Query m i (EntityID, b, a)
-mapAccum f = Query $ \cs ->
+zipMapAccum f = Query $ \cs ->
   let (cId, cs') = CS.insert @a cs
    in ( Set.singleton cId,
         cs',
         QueryState
           { queryStateAll = \i arch -> do
               let as = A.all @a cId arch
-              bs_as' <- M.mapM (\((eId, a), i') -> do
-                                  (b, a') <- f i' a
-                                  return ((eId, b, a'), (eId, a'))
-                               ) (zip as i)
+              bs_as' <-
+                M.mapM
+                  ( \((eId, a), i') -> do
+                      (b, a') <- f i' a
+                      return ((eId, b, a'), (eId, a'))
+                  )
+                  (zip as i)
               let (bs, as') = unzip bs_as'
               return (bs, A.insertAscList cId as' arch),
             queryStateLookup = \i eId arch -> case A.lookupComponent eId cId arch of

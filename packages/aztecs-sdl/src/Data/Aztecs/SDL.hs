@@ -128,7 +128,7 @@ instance Component Draw
 addWindowTargets :: System IO () ()
 addWindowTargets = proc () -> do
   windows <- S.all (Q.fetchWithId @_ @WindowRenderer) -< ()
-  newDraws <- S.allFilter (Q.fetchWithId @_ @Draw )(without @WindowTarget) -< ()
+  newDraws <- S.allFilter (Q.fetchWithId @_ @Draw) (without @WindowTarget) -< ()
   S.queueWith
     ( \(newDraws, windows) -> case windows of
         (windowEId, _) : _ -> mapM_ (\(eId, _) -> A.insert eId $ WindowTarget windowEId) newDraws

@@ -16,9 +16,9 @@ import SDL (V2 (..))
 
 setup :: System IO () ()
 setup =
-  S.single (Q.mapAccum (\_ s -> load "example.png" s))
+  S.single (Q.mapAccum (\s -> load "example.png" s))
     >>> S.queueWith
-      ( \(_, texture, _) -> do
+      ( \(texture, _) -> do
           A.spawn_ Window {windowTitle = "Aztecs"}
           A.spawn_ $
             Image {imageTexture = texture, imageSize = V2 100 100}
