@@ -15,13 +15,14 @@ import Data.Aztecs.Asset (Asset (..), AssetServer, Handle, lookupAsset)
 import qualified Data.Aztecs.Asset as Asset
 import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Transform (..))
-import Data.Maybe (catMaybes, mapMaybe)
+import Data.Maybe (mapMaybe)
 import qualified Data.Text as T
 import Foreign.C (CInt)
 import SDL hiding (Texture, Window, windowTitle)
 import qualified SDL hiding (Texture)
 import qualified SDL.Image as IMG
 
+-- | Window component.
 data Window = Window
   { windowTitle :: String
   }
@@ -29,6 +30,7 @@ data Window = Window
 
 instance Component Window
 
+-- | Window renderer component.
 data WindowRenderer = WindowRenderer
   { windowRendererRaw :: SDL.Window,
     windowRenderer :: Renderer
@@ -37,9 +39,11 @@ data WindowRenderer = WindowRenderer
 
 instance Component WindowRenderer
 
+-- | Setup SDL
 setup :: System IO () ()
 setup = Asset.setup @Texture >>> S.run (const initializeAll)
 
+-- | Update SDL windows
 update :: System IO () ()
 update =
   addWindows
@@ -48,6 +52,7 @@ update =
     >>> drawImages
     >>> Asset.loadAssets @Texture
 
+-- | Setup new windows.
 addWindows :: System IO () ()
 addWindows = proc () -> do
   newWindows <- S.allFilter @_ @Window (without @WindowRenderer) -< ()
@@ -62,6 +67,7 @@ addWindows = proc () -> do
     insertNewWindows newWindows' = mapM_ insertWindowRenderer newWindows'
     insertWindowRenderer (eId, window, renderer) = A.insert eId (WindowRenderer window renderer)
 
+-- | Render windows.
 renderWindows :: System IO () ()
 renderWindows =
   let draw windowDraws =
@@ -95,43 +101,33 @@ renderWindows =
                 windows
         S.run draw -< windowDraws
 
+-- | Window target component.
+-- This component can be used to specify which `Window` to draw an entity to.
 newtype WindowTarget = WindowTarget {unWindowTarget :: EntityID}
   deriving (Eq, Show)
 
 instance Component WindowTarget
 
+-- | Draw component.
+-- This component can be used to draw to a window.
 newtype Draw = Draw {runDraw :: Transform -> Renderer -> IO ()}
 
 instance Component Draw
 
+-- | Add `WindowTarget` components to entities with a new `Draw` component.
 addWindowTargets :: System IO () ()
 addWindowTargets = proc () -> do
   windows <- S.all @_ @WindowRenderer -< ()
-  draws <- S.all @_ @Draw -< ()
-  newDraws <-
-    S.viewWith @_ @_ @'[WindowTarget]
-      ( \draws -> do
-          maybeTargets <-
-            mapM
-              ( \(eId, _) -> do
-                  maybeTarget <- S.lookupView @_ @WindowTarget eId
-                  return $ case maybeTarget of
-                    Just _ -> Nothing
-                    Nothing -> Just eId
-              )
-              draws
-          return $ catMaybes maybeTargets
-      )
-      -<
-        draws
+  newDraws <- S.allFilter @_ @Draw (without @WindowTarget) -< ()
   S.queueWith
     ( \(newDraws, windows) -> case windows of
-        (windowEId, _) : _ -> mapM_ (\eId -> A.insert eId $ WindowTarget windowEId) newDraws
+        (windowEId, _) : _ -> mapM_ (\(eId, _) -> A.insert eId $ WindowTarget windowEId) newDraws
         _ -> return ()
     )
     -<
       (newDraws, windows)
 
+-- | Draw a rectangle.
 rect :: V2 Int -> Draw
 rect size = Draw $
   \transform renderer -> do
@@ -151,11 +147,13 @@ rect size = Draw $
     freeSurface surface
     destroyTexture texture
 
+-- | Texture asset.
 newtype Texture = Texture {textureSurface :: Surface}
 
 instance Asset Texture where
   loadAsset path = Texture <$> IMG.load path
 
+-- | Image component.
 data Image = Image
   { imageTexture :: Handle Texture,
     imageSize :: V2 Int
@@ -164,6 +162,7 @@ data Image = Image
 
 instance Component Image
 
+-- | Draw images to their target windows.
 drawImages :: System IO () ()
 drawImages = proc () -> do
   imgs <- S.allFilter @_ @Image (without @Draw) -< ()
