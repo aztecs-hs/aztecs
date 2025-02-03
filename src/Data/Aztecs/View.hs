@@ -45,7 +45,7 @@ allState q v =
   fmap (\(as, arches) -> (as, View arches)) $
     foldrM
       ( \(aId, arch) (acc, archAcc) -> do
-          (as, arch') <- queryStateAll q [] arch
+          (as, arch') <- queryStateAll q (repeat ()) arch
           return (as ++ acc, Map.insert aId arch' archAcc)
       )
       ([], Map.empty)

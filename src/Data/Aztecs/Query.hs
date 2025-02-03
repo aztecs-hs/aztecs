@@ -25,6 +25,7 @@ module Data.Aztecs.Query
     mapM,
     mapAccum,
     mapWith,
+    zipMapAccum,
     QueryState (..),
   )
 where
@@ -146,10 +147,10 @@ instance (Monad m) => Arrow (Query m) where
                 let (bs, ds) = unzip bds
                 (cs, arch') <- queryStateAll qS bs arch
                 return (zip cs ds, arch'),
-              queryStateLookup = \bd eId arch -> do
-                res <- queryStateLookup qS (fst bd) eId arch
+              queryStateLookup = \(b, d) eId arch -> do
+                res <- queryStateLookup qS b eId arch
                 return $ case res of
-                  Just b -> Just (b, snd bd)
+                  Just c -> Just (c, d)
                   Nothing -> Nothing
             }
         )
