@@ -9,6 +9,7 @@ module Data.Aztecs.Asset where
 import Control.Concurrent (forkIO)
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
+import qualified Data.Aztecs.Query as Q
 import qualified Data.Aztecs.System as S
 import Data.Data (Typeable)
 import Data.Foldable (foldrM)
@@ -62,23 +63,21 @@ lookupAsset h server = Map.lookup (handleId h) (assetServerAssets server)
 
 loadAssets :: forall a. (Typeable a) => System IO () ()
 loadAssets =
-  S.mapM_ @_ @(AssetServer a)
-    ( \server ->
-        foldrM
-          ( \(aId, v) acc -> do
-              maybeSurface <- readIORef v
-              case maybeSurface of
-                Just surface ->
-                  return
-                    acc
-                      { assetServerAssets = Map.insert aId surface (assetServerAssets acc),
-                        loadingAssets = Map.delete aId (loadingAssets acc)
-                      }
-                Nothing -> return acc
-          )
-          server
-          (Map.toList $ loadingAssets server)
-    )
+  S.all_ . Q.mapM @_ @(AssetServer a) $ \server ->
+    foldrM
+      ( \(aId, v) acc -> do
+          maybeSurface <- readIORef v
+          case maybeSurface of
+            Just surface ->
+              return
+                acc
+                  { assetServerAssets = Map.insert aId surface (assetServerAssets acc),
+                    loadingAssets = Map.delete aId (loadingAssets acc)
+                  }
+            Nothing -> return acc
+      )
+      server
+      (Map.toList $ loadingAssets server)
 
 setup :: forall a. (Typeable a) => System IO () ()
 setup = S.queue (A.spawn_ @IO (empty @a))

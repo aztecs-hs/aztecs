@@ -110,6 +110,9 @@ all q = System $ \cs ->
            in fmap (\(a, v') -> (a, w, V.unview v', pure ())) (V.allState qS v)
       )
 
+all_ :: forall m a. (Monad m) => Query m () a -> System m () ()
+all_ q = const () <$> all q
+
 -- | Queue an `Access` to alter the world after this task is complete.
 queue :: (Monad m) => Access m () -> System m () ()
 queue a = System (,[],\_ w -> pure ((), w, Prelude.id, a))

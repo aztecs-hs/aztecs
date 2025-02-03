@@ -21,6 +21,7 @@ module Data.Aztecs.Query
     fetch,
     fetchMaybe,
     map,
+    mapM,
     mapWith,
     QueryState (..),
   )
@@ -28,6 +29,7 @@ where
 
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
+import qualified Control.Monad as M
 import Data.Aztecs.Component
 import Data.Aztecs.Entity (EntityID)
 import Data.Aztecs.World.Archetype (Archetype)
@@ -37,7 +39,7 @@ import qualified Data.Aztecs.World.Components as CS
 import Data.Data (Typeable)
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Prelude hiding (all, lookup, map)
+import Prelude hiding (all, lookup, map, mapM)
 
 data QueryFilter = QueryFilter
   { filterWith :: Components -> (Set ComponentID, Components),
@@ -177,6 +179,22 @@ map f = Query $ \cs ->
                   as' = fmap (\(eId, a) -> (eId, f a)) as
                in pure (as', A.insertAscList cId as' arch),
             queryStateLookup = \_ eId arch -> pure $ fmap (\c -> (eId, f c)) $ A.lookupComponent eId cId arch
+          }
+      )
+
+mapM :: forall m a. (Monad m, Component a, Typeable (StorageT a)) => (a -> m a) -> Query m () a
+mapM f = Query $ \cs ->
+  let (cId, cs') = CS.insert @a cs
+   in ( Set.singleton cId,
+        cs',
+        QueryState
+          { queryStateAll = \_ arch -> do
+              let as = A.all cId arch
+              as' <- M.mapM (\(eId, a) -> fmap (\a' -> (eId, a')) (f a)) as
+              return (fmap snd as', A.insertAscList cId as' arch),
+            queryStateLookup = \_ eId arch -> case A.lookupComponent eId cId arch of
+              Just a -> Just <$> f a
+              Nothing -> pure Nothing
           }
       )
 
