@@ -10,20 +10,13 @@ module Data.Aztecs.Access
     spawn,
     spawn_,
     insert,
-    all,
-    map,
-    lookup,
-    lookupQuery,
-    alter,
   )
 where
 
 import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.State (MonadState (..), StateT (..), gets)
+import Control.Monad.State (MonadState (..), StateT (..))
 import Data.Aztecs.Component (Component (..))
-import Data.Aztecs.Entity (ComponentIds, Entity, EntityID, EntityT, FromEntity (..), ToEntity)
-import Data.Aztecs.Query (IsEq, Map, Query, Queryable (..))
-import qualified Data.Aztecs.Query as Q
+import Data.Aztecs.Entity (ComponentIds, Entity, EntityID, EntityT, ToEntity)
 import Data.Aztecs.World (World)
 import qualified Data.Aztecs.World as W
 import Data.Aztecs.World.Archetype (Insert)
@@ -60,31 +53,3 @@ insert e c = Access $ do
   w <- get
   let w' = W.insert e c w
   put w'
-
-all :: forall m a. (Monad m, ToEntity a, FromEntity a, Queryable (EntityT a)) => Access m [(EntityID, a)]
-all = Access $ gets (fmap (\(eId, e) -> (eId, fromEntity e)) . Q.queryAll (query @(EntityT a)))
-
--- | Map over all entities that match this query,
--- storing the resulting components in the @World@.
-map ::
-  forall m i o.
-  (Monad m, Map (IsEq (Entity (EntityT i)) (Entity (EntityT o))) i o) =>
-  (i -> o) ->
-  Access m [o]
-map f = Access $ do
-  w <- get
-  let (out, w') = Q.map @i @o f w
-  put w'
-  return out
-
-alter :: forall a m. (Monad m, FromEntity a, ToEntity a, Queryable (EntityT a)) => EntityID -> (a -> a) -> Access m ()
-alter eId f = Access $ do
-  w <- get
-  let w' = Q.alter eId f w
-  put w'
-
-lookup :: forall a m. (Monad m, FromEntity a, Queryable (EntityT a)) => EntityID -> Access m (Maybe a)
-lookup eId = Access . gets $ Q.lookup eId
-
-lookupQuery :: (Monad m) => EntityID -> Query a -> Access m (Maybe (Entity a))
-lookupQuery eId q = Access . gets $ Q.lookupQuery eId q
