@@ -49,7 +49,6 @@ load path server = do
   _ <- forkIO $ do
     a <- loadAsset path
     writeIORef v (Just a)
-
   return
     ( Handle assetId,
       server

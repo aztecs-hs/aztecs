@@ -13,11 +13,13 @@ module Data.Aztecs.System where
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
 import Data.Aztecs.Access (Access, runAccess)
-import Data.Aztecs.Query (Query (..))
+import Data.Aztecs.Query (Query (..), QueryFilter (..))
 import qualified Data.Aztecs.View as V
 import Data.Aztecs.World (World (..))
 import qualified Data.Aztecs.World as W
+import qualified Data.Aztecs.World.Archetype as A
 import Data.Aztecs.World.Components (ComponentID, Components)
+import qualified Data.Foldable as F
 import Data.Set (Set)
 import Prelude hiding (all)
 
@@ -112,6 +114,30 @@ all q = System $ \cs ->
 
 all_ :: forall m a. (Monad m) => Query m () a -> System m () ()
 all_ q = const () <$> all q
+
+allFilter :: forall m a. (Monad m) => Query m () a -> QueryFilter -> System m () [a]
+allFilter q f = System $ \cs ->
+  let (cIds, cs', qS) = runQuery q cs
+      (with', cs'') = filterWith f cs'
+      (without', cs''') = filterWithout f cs''
+      f' arch =
+        F.all (\cId -> A.member cId arch) with'
+          && F.all (\cId -> not (A.member cId arch)) without'
+   in ( cs''',
+        [cIds],
+        \_ w ->
+          let v = V.viewFilter cIds f' (archetypes w)
+           in fmap (\(a, v') -> (a, w, V.unview v', pure ())) (V.allState qS v)
+      )
+
+single :: forall m a. (Monad m) => Query m () a -> System m () a
+single q =
+  fmap
+    ( \as -> case as of
+        [a] -> a
+        _ -> error "TODO"
+    )
+    (all q)
 
 -- | Queue an `Access` to alter the world after this task is complete.
 queue :: (Monad m) => Access m () -> System m () ()

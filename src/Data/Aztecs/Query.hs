@@ -19,9 +19,11 @@ module Data.Aztecs.Query
     without,
     Query (..),
     fetch,
+    fetchWithId,
     fetchMaybe,
     map,
     mapM,
+    mapAccum,
     mapWith,
     QueryState (..),
   )
@@ -30,6 +32,7 @@ where
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
 import qualified Control.Monad as M
+import Control.Monad.Writer (MonadWriter (..))
 import Data.Aztecs.Component
 import Data.Aztecs.Entity (EntityID)
 import Data.Aztecs.World.Archetype (Archetype)
@@ -194,6 +197,32 @@ mapM f = Query $ \cs ->
               return (fmap snd as', A.insertAscList cId as' arch),
             queryStateLookup = \_ eId arch -> case A.lookupComponent eId cId arch of
               Just a -> Just <$> f a
+              Nothing -> pure Nothing
+          }
+      )
+
+mapAccum ::
+  forall m i b a.
+  (Monad m, Component a, Typeable (StorageT a)) =>
+  (i -> a -> m (b, a)) ->
+  Query m i (EntityID, b, a)
+mapAccum f = Query $ \cs ->
+  let (cId, cs') = CS.insert @a cs
+   in ( Set.singleton cId,
+        cs',
+        QueryState
+          { queryStateAll = \i arch -> do
+              let as = A.all @a cId arch
+              bs_as' <- M.mapM (\((eId, a), i') -> do
+                                  (b, a') <- f i' a
+                                  return ((eId, b, a'), (eId, a'))
+                               ) (zip as i)
+              let (bs, as') = unzip bs_as'
+              return (bs, A.insertAscList cId as' arch),
+            queryStateLookup = \i eId arch -> case A.lookupComponent eId cId arch of
+              Just a -> do
+                (b, a') <- f i a
+                pure $ Just (eId, b, a')
               Nothing -> pure Nothing
           }
       )

@@ -8,11 +8,12 @@
 
 module Data.Aztecs.SDL where
 
-import Control.Arrow ((>>>))
+import Control.Arrow (returnA, (>>>))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import Data.Aztecs.Asset (Asset (..), AssetServer, Handle, lookupAsset)
 import qualified Data.Aztecs.Asset as Asset
+import qualified Data.Aztecs.Query as Q
 import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Transform (..))
 import Data.Maybe (mapMaybe)
@@ -55,7 +56,7 @@ update =
 -- | Setup new windows.
 addWindows :: System IO () ()
 addWindows = proc () -> do
-  newWindows <- S.allFilter @_ @Window (without @WindowRenderer) -< ()
+  newWindows <- S.allFilter (Q.fetchWithId @_ @Window) (without @WindowRenderer) -< ()
   newWindows' <- S.run createNewWindows -< newWindows
   S.queueWith insertNewWindows -< newWindows'
   where
@@ -81,14 +82,23 @@ renderWindows =
           )
           windowDraws
    in proc () -> do
-        windows <- S.all @_ @WindowRenderer -< ()
-        draws <- S.all @_ @(Draw :& Transform :& WindowTarget) -< ()
+        windows <- S.all (Q.fetchWithId @_ @WindowRenderer) -< ()
+        draws <-
+          S.all
+            ( proc () -> do
+                d <- Q.fetch @_ @Draw -< ()
+                transform <- Q.fetch @_ @Transform -< ()
+                target <- Q.fetch @_ @WindowTarget -< ()
+                returnA -< (d, transform, target)
+            )
+            -<
+              ()
         let windowDraws =
               foldr
                 ( \(eId, window) acc ->
                     let draws' =
                           foldr
-                            ( \(_, d :& transform :& target) acc' ->
+                            ( \(d, transform, target) acc' ->
                                 if unWindowTarget target == eId
                                   then (d, transform) : acc'
                                   else acc'
@@ -117,8 +127,8 @@ instance Component Draw
 -- | Add `WindowTarget` components to entities with a new `Draw` component.
 addWindowTargets :: System IO () ()
 addWindowTargets = proc () -> do
-  windows <- S.all @_ @WindowRenderer -< ()
-  newDraws <- S.allFilter @_ @Draw (without @WindowTarget) -< ()
+  windows <- S.all (Q.fetchWithId @_ @WindowRenderer) -< ()
+  newDraws <- S.allFilter (Q.fetchWithId @_ @Draw )(without @WindowTarget) -< ()
   S.queueWith
     ( \(newDraws, windows) -> case windows of
         (windowEId, _) : _ -> mapM_ (\(eId, _) -> A.insert eId $ WindowTarget windowEId) newDraws
@@ -165,8 +175,8 @@ instance Component Image
 -- | Draw images to their target windows.
 drawImages :: System IO () ()
 drawImages = proc () -> do
-  imgs <- S.allFilter @_ @Image (without @Draw) -< ()
-  assets <- S.single @_ @(AssetServer Texture) -< ()
+  imgs <- S.allFilter (Q.fetchWithId @_ @Image) (without @Draw) -< ()
+  assets <- S.single (Q.fetch @_ @(AssetServer Texture)) -< ()
   let newAssets =
         mapMaybe (\(eId, img) -> (,img,eId) <$> lookupAsset (imageTexture img) assets) imgs
   S.queueWith (mapM_ go) -< newAssets
