@@ -87,6 +87,17 @@ data QueryState m i o = QueryState
 
 newtype Query m i o = Query {runQuery :: Components -> (Set ComponentID, Components, QueryState m i o)}
 
+instance (Functor m) => Functor (Query m i) where
+  fmap f (Query q) = Query $ \cs ->
+    let (cIds, cs', qS) = q cs
+     in ( cIds,
+          cs',
+          qS
+            { queryStateAll = \i arch -> fmap (\(a, arch') -> (fmap f a, arch')) $ queryStateAll qS i arch,
+              queryStateLookup = \i eId arch -> fmap (fmap f) $ queryStateLookup qS i eId arch
+            }
+        )
+
 instance (Monad m) => Category (Query m) where
   id = Query $ \cs ->
     ( Set.empty,
@@ -140,8 +151,12 @@ instance (Monad m) => Arrow (Query m) where
         )
 
 -- | Fetch a `Component` by its type.
-fetch :: forall m a. (Applicative m, Component a, Typeable (StorageT a)) => Query m () (EntityID, a)
-fetch = Query $ \cs ->
+fetch :: forall m a. (Applicative m, Component a, Typeable (StorageT a)) => Query m () a
+fetch = fmap snd fetchWithId
+
+-- | Fetch an `EntityID` and `Component` by its type.
+fetchWithId :: forall m a. (Applicative m, Component a, Typeable (StorageT a)) => Query m () (EntityID, a)
+fetchWithId = Query $ \cs ->
   let (cId, cs') = CS.insert @a cs
    in ( Set.singleton cId,
         cs',
