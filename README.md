@@ -14,9 +14,10 @@ A type-safe and friendly [ECS](https://en.wikipedia.org/wiki/Entity_component_sy
 - Modular design: Aztecs can be extended for a variety of use cases
 
 ```hs
-import Control.Arrow ((>>>))
+import Control.Arrow ( (>>>))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
+import qualified Data.Aztecs.Query as Q
 import qualified Data.Aztecs.System as S
 
 newtype Position = Position Int deriving (Show)
@@ -31,10 +32,12 @@ setup :: System IO () ()
 setup = S.queue (A.spawn_ (Position 0 :& Velocity 1))
 
 move :: System IO () ()
-move = S.map (\(Position x :& Velocity v) -> Position (x + v)) >>> S.run print
+move =
+  S.all (Q.fetch >>> Q.mapWith (\(Velocity v) (Position x) -> Position $ x + v))
+    >>> S.run print
 
 main :: IO ()
-main = runSystem_ $ setup >>> S.loop move
+main = runSystem_ (setup >>> S.forever move)
 ```
 
 ## SDL
@@ -43,6 +46,7 @@ import Control.Arrow ((>>>))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import Data.Aztecs.Asset (load)
+import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.SDL (Image (..), Window (..))
 import qualified Data.Aztecs.SDL as SDL
 import qualified Data.Aztecs.System as S
@@ -51,9 +55,9 @@ import SDL (V2 (..))
 
 setup :: System IO () ()
 setup =
-  S.mapSingleAccum_ (load "example.png")
+  S.single (Q.mapAccum (\s -> load "example.png" s))
     >>> S.queueWith
-      ( \texture -> do
+      ( \(texture, _) -> do
           A.spawn_ Window {windowTitle = "Aztecs"}
           A.spawn_ $
             Image {imageTexture = texture, imageSize = V2 100 100}
@@ -64,7 +68,7 @@ setup =
       )
 
 main :: IO ()
-main = runSystem_ $ SDL.setup >>> setup >>> S.loop SDL.update
+main = runSystem_ $ SDL.setup >>> setup >>> S.forever SDL.update
 ```
 
 ## Benchmarks

@@ -29,4 +29,4 @@ setup =
       )
 
 main :: IO ()
-main = runSystem_ $ SDL.setup >>> setup >>> S.loop SDL.update
+main = runSystem_ $ SDL.setup >>> setup >>> S.forever SDL.update

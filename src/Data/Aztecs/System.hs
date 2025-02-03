@@ -4,14 +4,16 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Data.Aztecs.System where
 
-import Control.Arrow (Arrow (..))
+import Control.Arrow (Arrow (..), ArrowLoop (..))
 import Control.Category (Category (..))
+import Control.Monad.Fix (MonadFix)
 import Data.Aztecs.Access (Access, runAccess)
 import Data.Aztecs.Query (Query (..), QueryFilter (..))
 import qualified Data.Aztecs.View as V
@@ -75,6 +77,30 @@ instance (Monad m) => Arrow (System m) where
               return ((o, x), w'''', f', pure ())
           )
 
+instance (MonadFix m) => ArrowLoop (System m) where
+  loop s = System $ \w ->
+    let (w', cIds, f) = runSystem' s w
+     in ( w',
+          cIds,
+          \b w'' -> mdo
+            ((c, d), w''', f', access) <- f (b, d) w''
+            ((), w'''') <- runAccess access $ f' w'''
+            return (c, w'''', f', access)
+        )
+
+forever :: (Monad m) => System m () () -> System m () ()
+forever s = System $ \w ->
+  let (w', cIds, f) = runSystem' s w
+   in ( w',
+        cIds,
+        \_ w'' -> do
+          let go wAcc = do
+                ((), wAcc', f', access) <- f () wAcc
+                ((), wAcc'') <- runAccess access $ f' wAcc'
+                go wAcc''
+          go w''
+      )
+
 runSystem_ :: (Monad m) => System m () () -> m ()
 runSystem_ s = runSystem s >> pure ()
 
@@ -88,19 +114,6 @@ runSystemWorld s w = do
   ((), w'', f', access) <- f () w'
   ((), w''') <- runAccess access $ f' w''
   return w'''
-
-loop :: (Monad m) => System m () () -> System m () ()
-loop s = System $ \w ->
-  let (w', cIds, f) = runSystem' s w
-   in ( w',
-        cIds,
-        \_ w'' -> do
-          let go wAcc = do
-                ((), wAcc', f', access) <- f () wAcc
-                ((), wAcc'') <- runAccess access $ f' wAcc'
-                go wAcc''
-          go w''
-      )
 
 all :: forall m a. (Monad m) => Query m () a -> System m () [a]
 all q = System $ \cs ->
