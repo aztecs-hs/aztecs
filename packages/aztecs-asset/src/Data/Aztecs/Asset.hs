@@ -60,34 +60,25 @@ load path server = do
 lookupAsset :: Handle a -> AssetServer a -> Maybe a
 lookupAsset h server = Map.lookup (handleId h) (assetServerAssets server)
 
-data LoadAssets a
+loadAssets :: forall a. (Typeable a) => System IO () ()
+loadAssets =
+  S.mapM_ @_ @(AssetServer a)
+    ( \server ->
+        foldrM
+          ( \(aId, v) acc -> do
+              maybeSurface <- readIORef v
+              case maybeSurface of
+                Just surface ->
+                  return
+                    acc
+                      { assetServerAssets = Map.insert aId surface (assetServerAssets acc),
+                        loadingAssets = Map.delete aId (loadingAssets acc)
+                      }
+                Nothing -> return acc
+          )
+          server
+          (Map.toList $ loadingAssets server)
+    )
 
-instance forall a. (Typeable a) => System IO (LoadAssets a) where
-  task =
-    S.mapM_ @_ @(AssetServer a)
-      ( \server ->
-          foldrM
-            ( \(aId, v) acc -> do
-                maybeSurface <- readIORef v
-                case maybeSurface of
-                  Just surface ->
-                    return
-                      acc
-                        { assetServerAssets = Map.insert aId surface (assetServerAssets acc),
-                          loadingAssets = Map.delete aId (loadingAssets acc)
-                        }
-                  Nothing -> return acc
-            )
-            server
-            (Map.toList $ loadingAssets server)
-      )
-
-data Setup a
-
-instance forall a. (Typeable a) => System IO (Setup a) where
-  task = S.queue (A.spawn_ @IO (empty @a))
-
-assetPlugin :: forall a. (Typeable a) => Scheduler IO
-assetPlugin =
-  schedule @_ @PreStartup @(Setup a) []
-    <> schedule @_ @Update @(LoadAssets a) []
+setup :: forall a. (Typeable a) => System IO () ()
+setup = S.queue (A.spawn_ @IO (empty @a))

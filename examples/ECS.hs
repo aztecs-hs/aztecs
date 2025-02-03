@@ -16,18 +16,11 @@ newtype Velocity = Velocity Int deriving (Show)
 
 instance Component Velocity
 
-data Setup
+setup :: System IO () ()
+setup = S.queue (A.spawn_ (Position 0 :& Velocity 1))
 
-instance System IO Setup where
-  task = S.queue (A.spawn_ (Position 0 :& Velocity 1))
-
-data Movement
-
-instance System IO Movement where
-  task = S.map (\(Position x :& Velocity v) -> Position (x + v)) >>> S.run print
-
-app :: Scheduler IO
-app = schedule @_ @Startup @Setup [] <> schedule @_ @Update @Movement []
+move :: System IO () ()
+move = S.map (\(Position x :& Velocity v) -> Position (x + v)) >>> S.run print
 
 main :: IO ()
-main = run app
+main = runSystem_ $ setup >>> S.loop move
