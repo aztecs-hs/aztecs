@@ -13,6 +13,7 @@ module Data.Aztecs.World.Archetype
     empty,
     all,
     allMaybe,
+    entities,
     Lookup (..),
     lookupComponent,
     lookupStorage,
@@ -105,6 +106,11 @@ allMaybe cId arch = case lookupStorage cId arch of
   Nothing -> case Map.toList $ storages arch of
     [] -> []
     (_, s) : _ -> map (\i -> (EntityID i, Nothing)) $ entitiesDyn s (storageDyn s)
+
+entities :: Archetype -> [EntityID]
+entities arch = case Map.toList $ storages arch of
+  [] -> []
+  (_, s) : _ -> map (\i -> (EntityID i)) $ entitiesDyn s (storageDyn s)
 
 class Lookup a where
   lookup :: EntityID -> Components -> Archetype -> Maybe a

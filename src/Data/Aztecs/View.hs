@@ -16,6 +16,7 @@ import Data.Foldable (foldrM)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
+import qualified Data.Aztecs.World.Archetype as A
 
 data View = View {viewArchetypes :: Map ArchetypeID Archetype}
   deriving (Show)
@@ -45,7 +46,7 @@ allState q v =
   fmap (\(as, arches) -> (as, View arches)) $
     foldrM
       ( \(aId, arch) (acc, archAcc) -> do
-          (as, arch') <- dynQueryAll q (repeat ()) arch
+          (as, arch') <- dynQueryAll q (repeat ()) (A.entities arch) arch
           return (as ++ acc, Map.insert aId arch' archAcc)
       )
       ([], Map.empty)
