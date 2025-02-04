@@ -21,7 +21,7 @@ module Data.Aztecs.World.Archetypes
 where
 
 import Data.Aztecs.Component (ComponentID)
-import Data.Aztecs.World.Archetype hiding (empty, lookup)
+import Data.Aztecs.World.Archetype hiding (empty)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (mapMaybe)

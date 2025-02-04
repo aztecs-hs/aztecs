@@ -56,11 +56,7 @@ empty =
       nextEntityId = EntityID 0
     }
 
-spawn ::
-  forall a.
-  Bundle ->
-  World ->
-  (EntityID, World)
+spawn :: Bundle -> World -> (EntityID, World)
 spawn b w =
   let (eId, w') = spawnEmpty w
       (cIds, components', dynB) = unBundle b (components w)

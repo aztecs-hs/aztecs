@@ -20,6 +20,7 @@ module Data.Aztecs.Query
     fetchMaybe,
     set,
     run,
+    all,
 
     -- * Filters
     QueryFilter (..),
@@ -41,10 +42,13 @@ import Control.Category (Category (..))
 import Control.Monad (mapM)
 import Data.Aztecs.Component
 import Data.Aztecs.Entity (EntityID)
+import Data.Aztecs.World (World (..))
 import Data.Aztecs.World.Archetype (Archetype)
 import qualified Data.Aztecs.World.Archetype as A
+import qualified Data.Aztecs.World.Archetypes as AS
 import Data.Aztecs.World.Components (Components)
 import qualified Data.Aztecs.World.Components as CS
+import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Prelude hiding (all, id, lookup, map, mapM, (.))
@@ -232,3 +236,12 @@ setDyn cId =
     { dynQueryAll = \is _ arch -> pure (is, A.withAscList cId is arch),
       dynQueryLookup = \i eId arch -> pure $ A.lookupComponent eId cId arch
     }
+
+all :: (Monad m) => Query m () a -> World -> m ([a], World)
+all q w = do
+  let (cIds, cs', dynQ) = runQuery q (components w)
+  as <-
+    mapM
+      (\arch -> fst <$> dynQueryAll dynQ (repeat ()) (A.entities arch) arch)
+      (Map.elems $ AS.lookup cIds (archetypes w))
+  return (concat as, w {components = cs'})
