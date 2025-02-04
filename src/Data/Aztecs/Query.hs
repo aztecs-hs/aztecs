@@ -21,19 +21,15 @@ module Data.Aztecs.Query
     fetch,
     fetchWithId,
     fetchMaybe,
-    map,
-    mapM,
-    mapAccum,
-    mapWith,
-    zipMapAccum,
     set,
+    run,
     QueryState (..),
   )
 where
 
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
-import qualified Control.Monad as M
+import Control.Monad (mapM)
 import Data.Aztecs.Component
 import Data.Aztecs.Entity (EntityID)
 import Data.Aztecs.World.Archetype (Archetype)
@@ -171,126 +167,6 @@ fetchWithId = Query $ \cs ->
           }
       )
 
-map :: forall m a. (Applicative m, Component a) => (a -> a) -> Query m () (EntityID, a)
-map f = Query $ \cs ->
-  let (cId, cs') = CS.insert @a cs
-   in ( Set.singleton cId,
-        cs',
-        QueryState
-          { queryStateAll = \_ arch ->
-              let as = A.all cId arch
-                  as' = fmap (\(eId, a) -> (eId, f a)) as
-               in pure (as', A.insertAscList cId as' arch),
-            queryStateLookup = \_ eId arch -> pure $ fmap (\c -> (eId, f c)) $ A.lookupComponent eId cId arch
-          }
-      )
-
-mapM :: forall m a. (Monad m, Component a) => (a -> m a) -> Query m () a
-mapM f = Query $ \cs ->
-  let (cId, cs') = CS.insert @a cs
-   in ( Set.singleton cId,
-        cs',
-        QueryState
-          { queryStateAll = \_ arch -> do
-              let as = A.all cId arch
-              as' <- M.mapM (\(eId, a) -> fmap (\a' -> (eId, a')) (f a)) as
-              return (fmap snd as', A.insertAscList cId as' arch),
-            queryStateLookup = \_ eId arch -> case A.lookupComponent eId cId arch of
-              Just a -> Just <$> f a
-              Nothing -> pure Nothing
-          }
-      )
-
-mapAccum ::
-  forall m b a.
-  (Monad m, Component a) =>
-  (a -> m (b, a)) ->
-  Query m () (b, a)
-mapAccum f = Query $ \cs ->
-  let (cId, cs') = CS.insert @a cs
-   in ( Set.singleton cId,
-        cs',
-        QueryState
-          { queryStateAll = \_ arch -> do
-              let as = A.all @a cId arch
-              bas <-
-                M.mapM
-                  ( \(eId, a) -> do
-                      (b, a') <- f a
-                      return ((b, a'), (eId, a'))
-                  )
-                  as
-              let (bs, as') = unzip bas
-              return (bs, A.insertAscList cId as' arch),
-            queryStateLookup = \_ eId arch -> case A.lookupComponent eId cId arch of
-              Just a -> do
-                (b, a') <- f a
-                pure $ Just (b, a')
-              Nothing -> pure Nothing
-          }
-      )
-
-zipMapAccum ::
-  forall m i b a.
-  (Monad m, Component a) =>
-  (i -> a -> m (b, a)) ->
-  Query m i (EntityID, b, a)
-zipMapAccum f = Query $ \cs ->
-  let (cId, cs') = CS.insert @a cs
-   in ( Set.singleton cId,
-        cs',
-        QueryState
-          { queryStateAll = \i arch -> do
-              let as = A.all @a cId arch
-              bs_as' <-
-                M.mapM
-                  ( \((eId, a), i') -> do
-                      (b, a') <- f i' a
-                      return ((eId, b, a'), (eId, a'))
-                  )
-                  (zip as i)
-              let (bs, as') = unzip bs_as'
-              return (bs, A.insertAscList cId as' arch),
-            queryStateLookup = \i eId arch -> case A.lookupComponent eId cId arch of
-              Just a -> do
-                (b, a') <- f i a
-                pure $ Just (eId, b, a')
-              Nothing -> pure Nothing
-          }
-      )
-
-mapWith ::
-  forall m i a.
-  (Applicative m, Component a) =>
-  (i -> a -> a) ->
-  Query m i (EntityID, a)
-mapWith f = Query $ \cs ->
-  let (cId, cs') = CS.insert @a cs
-   in ( Set.singleton cId,
-        cs',
-        QueryState
-          { queryStateAll = \is arch ->
-              let as = A.all cId arch
-                  as' = fmap (\((eId, a), i) -> (eId, f i a)) (zip as is)
-               in pure (as', A.insertAscList cId as' arch),
-            queryStateLookup = \i eId arch -> pure $ fmap (\c -> (eId, f i c)) $ A.lookupComponent eId cId arch
-          }
-      )
-
-set ::
-  forall m a.
-  (Applicative m, Component a) =>
-  Query m a a
-set = Query $ \cs ->
-  let (cId, cs') = CS.insert @a cs
-   in ( Set.singleton cId,
-        cs',
-        QueryState
-          { queryStateAll = \is arch -> pure (is, A.withAscList cId is arch),
-            queryStateLookup = \i eId arch -> pure $ A.lookupComponent eId cId arch
-          }
-      )
-
 fetchMaybe :: forall m a. (Applicative m, Component a) => Query m () (EntityID, Maybe a)
 fetchMaybe = fetchMaybe' (CS.insert @a)
 
@@ -308,3 +184,27 @@ fetchMaybe' f = Query $ \cs ->
             queryStateLookup = \_ eId arch -> pure $ fmap (\c -> (eId, Just c)) $ A.lookupComponent eId cId arch
           }
       )
+
+set ::
+  forall m a.
+  (Applicative m, Component a) =>
+  Query m a a
+set = Query $ \cs ->
+  let (cId, cs') = CS.insert @a cs
+   in ( Set.singleton cId,
+        cs',
+        QueryState
+          { queryStateAll = \is arch -> pure (is, A.withAscList cId is arch),
+            queryStateLookup = \i eId arch -> pure $ A.lookupComponent eId cId arch
+          }
+      )
+
+run :: (Monad m) => (i -> m o) -> Query m i o
+run f = Query $ \cs ->
+  ( Set.empty,
+    cs,
+    QueryState
+      { queryStateAll = \is arch -> (,arch) <$> mapM f is,
+        queryStateLookup = \i _ _ -> Just <$> f i
+      }
+  )

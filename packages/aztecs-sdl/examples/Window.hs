@@ -1,9 +1,10 @@
+{-# LANGUAGE Arrows #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Main where
 
-import Control.Arrow ((>>>))
+import Control.Arrow (returnA, (>>>))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import Data.Aztecs.Asset (load)
@@ -16,9 +17,15 @@ import SDL (V2 (..))
 
 setup :: System IO () ()
 setup =
-  S.single (Q.mapAccum $ load "example.png")
+  S.single
+    ( proc () -> do
+        assetServer <- Q.fetch -< ()
+        (texture, assetServer') <- Q.run (load "example.png") -< assetServer
+        Q.set -< assetServer'
+        returnA -< texture
+    )
     >>> S.queueWith
-      ( \(texture, _) -> do
+      ( \texture -> do
           A.spawn_ Window {windowTitle = "Aztecs"}
           A.spawn_ $
             Image {imageTexture = texture, imageSize = V2 100 100}

@@ -14,7 +14,7 @@ A type-safe and friendly [ECS](https://en.wikipedia.org/wiki/Entity_component_sy
 - Modular design: Aztecs can be extended for a variety of use cases
 
 ```hs
-import Control.Arrow ( (>>>))
+import Control.Arrow ((>>>))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import qualified Data.Aztecs.Query as Q
@@ -47,7 +47,7 @@ main = runSystem_ (setup >>> S.forever move)
 
 ## SDL
 ```hs
-import Control.Arrow ((>>>))
+import Control.Arrow (returnA, (>>>))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import Data.Aztecs.Asset (load)
@@ -60,9 +60,15 @@ import SDL (V2 (..))
 
 setup :: System IO () ()
 setup =
-  S.single (Q.mapAccum $ load "example.png")
+  S.single
+    ( proc () -> do
+        assetServer <- Q.fetch -< ()
+        (texture, assetServer') <- Q.run (load "example.png") -< assetServer
+        Q.set -< assetServer'
+        returnA -< texture
+    )
     >>> S.queueWith
-      ( \(texture, _) -> do
+      ( \texture -> do
           A.spawn_ Window {windowTitle = "Aztecs"}
           A.spawn_ $
             Image {imageTexture = texture, imageSize = V2 100 100}
