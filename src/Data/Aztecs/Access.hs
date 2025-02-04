@@ -16,10 +16,10 @@ where
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.State (MonadState (..), StateT (..))
 import Data.Aztecs.Component (Component (..))
-import Data.Aztecs.Entity (ComponentIds, Entity, EntityID, EntityT, ToEntity)
+import Data.Aztecs.Entity (EntityID)
 import Data.Aztecs.World (World)
 import qualified Data.Aztecs.World as W
-import Data.Aztecs.World.Archetype (Insert)
+import Data.Aztecs.World.Archetype (Bundle)
 import Data.Data (Typeable)
 import Prelude hiding (all, lookup, map)
 
@@ -33,8 +33,8 @@ runAccess a = runStateT (unAccess a)
 
 -- | Spawn an entity with a component.
 spawn ::
-  (Monad m, ComponentIds (EntityT a), ToEntity a, Insert (Entity (EntityT a))) =>
-  a ->
+  (Monad m) =>
+  Bundle ->
   Access m EntityID
 spawn c = Access $ do
   w <- get
@@ -42,7 +42,7 @@ spawn c = Access $ do
   put w'
   return e
 
-spawn_ :: (Monad m, ComponentIds (EntityT a), ToEntity a, Insert (Entity (EntityT a))) => a -> Access m ()
+spawn_ :: (Monad m) => Bundle -> Access m ()
 spawn_ c = do
   _ <- spawn c
   return ()

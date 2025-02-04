@@ -147,7 +147,7 @@ single q =
         [a] -> a
         _ -> error "TODO"
     )
-    (map q)
+    (all q)
 
 map :: forall m a. (Monad m) => Query m () a -> System m () [a]
 map q = System $ \cs ->

@@ -15,17 +15,13 @@ module Data.Aztecs.World.Archetypes
     findArchetypeIds,
     lookupNode,
     lookup,
-    lookupById,
     map,
     adjustArchetype,
   )
 where
 
 import Data.Aztecs.Component (ComponentID)
-import Data.Aztecs.Entity (Entity, EntityID, EntityT, FromEntity (..))
 import Data.Aztecs.World.Archetype hiding (empty, lookup)
-import qualified Data.Aztecs.World.Archetype as A
-import Data.Aztecs.World.Components (Components)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (mapMaybe)
@@ -102,17 +98,6 @@ lookup cIds arches =
     (\aId -> nodeArchetype $ nodes arches Map.! aId)
     (findArchetypeIds cIds arches)
 
-lookupById ::
-  (FromEntity a, Lookup (Entity (EntityT a))) =>
-  EntityID ->
-  ArchetypeID ->
-  Components ->
-  Archetypes ->
-  Maybe a
-lookupById eId aId cs arches = do
-  node <- Map.lookup aId (nodes arches)
-  e <- A.lookup eId cs (nodeArchetype node)
-  return $ fromEntity e
 
 -- | Map over `Archetype`s containing a set of `ComponentID`s.
 map :: Set ComponentID -> (Archetype -> (a, Archetype)) -> Archetypes -> ([a], Archetypes)

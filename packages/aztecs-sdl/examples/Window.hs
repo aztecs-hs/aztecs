@@ -17,7 +17,7 @@ import SDL (V2 (..))
 
 setup :: System IO () ()
 setup =
-  S.single
+  S.mapSingle
     ( proc () -> do
         assetServer <- Q.fetch -< ()
         (texture, assetServer') <- Q.run (load "example.png") -< assetServer
@@ -26,13 +26,13 @@ setup =
     )
     >>> S.queueWith
       ( \texture -> do
-          A.spawn_ Window {windowTitle = "Aztecs"}
+          A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
           A.spawn_ $
-            Image {imageTexture = texture, imageSize = V2 100 100}
-              :& transform {transformPosition = V2 100 100}
+            bundle Image {imageTexture = texture, imageSize = V2 100 100}
+              <> bundle transform {transformPosition = V2 100 100}
           A.spawn_ $
-            Image {imageTexture = texture, imageSize = V2 200 200}
-              :& transform {transformPosition = V2 500 100}
+            bundle Image {imageTexture = texture, imageSize = V2 200 200}
+              <> bundle transform {transformPosition = V2 500 100}
       )
 
 main :: IO ()

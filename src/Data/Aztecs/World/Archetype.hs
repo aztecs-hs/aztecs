@@ -14,7 +14,6 @@ module Data.Aztecs.World.Archetype
     all,
     allMaybe,
     entities,
-    Lookup (..),
     lookupComponent,
     lookupStorage,
     member,
@@ -23,19 +22,23 @@ module Data.Aztecs.World.Archetype
     insertComponent,
     insertAscList,
     withAscList,
-    Insert (..),
+    Bundle (..),
+    bundle,
+    runBundle,
+    DynamicBundle (..),
+    dynBundle,
     AnyStorage (..),
     anyStorage,
   )
 where
 
 import Data.Aztecs.Component (Component (..), ComponentID)
-import Data.Aztecs.Entity (Entity (..), EntityID (..))
+import Data.Aztecs.Entity (EntityID (..))
 import qualified Data.Aztecs.Storage as S
 import Data.Aztecs.World.Components (Components)
 import qualified Data.Aztecs.World.Components as CS
 import Data.Bifunctor (Bifunctor (..))
-import Data.Dynamic (Dynamic, fromDynamic, toDyn)
+import Data.Dynamic (Dynamic, Typeable, fromDynamic, toDyn)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
@@ -112,18 +115,6 @@ entities arch = case Map.toList $ storages arch of
   [] -> []
   (_, s) : _ -> map (\i -> (EntityID i)) $ entitiesDyn s (storageDyn s)
 
-class Lookup a where
-  lookup :: EntityID -> Components -> Archetype -> Maybe a
-
-instance Lookup (Entity '[]) where
-  lookup _ _ _ = Just ENil
-
-instance (Component a, Lookup (Entity as)) => Lookup (Entity (a ': as)) where
-  lookup eId cs arch = do
-    a <- lookupComponent eId (fromMaybe (error "TODO") (CS.lookup @a cs)) arch
-    as <- lookup eId cs arch
-    return $ ECons a as
-
 lookupComponent :: forall a. (Component a) => EntityID -> ComponentID -> Archetype -> Maybe a
 lookupComponent e cId w = lookupStorage cId w >>= S.lookup (unEntityId e)
 
@@ -179,15 +170,34 @@ removeStorages e arch =
     (Map.empty, arch)
     (Map.toList $ storages arch)
 
-class Insert a where
-  insert :: EntityID -> a -> Archetype -> Components -> (Set ComponentID, Archetype, Components)
+newtype Bundle = Bundle {unBundle :: Components -> (Set ComponentID, Components, DynamicBundle)}
 
-instance Insert (Entity '[]) where
-  insert _ ENil arch cs = (Set.empty, arch, cs)
+instance Monoid Bundle where
+  mempty = Bundle $ \cs -> (Set.empty, cs, mempty)
 
-instance (Component a, Insert (Entity as)) => Insert (Entity (a ': as)) where
-  insert eId (ECons e es) arch cs =
-    let (cId, cs') = CS.insert @a cs
-        arch' = insertComponent eId cId e arch
-        (cIds, arch'', cs'') = insert eId es arch' cs'
-     in (Set.insert cId cIds, arch'', cs'')
+instance Semigroup Bundle where
+  Bundle b1 <> Bundle b2 = Bundle $ \cs ->
+    let (cIds1, cs', d1) = b1 cs
+        (cIds2, cs'', d2) = b2 cs'
+     in (cIds1 <> cIds2, cs'', d1 <> d2)
+
+bundle :: forall a. (Component a, Typeable (StorageT a)) => a -> Bundle
+bundle a = Bundle $ \cs ->
+  let (cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', dynBundle cId a)
+
+newtype DynamicBundle = DynamicBundle {runDynamicBundle :: EntityID -> Archetype -> Archetype}
+
+instance Semigroup DynamicBundle where
+  DynamicBundle d1 <> DynamicBundle d2 = DynamicBundle $ \eId arch -> d2 eId (d1 eId arch)
+
+instance Monoid DynamicBundle where
+  mempty = DynamicBundle $ \_ arch -> arch
+
+dynBundle :: (Component a, Typeable (StorageT a)) => ComponentID -> a -> DynamicBundle
+dynBundle cId a = DynamicBundle $ \eId arch -> insertComponent eId cId a arch
+
+runBundle :: Bundle -> Components -> EntityID -> Archetype -> (Components, Archetype)
+runBundle b cs eId arch =
+  let (_, cs', d) = unBundle b cs
+      arch' = runDynamicBundle d eId arch
+   in (cs', arch')

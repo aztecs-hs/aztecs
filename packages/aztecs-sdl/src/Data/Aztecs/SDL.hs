@@ -8,7 +8,7 @@
 
 module Data.Aztecs.SDL where
 
-import Control.Arrow (returnA, (>>>))
+import Control.Arrow (Arrow (..), returnA, (>>>))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import Data.Aztecs.Asset (Asset (..), AssetServer, Handle, lookupAsset)
@@ -56,7 +56,7 @@ update =
 -- | Setup new windows.
 addWindows :: System IO () ()
 addWindows = proc () -> do
-  newWindows <- S.filter (Q.fetchWithId @_ @Window) (without @WindowRenderer) -< ()
+  newWindows <- S.filter (Q.entity &&& Q.fetch @_ @Window) (without @WindowRenderer) -< ()
   newWindows' <- S.run createNewWindows -< newWindows
   S.queueWith insertNewWindows -< newWindows'
   where
@@ -82,7 +82,7 @@ renderWindows =
           )
           windowDraws
    in proc () -> do
-        windows <- S.all (Q.fetchWithId @_ @WindowRenderer) -< ()
+        windows <- S.all (Q.entity &&& Q.fetch @_ @WindowRenderer) -< ()
         draws <-
           S.all
             ( proc () -> do
@@ -127,8 +127,8 @@ instance Component Draw
 -- | Add `WindowTarget` components to entities with a new `Draw` component.
 addWindowTargets :: System IO () ()
 addWindowTargets = proc () -> do
-  windows <- S.all (Q.fetchWithId @_ @WindowRenderer) -< ()
-  newDraws <- S.filter (Q.fetchWithId @_ @Draw) (without @WindowTarget) -< ()
+  windows <- S.all (Q.entity &&& Q.fetch @_ @WindowRenderer) -< ()
+  newDraws <- S.filter (Q.entity &&& Q.fetch @_ @Draw) (without @WindowTarget) -< ()
   S.queueWith
     ( \(newDraws, windows) -> case windows of
         (windowEId, _) : _ -> mapM_ (\(eId, _) -> A.insert eId $ WindowTarget windowEId) newDraws
@@ -175,7 +175,7 @@ instance Component Image
 -- | Draw images to their target windows.
 drawImages :: System IO () ()
 drawImages = proc () -> do
-  imgs <- S.filter (Q.fetchWithId @_ @Image) (without @Draw) -< ()
+  imgs <- S.filter (Q.entity &&& Q.fetch @_ @Image) (without @Draw) -< ()
   assets <- S.single (Q.fetch @_ @(AssetServer Texture)) -< ()
   let newAssets =
         mapMaybe (\(eId, img) -> (,img,eId) <$> lookupAsset (imageTexture img) assets) imgs

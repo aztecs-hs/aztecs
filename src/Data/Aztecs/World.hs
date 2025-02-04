@@ -23,9 +23,8 @@ import Data.Aztecs.Component
   ( Component (..),
     ComponentID,
   )
-import Data.Aztecs.Entity (ComponentIds, Entity, EntityID (..), ToEntity (..), EntityT)
-import qualified Data.Aztecs.Entity as E
-import Data.Aztecs.World.Archetype (Archetype (..), Insert)
+import Data.Aztecs.Entity (EntityID (..))
+import Data.Aztecs.World.Archetype (Archetype (..), Bundle (..), DynamicBundle (..))
 import qualified Data.Aztecs.World.Archetype as A
 import Data.Aztecs.World.Archetypes (ArchetypeID, Archetypes, Node (..))
 import qualified Data.Aztecs.World.Archetypes as AS
@@ -59,33 +58,32 @@ empty =
 
 spawn ::
   forall a.
-  (ComponentIds (EntityT a), ToEntity a, Insert (Entity (EntityT a))) =>
-   a ->
+  Bundle ->
   World ->
   (EntityID, World)
-spawn e w =
+spawn b w =
   let (eId, w') = spawnEmpty w
-      (cIds, components') = E.componentIds @(EntityT a) (components w)
+      (cIds, components', dynB) = unBundle b (components w)
    in case AS.lookupArchetypeId cIds (archetypes w) of
         Just aId -> fromMaybe (eId, w') $ do
           node <- AS.lookupNode aId (archetypes w)
-          let (_, arch', components'') = A.insert eId (toEntity e) (nodeArchetype node) components'
+          let arch' = runDynamicBundle dynB eId (nodeArchetype node)
           return
             ( eId,
               w
                 { archetypes = (archetypes w) {AS.nodes = Map.insert aId node {nodeArchetype = arch'} (AS.nodes $ archetypes w)},
-                  components = components'',
+                  components = components',
                   entities = Map.insert eId aId (entities w)
                 }
             )
         Nothing ->
-          let (_, arch, components'') = A.insert eId (toEntity e) A.empty components'
+          let arch' = runDynamicBundle dynB eId A.empty
               (aId, arches) =
                 AS.insertArchetype
                   cIds
                   ( Node
                       { nodeComponentIds = cIds,
-                        nodeArchetype = arch,
+                        nodeArchetype = arch',
                         nodeAdd = Map.empty,
                         nodeRemove = Map.empty
                       }
@@ -95,7 +93,7 @@ spawn e w =
                 w'
                   { archetypes = arches,
                     entities = Map.insert eId aId (entities w),
-                    components = components''
+                    components = components'
                   }
               )
 

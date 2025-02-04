@@ -19,7 +19,7 @@ newtype Velocity = Velocity Int deriving (Show)
 instance Component Velocity
 
 setup :: System IO () ()
-setup = S.queue (A.spawn_ (Position 0 :& Velocity 1))
+setup = S.queue . A.spawn_ $ bundle (Position 0) <> bundle (Velocity 1)
 
 move :: System IO () ()
 move =
