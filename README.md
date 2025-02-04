@@ -33,7 +33,7 @@ setup = S.queue (A.spawn_ (Position 0 :& Velocity 1))
 
 move :: System IO () ()
 move =
-  S.all
+  S.map
     ( proc () -> do
         Velocity v <- Q.fetch -< ()
         Position p <- Q.fetch -< ()

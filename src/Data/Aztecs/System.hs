@@ -23,7 +23,7 @@ import qualified Data.Aztecs.World.Archetype as A
 import Data.Aztecs.World.Components (ComponentID, Components)
 import qualified Data.Foldable as F
 import Data.Set (Set)
-import Prelude hiding (all)
+import Prelude hiding (map, all)
 
 newtype System m i o = System
   { runSystem' ::
@@ -122,14 +122,48 @@ all q = System $ \cs ->
         [cIds],
         \_ w ->
           let v = V.view cIds (archetypes w)
+           in fmap (\(a, _) -> (a, w, Prelude.id, pure ())) (V.allState qS v)
+      )
+
+filter :: forall m a. (Monad m) => Query m () a -> QueryFilter -> System m () [a]
+filter q f = System $ \cs ->
+  let (cIds, cs', qS) = runQuery q cs
+      (with', cs'') = filterWith f cs'
+      (without', cs''') = filterWithout f cs''
+      f' arch =
+        F.all (\cId -> A.member cId arch) with'
+          && F.all (\cId -> not (A.member cId arch)) without'
+   in ( cs''',
+        [cIds],
+        \_ w ->
+          let v = V.viewFilter cIds f' (archetypes w)
+           in fmap (\(a, _) -> (a, w, Prelude.id, pure ())) (V.allState qS v)
+      )
+
+single :: forall m a. (Monad m) => Query m () a -> System m () a
+single q =
+  fmap
+    ( \as -> case as of
+        [a] -> a
+        _ -> error "TODO"
+    )
+    (map q)
+
+map :: forall m a. (Monad m) => Query m () a -> System m () [a]
+map q = System $ \cs ->
+  let (cIds, cs', qS) = runQuery q cs
+   in ( cs',
+        [cIds],
+        \_ w ->
+          let v = V.view cIds (archetypes w)
            in fmap (\(a, v') -> (a, w, V.unview v', pure ())) (V.allState qS v)
       )
 
-all_ :: forall m a. (Monad m) => Query m () a -> System m () ()
-all_ q = const () <$> all q
+map_ :: forall m a. (Monad m) => Query m () a -> System m () ()
+map_ q = const () <$> map q
 
-allFilter :: forall m a. (Monad m) => Query m () a -> QueryFilter -> System m () [a]
-allFilter q f = System $ \cs ->
+filterMap :: forall m a. (Monad m) => Query m () a -> QueryFilter -> System m () [a]
+filterMap q f = System $ \cs ->
   let (cIds, cs', qS) = runQuery q cs
       (with', cs'') = filterWith f cs'
       (without', cs''') = filterWithout f cs''
@@ -143,14 +177,14 @@ allFilter q f = System $ \cs ->
            in fmap (\(a, v') -> (a, w, V.unview v', pure ())) (V.allState qS v)
       )
 
-single :: forall m a. (Monad m) => Query m () a -> System m () a
-single q =
+mapSingle :: forall m a. (Monad m) => Query m () a -> System m () a
+mapSingle q =
   fmap
     ( \as -> case as of
         [a] -> a
         _ -> error "TODO"
     )
-    (all q)
+    (map q)
 
 -- | Queue an `Access` to alter the world after this task is complete.
 queue :: (Monad m) => Access m () -> System m () ()

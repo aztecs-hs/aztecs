@@ -63,7 +63,7 @@ lookupAsset h server = Map.lookup (handleId h) (assetServerAssets server)
 
 loadAssets :: forall a. (Typeable a) => System IO () ()
 loadAssets =
-  S.all_
+  S.map_
     ( Q.fetch @_ @(AssetServer a)
         >>> Q.run
           ( \server ->

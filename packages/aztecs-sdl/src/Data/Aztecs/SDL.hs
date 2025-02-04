@@ -56,7 +56,7 @@ update =
 -- | Setup new windows.
 addWindows :: System IO () ()
 addWindows = proc () -> do
-  newWindows <- S.allFilter (Q.fetchWithId @_ @Window) (without @WindowRenderer) -< ()
+  newWindows <- S.filter (Q.fetchWithId @_ @Window) (without @WindowRenderer) -< ()
   newWindows' <- S.run createNewWindows -< newWindows
   S.queueWith insertNewWindows -< newWindows'
   where
@@ -128,7 +128,7 @@ instance Component Draw
 addWindowTargets :: System IO () ()
 addWindowTargets = proc () -> do
   windows <- S.all (Q.fetchWithId @_ @WindowRenderer) -< ()
-  newDraws <- S.allFilter (Q.fetchWithId @_ @Draw) (without @WindowTarget) -< ()
+  newDraws <- S.filter (Q.fetchWithId @_ @Draw) (without @WindowTarget) -< ()
   S.queueWith
     ( \(newDraws, windows) -> case windows of
         (windowEId, _) : _ -> mapM_ (\(eId, _) -> A.insert eId $ WindowTarget windowEId) newDraws
@@ -175,7 +175,7 @@ instance Component Image
 -- | Draw images to their target windows.
 drawImages :: System IO () ()
 drawImages = proc () -> do
-  imgs <- S.allFilter (Q.fetchWithId @_ @Image) (without @Draw) -< ()
+  imgs <- S.filter (Q.fetchWithId @_ @Image) (without @Draw) -< ()
   assets <- S.single (Q.fetch @_ @(AssetServer Texture)) -< ()
   let newAssets =
         mapMaybe (\(eId, img) -> (,img,eId) <$> lookupAsset (imageTexture img) assets) imgs
