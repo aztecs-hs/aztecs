@@ -4,7 +4,7 @@
 
 module Main where
 
-import Control.Arrow ((>>>))
+import Control.Arrow (Arrow (..), (>>>))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import qualified Data.Aztecs.Query as Q
@@ -20,6 +20,15 @@ instance Component Velocity
 
 setup :: System IO () ()
 setup = S.queue . A.spawn_ $ bundle (Position 0) <> bundle (Velocity 1)
+
+x :: (Monad m) => Query m () Position
+x = proc () -> do
+  Velocity v <- Q.fetch -< ()
+  Position p <- Q.fetch -< ()
+  Q.set -< Position $ p + v
+
+y :: (Monad m) => Query m () Position
+y = (Q.fetch &&& Q.fetch) >>> arr (\(Position p, Velocity v) -> Position $ p + v) >>> Q.set
 
 move :: System IO () ()
 move =
