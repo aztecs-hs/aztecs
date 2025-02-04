@@ -23,7 +23,7 @@ import qualified Data.Aztecs.World.Archetype as A
 import Data.Aztecs.World.Components (ComponentID, Components)
 import qualified Data.Foldable as F
 import Data.Set (Set)
-import Prelude hiding (map, all)
+import Prelude hiding (all, map)
 
 newtype System m i o = System
   { runSystem' ::
@@ -122,7 +122,7 @@ all q = System $ \cs ->
         [cIds],
         \_ w ->
           let v = V.view cIds (archetypes w)
-           in fmap (\(a, _) -> (a, w, Prelude.id, pure ())) (V.allState qS v)
+           in fmap (\(a, _) -> (a, w, Prelude.id, pure ())) (V.allDyn qS v)
       )
 
 filter :: forall m a. (Monad m) => Query m () a -> QueryFilter -> System m () [a]
@@ -136,8 +136,8 @@ filter q f = System $ \cs ->
    in ( cs''',
         [cIds],
         \_ w ->
-          let v = V.viewFilter cIds f' (archetypes w)
-           in fmap (\(a, _) -> (a, w, Prelude.id, pure ())) (V.allState qS v)
+          let v = V.filterView cIds f' (archetypes w)
+           in fmap (\(a, _) -> (a, w, Prelude.id, pure ())) (V.allDyn qS v)
       )
 
 single :: forall m a. (Monad m) => Query m () a -> System m () a
@@ -156,7 +156,7 @@ map q = System $ \cs ->
         [cIds],
         \_ w ->
           let v = V.view cIds (archetypes w)
-           in fmap (\(a, v') -> (a, w, V.unview v', pure ())) (V.allState qS v)
+           in fmap (\(a, v') -> (a, w, V.unview v', pure ())) (V.allDyn qS v)
       )
 
 map_ :: forall m a. (Monad m) => Query m () a -> System m () ()
@@ -173,8 +173,8 @@ filterMap q f = System $ \cs ->
    in ( cs''',
         [cIds],
         \_ w ->
-          let v = V.viewFilter cIds f' (archetypes w)
-           in fmap (\(a, v') -> (a, w, V.unview v', pure ())) (V.allState qS v)
+          let v = V.filterView cIds f' (archetypes w)
+           in fmap (\(a, v') -> (a, w, V.unview v', pure ())) (V.allDyn qS v)
       )
 
 mapSingle :: forall m a. (Monad m) => Query m () a -> System m () a

@@ -24,7 +24,6 @@ module Data.Aztecs.Query
 
     -- * Filters
     QueryFilter (..),
-    emptyFilter,
     with,
     without,
 
@@ -51,19 +50,20 @@ import qualified Data.Aztecs.World.Components as CS
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Prelude hiding (all, id, lookup, map, mapM, (.))
+import Prelude hiding (all, any, id, lookup, map, mapM, (.))
 
 -- | Query for matching entities.
 --
 -- === Do notation:
--- > x :: (Monad m) => Query m () Position
--- > x = proc () -> do
+-- > move :: (Monad m) => Query m () Position
+-- > move = proc () -> do
 -- >   Velocity v <- Q.fetch -< ()
 -- >   Position p <- Q.fetch -< ()
 -- >   Q.set -< Position $ p + v
+--
 -- === Arrow combinators:
--- > y :: (Monad m) => Query m () Position
--- > y = (Q.fetch &&& Q.fetch) >>> arr (\(Position p, Velocity v) -> Position $ p + v) >>> Q.set
+-- > move :: (Monad m) => Query m () Position
+-- > move = (Q.fetch &&& Q.fetch) >>> arr (\(Position p, Velocity v) -> Position $ p + v) >>> Q.set
 newtype Query m i o
   = Query {runQuery :: Components -> (Set ComponentID, Components, DynamicQuery m i o)}
 
@@ -81,6 +81,7 @@ instance (Monad m) => Arrow (Query m) where
   arr f = Query $ \cs -> (Set.empty, cs, arr f)
   first (Query f) = Query $ \comps -> let (cIds, comps', qS) = f comps in (cIds, comps', first qS)
 
+-- | Get the currently matched `EntityID`.
 entity :: (Applicative m) => Query m () EntityID
 entity = Query $ \cs -> (Set.empty, cs, entityDyn)
 
@@ -95,10 +96,7 @@ fetchMaybe = Query $ \cs ->
   let (cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', fetchMaybeDyn cId)
 
 -- | Set a `Component` by its type.
-set ::
-  forall m a.
-  (Applicative m, Component a) =>
-  Query m a a
+set :: forall m a. (Applicative m, Component a) => Query m a a
 set = Query $ \cs -> let (cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', setDyn cId)
 
 -- | Run a monadic task in a `Query`.
@@ -155,16 +153,12 @@ instance Semigroup QueryFilter where
       )
 
 instance Monoid QueryFilter where
-  mempty = emptyFilter
-
--- | Empty query filter.
-emptyFilter :: QueryFilter
-emptyFilter = QueryFilter (Set.empty,) (Set.empty,)
+  mempty = QueryFilter (Set.empty,) (Set.empty,)
 
 -- | Filter for entities containing this component.
 with :: forall a. (Component a) => QueryFilter
 with =
-  emptyFilter
+  mempty
     { filterWith = \cs ->
         let (cId, cs') = CS.insert @a cs
          in (Set.singleton cId, cs')
@@ -173,7 +167,7 @@ with =
 -- | Filter out entities containing this component.
 without :: forall a. (Component a) => QueryFilter
 without =
-  emptyFilter
+  mempty
     { filterWithout = \cs ->
         let (cId, cs') = CS.insert @a cs
          in (Set.singleton cId, cs')
@@ -242,11 +236,7 @@ entityDyn =
     }
 
 -- | Fetch an `Component` by its `ComponentID`.
-fetchDyn ::
-  forall m a.
-  (Applicative m, Component a) =>
-  ComponentID ->
-  DynamicQuery m () a
+fetchDyn :: forall m a. (Applicative m, Component a) => ComponentID -> DynamicQuery m () a
 fetchDyn cId =
   DynamicQuery
     { dynQueryAll = \_ _ arch -> let as = A.all cId arch in pure (fmap snd as, arch),
@@ -274,5 +264,6 @@ setDyn ::
 setDyn cId =
   DynamicQuery
     { dynQueryAll = \is _ arch -> pure (is, A.withAscList cId is arch),
-      dynQueryLookup = \i eId arch -> pure (A.lookupComponent eId cId arch, A.insertComponent eId cId i arch)
+      dynQueryLookup =
+        \i eId arch -> pure (A.lookupComponent eId cId arch, A.insertComponent eId cId i arch)
     }

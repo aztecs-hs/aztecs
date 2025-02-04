@@ -3,34 +3,45 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Data.Aztecs.View where
+module Data.Aztecs.View
+  ( View (..),
+    view,
+    filterView,
+    unview,
+    allDyn,
+  )
+where
 
 import Data.Aztecs.Query (DynamicQuery (..))
-import Data.Aztecs.World (ArchetypeID, World)
+import Data.Aztecs.World (World)
 import qualified Data.Aztecs.World as W
 import Data.Aztecs.World.Archetype (Archetype)
-import Data.Aztecs.World.Archetypes (Archetypes)
+import qualified Data.Aztecs.World.Archetype as A
+import Data.Aztecs.World.Archetypes (ArchetypeID, Archetypes)
 import qualified Data.Aztecs.World.Archetypes as AS
 import Data.Aztecs.World.Components (ComponentID)
 import Data.Foldable (foldrM)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
-import qualified Data.Aztecs.World.Archetype as A
 
+-- | View into a `World`, containing a subset of archetypes.
 data View = View {viewArchetypes :: Map ArchetypeID Archetype}
   deriving (Show)
 
+-- | View into all archetypes containing the provided component IDs.
 view :: Set ComponentID -> Archetypes -> View
 view cIds as = View $ AS.lookup cIds as
 
-viewFilter ::
+-- | View into all archetypes containing the provided component IDs and matching the provided predicate.
+filterView ::
   Set ComponentID ->
   (Archetype -> Bool) ->
   Archetypes ->
   View
-viewFilter cIds f as = View $ Map.filter f (AS.lookup cIds as)
+filterView cIds f as = View $ Map.filter f (AS.lookup cIds as)
 
+-- | "Un-view" a `View` back into a `World`.
 unview :: View -> World -> World
 unview v w =
   w
@@ -41,8 +52,9 @@ unview v w =
           (Map.toList $ viewArchetypes v)
     }
 
-allState :: (Monad m) => DynamicQuery m () a -> View -> m ([a], View)
-allState q v =
+-- | Query all matching entities in a `View`.
+allDyn :: (Monad m) => DynamicQuery m () a -> View -> m ([a], View)
+allDyn q v =
   fmap (\(as, arches) -> (as, View arches)) $
     foldrM
       ( \(aId, arch) (acc, archAcc) -> do

@@ -5,8 +5,7 @@
 {-# LANGUAGE TypeApplications #-}
 
 module Data.Aztecs.World
-  ( ArchetypeID (..),
-    World (..),
+  ( World (..),
     empty,
     spawn,
     spawnComponent,
