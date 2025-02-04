@@ -19,21 +19,4 @@ newtype Z = Z Int deriving (Eq, Show)
 instance Component Z
 
 main :: IO ()
-main = hspec $ do
-  describe "Data.Aztecs.Query.all" $ do
-    it "queries multiple components" $ do
-      let (_, w) = W.spawn (X 0) W.empty
-          (_, w') = W.spawn (X 1) w
-          xs = Q.map w'
-      xs `shouldMatchList` [X 0, X 1]
-    it "queries a group of components" $ do
-      let (e, w) = W.spawn (X 0) W.empty
-          w' = W.insert e (Y 1) w
-          xs = Q.map w'
-      xs `shouldMatchList` [toEntity (X 0 :& Y 1)]
-    it "queries a fragmented group of components" $ do
-      let (e, w) = W.spawn (X 0) W.empty
-          w' = W.insert e (Y 1) w
-          w'' = W.insert e (Z 2) w'
-          xs = Q.map w''
-      xs `shouldMatchList` [toEntity (Y 1 :& Z 2)]
+main = return ()

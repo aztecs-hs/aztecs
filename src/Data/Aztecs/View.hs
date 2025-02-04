@@ -5,7 +5,7 @@
 
 module Data.Aztecs.View where
 
-import Data.Aztecs.Query (QueryState (..))
+import Data.Aztecs.Query (DynamicQuery (..))
 import Data.Aztecs.World (ArchetypeID, World)
 import qualified Data.Aztecs.World as W
 import Data.Aztecs.World.Archetype (Archetype)
@@ -40,12 +40,12 @@ unview v w =
           (Map.toList $ viewArchetypes v)
     }
 
-allState :: (Monad m) => QueryState m () a -> View -> m ([a], View)
+allState :: (Monad m) => DynamicQuery m () a -> View -> m ([a], View)
 allState q v =
   fmap (\(as, arches) -> (as, View arches)) $
     foldrM
       ( \(aId, arch) (acc, archAcc) -> do
-          (as, arch') <- queryStateAll q (repeat ()) arch
+          (as, arch') <- dynQueryAll q (repeat ()) arch
           return (as ++ acc, Map.insert aId arch' archAcc)
       )
       ([], Map.empty)
