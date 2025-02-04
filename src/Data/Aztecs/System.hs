@@ -15,28 +15,25 @@ import Control.Arrow (Arrow (..), ArrowLoop (..))
 import Control.Category (Category (..))
 import Control.Monad.Fix (MonadFix)
 import Data.Aztecs.Access (Access, runAccess)
-import Data.Aztecs.Query (Query (..), QueryFilter (..))
+import Data.Aztecs.Query (DynamicQueryFilter (..), Query (..), QueryFilter (..), ReadsWrites)
+import qualified Data.Aztecs.Query as Q
 import qualified Data.Aztecs.View as V
 import Data.Aztecs.World (World (..))
 import qualified Data.Aztecs.World as W
 import qualified Data.Aztecs.World.Archetype as A
-import Data.Aztecs.World.Components (ComponentID, Components)
+import Data.Aztecs.World.Components (Components)
 import qualified Data.Foldable as F
-import Data.Set (Set)
 import Prelude hiding (all, map)
 
 newtype System m i o = System
   { runSystem' ::
       Components ->
-      ( Components,
-        [Set ComponentID],
-        i -> World -> m (o, World, World -> World, Access m ())
-      )
+      (Components, ReadsWrites, i -> World -> m (o, World, World -> World, Access m ()))
   }
   deriving (Functor)
 
 instance (Monad m) => Applicative (System m i) where
-  pure a = System (,[],\_ w -> pure (a, w, Prelude.id, pure ()))
+  pure a = System (,mempty,\_ w -> pure (a, w, Prelude.id, pure ()))
   f <*> a =
     System $ \w ->
       let (w', cIds, f') = runSystem' f w
@@ -50,7 +47,7 @@ instance (Monad m) => Applicative (System m i) where
           )
 
 instance (Monad m) => Category (System m) where
-  id = System (,[],\i w -> pure (i, w, Prelude.id, pure ()))
+  id = System (,mempty,\i w -> pure (i, w, Prelude.id, pure ()))
   (.) t1 t2 = System $ \w ->
     let (w', cIds, f) = runSystem' t2 w
         (w'', cIds', g) = runSystem' t1 w'
@@ -65,7 +62,7 @@ instance (Monad m) => Category (System m) where
         )
 
 instance (Monad m) => Arrow (System m) where
-  arr f = System (,[],\i w -> pure (f i, w, Prelude.id, pure ()))
+  arr f = System (,mempty,\i w -> pure (f i, w, Prelude.id, pure ()))
   first t =
     System $ \w ->
       let (w', cIds, f) = runSystem' t w
@@ -117,26 +114,25 @@ runSystemWorld s w = do
 
 all :: forall m a. (Monad m) => Query m () a -> System m () [a]
 all q = System $ \cs ->
-  let (cIds, cs', qS) = runQuery q cs
+  let (rws, cs', qS) = runQuery q cs
    in ( cs',
-        [cIds],
+        rws,
         \_ w ->
-          let v = V.view cIds (archetypes w)
+          let v = V.view (Q.reads rws <> Q.writes rws) (archetypes w)
            in fmap (\(a, _) -> (a, w, Prelude.id, pure ())) (V.allDyn qS v)
       )
 
 filter :: forall m a. (Monad m) => Query m () a -> QueryFilter -> System m () [a]
-filter q f = System $ \cs ->
-  let (cIds, cs', qS) = runQuery q cs
-      (with', cs'') = filterWith f cs'
-      (without', cs''') = filterWithout f cs''
+filter q qf = System $ \cs ->
+  let (rws, cs', qS) = runQuery q cs
+      (dynQf, cs'') = runQueryFilter qf cs'
       f' arch =
-        F.all (\cId -> A.member cId arch) with'
-          && F.all (\cId -> not (A.member cId arch)) without'
-   in ( cs''',
-        [cIds],
+        F.all (\cId -> A.member cId arch) (filterWith dynQf)
+          && F.all (\cId -> not (A.member cId arch)) (filterWithout dynQf)
+   in ( cs'',
+        rws,
         \_ w ->
-          let v = V.filterView cIds f' (archetypes w)
+          let v = V.filterView (Q.reads rws <> Q.writes rws) f' (archetypes w)
            in fmap (\(a, _) -> (a, w, Prelude.id, pure ())) (V.allDyn qS v)
       )
 
@@ -151,11 +147,11 @@ single q =
 
 map :: forall m a. (Monad m) => Query m () a -> System m () [a]
 map q = System $ \cs ->
-  let (cIds, cs', qS) = runQuery q cs
+  let (rws, cs', qS) = runQuery q cs
    in ( cs',
-        [cIds],
+        rws,
         \_ w ->
-          let v = V.view cIds (archetypes w)
+          let v = V.view (Q.reads rws <> Q.writes rws) (archetypes w)
            in fmap (\(a, v') -> (a, w, V.unview v', pure ())) (V.allDyn qS v)
       )
 
@@ -163,17 +159,16 @@ map_ :: forall m a. (Monad m) => Query m () a -> System m () ()
 map_ q = const () <$> map q
 
 filterMap :: forall m a. (Monad m) => Query m () a -> QueryFilter -> System m () [a]
-filterMap q f = System $ \cs ->
-  let (cIds, cs', qS) = runQuery q cs
-      (with', cs'') = filterWith f cs'
-      (without', cs''') = filterWithout f cs''
+filterMap q qf = System $ \cs ->
+  let (rws, cs', qS) = runQuery q cs
+      (dynQf, cs'') = runQueryFilter qf cs'
       f' arch =
-        F.all (\cId -> A.member cId arch) with'
-          && F.all (\cId -> not (A.member cId arch)) without'
-   in ( cs''',
-        [cIds],
+        F.all (\cId -> A.member cId arch) (filterWith dynQf)
+          && F.all (\cId -> not (A.member cId arch)) (filterWithout dynQf)
+   in ( cs'',
+        rws,
         \_ w ->
-          let v = V.filterView cIds f' (archetypes w)
+          let v = V.filterView (Q.reads rws <> Q.writes rws) f' (archetypes w)
            in fmap (\(a, v') -> (a, w, V.unview v', pure ())) (V.allDyn qS v)
       )
 
@@ -188,14 +183,14 @@ mapSingle q =
 
 -- | Queue an `Access` to alter the world after this task is complete.
 queue :: (Monad m) => Access m () -> System m () ()
-queue a = System (,[],\_ w -> pure ((), w, Prelude.id, a))
+queue a = System (,mempty,\_ w -> pure ((), w, Prelude.id, a))
 
 queueWith :: (Monad m) => (i -> Access m ()) -> System m i ()
-queueWith f = System (,[],\i w -> pure ((), w, Prelude.id, f i))
+queueWith f = System (,mempty,\i w -> pure ((), w, Prelude.id, f i))
 
 run :: (Monad m) => (i -> m o) -> System m i o
 run f =
   System
-    (,[],\i w -> do
-           o <- f i
-           return (o, w, Prelude.id, pure ()))
+    (,mempty,\i w -> do
+               o <- f i
+               return (o, w, Prelude.id, pure ()))
