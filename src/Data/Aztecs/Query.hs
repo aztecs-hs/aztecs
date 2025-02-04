@@ -26,6 +26,7 @@ module Data.Aztecs.Query
     mapAccum,
     mapWith,
     zipMapAccum,
+    set,
     QueryState (..),
   )
 where
@@ -273,6 +274,20 @@ mapWith f = Query $ \cs ->
                   as' = fmap (\((eId, a), i) -> (eId, f i a)) (zip as is)
                in pure (as', A.insertAscList cId as' arch),
             queryStateLookup = \i eId arch -> pure $ fmap (\c -> (eId, f i c)) $ A.lookupComponent eId cId arch
+          }
+      )
+
+set ::
+  forall m a.
+  (Applicative m, Component a) =>
+  Query m a a
+set = Query $ \cs ->
+  let (cId, cs') = CS.insert @a cs
+   in ( Set.singleton cId,
+        cs',
+        QueryState
+          { queryStateAll = \is arch -> pure (is, A.withAscList cId is arch),
+            queryStateLookup = \i eId arch -> pure $ A.lookupComponent eId cId arch
           }
       )
 

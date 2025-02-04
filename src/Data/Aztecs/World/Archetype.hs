@@ -21,6 +21,7 @@ module Data.Aztecs.World.Archetype
     removeStorages,
     insertComponent,
     insertAscList,
+    withAscList,
     Insert (..),
     AnyStorage (..),
     anyStorage,
@@ -121,7 +122,26 @@ lookupComponent :: forall a. (Component a) => EntityID -> ComponentID -> Archety
 lookupComponent e cId w = lookupStorage cId w >>= S.lookup (unEntityId e)
 
 insertAscList :: forall a. (Component a) => ComponentID -> [(EntityID, a)] -> Archetype -> Archetype
-insertAscList cId as arch = arch {storages = Map.insert cId (anyStorage $ S.fromAscList @(StorageT a) (map (first unEntityId) as)) (storages arch)}
+insertAscList cId as arch =
+  arch
+    { storages =
+        Map.insert
+          cId
+          (anyStorage $ S.fromAscList @(StorageT a) (map (first unEntityId) as))
+          (storages arch)
+    }
+
+withAscList :: forall a. (Component a) => ComponentID -> [a] -> Archetype -> Archetype
+withAscList cId as arch =
+  arch
+    { storages =
+        Map.adjust
+          ( \s ->
+              (anyStorage $ S.fromAscList @(StorageT a) (zip (entitiesDyn s (storageDyn s)) as))
+          )
+          cId
+          (storages arch)
+    }
 
 remove :: EntityID -> Archetype -> (Map ComponentID Dynamic, Archetype)
 remove e arch =
