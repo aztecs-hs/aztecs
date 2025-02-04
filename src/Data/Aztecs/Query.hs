@@ -39,7 +39,6 @@ import Data.Aztecs.World.Archetype (Archetype)
 import qualified Data.Aztecs.World.Archetype as A
 import Data.Aztecs.World.Components (Components)
 import qualified Data.Aztecs.World.Components as CS
-import Data.Data (Typeable)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Prelude hiding (all, lookup, map, mapM)
@@ -69,7 +68,7 @@ instance Monoid QueryFilter where
 emptyFilter :: QueryFilter
 emptyFilter = QueryFilter (Set.empty,) (Set.empty,)
 
-with :: forall a. (Component a, Typeable (StorageT a)) => QueryFilter
+with :: forall a. (Component a) => QueryFilter
 with =
   emptyFilter
     { filterWith = \cs ->
@@ -77,7 +76,7 @@ with =
          in (Set.singleton cId, cs')
     }
 
-without :: forall a. (Component a, Typeable (StorageT a)) => QueryFilter
+without :: forall a. (Component a) => QueryFilter
 without =
   emptyFilter
     { filterWithout = \cs ->
@@ -156,11 +155,11 @@ instance (Monad m) => Arrow (Query m) where
         )
 
 -- | Fetch a `Component` by its type.
-fetch :: forall m a. (Applicative m, Component a, Typeable (StorageT a)) => Query m () a
+fetch :: forall m a. (Applicative m, Component a) => Query m () a
 fetch = fmap snd fetchWithId
 
 -- | Fetch an `EntityID` and `Component` by its type.
-fetchWithId :: forall m a. (Applicative m, Component a, Typeable (StorageT a)) => Query m () (EntityID, a)
+fetchWithId :: forall m a. (Applicative m, Component a) => Query m () (EntityID, a)
 fetchWithId = Query $ \cs ->
   let (cId, cs') = CS.insert @a cs
    in ( Set.singleton cId,
@@ -171,7 +170,7 @@ fetchWithId = Query $ \cs ->
           }
       )
 
-map :: forall m a. (Applicative m, Component a, Typeable (StorageT a)) => (a -> a) -> Query m () (EntityID, a)
+map :: forall m a. (Applicative m, Component a) => (a -> a) -> Query m () (EntityID, a)
 map f = Query $ \cs ->
   let (cId, cs') = CS.insert @a cs
    in ( Set.singleton cId,
@@ -185,7 +184,7 @@ map f = Query $ \cs ->
           }
       )
 
-mapM :: forall m a. (Monad m, Component a, Typeable (StorageT a)) => (a -> m a) -> Query m () a
+mapM :: forall m a. (Monad m, Component a) => (a -> m a) -> Query m () a
 mapM f = Query $ \cs ->
   let (cId, cs') = CS.insert @a cs
    in ( Set.singleton cId,
@@ -203,7 +202,7 @@ mapM f = Query $ \cs ->
 
 mapAccum ::
   forall m b a.
-  (Monad m, Component a, Typeable (StorageT a)) =>
+  (Monad m, Component a) =>
   (a -> m (b, a)) ->
   Query m () (b, a)
 mapAccum f = Query $ \cs ->
@@ -232,7 +231,7 @@ mapAccum f = Query $ \cs ->
 
 zipMapAccum ::
   forall m i b a.
-  (Monad m, Component a, Typeable (StorageT a)) =>
+  (Monad m, Component a) =>
   (i -> a -> m (b, a)) ->
   Query m i (EntityID, b, a)
 zipMapAccum f = Query $ \cs ->
@@ -261,7 +260,7 @@ zipMapAccum f = Query $ \cs ->
 
 mapWith ::
   forall m i a.
-  (Applicative m, Component a, Typeable (StorageT a)) =>
+  (Applicative m, Component a) =>
   (i -> a -> a) ->
   Query m i (EntityID, a)
 mapWith f = Query $ \cs ->
@@ -277,12 +276,12 @@ mapWith f = Query $ \cs ->
           }
       )
 
-fetchMaybe :: forall m a. (Applicative m, Component a, Typeable (StorageT a)) => Query m () (EntityID, Maybe a)
+fetchMaybe :: forall m a. (Applicative m, Component a) => Query m () (EntityID, Maybe a)
 fetchMaybe = fetchMaybe' (CS.insert @a)
 
 fetchMaybe' ::
   forall m a.
-  (Applicative m, Component a, Typeable (StorageT a)) =>
+  (Applicative m, Component a) =>
   (Components -> (ComponentID, Components)) ->
   Query m () ((EntityID, Maybe a))
 fetchMaybe' f = Query $ \cs ->
