@@ -58,7 +58,7 @@ addWindows :: System IO () ()
 addWindows = proc () -> do
   newWindows <- S.filter (Q.entity &&& Q.fetch @_ @Window) (without @WindowRenderer) -< ()
   newWindows' <- S.run createNewWindows -< newWindows
-  S.queueWith insertNewWindows -< newWindows'
+  S.queue insertNewWindows -< newWindows'
   where
     createNewWindows newWindows = mapM createWindowRenderer newWindows
     createWindowRenderer (eId, window) = do
@@ -129,7 +129,7 @@ addWindowTargets :: System IO () ()
 addWindowTargets = proc () -> do
   windows <- S.all (Q.entity &&& Q.fetch @_ @WindowRenderer) -< ()
   newDraws <- S.filter (Q.entity &&& Q.fetch @_ @Draw) (without @WindowTarget) -< ()
-  S.queueWith
+  S.queue
     ( \(newDraws, windows) -> case windows of
         (windowEId, _) : _ -> mapM_ (\(eId, _) -> A.insert eId $ WindowTarget windowEId) newDraws
         _ -> return ()
@@ -179,7 +179,7 @@ drawImages = proc () -> do
   assets <- S.single (Q.fetch @_ @(AssetServer Texture)) -< ()
   let newAssets =
         mapMaybe (\(eId, img) -> (,img,eId) <$> lookupAsset (imageTexture img) assets) imgs
-  S.queueWith (mapM_ go) -< newAssets
+  S.queue (mapM_ go) -< newAssets
   where
     go (texture, img, eId) = do
       A.insert

@@ -24,7 +24,7 @@ setup =
         Q.set -< assetServer'
         returnA -< texture
     )
-    >>> S.queueWith
+    >>> S.queue
       ( \texture -> do
           A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
           A.spawn_ $

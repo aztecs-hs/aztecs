@@ -86,4 +86,4 @@ loadAssets =
     )
 
 setup :: forall a. (Typeable a) => System IO () ()
-setup = S.queue (A.spawn_ @IO (bundle $ empty @a))
+setup = S.queue . const . A.spawn_ @IO . bundle $ empty @a
