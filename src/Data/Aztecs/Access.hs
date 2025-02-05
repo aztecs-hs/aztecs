@@ -15,8 +15,10 @@ where
 
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.State (MonadState (..), StateT (..))
+import Control.Monad.Writer (WriterT (..))
 import Data.Aztecs.Component (Component (..))
 import Data.Aztecs.Entity (EntityID)
+import Data.Aztecs.View (View)
 import Data.Aztecs.World (World)
 import qualified Data.Aztecs.World as W
 import Data.Aztecs.World.Archetype (Bundle)
@@ -24,12 +26,12 @@ import Data.Data (Typeable)
 import Prelude hiding (all, lookup, map)
 
 -- | Access into the `World`.
-newtype Access m a = Access {unAccess :: StateT World m a}
+newtype Access m a = Access {unAccess :: WriterT View (StateT World m) a}
   deriving (Functor, Applicative, Monad, MonadIO)
 
 -- | Run an `Access` on a `World`, returning the output and updated `World`.
-runAccess :: Access m a -> World -> m (a, World)
-runAccess a = runStateT (unAccess a)
+runAccess :: (Functor m) => Access m a -> World -> m (a, View, World)
+runAccess a w = fmap (\((x, v), w') -> (x, v, w')) (runStateT (runWriterT $ unAccess a) w)
 
 -- | Spawn an entity with a component.
 spawn ::

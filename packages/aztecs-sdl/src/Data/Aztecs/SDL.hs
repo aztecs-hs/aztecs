@@ -42,7 +42,7 @@ instance Component WindowRenderer
 
 -- | Setup SDL
 setup :: System IO () ()
-setup = Asset.setup @Texture >>> S.run (const initializeAll)
+setup = fmap (const ()) $ Asset.setup @Texture &&& S.run (const initializeAll)
 
 -- | Update SDL windows
 update :: System IO () ()
@@ -50,8 +50,8 @@ update =
   addWindows
     >>> addWindowTargets
     >>> renderWindows
-    >>> drawImages
     >>> Asset.loadAssets @Texture
+    >>> drawImages
 
 -- | Setup new windows.
 addWindows :: System IO () ()

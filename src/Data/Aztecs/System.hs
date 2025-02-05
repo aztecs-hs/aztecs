@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecursiveDo #-}
@@ -9,10 +10,12 @@ module Data.Aztecs.System where
 
 import Control.Arrow (Arrow (..), ArrowLoop (..))
 import Control.Category (Category (..))
-import Control.Monad.Fix (MonadFix)
+import Control.Concurrent (forkIO, putMVar, takeMVar)
+import Control.Concurrent.MVar (newEmptyMVar)
 import Data.Aztecs.Access (Access, runAccess)
 import Data.Aztecs.Query (DynamicQuery, DynamicQueryFilter (..), Query (..), QueryFilter (..), ReadsWrites)
 import qualified Data.Aztecs.Query as Q
+import Data.Aztecs.View (View, unview)
 import qualified Data.Aztecs.View as V
 import Data.Aztecs.World (World (..))
 import qualified Data.Aztecs.World as W
@@ -41,11 +44,11 @@ instance (Monad m) => Category (System m) where
         (cs'', cIds', f') = runSystem' f cs'
      in (cs'', cIds <> cIds', f' . g')
 
-instance (Monad m) => Arrow (System m) where
+instance Arrow (System IO) where
   arr f = System (,mempty,arr f)
   first s = System $ \w -> let (w', cIds, dynS) = runSystem' s w in (w', cIds, first dynS)
 
-instance (MonadFix m) => ArrowLoop (System m) where
+instance ArrowLoop (System IO) where
   loop s = System $ \w -> let (w', cIds, dynS) = runSystem' s w in (w', cIds, loop dynS)
 
 forever :: (Monad m) => System m () () -> System m () ()
@@ -61,8 +64,8 @@ runSystemWorld :: (Monad m) => System m () () -> World -> m World
 runSystemWorld s w = do
   let (cs, _, dynS) = runSystem' s (components w)
       w' = w {components = cs}
-  ((), w'', access) <- runSystemDyn dynS () w'
-  ((), w''') <- runAccess access w''
+  ((), w'', _, access) <- runSystemDyn dynS () w'
+  ((), _, w''') <- runAccess access w''
   return w'''
 
 all :: forall m a. (Monad m) => Query m () a -> System m () [a]
@@ -81,7 +84,7 @@ filter q qf = System $ \cs ->
         rws,
         DynamicSystem $ \_ w ->
           let v = V.filterView (Q.reads rws <> Q.writes rws) f' (archetypes w)
-           in fmap (\(a, _) -> (a, w, pure ())) (V.allDyn qS v)
+           in fmap (\(a, _) -> (a, w, mempty, pure ())) (V.allDyn qS v)
       )
 
 single :: forall m a. (Monad m) => Query m () a -> System m () a
@@ -111,7 +114,7 @@ filterMap q qf = System $ \cs ->
         rws,
         DynamicSystem $ \_ w ->
           let v = V.filterView (Q.reads rws <> Q.writes rws) f' (archetypes w)
-           in fmap (\(a, v') -> (a, V.unview v' w, pure ())) (V.allDyn qS v)
+           in fmap (\(a, v') -> (a, V.unview v' w, v', pure ())) (V.allDyn qS v)
       )
 
 mapSingle :: forall m a. (Monad m) => Query m () a -> System m () a
@@ -131,48 +134,62 @@ run :: (Monad m) => (i -> m o) -> System m i o
 run f = System (,mempty,runDyn f)
 
 newtype DynamicSystem m i o = DynamicSystem
-  {runSystemDyn :: i -> World -> m (o, World, Access m ())}
+  {runSystemDyn :: i -> World -> m (o, World, View, Access m ())}
   deriving (Functor)
 
 instance (Monad m) => Applicative (DynamicSystem m i) where
-  pure a = DynamicSystem $ \_ w -> pure (a, w, pure ())
+  pure a = DynamicSystem $ \_ w -> pure (a, w, mempty, pure ())
   f <*> a =
     DynamicSystem $ \i w -> do
-      (f'', w', access) <- runSystemDyn f i w
-      (a'', w'', access') <- runSystemDyn a i w'
-      return (f'' a'', w'', access >> access')
+      (f'', w', v, access) <- runSystemDyn f i w
+      (a'', w'', v', access') <- runSystemDyn a i w'
+      return (f'' a'', w'', v <> v', access >> access')
 
 instance (Monad m) => Category (DynamicSystem m) where
-  id = DynamicSystem $ \i w -> pure (i, w, pure ())
+  id = DynamicSystem $ \i w -> pure (i, w, mempty, pure ())
   f . g = DynamicSystem $ \i w -> do
-    (a, w', access) <- runSystemDyn g i w
-    ((), w'') <- runAccess access w'
-    runSystemDyn f a w''
+    (a, w', v, access) <- runSystemDyn g i w
+    ((), v', w'') <- runAccess access w'
+    (b, w''', v'', access') <- runSystemDyn f a w''
+    return (b, w''', v <> v' <> v'', access')
 
-instance (Monad m) => Arrow (DynamicSystem m) where
-  arr f = DynamicSystem $ \i w -> pure (f i, w, pure ())
+instance Arrow (DynamicSystem IO) where
+  arr f = DynamicSystem $ \i w -> pure (f i, w, mempty, pure ())
   first s =
     DynamicSystem $ \(i, x) w -> do
-      (o, w', access) <- runSystemDyn s i w
-      return ((o, x), w', access)
+      (o, w', v, access) <- runSystemDyn s i w
+      return ((o, x), w', v, access)
+  f &&& g = DynamicSystem $ \i w -> do
+    fVar <- newEmptyMVar
+    gVar <- newEmptyMVar
+    _ <- forkIO $ do
+      result <- runSystemDyn f i w
+      putMVar fVar result
+    _ <- forkIO $ do
+      result <- runSystemDyn g i w
+      putMVar gVar result
+    (a, _, v, accessF) <- takeMVar fVar
+    (b, _, v', accessG) <- takeMVar gVar
 
-instance (MonadFix m) => ArrowLoop (DynamicSystem m) where
+    return ((a, b), unview (v <> v') w, v <> v', accessF >> accessG)
+
+instance ArrowLoop (DynamicSystem IO) where
   loop s = DynamicSystem $ \b w -> mdo
-    ((c, d), w', access) <- runSystemDyn s (b, d) w
-    return (c, w', access)
+    ((c, d), w', v, access) <- runSystemDyn s (b, d) w
+    return (c, w', v, access)
 
 foreverDyn :: (Monad m) => DynamicSystem m () () -> DynamicSystem m () ()
 foreverDyn s = DynamicSystem $ \_ w -> do
   let go wAcc = do
-        ((), wAcc', access) <- runSystemDyn s () wAcc
-        ((), wAcc'') <- runAccess access wAcc'
+        ((), wAcc', _, access) <- runSystemDyn s () wAcc
+        ((), _, wAcc'') <- runAccess access wAcc'
         go wAcc''
   go w
 
 allDyn :: forall m a. (Monad m) => Set ComponentID -> DynamicQuery m () a -> DynamicSystem m () [a]
 allDyn cIds q = DynamicSystem $ \_ w ->
   let v = V.view cIds (archetypes w)
-   in fmap (\(a, _) -> (a, w, pure ())) (V.allDyn q v)
+   in fmap (\(a, _) -> (a, w, mempty, pure ())) (V.allDyn q v)
 
 singleDyn :: forall m a. (Monad m) => Set ComponentID -> DynamicQuery m () a -> DynamicSystem m () a
 singleDyn cIds q =
@@ -186,15 +203,15 @@ singleDyn cIds q =
 mapDyn :: forall m a. (Monad m) => Set ComponentID -> DynamicQuery m () a -> DynamicSystem m () [a]
 mapDyn cIds q = DynamicSystem $ \_ w ->
   let v = V.view cIds (archetypes w)
-   in fmap (\(a, v') -> (a, V.unview v' w, pure ())) (V.allDyn q v)
+   in fmap (\(a, v') -> (a, V.unview v' w, v', pure ())) (V.allDyn q v)
 
 mapDyn_ :: forall m a. (Monad m) => Set ComponentID -> DynamicQuery m () a -> DynamicSystem m () ()
 mapDyn_ cIds q = const () <$> mapDyn cIds q
 
 queueDyn :: (Monad m) => (i -> Access m ()) -> DynamicSystem m i ()
-queueDyn f = DynamicSystem $ \i w -> pure ((), w, f i)
+queueDyn f = DynamicSystem $ \i w -> pure ((), w, mempty, f i)
 
 runDyn :: (Monad m) => (i -> m o) -> DynamicSystem m i o
 runDyn f = DynamicSystem $ \i w -> do
   o <- f i
-  return (o, w, pure ())
+  return (o, w, mempty, pure ())

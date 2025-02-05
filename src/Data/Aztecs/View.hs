@@ -2,6 +2,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Data.Aztecs.View
   ( View (..),
@@ -26,8 +27,8 @@ import qualified Data.Map as Map
 import Data.Set (Set)
 
 -- | View into a `World`, containing a subset of archetypes.
-data View = View {viewArchetypes :: Map ArchetypeID Archetype}
-  deriving (Show)
+newtype View = View {viewArchetypes :: Map ArchetypeID Archetype}
+  deriving (Show, Semigroup, Monoid)
 
 -- | View into all archetypes containing the provided component IDs.
 view :: Set ComponentID -> Archetypes -> View
