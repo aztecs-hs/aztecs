@@ -168,11 +168,13 @@ instance Monoid QueryFilter where
 
 -- | Filter for entities containing this component.
 with :: forall a. (Component a) => QueryFilter
-with = mempty $ \cs -> let (cId, cs') = CS.insert @a cs in (Set.singleton cId, cs')
+with = QueryFilter $ \cs ->
+  let (cId, cs') = CS.insert @a cs in (mempty {filterWith = Set.singleton cId}, cs')
 
 -- | Filter out entities containing this component.
 without :: forall a. (Component a) => QueryFilter
-without = mempty $ \cs -> let (cId, cs') = CS.insert @a cs in (Set.singleton cId, cs')
+without = QueryFilter $ \cs ->
+  let (cId, cs') = CS.insert @a cs in (mempty {filterWithout = Set.singleton cId}, cs')
 
 data DynamicQueryFilter = DynamicQueryFilter
   { filterWith :: Set ComponentID,
