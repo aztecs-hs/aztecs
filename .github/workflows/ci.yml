@@ -38,7 +38,7 @@ jobs:
         run: cabal update
 
       - name: Run tests
-        run: cabal test
+        run: cabal test all
   doctest:
     runs-on: ubuntu-latest
 
@@ -67,4 +67,4 @@ jobs:
           cabal update
           cabal install doctest
       - name: Run doctests
-        run: cabal repl --with-compiler=doctest
+        run: cabal repl aztecs --with-compiler=doctest
