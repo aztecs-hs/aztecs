@@ -5,6 +5,9 @@
 [![CI status](https://github.com/matthunz/aztecs/actions/workflows/ci.yml/badge.svg)](https://github.com/matthunz/aztecs/actions)
 
 A type-safe and friendly [ECS](https://en.wikipedia.org/wiki/Entity_component_system) for Haskell.
+An ECS is a modern approach to organizing your application as a database,
+providing patterns for data-oriented design and parallel processing.
+For more information, please see the documentation on [Hackage](https://hackage.haskell.org/package/aztecs).
 
 ## Features
 
@@ -29,7 +32,7 @@ newtype Velocity = Velocity Int deriving (Show)
 instance Component Velocity
 
 setup :: System IO () ()
-setup = S.queue . A.spawn_ $ bundle (Position 0) <> bundle (Velocity 1)
+setup = S.queue . const . A.spawn_ $ bundle (Position 0) <> bundle (Velocity 1)
 
 move :: System IO () ()
 move =
@@ -67,7 +70,7 @@ setup =
         Q.set -< assetServer'
         returnA -< texture
     )
-    >>> S.queueWith
+    >>> S.queue
       ( \texture -> do
           A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
           A.spawn_ $
