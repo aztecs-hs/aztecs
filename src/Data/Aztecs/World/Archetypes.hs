@@ -98,7 +98,6 @@ lookup cIds arches =
     (\aId -> nodeArchetype $ nodes arches Map.! aId)
     (findArchetypeIds cIds arches)
 
-
 -- | Map over `Archetype`s containing a set of `ComponentID`s.
 map :: Set ComponentID -> (Archetype -> (a, Archetype)) -> Archetypes -> ([a], Archetypes)
 map cIds f arches =

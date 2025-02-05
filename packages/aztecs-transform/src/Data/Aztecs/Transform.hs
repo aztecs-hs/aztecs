@@ -7,7 +7,8 @@ data Transform = Transform
   { transformPosition :: V2 Float,
     transformRotation :: Float,
     transformScale :: V2 Float
-  } deriving (Eq, Show)
+  }
+  deriving (Eq, Show)
 
 transform :: Transform
 transform = Transform (V2 0 0) 0 (V2 1 1)
