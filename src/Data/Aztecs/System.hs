@@ -47,6 +47,11 @@ instance (Monad m) => Category (System m) where
 instance Arrow (System IO) where
   arr f = System (,mempty,arr f)
   first s = System $ \w -> let (w', cIds, dynS) = runSystem' s w in (w', cIds, first dynS)
+  a &&& b = System $ \w ->
+    let (w', aRws, dynA) = runSystem' a w
+        (w'', bRws, dynB) = runSystem' b w'
+        f = if Q.disjoint aRws bRws then (&&&) else joinDyn
+     in (w'', aRws <> bRws, f dynA dynB)
 
 instance ArrowLoop (System IO) where
   loop s = System $ \w -> let (w', cIds, dynS) = runSystem' s w in (w', cIds, loop dynS)
@@ -159,24 +164,25 @@ instance Arrow (DynamicSystem IO) where
     DynamicSystem $ \(i, x) w -> do
       (o, w', v, access) <- runSystemDyn s i w
       return ((o, x), w', v, access)
-  f &&& g = DynamicSystem $ \i w -> do
-    fVar <- newEmptyMVar
-    gVar <- newEmptyMVar
-    _ <- forkIO $ do
-      result <- runSystemDyn f i w
-      putMVar fVar result
-    _ <- forkIO $ do
-      result <- runSystemDyn g i w
-      putMVar gVar result
-    (a, _, v, accessF) <- takeMVar fVar
-    (b, _, v', accessG) <- takeMVar gVar
-
-    return ((a, b), unview (v <> v') w, v <> v', accessF >> accessG)
 
 instance ArrowLoop (DynamicSystem IO) where
   loop s = DynamicSystem $ \b w -> mdo
     ((c, d), w', v, access) <- runSystemDyn s (b, d) w
     return (c, w', v, access)
+
+joinDyn :: DynamicSystem IO i a -> DynamicSystem IO i b -> DynamicSystem IO i (a, b)
+joinDyn f g = DynamicSystem $ \i w -> do
+  fVar <- newEmptyMVar
+  gVar <- newEmptyMVar
+  _ <- forkIO $ do
+    result <- runSystemDyn f i w
+    putMVar fVar result
+  _ <- forkIO $ do
+    result <- runSystemDyn g i w
+    putMVar gVar result
+  (a, _, v, accessF) <- takeMVar fVar
+  (b, _, v', accessG) <- takeMVar gVar
+  return ((a, b), unview (v <> v') w, v <> v', accessF >> accessG)
 
 foreverDyn :: (Monad m) => DynamicSystem m () () -> DynamicSystem m () ()
 foreverDyn s = DynamicSystem $ \_ w -> do
