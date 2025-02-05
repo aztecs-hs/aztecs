@@ -1,16 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Data.Aztecs.Query
   ( -- * Queries
@@ -106,7 +98,7 @@ fetchMaybe = Query $ \cs ->
 set :: forall m a. (Applicative m, Component a) => Query m a a
 set = Query $ \cs ->
   let (cId, cs') = CS.insert @a cs
-   in (ReadsWrites (Set.empty) (Set.singleton cId), cs', setDyn cId)
+   in (ReadsWrites Set.empty (Set.singleton cId), cs', setDyn cId)
 
 -- | Run a monadic task in a `Query`.
 run :: (Monad m) => (i -> m o) -> Query m i o
