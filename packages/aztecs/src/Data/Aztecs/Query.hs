@@ -60,12 +60,23 @@ import Prelude hiding (all, any, id, lookup, map, mapM, reads, (.))
 --
 -- === Arrow combinators:
 -- > move :: (Monad m) => Query m () Position
--- > move = (Q.fetch &&& Q.fetch) >>> arr (\(Position p, Velocity v) -> Position $ p + v) >>> Q.set
+-- > move = Q.fetch &&& Q.fetch >>> arr (\(Position p, Velocity v) -> Position $ p + v) >>> Q.set
+--
+-- === Applicative combinators:
+-- > move :: (Monad m) => Query m () Position
+-- > move = (,) <$> Q.fetch <*> Q.fetch >>> arr (\(Position p, Velocity v) -> Position $ p + v) >>> Q.set
 newtype Query m i o
   = Query {runQuery :: Components -> (ReadsWrites, Components, DynamicQuery m i o)}
 
 instance (Functor m) => Functor (Query m i) where
   fmap f (Query q) = Query $ \cs -> let (cIds, cs', qS) = q cs in (cIds, cs', fmap f qS)
+
+instance (Monad m) => Applicative (Query m i) where
+  pure a = Query $ \cs -> (mempty, cs, pure a)
+  (Query f) <*> (Query g) = Query $ \cs ->
+    let (cIdsG, cs', aQS) = g cs
+        (cIdsF, cs'', bQS) = f cs'
+     in (cIdsG <> cIdsF, cs'', bQS <*> aQS)
 
 instance (Monad m) => Category (Query m) where
   id = Query $ \cs -> (mempty, cs, id)
@@ -200,6 +211,27 @@ instance (Functor m) => Functor (DynamicQuery m i) where
       { dynQueryAll =
           \i es arch -> fmap (\(a, arch') -> (fmap f a, arch')) $ dynQueryAll q i es arch,
         dynQueryLookup = \i eId arch -> fmap (first $ fmap f) $ dynQueryLookup q i eId arch
+      }
+
+instance (Monad m) => Applicative (DynamicQuery m i) where
+  pure a =
+    DynamicQuery
+      { dynQueryAll = \_ _ arch -> pure ([a], arch),
+        dynQueryLookup = \_ _ arch -> pure (Just a, arch)
+      }
+  f <*> g =
+    DynamicQuery
+      { dynQueryAll = \i es arch -> do
+          (as, arch') <- dynQueryAll g i es arch
+          (fs, arch'') <- dynQueryAll f i es arch'
+          return (zipWith ($) fs as, arch''),
+        dynQueryLookup = \i eId arch -> do
+          (res, arch') <- dynQueryLookup g i eId arch
+          case res of
+            Just a -> do
+              (res', arch'') <- dynQueryLookup f i eId arch'
+              return (fmap ($) res' <*> Just a, arch'')
+            Nothing -> pure (Nothing, arch')
       }
 
 instance (Monad m) => Category (DynamicQuery m) where
