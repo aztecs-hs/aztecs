@@ -1,8 +1,8 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Data.Aztecs.View
   ( View (..),
@@ -16,9 +16,8 @@ where
 import Data.Aztecs.Query (DynamicQuery (..))
 import Data.Aztecs.World (World)
 import qualified Data.Aztecs.World as W
-import Data.Aztecs.World.Archetype (Archetype)
 import qualified Data.Aztecs.World.Archetype as A
-import Data.Aztecs.World.Archetypes (ArchetypeID, Archetypes)
+import Data.Aztecs.World.Archetypes (ArchetypeID, Archetypes, Node (..))
 import qualified Data.Aztecs.World.Archetypes as AS
 import Data.Aztecs.World.Components (ComponentID)
 import Data.Foldable (foldrM)
@@ -27,7 +26,7 @@ import qualified Data.Map as Map
 import Data.Set (Set)
 
 -- | View into a `World`, containing a subset of archetypes.
-newtype View = View {viewArchetypes :: Map ArchetypeID Archetype}
+newtype View = View {viewArchetypes :: Map ArchetypeID Node}
   deriving (Show, Semigroup, Monoid)
 
 -- | View into all archetypes containing the provided component IDs.
@@ -37,7 +36,7 @@ view cIds as = View $ AS.lookup cIds as
 -- | View into all archetypes containing the provided component IDs and matching the provided predicate.
 filterView ::
   Set ComponentID ->
-  (Archetype -> Bool) ->
+  (Node -> Bool) ->
   Archetypes ->
   View
 filterView cIds f as = View $ Map.filter f (AS.lookup cIds as)
@@ -48,7 +47,7 @@ unview v w =
   w
     { W.archetypes =
         foldr
-          (\(aId, arch) as -> AS.adjustArchetype aId (const arch) as)
+          (\(aId, n) as -> as {AS.nodes = Map.insert aId n (AS.nodes as)})
           (W.archetypes w)
           (Map.toList $ viewArchetypes v)
     }
@@ -58,9 +57,9 @@ allDyn :: (Monad m) => DynamicQuery m () a -> View -> m ([a], View)
 allDyn q v =
   fmap (\(as, arches) -> (as, View arches)) $
     foldrM
-      ( \(aId, arch) (acc, archAcc) -> do
-          (as, arch') <- dynQueryAll q (repeat ()) (A.entities arch) arch
-          return (as ++ acc, Map.insert aId arch' archAcc)
+      ( \(aId, n) (acc, archAcc) -> do
+          (as, arch') <- dynQueryAll q (repeat ()) (A.entities (nodeArchetype n)) (nodeArchetype n)
+          return (as ++ acc, Map.insert aId (n {nodeArchetype = arch'}) archAcc)
       )
       ([], Map.empty)
       (Map.toList $ viewArchetypes v)

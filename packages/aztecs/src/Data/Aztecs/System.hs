@@ -54,6 +54,7 @@ import Data.Aztecs.World.Components (ComponentID, Components)
 import qualified Data.Foldable as F
 import Data.Set (Set)
 import Prelude hiding (all, filter, id, map, (.))
+import Data.Aztecs.World.Archetypes (Node(nodeArchetype))
 
 -- | System that can access and alter a `World`.
 --
@@ -122,9 +123,9 @@ filter :: forall m a. (Monad m) => Query m () a -> QueryFilter -> System m () [a
 filter q qf = System $ \cs ->
   let (rws, cs', qS) = runQuery q cs
       (dynQf, cs'') = runQueryFilter qf cs'
-      f' arch =
-        F.all (\cId -> A.member cId arch) (filterWith dynQf)
-          && F.all (\cId -> not (A.member cId arch)) (filterWithout dynQf)
+      f' n =
+        F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynQf)
+          && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynQf)
    in ( cs'',
         rws,
         DynamicSystem $ \_ w ->
@@ -157,9 +158,9 @@ filterMap :: forall m a. (Monad m) => Query m () a -> QueryFilter -> System m ()
 filterMap q qf = System $ \cs ->
   let (rws, cs', qS) = runQuery q cs
       (dynQf, cs'') = runQueryFilter qf cs'
-      f' arch =
-        F.all (\cId -> A.member cId arch) (filterWith dynQf)
-          && F.all (\cId -> not (A.member cId arch)) (filterWithout dynQf)
+      f' n =
+        F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynQf)
+          && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynQf)
    in ( cs'',
         rws,
         DynamicSystem $ \_ w ->

@@ -41,6 +41,7 @@ import Data.Aztecs.Entity (EntityID)
 import Data.Aztecs.World (World (..))
 import Data.Aztecs.World.Archetype (Archetype)
 import qualified Data.Aztecs.World.Archetype as A
+import Data.Aztecs.World.Archetypes (Node (nodeArchetype))
 import qualified Data.Aztecs.World.Archetypes as AS
 import Data.Aztecs.World.Components (Components)
 import qualified Data.Aztecs.World.Components as CS
@@ -140,7 +141,7 @@ all q w = do
   let (rws, cs', dynQ) = runQuery q (components w)
   as <-
     mapM
-      (\arch -> fst <$> dynQueryAll dynQ (repeat ()) (A.entities arch) arch)
+      (\n -> fst <$> dynQueryAll dynQ (repeat ()) (A.entities $ nodeArchetype n) (nodeArchetype n))
       (Map.elems $ AS.lookup (reads rws <> writes rws) (archetypes w))
   return (concat as, w {components = cs'})
 
