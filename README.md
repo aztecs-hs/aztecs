@@ -5,15 +5,15 @@
 [![CI status](https://github.com/matthunz/aztecs/actions/workflows/ci.yml/badge.svg)](https://github.com/matthunz/aztecs/actions)
 
 A type-safe and friendly [ECS](https://en.wikipedia.org/wiki/Entity_component_system) for Haskell.
-An ECS is a modern approach to organizing your application as a database,
+An ECS is a modern approach to organizing your application state as a database,
 providing patterns for data-oriented design and parallel processing.
-For more information, please see the documentation on [Hackage](https://hackage.haskell.org/package/aztecs).
+For more information, please see the documentation on [Hackage](https://hackage.haskell.org/package/aztecs/docs/Data-Aztecs.html).
 
 ## Features
 
-- High-performance: Components are stored by their unique sets in vector-based archetypes
+- High-performance: Components are stored by their unique sets in archetypes
 - Dynamic components: Scripts and remote interfaces can create unique components with runtime-specified components
-- Type-safe DSL: Components and systems are accessed by marker types that determine their storage
+- Type-safe DSL: Queries and systems use `Arrow` syntax for compile-time gurantees
 - Modular design: Aztecs can be extended for a variety of use cases
 
 ```hs
@@ -45,7 +45,7 @@ move =
     >>> S.run print
 
 main :: IO ()
-main = runSystem_ (setup >>> S.forever move)
+main = runSystem_ $ setup >>> S.forever move
 ```
 
 ## SDL

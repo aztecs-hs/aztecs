@@ -32,4 +32,4 @@ move =
     >>> S.run print
 
 main :: IO ()
-main = runSystem_ (setup >>> S.forever move)
+main = runSystem_ $ setup >>> S.forever move
