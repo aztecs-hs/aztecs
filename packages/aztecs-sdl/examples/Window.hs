@@ -35,5 +35,8 @@ setup =
               <> bundle transform {transformPosition = V2 500 100}
       )
 
+update :: System IO () ()
+update = S.all (Q.fetch @_ @SDL.Keyboard) >>> S.run (\keyboard -> print keyboard)
+
 main :: IO ()
-main = runSystem_ $ SDL.setup >>> setup >>> S.forever SDL.update
+main = runSystem_ $ SDL.setup >>> setup >>> S.forever (SDL.update >>> update >>> SDL.draw)

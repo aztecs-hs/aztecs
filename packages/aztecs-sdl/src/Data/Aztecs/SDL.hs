@@ -1,6 +1,7 @@
 {-# LANGUAGE Arrows #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
@@ -16,6 +17,8 @@ import qualified Data.Aztecs.Asset as Asset
 import qualified Data.Aztecs.Query as Q
 import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Transform (..))
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Data.Maybe (mapMaybe)
 import qualified Data.Text as T
 import Foreign.C (CInt)
@@ -42,16 +45,22 @@ instance Component WindowRenderer
 
 -- | Setup SDL
 setup :: System IO () ()
-setup = fmap (const ()) $ Asset.setup @Texture &&& S.run (const initializeAll)
+setup =
+  fmap (const ()) $
+    Asset.setup @Texture
+      &&& S.run (const initializeAll)
+      &&& S.queue (const . A.spawn_ . bundle $ Keyboard mempty)
 
 -- | Update SDL windows
 update :: System IO () ()
 update =
   addWindows
     >>> addWindowTargets
-    >>> renderWindows
     >>> Asset.loadAssets @Texture
-    >>> drawImages
+    >>> keyboardInput
+
+draw :: System IO () ()
+draw = drawImages >>> renderWindows
 
 -- | Setup new windows.
 addWindows :: System IO () ()
@@ -71,7 +80,7 @@ addWindows = proc () -> do
 -- | Render windows.
 renderWindows :: System IO () ()
 renderWindows =
-  let draw windowDraws =
+  let go windowDraws =
         mapM_
           ( \(window, draws) -> do
               let renderer = windowRenderer window
@@ -109,7 +118,7 @@ renderWindows =
                 )
                 []
                 windows
-        S.run draw -< windowDraws
+        S.run go -< windowDraws
 
 -- | Window target component.
 -- This component can be used to specify which `Window` to draw an entity to.
@@ -202,3 +211,30 @@ drawImages = proc () -> do
                 (V2 False False)
               destroyTexture sdlTexture
         )
+
+-- | Keyboard state.
+newtype Keyboard = Keyboard {unKeyboard :: Map Keycode InputMotion}
+  deriving (Show, Semigroup, Monoid)
+
+instance Component Keyboard
+
+-- | Keyboard input system.
+keyboardInput :: System IO () ()
+keyboardInput = proc () -> do
+  events <- S.run . const $ SDL.pollEvents -< ()
+  S.zipMapSingle
+    ( proc events -> do
+        let go event keyAcc = case eventPayload event of
+              KeyboardEvent keyboardEvent ->
+                Keyboard $
+                  Map.insert
+                    (keysymKeycode $ keyboardEventKeysym keyboardEvent)
+                    (keyboardEventKeyMotion keyboardEvent)
+                    (unKeyboard keyAcc)
+              _ -> keyAcc
+        keyboard <- Q.fetch -< ()
+        Q.set -< foldr go keyboard events
+    )
+    -<
+      events
+  returnA -< ()

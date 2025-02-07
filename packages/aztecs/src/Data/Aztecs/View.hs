@@ -53,12 +53,12 @@ unview v w =
     }
 
 -- | Query all matching entities in a `View`.
-allDyn :: (Monad m) => DynamicQuery m () a -> View -> m ([a], View)
-allDyn q v =
+allDyn :: (Monad m) => i -> DynamicQuery m i a -> View -> m ([a], View)
+allDyn i q v =
   fmap (\(as, arches) -> (as, View arches)) $
     foldrM
       ( \(aId, n) (acc, archAcc) -> do
-          (as, arch') <- dynQueryAll q (repeat ()) (A.entities (nodeArchetype n)) (nodeArchetype n)
+          (as, arch') <- dynQueryAll q (repeat i) (A.entities (nodeArchetype n)) (nodeArchetype n)
           return (as ++ acc, Map.insert aId (n {nodeArchetype = arch'}) archAcc)
       )
       ([], Map.empty)

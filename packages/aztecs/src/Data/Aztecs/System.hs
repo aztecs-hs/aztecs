@@ -14,12 +14,18 @@ module Data.Aztecs.System
     queue,
 
     -- ** Queries
+
+    -- *** Reading
     all,
     filter,
     single,
+
+    -- *** Writing
     map,
     map_,
+    zipMap,
     mapSingle,
+    zipMapSingle,
     filterMap,
 
     -- ** Running
@@ -33,6 +39,7 @@ module Data.Aztecs.System
     singleDyn,
     mapDyn,
     mapDyn_,
+    zipMapDyn,
     queueDyn,
     runDyn,
   )
@@ -50,11 +57,11 @@ import qualified Data.Aztecs.View as V
 import Data.Aztecs.World (World (..))
 import qualified Data.Aztecs.World as W
 import qualified Data.Aztecs.World.Archetype as A
+import Data.Aztecs.World.Archetypes (Node (nodeArchetype))
 import Data.Aztecs.World.Components (ComponentID, Components)
 import qualified Data.Foldable as F
 import Data.Set (Set)
 import Prelude hiding (all, filter, id, map, (.))
-import Data.Aztecs.World.Archetypes (Node(nodeArchetype))
 
 -- | System that can access and alter a `World`.
 --
@@ -130,7 +137,7 @@ filter q qf = System $ \cs ->
         rws,
         DynamicSystem $ \_ w ->
           let v = V.filterView (Q.reads rws <> Q.writes rws) f' (archetypes w)
-           in fmap (\(a, _) -> (a, w, mempty, pure ())) (V.allDyn qS v)
+           in fmap (\(a, _) -> (a, w, mempty, pure ())) (V.allDyn () qS v)
       )
 
 -- | Query a single matching entity.
@@ -149,6 +156,11 @@ map :: forall m a. (Monad m) => Query m () a -> System m () [a]
 map q = System $ \cs ->
   let (rws, cs', dynS) = runQuery q cs in (cs', rws, mapDyn (Q.reads rws <> Q.writes rws) dynS)
 
+-- | Map all matching entities, storing the updated entities.
+zipMap :: (Monad m) => Query m i a -> System m i [a]
+zipMap q = System $ \cs ->
+  let (rws, cs', dynS) = runQuery q cs in (cs', rws, zipMapDyn (Q.reads rws <> Q.writes rws) dynS)
+
 -- | Map all matching entities and ignore the output, storing the updated entities.
 map_ :: forall m a. (Monad m) => Query m () a -> System m () ()
 map_ q = const () <$> map q
@@ -165,7 +177,7 @@ filterMap q qf = System $ \cs ->
         rws,
         DynamicSystem $ \_ w ->
           let v = V.filterView (Q.reads rws <> Q.writes rws) f' (archetypes w)
-           in fmap (\(a, v') -> (a, V.unview v' w, v', pure ())) (V.allDyn qS v)
+           in fmap (\(a, v') -> (a, V.unview v' w, v', pure ())) (V.allDyn () qS v)
       )
 
 -- | Map a single matching entity, storing the updated components.
@@ -178,6 +190,15 @@ mapSingle q =
         _ -> error "TODO"
     )
     (map q)
+
+zipMapSingle :: (Monad m) => Query m i a -> System m i a
+zipMapSingle q =
+  fmap
+    ( \as -> case as of
+        [a] -> a
+        _ -> error "TODO"
+    )
+    (zipMap q)
 
 -- | Queue an `Access` to alter the world after this system is complete.
 queue :: (Monad m) => (i -> Access m ()) -> System m i ()
@@ -248,7 +269,7 @@ foreverDyn s = DynamicSystem $ \_ w -> do
 allDyn :: forall m a. (Monad m) => Set ComponentID -> DynamicQuery m () a -> DynamicSystem m () [a]
 allDyn cIds q = DynamicSystem $ \_ w ->
   let v = V.view cIds (archetypes w)
-   in fmap (\(a, _) -> (a, w, mempty, pure ())) (V.allDyn q v)
+   in fmap (\(a, _) -> (a, w, mempty, pure ())) (V.allDyn () q v)
 
 -- | Query a single matching entity.
 -- If there are zero or multiple matching entities, an error will be thrown.
@@ -263,13 +284,18 @@ singleDyn cIds q =
 
 -- | Map all matching entities, storing the updated entities.
 mapDyn :: forall m a. (Monad m) => Set ComponentID -> DynamicQuery m () a -> DynamicSystem m () [a]
-mapDyn cIds q = DynamicSystem $ \_ w ->
+mapDyn cIds q = DynamicSystem $ \i w ->
   let v = V.view cIds (archetypes w)
-   in fmap (\(a, v') -> (a, V.unview v' w, v', pure ())) (V.allDyn q v)
+   in fmap (\(a, v') -> (a, V.unview v' w, v', pure ())) (V.allDyn i q v)
 
 -- | Map all matching entities and ignore the output, storing the updated entities.
 mapDyn_ :: forall m a. (Monad m) => Set ComponentID -> DynamicQuery m () a -> DynamicSystem m () ()
 mapDyn_ cIds q = const () <$> mapDyn cIds q
+
+zipMapDyn :: (Monad m) => Set ComponentID -> DynamicQuery m i a -> DynamicSystem m i [a]
+zipMapDyn cIds q = DynamicSystem $ \i w ->
+  let v = V.view cIds (archetypes w)
+   in fmap (\(a, v') -> (a, V.unview v' w, v', pure ())) (V.allDyn i q v)
 
 -- | Queue an `Access` to alter the world after this system is complete.
 queueDyn :: (Monad m) => (i -> Access m ()) -> DynamicSystem m i ()

@@ -217,7 +217,7 @@ instance (Functor m) => Functor (DynamicQuery m i) where
 instance (Monad m) => Applicative (DynamicQuery m i) where
   pure a =
     DynamicQuery
-      { dynQueryAll = \_ _ arch -> pure ([a], arch),
+      { dynQueryAll = \_ es arch -> pure (take (length es) $ repeat a, arch),
         dynQueryLookup = \_ _ arch -> pure (Just a, arch)
       }
   f <*> g =
