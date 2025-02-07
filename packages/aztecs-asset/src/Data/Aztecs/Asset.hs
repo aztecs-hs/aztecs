@@ -61,7 +61,7 @@ load path server = do
 lookupAsset :: Handle a -> AssetServer a -> Maybe a
 lookupAsset h server = Map.lookup (handleId h) (assetServerAssets server)
 
-loadAssets :: forall a. (Typeable a) => System IO () ()
+loadAssets :: forall a. (Typeable a) => System () ()
 loadAssets =
   S.map_
     ( Q.fetch @_ @(AssetServer a)
@@ -85,5 +85,5 @@ loadAssets =
         >>> Q.set
     )
 
-setup :: forall a. (Typeable a) => System IO () ()
+setup :: forall a. (Typeable a) => System () ()
 setup = S.queue . const . A.spawn_ @IO . bundle $ empty @a

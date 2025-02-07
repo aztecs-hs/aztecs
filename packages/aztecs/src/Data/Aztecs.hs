@@ -29,13 +29,13 @@
 -- An `Access` can be queued for full access to the `World`, after a system is complete.
 -- `Access` allows for spawning, inserting, and removing components.
 --
--- > setup :: System IO () ()
+-- > setup :: System  () ()
 -- > setup = S.queue . const . A.spawn_ $ bundle (Position 0) <> bundle (Velocity 1)
 --
 -- ==== Queries
 -- A `Query` can read and write matching components.
 --
--- > move :: System IO () ()
+-- > move :: System  () ()
 -- > move =
 -- >  S.map
 -- >    ( proc () -> do
@@ -56,7 +56,8 @@ module Data.Aztecs
     bundle,
     Component (..),
     EntityID,
-    System (..),
+    System,
+    SystemT (..),
     Query,
     QueryFilter,
     with,
@@ -71,6 +72,6 @@ import Data.Aztecs.Access (Access, runAccess)
 import Data.Aztecs.Component (Component (..))
 import Data.Aztecs.Entity (EntityID)
 import Data.Aztecs.Query (Query, QueryFilter, with, without)
-import Data.Aztecs.System (System (..), runSystem, runSystem_)
+import Data.Aztecs.System (System, SystemT (..), runSystem, runSystem_)
 import Data.Aztecs.World (World)
 import Data.Aztecs.World.Archetype (Bundle, bundle)

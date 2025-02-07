@@ -8,7 +8,8 @@
 
 module Data.Aztecs.System
   ( -- * Systems
-    System (..),
+    System,
+    SystemT (..),
     forever,
     run,
     queue,
@@ -23,9 +24,7 @@ module Data.Aztecs.System
     -- *** Writing
     map,
     map_,
-    zipMap,
     mapSingle,
-    zipMapSingle,
     filterMap,
 
     -- ** Running
@@ -34,12 +33,12 @@ module Data.Aztecs.System
     runSystemWithWorld,
 
     -- * Dynamic systems
-    DynamicSystem (..),
+    DynamicSystem,
+    DynamicSystemT (..),
     allDyn,
     singleDyn,
     mapDyn,
     mapDyn_,
-    zipMapDyn,
     queueDyn,
     runDyn,
   )
@@ -47,12 +46,10 @@ where
 
 import Control.Arrow (Arrow (..), ArrowLoop (..))
 import Control.Category (Category (..))
-import Control.Concurrent (forkIO, putMVar, takeMVar)
-import Control.Concurrent.MVar (newEmptyMVar)
+import Control.Concurrent (forkIO)
 import Data.Aztecs.Access (Access, runAccess)
 import Data.Aztecs.Query (DynamicQuery, DynamicQueryFilter (..), Query (..), QueryFilter (..), ReadsWrites)
 import qualified Data.Aztecs.Query as Q
-import Data.Aztecs.View (View, unview)
 import qualified Data.Aztecs.View as V
 import Data.Aztecs.World (World (..))
 import qualified Data.Aztecs.World as W
@@ -61,88 +58,88 @@ import Data.Aztecs.World.Archetypes (Node (nodeArchetype))
 import Data.Aztecs.World.Components (ComponentID, Components)
 import qualified Data.Foldable as F
 import Data.Set (Set)
+import GHC.Conc (TVar, atomically, newTVarIO, readTVarIO, writeTVar)
 import Prelude hiding (all, filter, id, map, (.))
+
+type System = SystemT IO
 
 -- | System that can access and alter a `World`.
 --
 -- Systems can be composed either in sequence or parallel with `Category` and `Arrow` combinators.
 -- Using the arrow combinator `&&&`, systems will automatically run in parallel
 -- as long as their queries don't intersect.
-newtype System m i o = System
+newtype SystemT m i o = SystemT
   { -- | Initialize a system, producing a `DynamicSystem`.
-    runSystem' :: Components -> (Components, ReadsWrites, DynamicSystem m i o)
+    runSystem' :: Components -> (Components, ReadsWrites, DynamicSystemT m i o)
   }
   deriving (Functor)
 
-instance (Monad m) => Applicative (System m i) where
-  pure a = System (,mempty,pure a)
+instance (Monad m) => Applicative (SystemT m i) where
+  pure a = SystemT (,mempty,pure a)
   f <*> a =
-    System $ \w ->
+    SystemT $ \w ->
       let (w', cIds, f') = runSystem' f w
           (w'', cIds', a') = runSystem' a w'
        in (w'', cIds <> cIds', f' <*> a')
 
-instance (Monad m) => Category (System m) where
-  id = System (,mempty,id)
-  f . g = System $ \cs ->
+instance Category System where
+  id = SystemT (,mempty,id)
+  f . g = SystemT $ \cs ->
     let (cs', cIds, g') = runSystem' g cs
         (cs'', cIds', f') = runSystem' f cs'
      in (cs'', cIds <> cIds', f' . g')
 
-instance Arrow (System IO) where
-  arr f = System (,mempty,arr f)
-  first s = System $ \w -> let (w', cIds, dynS) = runSystem' s w in (w', cIds, first dynS)
-  a &&& b = System $ \w ->
+instance Arrow (System) where
+  arr f = SystemT (,mempty,arr f)
+  first s = SystemT $ \w -> let (w', cIds, dynS) = runSystem' s w in (w', cIds, first dynS)
+  a &&& b = SystemT $ \w ->
     let (w', aRws, dynA) = runSystem' a w
         (w'', bRws, dynB) = runSystem' b w'
         f = if Q.disjoint aRws bRws then (&&&) else joinDyn
      in (w'', aRws <> bRws, f dynA dynB)
 
-instance ArrowLoop (System IO) where
-  loop s = System $ \w -> let (w', cIds, dynS) = runSystem' s w in (w', cIds, loop dynS)
+instance ArrowLoop (System) where
+  loop s = SystemT $ \w -> let (w', cIds, dynS) = runSystem' s w in (w', cIds, loop dynS)
 
 -- | Run a system forever.
-forever :: (Monad m) => System m () () -> System m () ()
-forever s = System $ \w -> let (w', cIds, dynS) = runSystem' s w in (w', cIds, foreverDyn dynS)
+forever :: System () () -> System () ()
+forever s = SystemT $ \w -> let (w', cIds, dynS) = runSystem' s w in (w', cIds, foreverDyn dynS)
 
-runSystem_ :: (Monad m) => System m () () -> m ()
+runSystem_ :: System () () -> IO ()
 runSystem_ s = runSystem s >> pure ()
 
-runSystem :: (Monad m) => System m () () -> m World
+runSystem :: System () () -> IO World
 runSystem s = runSystemWithWorld s W.empty
 
-runSystemWithWorld :: (Monad m) => System m () () -> World -> m World
+runSystemWithWorld :: System () () -> World -> IO World
 runSystemWithWorld s w = do
   let (cs, _, dynS) = runSystem' s (components w)
       w' = w {components = cs}
-  ((), w'', _, access) <- runSystemDyn dynS () w'
+  wVar <- newTVarIO w'
+  ((), access) <- runSystemDyn dynS () wVar
+  w'' <- readTVarIO wVar
   ((), _, w''') <- runAccess access w''
   return w'''
 
 -- | Query all matching entities.
-all :: forall m a. (Monad m) => Query m () a -> System m () [a]
-all q = System $ \cs ->
-  let (rws, cs', qS) = runQuery q cs
-   in (cs', rws, allDyn (Q.reads rws <> Q.writes rws) qS)
+all :: Query IO () a -> System () [a]
+all q = SystemT $ \cs ->
+  let (rws, cs', dynQ) = runQuery q cs
+   in (cs', rws, allDyn (Q.reads rws <> Q.writes rws) dynQ)
 
 -- | Query all matching entities with a `QueryFilter`.
-filter :: forall m a. (Monad m) => Query m () a -> QueryFilter -> System m () [a]
-filter q qf = System $ \cs ->
-  let (rws, cs', qS) = runQuery q cs
+filter :: Query IO () a -> QueryFilter -> System () [a]
+filter q qf = SystemT $ \cs ->
+  let (rws, cs', dynQ) = runQuery q cs
       (dynQf, cs'') = runQueryFilter qf cs'
-      f' n =
+      qf' n =
         F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynQf)
           && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynQf)
-   in ( cs'',
-        rws,
-        DynamicSystem $ \_ w ->
-          let v = V.filterView (Q.reads rws <> Q.writes rws) f' (archetypes w)
-           in fmap (\(a, _) -> (a, w, mempty, pure ())) (V.allDyn () qS v)
-      )
+   in (cs'', rws, filterDyn (Q.reads rws <> Q.writes rws) dynQ qf')
 
 -- | Query a single matching entity.
 -- If there are zero or multiple matching entities, an error will be thrown.
-single :: forall m a. (Monad m) => Query m () a -> System m () a
+single :: Query IO () a -> System () a
 single q =
   fmap
     ( \as -> case as of
@@ -152,37 +149,27 @@ single q =
     (all q)
 
 -- | Map all matching entities, storing the updated entities.
-map :: forall m a. (Monad m) => Query m () a -> System m () [a]
-map q = System $ \cs ->
+map :: Query IO i a -> System i [a]
+map q = SystemT $ \cs ->
   let (rws, cs', dynS) = runQuery q cs in (cs', rws, mapDyn (Q.reads rws <> Q.writes rws) dynS)
 
--- | Map all matching entities, storing the updated entities.
-zipMap :: (Monad m) => Query m i a -> System m i [a]
-zipMap q = System $ \cs ->
-  let (rws, cs', dynS) = runQuery q cs in (cs', rws, zipMapDyn (Q.reads rws <> Q.writes rws) dynS)
-
 -- | Map all matching entities and ignore the output, storing the updated entities.
-map_ :: forall m a. (Monad m) => Query m () a -> System m () ()
+map_ :: Query IO i a -> System i ()
 map_ q = const () <$> map q
 
 -- | Map all matching entities with a `QueryFilter`, storing the updated entities.
-filterMap :: forall m a. (Monad m) => Query m () a -> QueryFilter -> System m () [a]
-filterMap q qf = System $ \cs ->
-  let (rws, cs', qS) = runQuery q cs
+filterMap :: Query IO i a -> QueryFilter -> System i [a]
+filterMap q qf = SystemT $ \cs ->
+  let (rws, cs', dynQ) = runQuery q cs
       (dynQf, cs'') = runQueryFilter qf cs'
       f' n =
         F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynQf)
           && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynQf)
-   in ( cs'',
-        rws,
-        DynamicSystem $ \_ w ->
-          let v = V.filterView (Q.reads rws <> Q.writes rws) f' (archetypes w)
-           in fmap (\(a, v') -> (a, V.unview v' w, v', pure ())) (V.allDyn () qS v)
-      )
+   in (cs'', rws, filterMapDyn (Q.reads rws <> Q.writes rws) dynQ f')
 
 -- | Map a single matching entity, storing the updated components.
 -- If there are zero or multiple matching entities, an error will be thrown.
-mapSingle :: forall m a. (Monad m) => Query m () a -> System m () a
+mapSingle :: Query IO i a -> System i a
 mapSingle q =
   fmap
     ( \as -> case as of
@@ -191,89 +178,98 @@ mapSingle q =
     )
     (map q)
 
-zipMapSingle :: (Monad m) => Query m i a -> System m i a
-zipMapSingle q =
-  fmap
-    ( \as -> case as of
-        [a] -> a
-        _ -> error "TODO"
-    )
-    (zipMap q)
-
 -- | Queue an `Access` to alter the world after this system is complete.
-queue :: (Monad m) => (i -> Access m ()) -> System m i ()
-queue f = System (,mempty,queueDyn f)
+queue :: (Monad m) => (i -> Access m ()) -> SystemT m i ()
+queue f = SystemT (,mempty,queueDyn f)
 
 -- | Run a monadic task.
-run :: (Monad m) => (i -> m o) -> System m i o
-run f = System (,mempty,runDyn f)
+run :: (Monad m) => (i -> m o) -> SystemT m i o
+run f = SystemT (,mempty,runDyn f)
+
+type DynamicSystem = DynamicSystemT IO
 
 -- | Dynamic system that can access and alter a `World`.
-newtype DynamicSystem m i o = DynamicSystem
-  {runSystemDyn :: i -> World -> m (o, World, View, Access m ())}
+newtype DynamicSystemT m i o = DynamicSystemT
+  {runSystemDyn :: i -> TVar World -> m (o, Access m ())}
   deriving (Functor)
 
-instance (Monad m) => Applicative (DynamicSystem m i) where
-  pure a = DynamicSystem $ \_ w -> pure (a, w, mempty, pure ())
+instance (Monad m) => Applicative (DynamicSystemT m i) where
+  pure a = DynamicSystemT $ \_ _ -> pure (a, pure ())
   f <*> a =
-    DynamicSystem $ \i w -> do
-      (f'', w', v, access) <- runSystemDyn f i w
-      (a'', w'', v', access') <- runSystemDyn a i w'
-      return (f'' a'', w'', v <> v', access >> access')
+    DynamicSystemT $ \i w -> do
+      (f'', access) <- runSystemDyn f i w
+      (a'', access') <- runSystemDyn a i w
+      return (f'' a'', access >> access')
 
-instance (Monad m) => Category (DynamicSystem m) where
-  id = DynamicSystem $ \i w -> pure (i, w, mempty, pure ())
-  f . g = DynamicSystem $ \i w -> do
-    (a, w', v, access) <- runSystemDyn g i w
-    ((), v', w'') <- runAccess access w'
-    (b, w''', v'', access') <- runSystemDyn f a w''
-    return (b, w''', v <> v' <> v'', access')
+instance Category DynamicSystem where
+  id = DynamicSystemT $ \i _ -> pure (i, pure ())
+  f . g = DynamicSystemT $ \i wVar -> do
+    (a, access) <- runSystemDyn g i wVar
+    w <- readTVarIO wVar
+    ((), _, w') <- runAccess access w
+    atomically $ writeTVar wVar w'
+    (b, access') <- runSystemDyn f a wVar
+    return (b, access')
 
-instance Arrow (DynamicSystem IO) where
-  arr f = DynamicSystem $ \i w -> pure (f i, w, mempty, pure ())
+instance Arrow DynamicSystem where
+  arr f = DynamicSystemT $ \i _ -> pure (f i, pure ())
   first s =
-    DynamicSystem $ \(i, x) w -> do
-      (o, w', v, access) <- runSystemDyn s i w
-      return ((o, x), w', v, access)
+    DynamicSystemT $ \(i, x) w -> do
+      (o, access) <- runSystemDyn s i w
+      return ((o, x), access)
 
-instance ArrowLoop (DynamicSystem IO) where
-  loop s = DynamicSystem $ \b w -> mdo
-    ((c, d), w', v, access) <- runSystemDyn s (b, d) w
-    return (c, w', v, access)
+instance ArrowLoop DynamicSystem where
+  loop s = DynamicSystemT $ \b w -> mdo
+    ((c, d), access) <- runSystemDyn s (b, d) w
+    return (c, access)
 
 -- | Combine two dynamic systems in parallel.
-joinDyn :: DynamicSystem IO i a -> DynamicSystem IO i b -> DynamicSystem IO i (a, b)
-joinDyn f g = DynamicSystem $ \i w -> do
-  fVar <- newEmptyMVar
-  gVar <- newEmptyMVar
+joinDyn :: DynamicSystem i a -> DynamicSystem i b -> DynamicSystem i (a, b)
+joinDyn f g = DynamicSystemT $ \i w -> do
+  fVar <- newTVarIO Nothing
+  gVar <- newTVarIO Nothing
   _ <- forkIO $ do
     result <- runSystemDyn f i w
-    putMVar fVar result
+    atomically $ writeTVar fVar (Just result)
   _ <- forkIO $ do
     result <- runSystemDyn g i w
-    putMVar gVar result
-  (a, _, v, accessF) <- takeMVar fVar
-  (b, _, v', accessG) <- takeMVar gVar
-  return ((a, b), unview (v <> v') w, v <> v', accessF >> accessG)
+    atomically $ writeTVar gVar (Just result)
+  let go = do
+        maybeA <- readTVarIO fVar
+        maybeB <- readTVarIO gVar
+        case (maybeA, maybeB) of
+          (Just (a, accessA), Just (b, accessB)) -> return ((a, b), accessA >> accessB)
+          _ -> go
+  go
 
 -- | Run a dynamic system forever.
-foreverDyn :: (Monad m) => DynamicSystem m () () -> DynamicSystem m () ()
-foreverDyn s = DynamicSystem $ \_ w -> do
-  let go wAcc = do
-        ((), wAcc', _, access) <- runSystemDyn s () wAcc
+foreverDyn :: DynamicSystem () () -> DynamicSystem () ()
+foreverDyn s = DynamicSystemT $ \_ w -> do
+  let go w' = do
+        ((), access) <- runSystemDyn s () w'
+        wAcc' <- readTVarIO w'
         ((), _, wAcc'') <- runAccess access wAcc'
-        go wAcc''
+        atomically $ writeTVar w' wAcc''
+        go w'
   go w
 
 -- | Query all matching entities.
-allDyn :: forall m a. (Monad m) => Set ComponentID -> DynamicQuery m () a -> DynamicSystem m () [a]
-allDyn cIds q = DynamicSystem $ \_ w ->
-  let v = V.view cIds (archetypes w)
-   in fmap (\(a, _) -> (a, w, mempty, pure ())) (V.allDyn () q v)
+allDyn :: Set ComponentID -> DynamicQuery IO () a -> DynamicSystem () [a]
+allDyn cIds q = DynamicSystemT $ \_ w -> do
+  w' <- readTVarIO w
+  let v = V.view cIds (archetypes w')
+  fmap (\(a, _) -> (a, pure ())) (V.allDyn () q v)
+
+filterDyn :: Set ComponentID -> DynamicQuery IO i a -> (Node -> Bool) -> DynamicSystemT IO i [a]
+filterDyn cIds q f = DynamicSystemT $ \i wVar -> do
+  w <- readTVarIO wVar
+  let v = V.filterView cIds f (archetypes w)
+  (as, _) <- V.allDyn i q v
+  return (as, pure ())
 
 -- | Query a single matching entity.
 -- If there are zero or multiple matching entities, an error will be thrown.
-singleDyn :: forall m a. (Monad m) => Set ComponentID -> DynamicQuery m () a -> DynamicSystem m () a
+singleDyn :: Set ComponentID -> DynamicQuery IO () a -> DynamicSystem () a
 singleDyn cIds q =
   fmap
     ( \as -> case as of
@@ -283,26 +279,30 @@ singleDyn cIds q =
     (allDyn cIds q)
 
 -- | Map all matching entities, storing the updated entities.
-mapDyn :: forall m a. (Monad m) => Set ComponentID -> DynamicQuery m () a -> DynamicSystem m () [a]
-mapDyn cIds q = DynamicSystem $ \i w ->
+mapDyn :: Set ComponentID -> DynamicQuery IO i a -> DynamicSystem i [a]
+mapDyn cIds q = DynamicSystemT $ \i wVar -> do
+  w <- readTVarIO wVar
   let v = V.view cIds (archetypes w)
-   in fmap (\(a, v') -> (a, V.unview v' w, v', pure ())) (V.allDyn i q v)
+  (as, v') <- V.allDyn i q v
+  atomically $ writeTVar wVar $ V.unview v' w
+  return (as, pure ())
+
+filterMapDyn :: Set ComponentID -> DynamicQuery IO i a -> (Node -> Bool) -> DynamicSystemT IO i [a]
+filterMapDyn cIds q f = DynamicSystemT $ \i wVar -> do
+  w <- readTVarIO wVar
+  let v = V.filterView cIds f (archetypes w)
+  (as, v') <- V.allDyn i q v
+  atomically $ writeTVar wVar $ V.unview v' w
+  return (as, pure ())
 
 -- | Map all matching entities and ignore the output, storing the updated entities.
-mapDyn_ :: forall m a. (Monad m) => Set ComponentID -> DynamicQuery m () a -> DynamicSystem m () ()
+mapDyn_ :: Set ComponentID -> DynamicQuery IO () a -> DynamicSystem () ()
 mapDyn_ cIds q = const () <$> mapDyn cIds q
 
-zipMapDyn :: (Monad m) => Set ComponentID -> DynamicQuery m i a -> DynamicSystem m i [a]
-zipMapDyn cIds q = DynamicSystem $ \i w ->
-  let v = V.view cIds (archetypes w)
-   in fmap (\(a, v') -> (a, V.unview v' w, v', pure ())) (V.allDyn i q v)
-
 -- | Queue an `Access` to alter the world after this system is complete.
-queueDyn :: (Monad m) => (i -> Access m ()) -> DynamicSystem m i ()
-queueDyn f = DynamicSystem $ \i w -> pure ((), w, mempty, f i)
+queueDyn :: (Applicative m) => (i -> Access m ()) -> DynamicSystemT m i ()
+queueDyn f = DynamicSystemT $ \i _ -> pure ((), f i)
 
 -- | Run a monadic task.
-runDyn :: (Monad m) => (i -> m o) -> DynamicSystem m i o
-runDyn f = DynamicSystem $ \i w -> do
-  o <- f i
-  return (o, w, mempty, pure ())
+runDyn :: (Monad m) => (i -> m o) -> DynamicSystemT m i o
+runDyn f = DynamicSystemT $ \i _ -> fmap (,pure ()) (f i)

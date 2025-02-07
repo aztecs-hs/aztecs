@@ -15,7 +15,7 @@ import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Transform (..), transform)
 import SDL (V2 (..))
 
-setup :: System IO () ()
+setup :: System () ()
 setup =
   S.mapSingle
     ( proc () -> do
@@ -35,7 +35,7 @@ setup =
               <> bundle transform {transformPosition = V2 500 100}
       )
 
-update :: System IO () ()
+update :: System () ()
 update = S.all (Q.fetch @_ @SDL.Keyboard) >>> S.run (\keyboard -> print keyboard)
 
 main :: IO ()

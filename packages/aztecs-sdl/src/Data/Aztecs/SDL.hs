@@ -44,7 +44,7 @@ data WindowRenderer = WindowRenderer
 instance Component WindowRenderer
 
 -- | Setup SDL
-setup :: System IO () ()
+setup :: System () ()
 setup =
   fmap (const ()) $
     Asset.setup @Texture
@@ -52,18 +52,18 @@ setup =
       &&& S.queue (const . A.spawn_ . bundle $ Keyboard mempty)
 
 -- | Update SDL windows
-update :: System IO () ()
+update :: System () ()
 update =
   addWindows
     >>> addWindowTargets
     >>> Asset.loadAssets @Texture
     >>> keyboardInput
 
-draw :: System IO () ()
+draw :: System () ()
 draw = drawImages >>> renderWindows
 
 -- | Setup new windows.
-addWindows :: System IO () ()
+addWindows :: System () ()
 addWindows = proc () -> do
   newWindows <- S.filter (Q.entity &&& Q.fetch @_ @Window) (without @WindowRenderer) -< ()
   newWindows' <- S.run createNewWindows -< newWindows
@@ -78,7 +78,7 @@ addWindows = proc () -> do
     insertWindowRenderer (eId, window, renderer) = A.insert eId (WindowRenderer window renderer)
 
 -- | Render windows.
-renderWindows :: System IO () ()
+renderWindows :: System () ()
 renderWindows =
   let go windowDraws =
         mapM_
@@ -134,7 +134,7 @@ newtype Draw = Draw {runDraw :: Transform -> Renderer -> IO ()}
 instance Component Draw
 
 -- | Add `WindowTarget` components to entities with a new `Draw` component.
-addWindowTargets :: System IO () ()
+addWindowTargets :: System () ()
 addWindowTargets = proc () -> do
   windows <- S.all (Q.entity &&& Q.fetch @_ @WindowRenderer) -< ()
   newDraws <- S.filter (Q.entity &&& Q.fetch @_ @Draw) (without @WindowTarget) -< ()
@@ -182,7 +182,7 @@ data Image = Image
 instance Component Image
 
 -- | Draw images to their target windows.
-drawImages :: System IO () ()
+drawImages :: System () ()
 drawImages = proc () -> do
   imgs <- S.filter (Q.entity &&& Q.fetch @_ @Image) (without @Draw) -< ()
   assets <- S.single (Q.fetch @_ @(AssetServer Texture)) -< ()
@@ -219,10 +219,10 @@ newtype Keyboard = Keyboard {unKeyboard :: Map Keycode InputMotion}
 instance Component Keyboard
 
 -- | Keyboard input system.
-keyboardInput :: System IO () ()
+keyboardInput :: System () ()
 keyboardInput = proc () -> do
   events <- S.run . const $ SDL.pollEvents -< ()
-  S.zipMapSingle
+  S.mapSingle
     ( proc events -> do
         let go event keyAcc = case eventPayload event of
               KeyboardEvent keyboardEvent ->
