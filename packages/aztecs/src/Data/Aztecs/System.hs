@@ -89,7 +89,7 @@ instance Category System where
         (cs'', cIds', f') = runSystem' f cs'
      in (cs'', cIds <> cIds', f' . g')
 
-instance Arrow (System) where
+instance Arrow System where
   arr f = SystemT (,mempty,arr f)
   first s = SystemT $ \w -> let (w', cIds, dynS) = runSystem' s w in (w', cIds, first dynS)
   a &&& b = SystemT $ \w ->
@@ -98,7 +98,7 @@ instance Arrow (System) where
         f = if Q.disjoint aRws bRws then (&&&) else joinDyn
      in (w'', aRws <> bRws, f dynA dynB)
 
-instance ArrowLoop (System) where
+instance ArrowLoop System where
   loop s = SystemT $ \w -> let (w', cIds, dynS) = runSystem' s w in (w', cIds, loop dynS)
 
 -- | Run a system forever.
@@ -118,7 +118,7 @@ runSystemWithWorld s w = do
   wVar <- newTVarIO w'
   ((), access) <- runSystemDyn dynS () wVar
   w'' <- readTVarIO wVar
-  ((), _, w''') <- runAccess access w''
+  ((), w''') <- runAccess access w''
   return w'''
 
 -- | Query all matching entities.
@@ -206,7 +206,7 @@ instance Category DynamicSystem where
   f . g = DynamicSystemT $ \i wVar -> do
     (a, access) <- runSystemDyn g i wVar
     w <- readTVarIO wVar
-    ((), _, w') <- runAccess access w
+    ((), w') <- runAccess access w
     atomically $ writeTVar wVar w'
     (b, access') <- runSystemDyn f a wVar
     return (b, access')
@@ -248,7 +248,7 @@ foreverDyn s = DynamicSystemT $ \_ w -> do
   let go w' = do
         ((), access) <- runSystemDyn s () w'
         wAcc' <- readTVarIO w'
-        ((), _, wAcc'') <- runAccess access wAcc'
+        ((), wAcc'') <- runAccess access wAcc'
         atomically $ writeTVar w' wAcc''
         go w'
   go w
