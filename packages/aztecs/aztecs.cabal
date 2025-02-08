@@ -60,7 +60,8 @@ test-suite aztecs-test
     build-depends:
         base >=4 && <5,
         aztecs,
-        hspec >=2
+        hspec >=2,
+        QuickCheck >=2
 
 benchmark aztecs-bench
     type:             exitcode-stdio-1.0
