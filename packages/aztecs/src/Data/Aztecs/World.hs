@@ -58,17 +58,17 @@ empty =
 spawn :: Bundle -> World -> (EntityID, World)
 spawn b w =
   let (eId, w') = spawnEmpty w
-      (cIds, components', dynB) = unBundle b (components w)
-   in case AS.lookupArchetypeId cIds (archetypes w) of
+      (cIds, components', dynB) = unBundle b (components w')
+   in case AS.lookupArchetypeId cIds (archetypes w') of
         Just aId -> fromMaybe (eId, w') $ do
-          node <- AS.lookupNode aId (archetypes w)
+          node <- AS.lookupNode aId (archetypes w')
           let arch' = runDynamicBundle dynB eId (nodeArchetype node)
           return
             ( eId,
-              w
-                { archetypes = (archetypes w) {AS.nodes = Map.insert aId node {nodeArchetype = arch'} (AS.nodes $ archetypes w)},
+              w'
+                { archetypes = (archetypes w') {AS.nodes = Map.insert aId node {nodeArchetype = arch'} (AS.nodes $ archetypes w)},
                   components = components',
-                  entities = Map.insert eId aId (entities w)
+                  entities = Map.insert eId aId (entities w')
                 }
             )
         Nothing ->
@@ -87,7 +87,7 @@ spawn b w =
            in ( eId,
                 w'
                   { archetypes = arches,
-                    entities = Map.insert eId aId (entities w),
+                    entities = Map.insert eId aId (entities w'),
                     components = components'
                   }
               )
