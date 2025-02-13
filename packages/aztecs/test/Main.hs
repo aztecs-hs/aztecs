@@ -1,3 +1,4 @@
+{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Main (main) where
@@ -14,26 +15,40 @@ newtype X = X Int deriving (Eq, Show, Arbitrary)
 
 instance Component X
 
-newtype Y = Y Int deriving (Eq, Show)
+newtype Y = Y Int deriving (Eq, Show, Arbitrary)
 
 instance Component Y
 
-newtype Z = Z Int deriving (Eq, Show)
+newtype Z = Z Int deriving (Eq, Show, Arbitrary)
 
 instance Component Z
 
 main :: IO ()
 main = hspec $ do
   describe "Data.Aztecs.Query.all" $ do
-    it "queries multiple components" $ property prop_queryMultipleComponents
-    it "queries a group of components" $ do
-      let (e, w) = W.spawn (bundle $ X 0) W.empty
-          w' = W.insert e (Y 1) w
-      (xs, _) <- Q.all (Q.fetch &&& Q.fetch) w'
-      xs `shouldMatchList` [(X 0, Y 1)]
+    it "queries a single component" $ property prop_queryOneComponent
+    it "queries two components" $ property prop_queryTwoComponents
+    it "queries three components" $ property prop_queryThreeComponents
 
-prop_queryMultipleComponents :: [X] -> Expectation
-prop_queryMultipleComponents xs =
+prop_queryOneComponent :: [X] -> Expectation
+prop_queryOneComponent xs =
   let w = foldr (\x -> snd . W.spawn (bundle x)) W.empty xs
-      (queriedXs, _) = runIdentity $ Q.all Q.fetch w
-   in queriedXs `shouldMatchList` xs
+      (res, _) = runIdentity $ Q.all Q.fetch w
+   in res `shouldMatchList` xs
+
+prop_queryTwoComponents :: [(X, Y)] -> Expectation
+prop_queryTwoComponents xys =
+  let w = foldr (\(x, y) -> snd . W.spawn (bundle x <> bundle y)) W.empty xys
+      (res, _) = runIdentity $ Q.all (Q.fetch &&& Q.fetch) w
+   in res `shouldMatchList` xys
+
+prop_queryThreeComponents :: [(X, Y, Z)] -> Expectation
+prop_queryThreeComponents xyzs =
+  let w = foldr (\(x, y, z) -> snd . W.spawn (bundle x <> bundle y <> bundle z)) W.empty xyzs
+      q = do
+        x <- Q.fetch
+        y <- Q.fetch
+        z <- Q.fetch
+        pure (x, y, z)
+      (res, _) = runIdentity $ Q.all q w
+   in res `shouldMatchList` xyzs
