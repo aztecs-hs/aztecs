@@ -42,6 +42,16 @@ data WindowRenderer = WindowRenderer
 
 instance Component WindowRenderer
 
+data Camera = Camera {cameraViewport :: V2 Int}
+  deriving (Show)
+
+instance Component Camera
+
+newtype CameraTarget = CameraTarget {cameraTargetWindow :: EntityID}
+  deriving (Eq, Show)
+
+instance Component CameraTarget
+
 -- | Setup SDL
 setup :: System () ()
 setup =
@@ -54,7 +64,8 @@ setup =
 update :: System () ()
 update =
   addWindows
-    >>> addWindowTargets
+    >>> addCameraTargets
+    >>> addDrawTargets
     >>> Asset.loadAssets @Texture
     >>> keyboardInput
 
@@ -81,50 +92,79 @@ renderWindows :: System () ()
 renderWindows =
   let go windowDraws =
         mapM_
-          ( \(window, draws) -> do
-              let renderer = windowRenderer window
-              rendererDrawColor renderer $= V4 0 0 0 255
-              clear renderer
-              mapM_ (\(d, transform) -> runDraw d transform renderer) draws
-              present renderer
+          ( \(window, cameraDraws) -> do
+              mapM_
+                ( \(camera, _, cameraTransform, cameraDraws') -> do
+                    let renderer = windowRenderer window
+                    rendererDrawColor renderer $= V4 0 0 0 255
+                    rendererViewport renderer
+                      $= Just
+                        ( Rectangle
+                            (P (fmap fromIntegral $ transformPosition cameraTransform))
+                            (fmap fromIntegral $ cameraViewport camera)
+                        )
+                    clear renderer
+                    mapM_ (\(d, transform) -> runDraw d transform renderer) cameraDraws'
+                    present renderer
+                )
+                cameraDraws
           )
           windowDraws
    in proc () -> do
+        cameras <-
+          S.all
+            ( proc () -> do
+                eId <- Q.entity -< ()
+                camera <- Q.fetch @_ @Camera -< ()
+                cameraTarget <- Q.fetch @_ @CameraTarget -< ()
+                t <- Q.fetch @_ @Transform -< ()
+                returnA -< (eId, camera, cameraTarget, t)
+            )
+            -<
+              ()
         windows <- S.all (Q.entity &&& Q.fetch @_ @WindowRenderer) -< ()
         draws <-
           S.all
             ( proc () -> do
                 d <- Q.fetch @_ @Draw -< ()
                 transform <- Q.fetch @_ @Transform -< ()
-                target <- Q.fetch @_ @WindowTarget -< ()
+                target <- Q.fetch @_ @DrawTarget -< ()
                 returnA -< (d, transform, target)
             )
             -<
               ()
-        let windowDraws =
-              foldr
-                ( \(eId, window) acc ->
-                    let draws' =
-                          foldr
-                            ( \(d, transform, target) acc' ->
-                                if unWindowTarget target == eId
-                                  then (d, transform) : acc'
-                                  else acc'
-                            )
-                            []
-                            draws
-                     in (window, draws') : acc
+        let cameraDraws =
+              map
+                ( \(eId, camera, cameraTarget, t) ->
+                    ( camera,
+                      cameraTarget,
+                      t,
+                      mapMaybe
+                        ( \(d, transform, target) ->
+                            if drawTargetCamera target == eId
+                              then Just (d, transform)
+                              else Nothing
+                        )
+                        draws
+                    )
                 )
-                []
+                cameras
+            windowDraws =
+              map
+                ( \(eId, window) ->
+                    ( window,
+                      filter (\(_, cameraTarget, _, _) -> cameraTargetWindow cameraTarget == eId) cameraDraws
+                    )
+                )
                 windows
         S.run go -< windowDraws
 
--- | Window target component.
--- This component can be used to specify which `Window` to draw an entity to.
-newtype WindowTarget = WindowTarget {unWindowTarget :: EntityID}
+-- | Draw target component.
+-- This component can be used to specify which `Camera` to draw an entity to.
+newtype DrawTarget = DrawTarget {drawTargetCamera :: EntityID}
   deriving (Eq, Show)
 
-instance Component WindowTarget
+instance Component DrawTarget
 
 -- | Draw component.
 -- This component can be used to draw to a window.
@@ -132,14 +172,26 @@ newtype Draw = Draw {runDraw :: Transform -> Renderer -> IO ()}
 
 instance Component Draw
 
--- | Add `WindowTarget` components to entities with a new `Draw` component.
-addWindowTargets :: System () ()
-addWindowTargets = proc () -> do
-  windows <- S.all (Q.entity &&& Q.fetch @_ @WindowRenderer) -< ()
-  newDraws <- S.filter (Q.entity &&& Q.fetch @_ @Draw) (without @WindowTarget) -< ()
+addCameraTargets :: System () ()
+addCameraTargets = proc () -> do
+  windows <- S.all (Q.entity &&& Q.fetch @_ @Window) -< ()
+  newCameras <- S.filter (Q.entity &&& Q.fetch @_ @Camera) (without @CameraTarget) -< ()
   S.queue
     ( \(newDraws, windows) -> case windows of
-        (windowEId, _) : _ -> mapM_ (\(eId, _) -> A.insert eId $ WindowTarget windowEId) newDraws
+        (windowEId, _) : _ -> mapM_ (\(eId, _) -> A.insert eId $ CameraTarget windowEId) newDraws
+        _ -> return ()
+    )
+    -<
+      (newCameras, windows)
+
+-- | Add `WindowTarget` components to entities with a new `Draw` component.
+addDrawTargets :: System () ()
+addDrawTargets = proc () -> do
+  windows <- S.all (Q.entity &&& Q.fetch @_ @Camera) -< ()
+  newDraws <- S.filter (Q.entity &&& Q.fetch @_ @Draw) (without @DrawTarget) -< ()
+  S.queue
+    ( \(newDraws, windows) -> case windows of
+        (cameraEId, _) : _ -> mapM_ (\(eId, _) -> A.insert eId $ DrawTarget cameraEId) newDraws
         _ -> return ()
     )
     -<
