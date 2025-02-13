@@ -21,7 +21,6 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (mapMaybe)
 import qualified Data.Text as T
-import Foreign.C (CInt)
 import SDL hiding (Texture, Window, windowTitle)
 import qualified SDL hiding (Texture)
 import qualified SDL.Image as IMG
@@ -159,7 +158,7 @@ rect size = Draw $
       renderer
       texture
       Nothing
-      (Just (Rectangle (fmap (fromIntegral @CInt . round) . P $ transformPosition transform) (fmap fromIntegral size)))
+      (Just (Rectangle (P . fmap fromIntegral $ transformPosition transform) (fmap fromIntegral size)))
       (realToFrac $ transformRotation transform)
       Nothing
       (V2 False False)
@@ -202,7 +201,7 @@ drawImages = proc () -> do
                 Nothing
                 ( Just
                     ( Rectangle
-                        (fmap (fromIntegral @CInt . round) . P $ transformPosition transform)
+                        (fmap fromIntegral . P $ transformPosition transform)
                         (fmap fromIntegral $ imageSize img)
                     )
                 )
