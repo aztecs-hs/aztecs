@@ -204,7 +204,7 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
                               nextAId
                               (AS.nodes $ archetypes w')
                         },
-                    entities = Map.insert e nextAId (entities w)
+                    entities = Map.insert e nextAId (entities w')
                   }
           Nothing ->
             let (s, arch') = A.removeStorages e (nodeArchetype node)
@@ -231,7 +231,21 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
                     entities = Map.insert e nextAId (entities w)
                   }
     Nothing -> w
-  Nothing -> w
+  Nothing -> case AS.lookupArchetypeId (Set.singleton cId) (archetypes w) of
+    Just aId -> spawnWithArchetypeId' e aId cId c w
+    Nothing ->
+      let (aId, arches) =
+            AS.insertArchetype
+              (Set.singleton cId)
+              ( Node
+                  { nodeComponentIds = Set.singleton cId,
+                    nodeArchetype = A.insertComponent e cId c A.empty,
+                    nodeAdd = Map.empty,
+                    nodeRemove = Map.empty
+                  }
+              )
+              (archetypes w)
+       in w {archetypes = arches, entities = Map.insert e aId (entities w)}
 
 lookup :: forall a. (Component a) => EntityID -> World -> Maybe a
 lookup e w = do

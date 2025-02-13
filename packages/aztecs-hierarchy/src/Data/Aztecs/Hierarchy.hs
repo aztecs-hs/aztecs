@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE Arrows #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -17,7 +18,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 
 newtype Parent = Parent {unParent :: EntityID}
-  deriving (Show)
+  deriving (Eq, Ord, Show)
 
 instance Component Parent
 
@@ -27,7 +28,7 @@ newtype ParentState = ParentState {unParentState :: EntityID}
 instance Component ParentState
 
 newtype Children = Children {unChildren :: Set EntityID}
-  deriving (Show)
+  deriving (Eq, Ord, Show, Semigroup, Monoid)
 
 instance Component Children
 
@@ -58,7 +59,6 @@ update = proc () -> do
       )
       -<
         ()
-
   S.queue
     ( \(parents, childRes) -> do
         mapM_
@@ -97,7 +97,7 @@ update = proc () -> do
                     mapM_ (\e -> A.insert e . Parent $ entity) added
                   else return ()
               Nothing -> do
-                A.spawn_ . bundle $ ChildState children
+                A.insert entity $ ChildState children
                 mapM_ (\e -> A.insert e . Parent $ entity) children
           )
           childRes
