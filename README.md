@@ -91,7 +91,7 @@ main = runSystem_ $ SDL.setup >>> setup >>> S.forever SDL.update
 
 Aztecs is currently faster than [bevy-ecs](https://github.com/bevyengine/bevy/), a popular and high-performance ECS written in Rust, for simple mutating queries.
 
-<img alt="benchmark results: Aztecs 932us vs Bevy 6,966us" width=300 src="https://github.com/user-attachments/assets/348c7539-0e7b-4429-9cc1-06e8a819156d" />
+<img alt="benchmark results: Aztecs 932us vs Bevy 6,966us" width=300 src="https://github.com/user-attachments/assets/d4b52548-0d68-428b-85d6-019428ecc0d0" />
 
 ## Inspiration
 
