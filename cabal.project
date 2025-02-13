@@ -1,5 +1,6 @@
 packages: 
     packages/aztecs
     packages/aztecs-asset
+    packages/aztecs-hierarchy
     packages/aztecs-sdl
     packages/aztecs-transform

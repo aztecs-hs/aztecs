@@ -14,6 +14,7 @@ module Data.Aztecs.World
     spawnEmpty,
     insert,
     insertWithId,
+    lookup,
     despawn,
   )
 where
@@ -35,6 +36,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import Data.Typeable (Proxy (..), Typeable, typeOf)
+import Prelude hiding (lookup)
 
 -- | World of entities and their components.
 data World = World
@@ -230,6 +232,13 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
                   }
     Nothing -> w
   Nothing -> w
+
+lookup :: forall a. (Component a) => EntityID -> World -> Maybe a
+lookup e w = do
+  cId <- CS.lookup @a (components w)
+  aId <- Map.lookup e (entities w)
+  node <- AS.lookupNode aId (archetypes w)
+  A.lookupComponent e cId (nodeArchetype node)
 
 -- | Despawn an entity, returning its components.
 despawn :: EntityID -> World -> (Map ComponentID Dynamic, World)

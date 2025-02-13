@@ -10,6 +10,7 @@ module Data.Aztecs.Access
     spawn,
     spawn_,
     insert,
+    lookup,
     despawn,
   )
 where
@@ -54,6 +55,11 @@ insert e c = Access $ do
   w <- get
   let w' = W.insert e c w
   put w'
+
+lookup :: (Monad m, Component a) => EntityID -> Access m (Maybe a)
+lookup e = Access $ do
+  w <- get
+  return $ W.lookup e w
 
 despawn :: (Monad m) => EntityID -> Access m ()
 despawn e = Access $ do
