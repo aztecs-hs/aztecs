@@ -377,7 +377,7 @@ keyboardInput = proc () -> do
   events <- S.run . const $ SDL.pollEvents -< ()
   S.mapSingle
     ( proc events -> do
-        let go event keyAcc = case eventPayload event of
+        let go keyAcc event = case eventPayload event of
               KeyboardEvent keyboardEvent ->
                 Keyboard $
                   Map.insert
@@ -386,7 +386,7 @@ keyboardInput = proc () -> do
                     (unKeyboard keyAcc)
               _ -> keyAcc
         keyboard <- Q.fetch -< ()
-        Q.set -< foldr go keyboard events
+        Q.set -< foldl' go keyboard events
     )
     -<
       events

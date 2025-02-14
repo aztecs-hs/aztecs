@@ -20,9 +20,9 @@ import qualified Data.Aztecs.World.Archetype as A
 import Data.Aztecs.World.Archetypes (ArchetypeID, Archetypes, Node (..))
 import qualified Data.Aztecs.World.Archetypes as AS
 import Data.Aztecs.World.Components (ComponentID)
-import Data.Foldable (foldrM)
-import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.Foldable (foldlM)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 
 -- | View into a `World`, containing a subset of archetypes.
@@ -46,8 +46,8 @@ unview :: View -> World -> World
 unview v w =
   w
     { W.archetypes =
-        foldr
-          (\(aId, n) as -> as {AS.nodes = Map.insert aId n (AS.nodes as)})
+        foldl'
+          (\as (aId, n) -> as {AS.nodes = Map.insert aId n (AS.nodes as)})
           (W.archetypes w)
           (Map.toList $ viewArchetypes v)
     }
@@ -56,8 +56,8 @@ unview v w =
 allDyn :: (Monad m) => i -> DynamicQuery m i a -> View -> m ([a], View)
 allDyn i q v =
   fmap (\(as, arches) -> (as, View arches)) $
-    foldrM
-      ( \(aId, n) (acc, archAcc) -> do
+    foldlM
+      ( \(acc, archAcc) (aId, n) -> do
           (as, arch') <- dynQueryAll q (repeat i) (A.entities (nodeArchetype n)) (nodeArchetype n)
           return (as ++ acc, Map.insert aId (n {nodeArchetype = arch'}) archAcc)
       )

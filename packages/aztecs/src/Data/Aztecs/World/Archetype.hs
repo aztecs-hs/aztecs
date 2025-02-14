@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -39,19 +40,19 @@ import Data.Aztecs.World.Components (Components)
 import qualified Data.Aztecs.World.Components as CS
 import Data.Bifunctor (Bifunctor (..))
 import Data.Dynamic (Dynamic, Typeable, fromDynamic, toDyn)
-import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Prelude hiding (all, lookup)
 
 data AnyStorage = AnyStorage
-  { storageDyn :: Dynamic,
-    insertDyn :: Int -> Dynamic -> Dynamic -> Dynamic,
-    removeDyn :: Int -> Dynamic -> (Maybe Dynamic, Dynamic),
-    removeAny :: Int -> Dynamic -> (Maybe AnyStorage, Dynamic),
-    entitiesDyn :: Dynamic -> [Int]
+  { storageDyn :: !Dynamic,
+    insertDyn :: !(Int -> Dynamic -> Dynamic -> Dynamic),
+    removeDyn :: !(Int -> Dynamic -> (Maybe Dynamic, Dynamic)),
+    removeAny :: !(Int -> Dynamic -> (Maybe AnyStorage, Dynamic)),
+    entitiesDyn :: !(Dynamic -> [Int])
   }
 
 instance Show AnyStorage where
@@ -63,14 +64,14 @@ anyStorage s =
     { storageDyn = toDyn s,
       insertDyn = \i cDyn sDyn ->
         fromMaybe sDyn $ do
-          s' <- fromDynamic @(s a) sDyn
-          c <- fromDynamic cDyn
+          !s' <- fromDynamic @(s a) sDyn
+          !c <- fromDynamic cDyn
           return . toDyn $ S.insert i c s',
       removeDyn = \i dyn -> case fromDynamic @(s a) dyn of
-        Just s' -> let (a, b) = S.remove i s' in (fmap toDyn a, toDyn b)
+        Just s' -> let !(a, b) = S.remove i s' in (fmap toDyn a, toDyn b)
         Nothing -> (Nothing, dyn),
       removeAny = \i dyn -> case fromDynamic @(s a) dyn of
-        Just s' -> let (a, b) = S.remove i s' in (fmap (anyStorage . S.singleton @s i) a, toDyn b)
+        Just s' -> let !(a, b) = S.remove i s' in (fmap (anyStorage . S.singleton @s i) a, toDyn b)
         Nothing -> (Nothing, dyn),
       entitiesDyn = \dyn -> case fromDynamic @(s a) dyn of
         Just s' -> map fst $ S.all s'
@@ -90,7 +91,7 @@ lookupStorage cId w = do
 
 insertComponent :: forall a. (Component a) => EntityID -> ComponentID -> a -> Archetype -> Archetype
 insertComponent e cId c arch =
-  let storage = case lookupStorage cId arch of
+  let !storage = case lookupStorage cId arch of
         Just s -> S.insert (unEntityId e) c s
         Nothing -> S.singleton @(StorageT a) @a (unEntityId e) c
    in arch {storages = Map.insert cId (anyStorage storage) (storages arch)}
@@ -120,32 +121,32 @@ lookupComponent e cId w = lookupStorage cId w >>= S.lookup (unEntityId e)
 
 insertAscList :: forall a. (Component a) => ComponentID -> [(EntityID, a)] -> Archetype -> Archetype
 insertAscList cId as arch =
-  arch
-    { storages =
+  let !storages' =
         Map.insert
           cId
           (anyStorage $ S.fromAscList @(StorageT a) (map (first unEntityId) as))
           (storages arch)
-    }
+   in arch
+        { storages = storages'
+        }
 
 withAscList :: forall a. (Component a) => ComponentID -> [a] -> Archetype -> Archetype
 withAscList cId as arch =
-  arch
-    { storages =
+  let !storages' =
         Map.adjust
           ( \s ->
               (anyStorage $ S.fromAscList @(StorageT a) (zip (entitiesDyn s (storageDyn s)) as))
           )
           cId
           (storages arch)
-    }
+   in arch {storages = storages'}
 
 remove :: EntityID -> Archetype -> (Map ComponentID Dynamic, Archetype)
 remove e arch =
-  foldr
-    ( \(cId, s) (dynAcc, archAcc) ->
-        let (dynA, dynS) = removeDyn s (unEntityId e) (storageDyn s)
-            dynAcc' = case dynA of
+  foldl'
+    ( \(dynAcc, archAcc)  (cId, s)  ->
+        let !(dynA, dynS) = removeDyn s (unEntityId e) (storageDyn s)
+            !dynAcc' = case dynA of
               Just d -> Map.insert cId d dynAcc
               Nothing -> dynAcc
          in ( dynAcc',
@@ -157,8 +158,8 @@ remove e arch =
 
 removeStorages :: EntityID -> Archetype -> (Map ComponentID AnyStorage, Archetype)
 removeStorages e arch =
-  foldr
-    ( \(cId, s) (dynAcc, archAcc) ->
+  foldl'
+    ( \ (dynAcc, archAcc) (cId, s) ->
         let (dynA, dynS) = removeAny s (unEntityId e) (storageDyn s)
             dynAcc' = case dynA of
               Just d -> Map.insert cId d dynAcc

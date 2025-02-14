@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE BangPatterns #-}
 
 module Data.Aztecs.World.Components
   ( ComponentID (..),
@@ -13,15 +14,15 @@ module Data.Aztecs.World.Components
 where
 
 import Data.Aztecs.Component (Component, ComponentID (..))
-import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.Typeable (Proxy (..), TypeRep, Typeable, typeOf)
 import Prelude hiding (lookup)
 
 -- | Component ID map.
 data Components = Components
-  { componentIds :: Map TypeRep ComponentID,
-    nextComponentId :: ComponentID
+  { componentIds :: !(Map TypeRep ComponentID),
+    nextComponentId :: !ComponentID
   }
   deriving (Show)
 
@@ -46,7 +47,7 @@ insert cs = case lookup @a cs of
 -- | Insert a component ID by type.
 insert' :: forall c. (Component c) => Components -> (ComponentID, Components)
 insert' cs =
-  let cId = nextComponentId cs
+  let !cId = nextComponentId cs
    in ( cId,
         cs
           { componentIds = Map.insert (typeOf (Proxy @c)) cId (componentIds cs),

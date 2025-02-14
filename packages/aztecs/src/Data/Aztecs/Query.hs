@@ -3,6 +3,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE BangPatterns #-}
 
 module Data.Aztecs.Query
   ( -- * Queries
@@ -45,7 +46,7 @@ import Data.Aztecs.World.Archetypes (Node (nodeArchetype))
 import qualified Data.Aztecs.World.Archetypes as AS
 import Data.Aztecs.World.Components (Components)
 import qualified Data.Aztecs.World.Components as CS
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Prelude hiding (all, any, id, lookup, map, mapM, reads, (.))
@@ -287,7 +288,7 @@ entityDyn =
 fetchDyn :: forall m a. (Applicative m, Component a) => ComponentID -> DynamicQuery m () a
 fetchDyn cId =
   DynamicQuery
-    { dynQueryAll = \_ _ arch -> let as = A.all cId arch in pure (fmap snd as, arch),
+    { dynQueryAll = \_ _ arch -> let !as = A.all cId arch in pure (fmap snd as, arch),
       dynQueryLookup = \_ eId arch -> pure $ (A.lookupComponent eId cId arch, arch)
     }
 

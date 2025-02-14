@@ -4,6 +4,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE BangPatterns #-}
 
 module Data.Aztecs.World.Archetypes
   ( ArchetypeID (..),
@@ -22,8 +23,8 @@ where
 
 import Data.Aztecs.Component (ComponentID)
 import Data.Aztecs.World.Archetype hiding (empty)
-import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.Maybe (mapMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -36,26 +37,26 @@ newtype ArchetypeID = ArchetypeID {unArchetypeId :: Int}
 -- | Node in `Archetypes`.
 data Node = Node
   { -- | Unique set of `ComponentID`s of this `Node`.
-    nodeComponentIds :: Set ComponentID,
+    nodeComponentIds :: !(Set ComponentID),
     -- | `Archetype` of this `Node`.
-    nodeArchetype :: Archetype,
+    nodeArchetype :: !Archetype,
     -- | Edges to other `Archetype`s by adding a `ComponentID`.
-    nodeAdd :: Map ComponentID ArchetypeID,
+    nodeAdd :: !(Map ComponentID ArchetypeID),
     -- | Edges to other `Archetype`s by removing a `ComponentID`.
-    nodeRemove :: Map ComponentID ArchetypeID
+    nodeRemove :: !(Map ComponentID ArchetypeID)
   }
   deriving (Show)
 
 -- | `Archetype` graph.
 data Archetypes = Archetypes
   { -- | Archetype nodes in the graph.
-    nodes :: Map ArchetypeID Node,
+    nodes :: !(Map ArchetypeID Node),
     -- | Mapping of unique `ComponentID` sets to `ArchetypeID`s.
-    archetypeIds :: Map (Set ComponentID) ArchetypeID,
+    archetypeIds :: !(Map (Set ComponentID) ArchetypeID),
     -- | Next unique `ArchetypeID`.
-    nextArchetypeId :: ArchetypeID,
+    nextArchetypeId :: !ArchetypeID,
     -- | Mapping of `ComponentID`s to `ArchetypeID`s of `Archetypes` that contain them.
-    componentIds :: Map ComponentID (Set ArchetypeID)
+    componentIds :: !(Map ComponentID (Set ArchetypeID))
   }
   deriving (Show)
 
@@ -88,7 +89,7 @@ adjustArchetype aId f arches = arches {nodes = Map.adjust (\node -> node {nodeAr
 -- | Find `ArchetypeID`s containing a set of `ComponentID`s.
 findArchetypeIds :: Set ComponentID -> Archetypes -> Set ArchetypeID
 findArchetypeIds cIds arches = case mapMaybe (\cId -> Map.lookup cId (componentIds arches)) (Set.elems cIds) of
-  (aId : aIds') -> foldr Set.intersection aId aIds'
+  (aId : aIds') -> foldl' Set.intersection aId aIds'
   [] -> Set.empty
 
 -- | Lookup `Archetype`s containing a set of `ComponentID`s.
@@ -101,10 +102,10 @@ lookup cIds arches =
 -- | Map over `Archetype`s containing a set of `ComponentID`s.
 map :: Set ComponentID -> (Archetype -> (a, Archetype)) -> Archetypes -> ([a], Archetypes)
 map cIds f arches =
-  foldr
-    ( \aId (acc, archAcc) ->
-        let node = nodes archAcc Map.! aId
-            (a, arch') = f (nodeArchetype node)
+  foldl'
+    ( \(acc, archAcc) aId  ->
+        let !node = nodes archAcc Map.! aId
+            !(a, arch') = f (nodeArchetype node)
          in (a : acc, archAcc {nodes = Map.insert aId (node {nodeArchetype = arch'}) (nodes archAcc)})
     )
     ([], arches)

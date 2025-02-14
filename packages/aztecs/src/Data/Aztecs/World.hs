@@ -40,10 +40,10 @@ import Prelude hiding (lookup)
 
 -- | World of entities and their components.
 data World = World
-  { archetypes :: Archetypes,
-    components :: Components,
-    entities :: Map EntityID ArchetypeID,
-    nextEntityId :: EntityID
+  { archetypes :: !Archetypes,
+    components :: !Components,
+    entities :: !(Map EntityID ArchetypeID),
+    nextEntityId :: !EntityID
   }
   deriving (Show)
 
@@ -178,7 +178,7 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
           Just nextAId ->
             let (cs, arch') = A.remove e (nodeArchetype node)
                 w' = w {archetypes = (archetypes w) {AS.nodes = Map.insert aId node {nodeArchetype = arch'} (AS.nodes $ archetypes w)}}
-                f (itemCId, dyn) archAcc =
+                f archAcc (itemCId, dyn) =
                   archAcc
                     { A.storages =
                         Map.adjust
@@ -195,7 +195,7 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
                                   nextNode
                                     { nodeArchetype =
                                         A.insertComponent e cId c $
-                                          foldr
+                                          foldl'
                                             f
                                             (nodeArchetype nextNode)
                                             (Map.toList cs)

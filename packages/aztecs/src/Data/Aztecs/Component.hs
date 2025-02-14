@@ -4,7 +4,7 @@
 module Data.Aztecs.Component (Component (..), ComponentID (..)) where
 
 import Data.Aztecs.Storage (Storage)
-import Data.IntMap (IntMap)
+import Data.IntMap.Strict (IntMap)
 import Data.Kind (Type)
 import Data.Typeable (Typeable)
 

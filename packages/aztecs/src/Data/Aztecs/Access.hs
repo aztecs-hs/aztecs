@@ -3,6 +3,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE BangPatterns #-}
 
 module Data.Aztecs.Access
   ( Access (..),
@@ -16,7 +17,7 @@ module Data.Aztecs.Access
 where
 
 import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.State (MonadState (..), StateT (..))
+import Control.Monad.State.Strict (MonadState (..), StateT (..))
 import Data.Aztecs.Component (Component (..))
 import Data.Aztecs.Entity (EntityID (..))
 import Data.Aztecs.World (World (..))
@@ -39,8 +40,8 @@ spawn ::
   Bundle ->
   Access m EntityID
 spawn c = Access $ do
-  w <- get
-  let (e, w') = W.spawn c w
+  !w <- get
+  let !(e, w') = W.spawn c w
   put w'
   return e
 
@@ -52,17 +53,17 @@ spawn_ c = do
 -- | Insert a component into an entity.
 insert :: (Monad m, Component a, Typeable (StorageT a)) => EntityID -> a -> Access m ()
 insert e c = Access $ do
-  w <- get
-  let w' = W.insert e c w
+  !w <- get
+  let !w' = W.insert e c w
   put w'
 
 lookup :: (Monad m, Component a) => EntityID -> Access m (Maybe a)
 lookup e = Access $ do
-  w <- get
+  !w <- get
   return $ W.lookup e w
 
 despawn :: (Monad m) => EntityID -> Access m ()
 despawn e = Access $ do
-  w <- get
-  let (_, w') = W.despawn e w
+  !w <- get
+  let !(_, w') = W.despawn e w
   put w'
