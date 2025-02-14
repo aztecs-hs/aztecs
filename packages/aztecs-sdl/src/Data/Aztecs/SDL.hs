@@ -69,7 +69,7 @@ setup =
       &&& S.queue
         ( const $ do
             A.spawn_ . bundle $ Time 0
-            A.spawn_ . bundle $ Keyboard mempty mempty
+            A.spawn_ . bundle $ KeyboardInput mempty mempty
             A.spawn_ . bundle $ MouseInput (P $ V2 0 0) (V2 0 0) mempty
         )
 
@@ -385,26 +385,26 @@ animateSprites = proc () -> do
       currentTime
 
 -- | Keyboard state.
-data Keyboard = Keyboard
+data KeyboardInput = KeyboardInput
   { keyboardEvents :: Map Keycode InputMotion,
     keyboardPressed :: Set Keycode
   }
   deriving (Show)
 
-instance Component Keyboard
+instance Component KeyboardInput
 
-isKeyPressed :: Keycode -> Keyboard -> Bool
+isKeyPressed :: Keycode -> KeyboardInput -> Bool
 isKeyPressed key kb = Set.member key $ keyboardPressed kb
 
-keyEvent :: Keycode -> Keyboard -> Maybe InputMotion
+keyEvent :: Keycode -> KeyboardInput -> Maybe InputMotion
 keyEvent key kb = Map.lookup key $ keyboardEvents kb
 
-wasKeyPressed :: Keycode -> Keyboard -> Bool
+wasKeyPressed :: Keycode -> KeyboardInput -> Bool
 wasKeyPressed key kb = case keyEvent key kb of
   Just Pressed -> True
   _ -> False
 
-wasKeyReleased :: Keycode -> Keyboard -> Bool
+wasKeyReleased :: Keycode -> KeyboardInput -> Bool
 wasKeyReleased key kb = case keyEvent key kb of
   Just Released -> True
   _ -> False
@@ -426,7 +426,7 @@ keyboardInput = proc () -> do
   mouseInput <- S.single Q.fetch -< ()
   let go (kbAcc, mouseAcc) event = case eventPayload event of
         KeyboardEvent keyboardEvent ->
-          ( Keyboard
+          ( KeyboardInput
               ( Map.insert
                   (keysymKeycode $ keyboardEventKeysym keyboardEvent)
                   (keyboardEventKeyMotion keyboardEvent)
@@ -470,7 +470,7 @@ keyboardInput = proc () -> do
   S.mapSingle Q.set -< mouseInput'
   returnA -< ()
 
-clearKeyboardQuery :: (Monad m) => Query m () Keyboard
+clearKeyboardQuery :: (Monad m) => Query m () KeyboardInput
 clearKeyboardQuery = proc () -> do
   kb <- Q.fetch -< ()
   Q.set -< kb {keyboardEvents = mempty}

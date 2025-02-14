@@ -31,13 +31,7 @@ setup =
           A.spawn_ $
             bundle Image {imageTexture = texture, imageSize = V2 100 100}
               <> bundle transform {transformPosition = V2 100 100}
-          A.spawn_ $
-            bundle Image {imageTexture = texture, imageSize = V2 200 200}
-              <> bundle transform {transformPosition = V2 500 100}
       )
 
-update :: System () ()
-update = S.all (Q.fetch @_ @SDL.Keyboard) >>> S.run (\keyboard -> print keyboard)
-
 main :: IO ()
-main = runSystem_ $ SDL.setup >>> setup >>> S.forever (SDL.update >>> update >>> SDL.draw)
+main = runSystem_ $ SDL.setup >>> setup >>> S.forever (SDL.update >>> SDL.draw)
