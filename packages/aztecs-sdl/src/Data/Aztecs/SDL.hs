@@ -70,6 +70,7 @@ setup =
         ( const $ do
             A.spawn_ . bundle $ Time 0
             A.spawn_ . bundle $ Keyboard mempty mempty
+            A.spawn_ . bundle $ MouseInput (P $ V2 0 0) (V2 0 0) mempty
         )
 
 -- | Update SDL windows
@@ -88,8 +89,7 @@ update =
 draw :: System () ()
 draw =
   const () <$> (drawImages &&& (animateSprites >>> drawSprites))
-    >>> renderWindows
-    >>> clearKeyboard
+    >>> const () <$> (renderWindows &&& clearKeyboard &&& clearMouseInput)
 
 -- | Setup new windows.
 addWindows :: System () ()
@@ -409,36 +409,65 @@ wasKeyReleased key kb = case keyEvent key kb of
   Just Released -> True
   _ -> False
 
+data MouseInput = MouseInput
+  { mousePosition :: Point V2 Int,
+    mouseOffset :: V2 Int,
+    mouseButtons :: Map MouseButton InputMotion
+  }
+  deriving (Show)
+
+instance Component MouseInput
+
 -- | Keyboard input system.
 keyboardInput :: System () ()
 keyboardInput = proc () -> do
   events <- S.run . const $ SDL.pollEvents -< ()
-  S.mapSingle
-    ( proc events -> do
-        let go keyAcc event = case eventPayload event of
-              KeyboardEvent keyboardEvent ->
-                Keyboard
-                  ( Map.insert
+  kb <- S.single Q.fetch -< ()
+  mouseInput <- S.single Q.fetch -< ()
+  let go (kbAcc, mouseAcc) event = case eventPayload event of
+        KeyboardEvent keyboardEvent ->
+          ( Keyboard
+              ( Map.insert
+                  (keysymKeycode $ keyboardEventKeysym keyboardEvent)
+                  (keyboardEventKeyMotion keyboardEvent)
+                  (keyboardEvents kbAcc)
+              )
+              ( case keyboardEventKeyMotion keyboardEvent of
+                  Pressed ->
+                    Set.insert
                       (keysymKeycode $ keyboardEventKeysym keyboardEvent)
-                      (keyboardEventKeyMotion keyboardEvent)
-                      (keyboardEvents keyAcc)
-                  )
-                  ( case keyboardEventKeyMotion keyboardEvent of
-                      Pressed ->
-                        Set.insert
-                          (keysymKeycode $ keyboardEventKeysym keyboardEvent)
-                          (keyboardPressed keyAcc)
-                      Released ->
-                        Set.delete
-                          (keysymKeycode $ keyboardEventKeysym keyboardEvent)
-                          (keyboardPressed keyAcc)
-                  )
-              _ -> keyAcc
-        keyboard <- Q.fetch -< ()
-        Q.set -< foldl' go keyboard events
-    )
-    -<
-      events
+                      (keyboardPressed kbAcc)
+                  Released ->
+                    Set.delete
+                      (keysymKeycode $ keyboardEventKeysym keyboardEvent)
+                      (keyboardPressed kbAcc)
+              ),
+            mouseAcc
+          )
+        MouseMotionEvent mouseMotionEvent ->
+          ( kbAcc,
+            MouseInput
+              { mousePosition = (fmap fromIntegral $ mouseMotionEventPos mouseMotionEvent),
+                mouseOffset = (fmap fromIntegral $ mouseMotionEventRelMotion mouseMotionEvent),
+                mouseButtons = (mouseButtons mouseAcc)
+              }
+          )
+        MouseButtonEvent mouseButtonEvent ->
+          ( kbAcc,
+            MouseInput
+              { mousePosition = (fmap fromIntegral $ mouseButtonEventPos mouseButtonEvent),
+                mouseOffset = V2 0 0,
+                mouseButtons =
+                  Map.insert
+                    (mouseButtonEventButton mouseButtonEvent)
+                    (mouseButtonEventMotion mouseButtonEvent)
+                    (mouseButtons mouseAcc)
+              }
+          )
+        _ -> (kbAcc, mouseAcc)
+      (kb', mouseInput') = foldl' go (kb, mouseInput) events
+  S.mapSingle Q.set -< kb'
+  S.mapSingle Q.set -< mouseInput'
   returnA -< ()
 
 clearKeyboardQuery :: (Monad m) => Query m () Keyboard
@@ -448,3 +477,11 @@ clearKeyboardQuery = proc () -> do
 
 clearKeyboard :: System () ()
 clearKeyboard = const () <$> S.mapSingle clearKeyboardQuery
+
+clearMouseInputQuery :: (Monad m) => Query m () MouseInput
+clearMouseInputQuery = proc () -> do
+  mouseInput <- Q.fetch -< ()
+  Q.set -< mouseInput {mouseButtons = mempty, mouseOffset = V2 0 0}
+
+clearMouseInput :: System () ()
+clearMouseInput = const () <$> S.mapSingle clearMouseInputQuery
