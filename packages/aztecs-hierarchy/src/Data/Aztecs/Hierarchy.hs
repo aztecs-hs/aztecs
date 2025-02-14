@@ -93,7 +93,7 @@ update = proc () -> do
                   then do
                     A.insert entity $ ChildState children
                     let added = Set.difference children childState
-                        removed = Set.difference childState children
+                        -- TODO removed = Set.difference childState children
                     mapM_ (\e -> A.insert e . Parent $ entity) added
                   else return ()
               Nothing -> do

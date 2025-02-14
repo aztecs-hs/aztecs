@@ -181,30 +181,31 @@ newtype Draw = Draw {runDraw :: Transform -> Renderer -> IO ()}
 
 instance Component Draw
 
+-- | Add `CameraTarget` components to entities with a new `Draw` component.
 addCameraTargets :: System () ()
 addCameraTargets = proc () -> do
   windows <- S.all (Q.entity &&& Q.fetch @_ @Window) -< ()
   newCameras <- S.filter (Q.entity &&& Q.fetch @_ @Camera) (without @CameraTarget) -< ()
   S.queue
-    ( \(newDraws, windows) -> case windows of
-        (windowEId, _) : _ -> mapM_ (\(eId, _) -> A.insert eId $ CameraTarget windowEId) newDraws
+    ( \(newCameras, windows) -> case windows of
+        (windowEId, _) : _ -> mapM_ (\(eId, _) -> A.insert eId $ CameraTarget windowEId) newCameras
         _ -> return ()
     )
     -<
       (newCameras, windows)
 
--- | Add `WindowTarget` components to entities with a new `Draw` component.
+-- | Add `DrawTarget` components to entities with a new `Draw` component.
 addDrawTargets :: System () ()
 addDrawTargets = proc () -> do
-  windows <- S.all (Q.entity &&& Q.fetch @_ @Camera) -< ()
+  cameras <- S.all (Q.entity &&& Q.fetch @_ @Camera) -< ()
   newDraws <- S.filter (Q.entity &&& Q.fetch @_ @Draw) (without @DrawTarget) -< ()
   S.queue
-    ( \(newDraws, windows) -> case windows of
+    ( \(newDraws, cameras) -> case cameras of
         (cameraEId, _) : _ -> mapM_ (\(eId, _) -> A.insert eId $ DrawTarget cameraEId) newDraws
         _ -> return ()
     )
     -<
-      (newDraws, windows)
+      (newDraws, cameras)
 
 -- | Draw a rectangle.
 rect :: V2 Int -> Draw
