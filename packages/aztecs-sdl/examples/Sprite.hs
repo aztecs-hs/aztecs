@@ -9,7 +9,7 @@ import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import Data.Aztecs.Asset (load)
 import qualified Data.Aztecs.Query as Q
-import Data.Aztecs.SDL (Camera (..), Sprite (..), SpriteAnimation (..), Window (..), spriteAnimation)
+import Data.Aztecs.SDL (Camera (..), Sprite (..), Window (..), spriteAnimationGrid)
 import qualified Data.Aztecs.SDL as SDL
 import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Transform (..), transform)
@@ -35,15 +35,7 @@ setup =
                   spriteSize = V2 300 300,
                   spriteBounds = Just $ Rectangle (P $ V2 0 32) (V2 32 32)
                 }
-              <> bundle
-                spriteAnimation
-                  { spriteAnimationSteps =
-                      [ Rectangle (P $ V2 576 32) (V2 32 32),
-                        Rectangle (P $ V2 608 32) (V2 32 32),
-                        Rectangle (P $ V2 640 32) (V2 32 32),
-                        Rectangle (P $ V2 672 32) (V2 32 32)
-                      ]
-                  }
+              <> bundle (spriteAnimationGrid (V2 576 32) (V2 32 32) 3)
               <> bundle transform {transformPosition = V2 100 100}
       )
 

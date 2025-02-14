@@ -348,6 +348,15 @@ spriteAnimation =
       spriteAnimationStart = 0
     }
 
+-- | Create a sprite animation from a grid of sprites,
+-- given the grid's offset, size, and number of tiles.
+spriteAnimationGrid :: V2 Int -> V2 Int -> Int -> SpriteAnimation
+spriteAnimationGrid (V2 x y) (V2 w h) n =
+  spriteAnimation
+    { spriteAnimationSteps =
+        map (\i -> Rectangle (P $ V2 (x + i * w) y) (V2 w h)) [0 .. n]
+    }
+
 animateSprites :: System () ()
 animateSprites = proc () -> do
   currentTime <- S.single (Q.fetch @_ @Time) -< ()
