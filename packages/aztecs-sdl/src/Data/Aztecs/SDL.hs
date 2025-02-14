@@ -21,6 +21,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (mapMaybe)
 import qualified Data.Text as T
+import Data.Word (Word32)
 import SDL hiding (Texture, Window, windowTitle)
 import qualified SDL hiding (Texture)
 import qualified SDL.Image as IMG
@@ -58,19 +59,27 @@ setup =
   fmap (const ()) $
     Asset.setup @Texture
       &&& S.run (const initializeAll)
-      &&& S.queue (const . A.spawn_ . bundle $ Keyboard mempty)
+      &&& S.queue
+        ( const $ do
+            A.spawn_ . bundle $ Time 0
+            A.spawn_ . bundle $ Keyboard mempty
+        )
 
 -- | Update SDL windows
 update :: System () ()
 update =
-  addWindows
-    >>> addCameraTargets
-    >>> addDrawTargets
-    >>> Asset.loadAssets @Texture
-    >>> keyboardInput
+  const ()
+    <$> ( updateTime
+            &&& ( addWindows
+                    >>> addCameraTargets
+                    >>> addDrawTargets
+                    >>> Asset.loadAssets @Texture
+                    >>> keyboardInput
+                )
+        )
 
 draw :: System () ()
-draw = drawImages >>> renderWindows
+draw = const () <$> (drawImages &&& (animateSprites >>> drawSprites)) >>> renderWindows
 
 -- | Setup new windows.
 addWindows :: System () ()
@@ -262,6 +271,98 @@ drawImages = proc () -> do
                 (V2 False False)
               destroyTexture sdlTexture
         )
+
+-- | Sprite component.
+data Sprite = Sprite
+  { spriteTexture :: Handle Texture,
+    spriteBounds :: Maybe (Rectangle Int),
+    spriteSize :: V2 Int
+  }
+  deriving (Show)
+
+instance Component Sprite
+
+-- | Draw images to their target windows.
+drawSprites :: System () ()
+drawSprites = proc () -> do
+  sprites <- S.all (Q.entity &&& Q.fetch @_ @Sprite) -< ()
+  assets <- S.single (Q.fetch @_ @(AssetServer Texture)) -< ()
+  let loadedAssets =
+        mapMaybe (\(eId, sprite) -> (,sprite,eId) <$> lookupAsset (spriteTexture sprite) assets) sprites
+  S.queue (mapM_ go) -< loadedAssets
+  where
+    go (texture, sprite, eId) = do
+      A.insert
+        eId
+        ( Draw $
+            \transform renderer -> do
+              sdlTexture <- SDL.createTextureFromSurface renderer (textureSurface texture)
+              copyEx
+                renderer
+                sdlTexture
+                (fmap fromIntegral <$> spriteBounds sprite)
+                ( Just
+                    ( Rectangle
+                        (fmap fromIntegral . P $ transformPosition transform)
+                        (fmap fromIntegral $ spriteSize sprite)
+                    )
+                )
+                (realToFrac $ transformRotation transform)
+                Nothing
+                (V2 False False)
+              destroyTexture sdlTexture
+        )
+
+newtype Time = Time {elapsedMS :: Word32}
+  deriving (Eq, Ord, Num, Show)
+
+instance Component Time
+
+updateTime :: System () ()
+updateTime = proc () -> do
+  t <- S.run (const SDL.ticks) -< ()
+  S.mapSingle Q.set -< Time t
+  returnA -< ()
+
+data SpriteAnimation = SpriteAnimation
+  { spriteAnimationSteps :: [Rectangle Int],
+    spriteAnimationIndex :: Int,
+    spriteAnimationMS :: Word32,
+    spriteAnimationStart :: Word32
+  }
+
+instance Component SpriteAnimation
+
+spriteAnimation :: SpriteAnimation
+spriteAnimation =
+  SpriteAnimation
+    { spriteAnimationSteps = [],
+      spriteAnimationIndex = 0,
+      spriteAnimationMS = 100,
+      spriteAnimationStart = 0
+    }
+
+animateSprites :: System () ()
+animateSprites = proc () -> do
+  currentTime <- S.single (Q.fetch @_ @Time) -< ()
+  S.map_
+    ( proc currentTime -> do
+        sprite <- Q.fetch @_ @Sprite -< ()
+        animation <- Q.fetch @_ @SpriteAnimation -< ()
+        let sprite' = sprite {spriteBounds = Just $ spriteAnimationSteps animation !! spriteAnimationIndex animation}
+            animation' =
+              if elapsedMS currentTime - spriteAnimationStart animation > spriteAnimationMS animation
+                then
+                  animation
+                    { spriteAnimationIndex = (spriteAnimationIndex animation + 1) `mod` length (spriteAnimationSteps animation),
+                      spriteAnimationStart = elapsedMS currentTime
+                    }
+                else animation
+        Q.set -< sprite'
+        Q.set -< animation'
+    )
+    -<
+      currentTime
 
 -- | Keyboard state.
 newtype Keyboard = Keyboard {unKeyboard :: Map Keycode InputMotion}
