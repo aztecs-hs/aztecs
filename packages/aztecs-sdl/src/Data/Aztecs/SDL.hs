@@ -21,6 +21,8 @@ import Data.Aztecs.Transform (Transform (..))
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (mapMaybe)
+import Data.Set (Set)
+import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Word (Word32)
 import SDL hiding (Texture, Window, windowTitle)
@@ -67,7 +69,7 @@ setup =
       &&& S.queue
         ( const $ do
             A.spawn_ . bundle $ Time 0
-            A.spawn_ . bundle $ Keyboard mempty
+            A.spawn_ . bundle $ Keyboard mempty mempty
         )
 
 -- | Update SDL windows
@@ -84,7 +86,10 @@ update =
         )
 
 draw :: System () ()
-draw = const () <$> (drawImages &&& (animateSprites >>> drawSprites)) >>> renderWindows
+draw =
+  const () <$> (drawImages &&& (animateSprites >>> drawSprites))
+    >>> renderWindows
+    >>> clearKeyboard
 
 -- | Setup new windows.
 addWindows :: System () ()
@@ -380,10 +385,29 @@ animateSprites = proc () -> do
       currentTime
 
 -- | Keyboard state.
-newtype Keyboard = Keyboard {unKeyboard :: Map Keycode InputMotion}
-  deriving (Show, Semigroup, Monoid)
+data Keyboard = Keyboard
+  { keyboardEvents :: Map Keycode InputMotion,
+    keyboardPressed :: Set Keycode
+  }
+  deriving (Show)
 
 instance Component Keyboard
+
+isKeyPressed :: Keycode -> Keyboard -> Bool
+isKeyPressed key kb = Set.member key $ keyboardPressed kb
+
+keyEvent :: Keycode -> Keyboard -> Maybe InputMotion
+keyEvent key kb = Map.lookup key $ keyboardEvents kb
+
+wasKeyPressed :: Keycode -> Keyboard -> Bool
+wasKeyPressed key kb = case keyEvent key kb of
+  Just Pressed -> True
+  _ -> False
+
+wasKeyReleased :: Keycode -> Keyboard -> Bool
+wasKeyReleased key kb = case keyEvent key kb of
+  Just Released -> True
+  _ -> False
 
 -- | Keyboard input system.
 keyboardInput :: System () ()
@@ -393,11 +417,22 @@ keyboardInput = proc () -> do
     ( proc events -> do
         let go keyAcc event = case eventPayload event of
               KeyboardEvent keyboardEvent ->
-                Keyboard $
-                  Map.insert
-                    (keysymKeycode $ keyboardEventKeysym keyboardEvent)
-                    (keyboardEventKeyMotion keyboardEvent)
-                    (unKeyboard keyAcc)
+                Keyboard
+                  ( Map.insert
+                      (keysymKeycode $ keyboardEventKeysym keyboardEvent)
+                      (keyboardEventKeyMotion keyboardEvent)
+                      (keyboardEvents keyAcc)
+                  )
+                  ( case keyboardEventKeyMotion keyboardEvent of
+                      Pressed ->
+                        Set.insert
+                          (keysymKeycode $ keyboardEventKeysym keyboardEvent)
+                          (keyboardPressed keyAcc)
+                      Released ->
+                        Set.delete
+                          (keysymKeycode $ keyboardEventKeysym keyboardEvent)
+                          (keyboardPressed keyAcc)
+                  )
               _ -> keyAcc
         keyboard <- Q.fetch -< ()
         Q.set -< foldl' go keyboard events
@@ -405,3 +440,11 @@ keyboardInput = proc () -> do
     -<
       events
   returnA -< ()
+
+clearKeyboardQuery :: (Monad m) => Query m () Keyboard
+clearKeyboardQuery = proc () -> do
+  kb <- Q.fetch -< ()
+  Q.set -< kb {keyboardEvents = mempty}
+
+clearKeyboard :: System () ()
+clearKeyboard = const () <$> S.mapSingle clearKeyboardQuery
