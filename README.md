@@ -18,6 +18,14 @@ For more information, please see the documentation on [Hackage](https://hackage.
 - Type-safe DSL: Queries and systems use `Arrow` syntax for compile-time gurantees
 - Modular design: Aztecs can be extended for a variety of use cases
 
+## Packages
+
+- [`aztecs`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs)
+- [`aztecs-asset`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-asset)
+- [`aztecs-hierarchy`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-hierarchy)
+- [`aztecs-sdl`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-sdl)
+- [`aztecs-transform`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-transform)
+
 ```hs
 import Control.Arrow ((>>>))
 import Data.Aztecs
@@ -51,6 +59,7 @@ main = runSystem_ $ setup >>> S.forever move
 ```
 
 ## SDL
+
 ```hs
 import Control.Arrow (returnA, (>>>))
 import Data.Aztecs

@@ -1,4 +1,4 @@
-# aztecs-sdl Examples
+# Examples
 
 ### [Keyboard](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-sdl/examples/Keyboard.hs)
 Keyboard input handling
