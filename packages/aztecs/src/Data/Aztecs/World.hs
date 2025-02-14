@@ -3,6 +3,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE CPP #-}
 
 module Data.Aztecs.World
   ( World (..),
@@ -37,6 +38,10 @@ import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import Data.Typeable (Proxy (..), Typeable, typeOf)
 import Prelude hiding (lookup)
+
+#if !MIN_VERSION_base(4,20,0)
+import Data.Foldable (foldl')
+#endif
 
 -- | World of entities and their components.
 data World = World

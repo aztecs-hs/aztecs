@@ -5,6 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE CPP #-}
 
 module Data.Aztecs.World.Archetypes
   ( ArchetypeID (..),
@@ -29,6 +30,10 @@ import Data.Maybe (mapMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Prelude hiding (all, lookup, map)
+
+#if !MIN_VERSION_base(4,20,0)
+import Data.Foldable (foldl')
+#endif
 
 -- | `Archetype` ID.
 newtype ArchetypeID = ArchetypeID {unArchetypeId :: Int}

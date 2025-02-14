@@ -3,6 +3,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE CPP #-}
 
 module Data.Aztecs.View
   ( View (..),
@@ -24,6 +25,10 @@ import Data.Foldable (foldlM)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
+
+#if !MIN_VERSION_base(4,20,0)
+import Data.Foldable (foldl')
+#endif
 
 -- | View into a `World`, containing a subset of archetypes.
 newtype View = View {viewArchetypes :: Map ArchetypeID Node}

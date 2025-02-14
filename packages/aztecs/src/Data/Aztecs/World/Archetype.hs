@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -46,6 +47,10 @@ import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Prelude hiding (all, lookup)
+
+#if !MIN_VERSION_base(4,20,0)
+import Data.Foldable (foldl')
+#endif
 
 data AnyStorage = AnyStorage
   { storageDyn :: !Dynamic,
@@ -144,7 +149,7 @@ withAscList cId as arch =
 remove :: EntityID -> Archetype -> (Map ComponentID Dynamic, Archetype)
 remove e arch =
   foldl'
-    ( \(dynAcc, archAcc)  (cId, s)  ->
+    ( \(dynAcc, archAcc) (cId, s) ->
         let !(dynA, dynS) = removeDyn s (unEntityId e) (storageDyn s)
             !dynAcc' = case dynA of
               Just d -> Map.insert cId d dynAcc
@@ -159,7 +164,7 @@ remove e arch =
 removeStorages :: EntityID -> Archetype -> (Map ComponentID AnyStorage, Archetype)
 removeStorages e arch =
   foldl'
-    ( \ (dynAcc, archAcc) (cId, s) ->
+    ( \(dynAcc, archAcc) (cId, s) ->
         let (dynA, dynS) = removeAny s (unEntityId e) (storageDyn s)
             dynAcc' = case dynA of
               Just d -> Map.insert cId d dynAcc

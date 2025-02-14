@@ -1,4 +1,5 @@
 {-# LANGUAGE Arrows #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -25,6 +26,10 @@ import Data.Word (Word32)
 import SDL hiding (Texture, Window, windowTitle)
 import qualified SDL hiding (Texture)
 import qualified SDL.Image as IMG
+
+#if !MIN_VERSION_base(4,20,0)
+import Data.Foldable (foldl')
+#endif
 
 -- | Window component.
 data Window = Window

@@ -24,10 +24,10 @@ jobs:
           key: ${{ runner.os }}-build-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}
 
       - uses: actions/checkout@v4
-      - uses: actions/setup-haskell@v1
+      - uses: haskell-actions/setup@v2
         with:
-          ghc-version: "8.10.3"
-          cabal-version: "3.2"
+          ghc-version: "9.2.5"
+          cabal-version: "3.12"
 
       - name: Install linux dependencies
         run: |
@@ -52,10 +52,10 @@ jobs:
           key: ${{ runner.os }}-doctest-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}
 
       - uses: actions/checkout@v4
-      - uses: actions/setup-haskell@v1
+      - uses: haskell-actions/setup@v2
         with:
-          ghc-version: "8.10.3"
-          cabal-version: "3.2"
+          ghc-version: "9.2.5"
+          cabal-version: "3.12"
 
       - name: Install linux dependencies
         run: |
