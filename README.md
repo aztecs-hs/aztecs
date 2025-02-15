@@ -19,11 +19,41 @@ For more information, please see the documentation on [Hackage](https://hackage.
 
 ## Packages
 
-- [`aztecs`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs) [![Package](https://img.shields.io/hackage/v/aztecs.svg)](https://hackage.haskell.org/package/aztecs)
-- [`aztecs-asset`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-asset) [![Package](https://img.shields.io/hackage/v/aztecs-asset.svg)](https://hackage.haskell.org/package/aztecs-asset)
-- [`aztecs-hierarchy`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-hierarchy) [![Package](https://img.shields.io/hackage/v/aztecs-hierarchy.svg)](https://hackage.haskell.org/package/aztecs-hierarchy)
-- [`aztecs-sdl`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-sdl) [![Package](https://img.shields.io/hackage/v/aztecs-sdl.svg)](https://hackage.haskell.org/package/aztecs-sdl)
-- [`aztecs-transform`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-transform) [![Package](https://img.shields.io/hackage/v/aztecs-transform.svg)](https://hackage.haskell.org/package/aztecs-transform)
+- [`aztecs`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs)
+
+  [![Package](https://img.shields.io/hackage/v/aztecs.svg)](https://hackage.haskell.org/package/aztecs)
+
+  Core ECS and state management
+
+- [`aztecs-asset`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-asset)
+
+  [![Package](https://img.shields.io/hackage/v/aztecs-asset.svg)](https://hackage.haskell.org/package/aztecs-asset)
+
+  Asset loading and management
+
+- [`aztecs-hierarchy`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-hierarchy)
+
+  [![Package](https://img.shields.io/hackage/v/aztecs-hierarchy.svg)](https://hackage.haskell.org/package/aztecs-hierarchy)
+
+  Parent/child hierarchies using the ECS.
+
+- [`aztecs-sdl`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-sdl)
+
+  [![Package](https://img.shields.io/hackage/v/aztecs-sdl.svg)](https://hackage.haskell.org/package/aztecs-sdl)
+
+  SDL window management and rendering support.
+
+- [`aztecs-sdl-image`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-sdl-image)
+
+  [![Package](https://img.shields.io/hackage/v/aztecs-sdl-image.svg)](https://hackage.haskell.org/package/aztecs-sdl-image)
+
+  SDL image and spritesheet rendering support.
+
+- [`aztecs-transform`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-transform)
+
+  [![Package](https://img.shields.io/hackage/v/aztecs-transform.svg)](https://hackage.haskell.org/package/aztecs-transform)
+
+  Transform hierarchies and components.
 
 ## Running examples
 

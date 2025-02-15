@@ -1,13 +1,9 @@
 # Examples
 
-### [Keyboard](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-sdl/examples/Keyboard.hs)
-Keyboard input handling
+### [Sprite](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-sdl-image/examples/Sprite.hs)
 
-### [Mouse](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-sdl/examples/Mouse.hs)
-Mouse input handling
-
-### [Sprite](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-sdl/examples/Sprite.hs)
 Spritesheet rendering and animation
 
-### [Window](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-sdl/examples/Window.hs)
-Window creation and management
+### [Image](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-sdl-image/examples/Image.hs)
+
+Image rendering
