@@ -7,6 +7,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Data.Aztecs.SDL.Text
   ( Font (..),
@@ -39,7 +40,8 @@ newtype Font = Font {unFont :: F.Font}
   deriving (Eq, Show)
 
 instance Asset Font where
-  loadAsset fp = Font <$> F.load fp 50
+  type AssetConfig Font = Int
+  loadAsset fp size = Font <$> F.load fp size
 
 data Text = Text {textContent :: T.Text, textFont :: Handle Font}
   deriving (Eq, Show)

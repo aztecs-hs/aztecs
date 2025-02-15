@@ -22,14 +22,14 @@ setup =
   S.mapSingle
     ( proc () -> do
         assetServer <- Q.fetch -< ()
-        (texture, assetServer') <- Q.run (load "assets/C&C Red Alert [INET].ttf") -< assetServer
+        (texture, assetServer') <- Q.run (load "assets/C&C Red Alert [INET].ttf" 50) -< assetServer
         Q.set -< assetServer'
         returnA -< texture
     )
     >>> S.queue
       ( \fontHandle -> do
           A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
-          A.spawn_ $ bundle Camera {cameraViewport = V2 1000 500} <> bundle transform
+          A.spawn_ $ bundle Camera {cameraViewport = V2 200 200} <> bundle transform
           A.spawn_ $
             bundle
               Text

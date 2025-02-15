@@ -6,6 +6,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Data.Aztecs.SDL.Image
@@ -61,7 +62,8 @@ draw = const () <$> (drawImages &&& (animateSprites >>> drawSprites))
 newtype Texture = Texture {textureSurface :: Surface}
 
 instance Asset Texture where
-  loadAsset path = Texture <$> IMG.load path
+  type AssetConfig Texture = ()
+  loadAsset path _ = Texture <$> IMG.load path
 
 -- | Image component.
 data Image = Image

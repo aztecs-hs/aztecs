@@ -3,6 +3,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Data.Aztecs.Asset where
 
@@ -38,17 +39,19 @@ empty =
     }
 
 class Asset a where
-  loadAsset :: FilePath -> IO a
+  type AssetConfig a
+
+  loadAsset :: FilePath -> AssetConfig a -> IO a
 
 newtype Handle a = Handle {handleId :: AssetId}
   deriving (Eq, Ord, Show)
 
-load :: (Asset a) => FilePath -> AssetServer a -> IO (Handle a, AssetServer a)
-load path server = do
+load :: (Asset a) => FilePath -> AssetConfig a -> AssetServer a -> IO (Handle a, AssetServer a)
+load path cfg server = do
   let assetId = nextAssetId server
   v <- newIORef Nothing
   _ <- forkIO $ do
-    a <- loadAsset path
+    a <- loadAsset path cfg
     writeIORef v (Just a)
   return
     ( Handle assetId,
