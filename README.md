@@ -49,6 +49,12 @@ For more information, please see the documentation on [Hackage](https://hackage.
 
   SDL image and spritesheet rendering support.
 
+- [`aztecs-sdl-text`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-sdl-text)
+
+  [![Package](https://img.shields.io/hackage/v/aztecs-sdl-text.svg)](https://hackage.haskell.org/package/aztecs-sdl-text)
+
+  SDL text rendering support.
+
 - [`aztecs-transform`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-transform)
 
   [![Package](https://img.shields.io/hackage/v/aztecs-transform.svg)](https://hackage.haskell.org/package/aztecs-transform)
