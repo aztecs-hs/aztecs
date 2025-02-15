@@ -29,7 +29,7 @@ setup =
     >>> S.queue
       ( \fontHandle -> do
           A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
-          A.spawn_ $ bundle Camera {cameraViewport = V2 200 200} <> bundle transform
+          A.spawn_ $ bundle Camera {cameraViewport = V2 1000 500} <> bundle transform
           A.spawn_ $
             bundle
               Text

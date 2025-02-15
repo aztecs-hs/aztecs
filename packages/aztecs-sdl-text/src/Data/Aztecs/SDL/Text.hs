@@ -6,8 +6,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Data.Aztecs.SDL.Text
   ( Font (..),
@@ -31,6 +31,7 @@ import Data.Maybe (mapMaybe)
 import qualified Data.Text as T
 import SDL hiding (Texture, Window, windowTitle)
 import qualified SDL.Font as F
+import Data.Aztecs.Transform (Transform (..))
 
 #if !MIN_VERSION_base(4,20,0)
 import Data.Foldable (foldl')
@@ -49,10 +50,23 @@ data Text = Text {textContent :: T.Text, textFont :: Handle Font}
 instance Component Text
 
 drawText :: T.Text -> Font -> Draw
-drawText content f = Draw $ \t renderer -> do
+drawText content f = Draw $ \transform renderer -> do
   surface <- F.solid (unFont f) (V4 255 255 255 255) content
   texture <- createTextureFromSurface renderer surface
-  copy renderer texture Nothing Nothing
+  textureInfo <- queryTexture texture
+  copyEx
+    renderer
+    texture
+    Nothing
+    ( Just
+        ( Rectangle
+            (fmap fromIntegral . P $ transformPosition transform)
+            (V2 (textureWidth textureInfo) (textureHeight textureInfo))
+        )
+    )
+    (realToFrac $ transformRotation transform)
+    Nothing
+    (V2 False False)
   destroyTexture texture
   freeSurface surface
 
