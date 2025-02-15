@@ -8,13 +8,56 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Data.Aztecs.SDL where
+module Data.Aztecs.SDL
+  ( -- * Window components
+    Window (..),
+    WindowRenderer (..),
+
+    -- * Camera components
+    Camera (..),
+    CameraTarget (..),
+
+    -- * Draw components
+    Draw (..),
+    rect,
+    DrawTarget (..),
+
+    -- * Input
+
+    -- ** Keyboard input
+    KeyboardInput (..),
+    isKeyPressed,
+    wasKeyPressed,
+    wasKeyReleased,
+
+    -- ** Mouse input
+    MouseInput (..),
+
+    -- * Time
+    Time (..),
+
+    -- * Systems
+    setup,
+    update,
+    draw,
+
+    -- ** Primitive systems
+    addWindows,
+    renderWindows,
+    addCameraTargets,
+    addDrawTargets,
+    handleInput,
+    updateTime,
+    clearKeyboard,
+    clearKeyboardQuery,
+    clearMouseInput,
+    clearMouseInputQuery,
+  )
+where
 
 import Control.Arrow (Arrow (..), returnA, (>>>))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
-import Data.Aztecs.Asset (Asset (..), AssetServer, Handle, lookupAsset)
-import qualified Data.Aztecs.Asset as Asset
 import qualified Data.Aztecs.Query as Q
 import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Transform (..))
@@ -27,7 +70,6 @@ import qualified Data.Text as T
 import Data.Word (Word32)
 import SDL hiding (Texture, Window, windowTitle)
 import qualified SDL hiding (Texture)
-import qualified SDL.Image as IMG
 
 #if !MIN_VERSION_base(4,20,0)
 import Data.Foldable (foldl')
@@ -64,8 +106,7 @@ instance Component CameraTarget
 setup :: System () ()
 setup =
   fmap (const ()) $
-    Asset.setup @Texture
-      &&& S.run (const initializeAll)
+    S.run (const initializeAll)
       &&& S.queue
         ( const $ do
             A.spawn_ . bundle $ Time 0
@@ -81,15 +122,12 @@ update =
             &&& ( addWindows
                     >>> addCameraTargets
                     >>> addDrawTargets
-                    >>> Asset.loadAssets @Texture
-                    >>> keyboardInput
+                    >>> handleInput
                 )
         )
 
 draw :: System () ()
-draw =
-  const () <$> (drawImages &&& (animateSprites >>> drawSprites))
-    >>> const () <$> (renderWindows &&& clearKeyboard &&& clearMouseInput)
+draw = const () <$> (renderWindows &&& clearKeyboard &&& clearMouseInput)
 
 -- | Setup new windows.
 addWindows :: System () ()
@@ -237,93 +275,6 @@ rect size = Draw $
     freeSurface surface
     destroyTexture texture
 
--- | Texture asset.
-newtype Texture = Texture {textureSurface :: Surface}
-
-instance Asset Texture where
-  loadAsset path = Texture <$> IMG.load path
-
--- | Image component.
-data Image = Image
-  { imageTexture :: Handle Texture,
-    imageSize :: V2 Int
-  }
-  deriving (Show)
-
-instance Component Image
-
--- | Draw images to their target windows.
-drawImages :: System () ()
-drawImages = proc () -> do
-  imgs <- S.filter (Q.entity &&& Q.fetch @_ @Image) (without @Draw) -< ()
-  assets <- S.single (Q.fetch @_ @(AssetServer Texture)) -< ()
-  let newAssets =
-        mapMaybe (\(eId, img) -> (,img,eId) <$> lookupAsset (imageTexture img) assets) imgs
-  S.queue (mapM_ go) -< newAssets
-  where
-    go (texture, img, eId) = do
-      A.insert
-        eId
-        ( Draw $
-            \transform renderer -> do
-              sdlTexture <- SDL.createTextureFromSurface renderer (textureSurface texture)
-              copyEx
-                renderer
-                sdlTexture
-                Nothing
-                ( Just
-                    ( Rectangle
-                        (fmap fromIntegral . P $ transformPosition transform)
-                        (fmap fromIntegral $ imageSize img)
-                    )
-                )
-                (realToFrac $ transformRotation transform)
-                Nothing
-                (V2 False False)
-              destroyTexture sdlTexture
-        )
-
--- | Sprite component.
-data Sprite = Sprite
-  { spriteTexture :: Handle Texture,
-    spriteBounds :: Maybe (Rectangle Int),
-    spriteSize :: V2 Int
-  }
-  deriving (Show)
-
-instance Component Sprite
-
--- | Draw images to their target windows.
-drawSprites :: System () ()
-drawSprites = proc () -> do
-  sprites <- S.all (Q.entity &&& Q.fetch @_ @Sprite) -< ()
-  assets <- S.single (Q.fetch @_ @(AssetServer Texture)) -< ()
-  let loadedAssets =
-        mapMaybe (\(eId, sprite) -> (,sprite,eId) <$> lookupAsset (spriteTexture sprite) assets) sprites
-  S.queue (mapM_ go) -< loadedAssets
-  where
-    go (texture, sprite, eId) = do
-      A.insert
-        eId
-        ( Draw $
-            \transform renderer -> do
-              sdlTexture <- SDL.createTextureFromSurface renderer (textureSurface texture)
-              copyEx
-                renderer
-                sdlTexture
-                (fmap fromIntegral <$> spriteBounds sprite)
-                ( Just
-                    ( Rectangle
-                        (fmap fromIntegral . P $ transformPosition transform)
-                        (fmap fromIntegral $ spriteSize sprite)
-                    )
-                )
-                (realToFrac $ transformRotation transform)
-                Nothing
-                (V2 False False)
-              destroyTexture sdlTexture
-        )
-
 newtype Time = Time {elapsedMS :: Word32}
   deriving (Eq, Ord, Num, Show)
 
@@ -335,83 +286,44 @@ updateTime = proc () -> do
   S.mapSingle Q.set -< Time t
   returnA -< ()
 
-data SpriteAnimation = SpriteAnimation
-  { spriteAnimationSteps :: [Rectangle Int],
-    spriteAnimationIndex :: Int,
-    spriteAnimationMS :: Word32,
-    spriteAnimationStart :: Word32
-  }
-
-instance Component SpriteAnimation
-
-spriteAnimation :: SpriteAnimation
-spriteAnimation =
-  SpriteAnimation
-    { spriteAnimationSteps = [],
-      spriteAnimationIndex = 0,
-      spriteAnimationMS = 100,
-      spriteAnimationStart = 0
-    }
-
--- | Create a sprite animation from a grid of sprites,
--- given the grid's offset, size, and number of tiles.
-spriteAnimationGrid :: V2 Int -> V2 Int -> Int -> SpriteAnimation
-spriteAnimationGrid (V2 x y) (V2 w h) n =
-  spriteAnimation
-    { spriteAnimationSteps =
-        map (\i -> Rectangle (P $ V2 (x + i * w) y) (V2 w h)) [0 .. n]
-    }
-
-animateSprites :: System () ()
-animateSprites = proc () -> do
-  currentTime <- S.single (Q.fetch @_ @Time) -< ()
-  S.map_
-    ( proc currentTime -> do
-        sprite <- Q.fetch @_ @Sprite -< ()
-        animation <- Q.fetch @_ @SpriteAnimation -< ()
-        let sprite' = sprite {spriteBounds = Just $ spriteAnimationSteps animation !! spriteAnimationIndex animation}
-            animation' =
-              if elapsedMS currentTime - spriteAnimationStart animation > spriteAnimationMS animation
-                then
-                  animation
-                    { spriteAnimationIndex = (spriteAnimationIndex animation + 1) `mod` length (spriteAnimationSteps animation),
-                      spriteAnimationStart = elapsedMS currentTime
-                    }
-                else animation
-        Q.set -< sprite'
-        Q.set -< animation'
-    )
-    -<
-      currentTime
-
--- | Keyboard state.
+-- | Keyboard input component.
 data KeyboardInput = KeyboardInput
-  { keyboardEvents :: Map Keycode InputMotion,
+  { -- | Keyboard events that occured this frame.
+    keyboardEvents :: Map Keycode InputMotion,
+    -- | Keys that are currently pressed.
     keyboardPressed :: Set Keycode
   }
   deriving (Show)
 
 instance Component KeyboardInput
 
+-- | @True@ if this key is currently pressed.
 isKeyPressed :: Keycode -> KeyboardInput -> Bool
 isKeyPressed key kb = Set.member key $ keyboardPressed kb
 
+-- | Check for a key event that occured this frame.
 keyEvent :: Keycode -> KeyboardInput -> Maybe InputMotion
 keyEvent key kb = Map.lookup key $ keyboardEvents kb
 
+-- | @True@ if this key was pressed this frame.
 wasKeyPressed :: Keycode -> KeyboardInput -> Bool
 wasKeyPressed key kb = case keyEvent key kb of
   Just Pressed -> True
   _ -> False
 
+-- | @True@ if this key was released this frame.
 wasKeyReleased :: Keycode -> KeyboardInput -> Bool
 wasKeyReleased key kb = case keyEvent key kb of
   Just Released -> True
   _ -> False
 
+-- | Mouse input component.
 data MouseInput = MouseInput
-  { mousePosition :: Point V2 Int,
+  { -- | Mouse position in screen-space.
+    mousePosition :: Point V2 Int,
+    -- | Mouse offset since last frame.
     mouseOffset :: V2 Int,
+    -- | Mouse button states.
     mouseButtons :: Map MouseButton InputMotion
   }
   deriving (Show)
@@ -419,8 +331,8 @@ data MouseInput = MouseInput
 instance Component MouseInput
 
 -- | Keyboard input system.
-keyboardInput :: System () ()
-keyboardInput = proc () -> do
+handleInput :: System () ()
+handleInput = proc () -> do
   events <- S.run . const $ SDL.pollEvents -< ()
   kb <- S.single Q.fetch -< ()
   mouseInput <- S.single Q.fetch -< ()

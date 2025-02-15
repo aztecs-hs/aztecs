@@ -9,8 +9,10 @@ import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import Data.Aztecs.Asset (load)
 import qualified Data.Aztecs.Query as Q
-import Data.Aztecs.SDL (Camera (..), Sprite (..), Window (..), spriteAnimationGrid)
+import Data.Aztecs.SDL (Camera (..), Window (..))
 import qualified Data.Aztecs.SDL as SDL
+import Data.Aztecs.SDL.Image (Sprite (..), spriteAnimationGrid)
+import qualified Data.Aztecs.SDL.Image as IMG
 import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Transform (..), transform)
 import SDL (Point (..), Rectangle (..), V2 (..))
@@ -40,4 +42,14 @@ setup =
       )
 
 main :: IO ()
-main = runSystem_ $ SDL.setup >>> setup >>> S.forever (SDL.update >>> SDL.draw)
+main =
+  runSystem_ $
+    SDL.setup
+      >>> IMG.setup
+      >>> setup
+      >>> S.forever
+        ( IMG.load
+            >>> SDL.update
+            >>> IMG.draw
+            >>> SDL.draw
+        )
