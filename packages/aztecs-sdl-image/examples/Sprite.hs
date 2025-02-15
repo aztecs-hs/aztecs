@@ -22,7 +22,7 @@ setup =
   S.mapSingle
     ( proc () -> do
         assetServer <- Q.fetch -< ()
-        (texture, assetServer') <- Q.run (load "assets/characters.png" ()) -< assetServer
+        (texture, assetServer') <- Q.run $ load "assets/characters.png" () -< assetServer
         Q.set -< assetServer'
         returnA -< texture
     )

@@ -7,7 +7,6 @@ maintainer:    matt@hunzinger.me
 author:        Matt Hunzinger
 synopsis:      A type-safe and friendly Entity-Component-System (ECS) for Haskell
 description:   The Entity-Component-System (ECS) pattern is commonly used in video game develop to represent world objects.
-               .
                ECS follows the principal of composition over inheritence. Each type of
                object (e.g. sword, monster, etc), in the game has a unique EntityId. Each
                entity has various Components associated with it (material, weight, damage, etc).

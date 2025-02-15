@@ -22,7 +22,7 @@ setup =
   S.mapSingle
     ( proc () -> do
         assetServer <- Q.fetch -< ()
-        (texture, assetServer') <- Q.run (load "assets/C&C Red Alert [INET].ttf" 50) -< assetServer
+        (texture, assetServer') <- Q.run $ load "assets/C&C Red Alert [INET].ttf" 50 -< assetServer
         Q.set -< assetServer'
         returnA -< texture
     )

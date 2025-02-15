@@ -27,11 +27,11 @@ import qualified Data.Aztecs.Asset as Asset
 import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.SDL (Draw (..))
 import qualified Data.Aztecs.System as S
+import Data.Aztecs.Transform (Transform (..))
 import Data.Maybe (mapMaybe)
 import qualified Data.Text as T
 import SDL hiding (Texture, Window, windowTitle)
 import qualified SDL.Font as F
-import Data.Aztecs.Transform (Transform (..))
 
 #if !MIN_VERSION_base(4,20,0)
 import Data.Foldable (foldl')
@@ -70,16 +70,22 @@ drawText content f = Draw $ \transform renderer -> do
   destroyTexture texture
   freeSurface surface
 
+-- | Setup SDL TrueType-Font (TTF) support.
 setup :: System () ()
 setup = const () <$> (Asset.setup @Font &&& S.run (const F.initialize))
 
+-- | Load font assets.
 load :: System () ()
 load = Asset.loadAssets @Font
 
+-- | Draw text components.
 draw :: System () ()
 draw = proc () -> do
   texts <- S.all $ Q.entity &&& Q.fetch -< ()
   assetServer <- S.single Q.fetch -< ()
-  let textFonts = mapMaybe (\(eId, t) -> (eId,textContent t,) <$> lookupAsset (textFont t) assetServer) texts
+  let textFonts =
+        mapMaybe
+          (\(eId, t) -> (eId,textContent t,) <$> lookupAsset (textFont t) assetServer)
+          texts
       draws = map (\(eId, content, font) -> (eId, drawText content font)) textFonts
   S.queue . mapM_ $ uncurry A.insert -< draws
