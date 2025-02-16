@@ -33,14 +33,14 @@ library
         Data.Aztecs.World.Archetype
         Data.Aztecs.World.Archetypes
         Data.Aztecs.World.Components
-
     hs-source-dirs:   src
     default-language: Haskell2010
     ghc-options:      -Wall
     build-depends:
         base >=4.6 && <5,
-        containers >=0.7,
-        mtl >=2
+        containers >=0.6,
+        mtl >=2,
+        parallel-io >=0.3.5
 
 executable ecs
     main-is:          ECS.hs

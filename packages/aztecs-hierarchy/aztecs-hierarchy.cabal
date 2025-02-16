@@ -28,7 +28,7 @@ library
     build-depends:
         base >=4.6 && <5,
         aztecs >= 0.3,
-        containers >=0.7,
+        containers >=0.6,
         mtl >=2,
         linear >= 1
 
@@ -42,6 +42,6 @@ test-suite aztecs-hierarchy-test
         base >=4.6 && <5,
         aztecs,
         aztecs-hierarchy,
-        containers >=0.7,
+        containers >=0.6,
         hspec >=2,
         QuickCheck >=2
