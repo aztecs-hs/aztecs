@@ -18,18 +18,18 @@ newtype Velocity = Velocity Int deriving (Show)
 
 instance Component Velocity
 
-setup :: System () ()
-setup = S.queue . const . A.spawn_ $ bundle (Position 0) <> bundle (Velocity 1)
+setup :: Schedule IO () ()
+setup = S.schedule . S.queue . const . A.spawn_ $ bundle (Position 0) <> bundle (Velocity 1)
 
-move :: System () ()
+move :: Schedule IO () ()
 move =
-  S.map
+  S.schedule $ S.map
     ( proc () -> do
         Velocity v <- Q.fetch -< ()
         Position p <- Q.fetch -< ()
         Q.set -< Position $ p + v
     )
-    >>> S.run print
+    >>> S.task print
 
 main :: IO ()
-main = runSystem_ $ setup >>> S.forever move
+main = runSchedule_ $ setup >>> S.forever move

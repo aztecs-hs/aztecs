@@ -60,6 +60,10 @@ module Data.Aztecs
     QueryFilter,
     with,
     without,
+    System,
+    Schedule,
+    runSchedule,
+    runSchedule_,
     World,
   )
 where
@@ -70,3 +74,4 @@ import Data.Aztecs.Entity (EntityID)
 import Data.Aztecs.Query (Query, QueryFilter, with, without)
 import Data.Aztecs.World (World)
 import Data.Aztecs.World.Archetype (Bundle, bundle)
+import Data.Aztecs.System (System, Schedule, runSchedule_, runSchedule)
