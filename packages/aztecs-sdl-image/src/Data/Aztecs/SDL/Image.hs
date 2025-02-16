@@ -67,8 +67,8 @@ instance Asset Texture where
 
 -- | Image component.
 data Image = Image
-  { imageTexture :: Handle Texture,
-    imageSize :: V2 Int
+  { imageTexture :: !(Handle Texture),
+    imageSize :: !(V2 Int)
   }
   deriving (Show)
 
@@ -107,9 +107,9 @@ drawImages = proc () -> do
 
 -- | Sprite component.
 data Sprite = Sprite
-  { spriteTexture :: Handle Texture,
-    spriteBounds :: Maybe (Rectangle Int),
-    spriteSize :: V2 Int
+  { spriteTexture :: !(Handle Texture),
+    spriteBounds :: !(Maybe (Rectangle Int)),
+    spriteSize :: !(V2 Int)
   }
   deriving (Show)
 
@@ -147,10 +147,10 @@ drawSprites = proc () -> do
         )
 
 data SpriteAnimation = SpriteAnimation
-  { spriteAnimationSteps :: [Rectangle Int],
-    spriteAnimationIndex :: Int,
-    spriteAnimationMS :: Word32,
-    spriteAnimationStart :: Word32
+  { spriteAnimationSteps :: ![Rectangle Int],
+    spriteAnimationIndex :: !Int,
+    spriteAnimationMS :: !Word32,
+    spriteAnimationStart :: !Word32
   }
 
 instance Component SpriteAnimation

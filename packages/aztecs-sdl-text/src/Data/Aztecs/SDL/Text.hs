@@ -44,7 +44,7 @@ instance Asset Font where
   type AssetConfig Font = Int
   loadAsset fp size = Font <$> F.load fp size
 
-data Text = Text {textContent :: T.Text, textFont :: Handle Font}
+data Text = Text {textContent :: !T.Text, textFont :: !(Handle Font)}
   deriving (Eq, Show)
 
 instance Component Text

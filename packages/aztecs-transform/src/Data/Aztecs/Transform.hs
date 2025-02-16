@@ -4,9 +4,9 @@ import Data.Aztecs
 import Linear (V2 (..))
 
 data Transform = Transform
-  { transformPosition :: V2 Int,
-    transformRotation :: Float,
-    transformScale :: V2 Int
+  { transformPosition :: !(V2 Int),
+    transformRotation :: !Float,
+    transformScale :: !(V2 Int)
   }
   deriving (Eq, Show)
 

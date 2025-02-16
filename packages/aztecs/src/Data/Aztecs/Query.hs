@@ -130,7 +130,7 @@ run f = Query $ \cs ->
 -- >>> import Data.Aztecs
 -- >>> import qualified Data.Aztecs.World as W
 -- >>>
--- >>> data X = X Int deriving (Show)
+-- >>> newtype X = X Int deriving (Show)
 -- >>> instance Component X
 -- >>>
 -- >>> let (_, w) = W.spawn (bundle $ X 0) W.empty
@@ -190,8 +190,8 @@ without = QueryFilter $ \cs ->
   let (cId, cs') = CS.insert @a cs in (mempty {filterWithout = Set.singleton cId}, cs')
 
 data DynamicQueryFilter = DynamicQueryFilter
-  { filterWith :: Set ComponentID,
-    filterWithout :: Set ComponentID
+  { filterWith :: !(Set ComponentID),
+    filterWithout :: !(Set ComponentID)
   }
 
 instance Semigroup DynamicQueryFilter where
@@ -203,8 +203,8 @@ instance Monoid DynamicQueryFilter where
 
 -- | Dynamic query for components by ID.
 data DynamicQuery m i o = DynamicQuery
-  { dynQueryAll :: [i] -> [EntityID] -> Archetype -> m ([o], Archetype),
-    dynQueryLookup :: i -> EntityID -> Archetype -> m (Maybe o, Archetype)
+  { dynQueryAll :: !([i] -> [EntityID] -> Archetype -> m ([o], Archetype)),
+    dynQueryLookup :: !(i -> EntityID -> Archetype -> m (Maybe o, Archetype))
   }
 
 instance (Functor m) => Functor (DynamicQuery m i) where
