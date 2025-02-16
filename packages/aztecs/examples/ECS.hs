@@ -1,6 +1,4 @@
 {-# LANGUAGE Arrows #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Main where
 
@@ -18,12 +16,12 @@ newtype Velocity = Velocity Int deriving (Show)
 
 instance Component Velocity
 
-setup :: Schedule IO () ()
-setup = S.schedule . S.queue . const . A.spawn_ $ bundle (Position 0) <> bundle (Velocity 1)
+setup :: System IO () ()
+setup = S.queue . const . A.spawn_ $ bundle (Position 0) <> bundle (Velocity 1)
 
-move :: Schedule IO () ()
+move :: System IO () ()
 move =
-  S.schedule $ S.map
+  S.map
     ( proc () -> do
         Velocity v <- Q.fetch -< ()
         Position p <- Q.fetch -< ()
@@ -31,5 +29,8 @@ move =
     )
     >>> S.task print
 
+app :: Schedule IO () ()
+app = schedule setup >>> forever (schedule move)
+
 main :: IO ()
-main = runSchedule_ $ setup >>> S.forever move
+main = runSchedule_ $ app
