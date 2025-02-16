@@ -44,7 +44,7 @@ app =
   schedule SDL.setup
     >>> schedule Text.setup
     >>> schedule setup
-    >>> S.forever
+    >>> forever
       ( schedule Text.load
           >>> schedule SDL.update
           >>> schedule Text.draw

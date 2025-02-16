@@ -40,7 +40,7 @@ app =
   schedule SDL.setup
     >>> schedule IMG.setup
     >>> schedule setup
-    >>> S.forever
+    >>> forever
       ( schedule IMG.load
           >>> schedule SDL.update
           >>> schedule IMG.draw
