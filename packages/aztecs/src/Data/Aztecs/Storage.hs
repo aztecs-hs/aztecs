@@ -5,8 +5,8 @@
 module Data.Aztecs.Storage (Storage (..)) where
 
 import Data.Data (Typeable)
-import Data.IntMap (IntMap)
-import qualified Data.IntMap as IntMap
+import Data.IntMap.Strict (IntMap)
+import qualified Data.IntMap.Strict as IntMap
 
 -- | Component storage, containing zero or many components of the same type.
 class (Typeable (s a), Typeable a) => Storage s a where

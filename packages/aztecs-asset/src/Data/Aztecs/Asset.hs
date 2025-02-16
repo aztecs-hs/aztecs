@@ -16,16 +16,16 @@ import qualified Data.Aztecs.System as S
 import Data.Data (Typeable)
 import Data.Foldable (foldrM)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
-import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 
 newtype AssetId = AssetId {unAssetId :: Int}
   deriving (Eq, Ord, Show)
 
 data AssetServer a = AssetServer
-  { assetServerAssets :: Map AssetId a,
-    loadingAssets :: Map AssetId (IORef (Maybe a)),
-    nextAssetId :: AssetId
+  { assetServerAssets :: !(Map AssetId a),
+    loadingAssets :: !(Map AssetId (IORef (Maybe a))),
+    nextAssetId :: !AssetId
   }
 
 instance (Typeable a) => Component (AssetServer a)

@@ -131,9 +131,7 @@ insertAscList cId as arch =
           cId
           (anyStorage $ S.fromAscList @(StorageT a) (map (first unEntityId) as))
           (storages arch)
-   in arch
-        { storages = storages'
-        }
+   in arch {storages = storages'}
 
 withAscList :: forall a. (Component a) => ComponentID -> [a] -> Archetype -> Archetype
 withAscList cId as arch =
@@ -204,6 +202,6 @@ dynBundle cId a = DynamicBundle $ \eId arch -> insertComponent eId cId a arch
 
 runBundle :: Bundle -> Components -> EntityID -> Archetype -> (Components, Archetype)
 runBundle b cs eId arch =
-  let (_, cs', d) = unBundle b cs
-      arch' = runDynamicBundle d eId arch
+  let !(_, cs', d) = unBundle b cs
+      !arch' = runDynamicBundle d eId arch
    in (cs', arch')

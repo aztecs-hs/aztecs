@@ -289,9 +289,9 @@ updateTime = proc () -> do
 -- | Keyboard input component.
 data KeyboardInput = KeyboardInput
   { -- | Keyboard events that occured this frame.
-    keyboardEvents :: Map Keycode InputMotion,
+    keyboardEvents :: !(Map Keycode InputMotion),
     -- | Keys that are currently pressed.
-    keyboardPressed :: Set Keycode
+    keyboardPressed :: !(Set Keycode)
   }
   deriving (Show)
 

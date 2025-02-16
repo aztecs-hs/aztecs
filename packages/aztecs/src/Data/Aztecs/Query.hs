@@ -147,8 +147,8 @@ all q w = do
   return (concat as, w {components = cs'})
 
 data ReadsWrites = ReadsWrites
-  { reads :: Set ComponentID,
-    writes :: Set ComponentID
+  { reads :: !(Set ComponentID),
+    writes :: !(Set ComponentID)
   }
   deriving (Show)
 
@@ -312,7 +312,7 @@ setDyn ::
   DynamicQuery m a a
 setDyn cId =
   DynamicQuery
-    { dynQueryAll = \is _ arch -> pure (is, A.withAscList cId is arch),
+    { dynQueryAll = \is _ arch -> let !arch' = A.withAscList cId is arch in pure (is, arch'),
       dynQueryLookup =
         \i eId arch -> pure (A.lookupComponent eId cId arch, A.insertComponent eId cId i arch)
     }
