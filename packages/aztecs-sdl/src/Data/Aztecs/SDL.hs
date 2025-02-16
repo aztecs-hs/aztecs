@@ -61,8 +61,8 @@ import qualified Data.Aztecs.Access as A
 import qualified Data.Aztecs.Query as Q
 import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Transform (..))
-import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.Maybe (mapMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -77,7 +77,7 @@ import Data.Foldable (foldl')
 
 -- | Window component.
 data Window = Window
-  { windowTitle :: String
+  { windowTitle :: !String
   }
   deriving (Show)
 
@@ -85,14 +85,14 @@ instance Component Window
 
 -- | Window renderer component.
 data WindowRenderer = WindowRenderer
-  { windowRendererRaw :: SDL.Window,
-    windowRenderer :: Renderer
+  { windowRendererRaw :: !SDL.Window,
+    windowRenderer :: !Renderer
   }
   deriving (Show)
 
 instance Component WindowRenderer
 
-data Camera = Camera {cameraViewport :: V2 Int}
+newtype Camera = Camera {cameraViewport :: V2 Int}
   deriving (Show)
 
 instance Component Camera
@@ -320,11 +320,11 @@ wasKeyReleased key kb = case keyEvent key kb of
 -- | Mouse input component.
 data MouseInput = MouseInput
   { -- | Mouse position in screen-space.
-    mousePosition :: Point V2 Int,
+    mousePosition :: !(Point V2 Int),
     -- | Mouse offset since last frame.
-    mouseOffset :: V2 Int,
+    mouseOffset :: !(V2 Int),
     -- | Mouse button states.
-    mouseButtons :: Map MouseButton InputMotion
+    mouseButtons :: !(Map MouseButton InputMotion)
   }
   deriving (Show)
 
