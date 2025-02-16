@@ -56,14 +56,10 @@ module Data.Aztecs
     bundle,
     Component (..),
     EntityID,
-    System,
-    SystemT (..),
     Query,
     QueryFilter,
     with,
     without,
-    runSystem,
-    runSystem_,
     World,
   )
 where
@@ -72,6 +68,5 @@ import Data.Aztecs.Access (Access, runAccess)
 import Data.Aztecs.Component (Component (..))
 import Data.Aztecs.Entity (EntityID)
 import Data.Aztecs.Query (Query, QueryFilter, with, without)
-import Data.Aztecs.System (System, SystemT (..), runSystem, runSystem_)
 import Data.Aztecs.World (World)
 import Data.Aztecs.World.Archetype (Bundle, bundle)
