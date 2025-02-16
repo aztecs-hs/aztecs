@@ -1,11 +1,11 @@
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE CPP #-}
 
 module Data.Aztecs.World.Archetypes
   ( ArchetypeID (..),
@@ -108,7 +108,7 @@ lookup cIds arches =
 map :: Set ComponentID -> (Archetype -> (a, Archetype)) -> Archetypes -> ([a], Archetypes)
 map cIds f arches =
   foldl'
-    ( \(acc, archAcc) aId  ->
+    ( \(acc, archAcc) aId ->
         let !node = nodes archAcc Map.! aId
             !(a, arch') = f (nodeArchetype node)
          in (a : acc, archAcc {nodes = Map.insert aId (node {nodeArchetype = arch'}) (nodes archAcc)})

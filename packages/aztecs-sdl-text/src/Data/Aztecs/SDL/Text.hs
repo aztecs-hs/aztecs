@@ -72,7 +72,7 @@ drawText content f = Draw $ \transform renderer -> do
 
 -- | Setup SDL TrueType-Font (TTF) support.
 setup :: System () ()
-setup = const () <$> (Asset.setup @Font &&& S.run (const F.initialize))
+setup = const () <$> (Asset.setup @Font &&& S.task (const F.initialize))
 
 -- | Load font assets.
 load :: System () ()

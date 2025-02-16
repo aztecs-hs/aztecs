@@ -30,7 +30,7 @@ library
         aztecs-asset >= 0.1,
         aztecs-sdl >= 0.1,
         aztecs-transform >= 0.1,
-        containers >=0.7,
+        containers >=0.6,
         mtl >=2,
         sdl2 >=2,
         sdl2-ttf >=2,

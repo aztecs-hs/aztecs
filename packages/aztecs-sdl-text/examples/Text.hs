@@ -39,15 +39,17 @@ setup =
               <> bundle transform
       )
 
+app :: Schedule IO () ()
+app =
+  schedule SDL.setup
+    >>> schedule Text.setup
+    >>> schedule setup
+    >>> forever
+      ( schedule Text.load
+          >>> schedule SDL.update
+          >>> schedule Text.draw
+          >>> schedule SDL.draw
+      )
+
 main :: IO ()
-main =
-  runSystem_ $
-    SDL.setup
-      >>> Text.setup
-      >>> setup
-      >>> S.forever
-        ( Text.load
-            >>> SDL.update
-            >>> Text.draw
-            >>> SDL.draw
-        )
+main = runSchedule_ app

@@ -1,6 +1,4 @@
 {-# LANGUAGE Arrows #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Main where
 
@@ -29,7 +27,10 @@ move =
         Position p <- Q.fetch -< ()
         Q.set -< Position $ p + v
     )
-    >>> S.run print
+    >>> S.task print
+
+app :: Schedule IO () ()
+app = schedule setup >>> forever (schedule move)
 
 main :: IO ()
-main = runSystem_ $ setup >>> S.forever move
+main = runSchedule_ $ app

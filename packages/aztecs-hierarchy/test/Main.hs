@@ -7,7 +7,6 @@ import Data.Aztecs
 import Data.Aztecs.Hierarchy (Children (..), Parent (..))
 import qualified Data.Aztecs.Hierarchy as Hierarchy
 import qualified Data.Aztecs.Query as Q
-import Data.Aztecs.System (runSystemWithWorld)
 import qualified Data.Aztecs.World as W
 import Data.Functor.Identity (Identity (..))
 import qualified Data.Set as Set
@@ -23,6 +22,6 @@ prop_addParents :: Expectation
 prop_addParents = do
   let (_, w) = W.spawnEmpty W.empty
       (e, w') = W.spawn (bundle . Children $ Set.singleton e) w
-  w'' <- runSystemWithWorld Hierarchy.update w'
+  (_, w'') <- runSchedule (schedule Hierarchy.update) w' ()
   let (res, _) = runIdentity $ Q.all Q.fetch w''
   res `shouldMatchList` [Parent e]
