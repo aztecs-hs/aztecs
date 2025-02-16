@@ -4,16 +4,40 @@
 {-# LANGUAGE TupleSections #-}
 
 module Data.Aztecs.System
-  ( System (..),
-    all,
-    map,
+  ( -- * Systems
+    System (..),
     queue,
     task,
+
+    -- ** Queries
+
+    -- *** Reading
+    all,
+    filter,
+    single,
+
+    -- *** Writing
+    map,
+    filterMap,
+    mapSingle,
+
+    -- * Dynamic Systems
     DynamicSystem (..),
-    allDyn,
-    mapDyn,
     queueDyn,
     raceDyn,
+
+    -- ** Queries
+
+    -- *** Reading
+    allDyn,
+    filterDyn,
+    singleDyn,
+
+    -- *** Writing
+    mapDyn,
+    filterMapDyn,
+
+    -- * Schedules
     Schedule (..),
     schedule,
     forever,
@@ -29,16 +53,19 @@ import Control.Monad ((>=>))
 import Control.Monad.State (MonadState (..), MonadTrans (..))
 import Data.Aztecs.Access (Access (..), runAccess)
 import Data.Aztecs.Component (ComponentID)
-import Data.Aztecs.Query (DynamicQuery, Query (..), ReadsWrites)
+import Data.Aztecs.Query (DynamicQuery, DynamicQueryFilter (..), Query (..), QueryFilter (..), ReadsWrites)
 import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.View (View)
 import qualified Data.Aztecs.View as V
 import Data.Aztecs.World (World (..))
 import qualified Data.Aztecs.World as W
+import qualified Data.Aztecs.World.Archetype as A
+import Data.Aztecs.World.Archetypes (Node (..))
 import Data.Aztecs.World.Components (Components)
+import qualified Data.Foldable as F
 import Data.Set (Set)
-import Prelude hiding (all, map, (.))
-import qualified Prelude hiding (map)
+import Prelude hiding (all, filter, map, (.))
+import qualified Prelude hiding (filter, map)
 
 newtype System m i o = System {runSystem :: Components -> (DynamicSystem m i o, ReadsWrites, Components)}
   deriving (Functor)
@@ -71,11 +98,53 @@ all q = System $ \cs ->
   let !(rws, cs', dynQ) = runQuery q cs
    in (allDyn (Q.reads rws <> Q.writes rws) dynQ, rws, cs')
 
+-- | Query all matching entities with a `QueryFilter`.
+filter :: (Monad m) => Query m () a -> QueryFilter -> System m () [a]
+filter q qf = System $ \cs ->
+  let !(rws, cs', dynQ) = runQuery q cs
+      !(dynQf, cs'') = runQueryFilter qf cs'
+      qf' n =
+        F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynQf)
+          && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynQf)
+   in (filterDyn (Q.reads rws <> Q.writes rws) dynQ qf', rws, cs'')
+
+-- | Query a single matching entity.
+-- If there are zero or multiple matching entities, an error will be thrown.
+single :: (Monad m) => Query m () a -> System m () a
+single q =
+  fmap
+    ( \as -> case as of
+        [a] -> a
+        _ -> error "TODO"
+    )
+    (all q)
+
 -- | Query all matching entities.
 map :: (Monad m) => Query m i a -> System m i [a]
 map q = System $ \cs ->
   let !(rws, cs', dynQ) = runQuery q cs
    in (mapDyn (Q.reads rws <> Q.writes rws) dynQ, rws, cs')
+
+-- | Map all matching entities with a `QueryFilter`, storing the updated entities.
+filterMap :: (Monad m) => Query m i a -> QueryFilter -> System m i [a]
+filterMap q qf = System $ \cs ->
+  let !(rws, cs', dynQ) = runQuery q cs
+      !(dynQf, cs'') = runQueryFilter qf cs'
+      f' n =
+        F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynQf)
+          && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynQf)
+   in (filterMapDyn (Q.reads rws <> Q.writes rws) dynQ f', rws, cs'')
+
+-- | Map a single matching entity, storing the updated components.
+-- If there are zero or multiple matching entities, an error will be thrown.
+mapSingle :: (Monad m) => Query m i a -> System m i a
+mapSingle q =
+  fmap
+    ( \as -> case as of
+        [a] -> a
+        _ -> error "TODO"
+    )
+    (map q)
 
 queue :: (Monad m) => (i -> Access m ()) -> System m i ()
 queue f = System $ \cs -> (queueDyn f, mempty, cs)
@@ -105,10 +174,29 @@ allDyn cIds q = DynamicSystem $ \w ->
   let !v = V.view cIds $ archetypes w
    in \i -> fmap (\(a, _) -> (a, mempty, pure ())) (V.allDyn i q v)
 
+filterDyn :: (Monad m) => Set ComponentID -> DynamicQuery m i o -> (Node -> Bool) -> DynamicSystem m i [o]
+filterDyn cIds q f = DynamicSystem $ \w ->
+  let !v = V.filterView cIds f $ archetypes w
+   in \i -> fmap (\(a, _) -> (a, mempty, pure ())) (V.allDyn i q v)
+
+singleDyn :: (Monad m) => Set ComponentID -> DynamicQuery m () a -> DynamicSystem m () a
+singleDyn cIds q =
+  fmap
+    ( \as -> case as of
+        [a] -> a
+        _ -> error "TODO"
+    )
+    (allDyn cIds q)
+
 -- | Map all matching entities, storing the updated entities.
 mapDyn :: (Monad m) => Set ComponentID -> DynamicQuery m i o -> DynamicSystem m i [o]
 mapDyn cIds q = DynamicSystem $ \w ->
   let !v = V.view cIds $ archetypes w
+   in \i -> fmap (\(a, v') -> (a, v', pure ())) (V.allDyn i q v)
+
+filterMapDyn :: (Monad m) => Set ComponentID -> DynamicQuery m i o -> (Node -> Bool) -> DynamicSystem m i [o]
+filterMapDyn cIds q f = DynamicSystem $ \w ->
+  let !v = V.filterView cIds f $ archetypes w
    in \i -> fmap (\(a, v') -> (a, v', pure ())) (V.allDyn i q v)
 
 queueDyn :: (Monad m) => (i -> Access m ()) -> DynamicSystem m i ()
