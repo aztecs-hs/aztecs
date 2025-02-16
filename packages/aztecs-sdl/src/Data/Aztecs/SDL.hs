@@ -106,7 +106,7 @@ instance Component CameraTarget
 setup :: System () ()
 setup =
   fmap (const ()) $
-    S.run (const initializeAll)
+    S.task (const initializeAll)
       &&& S.queue
         ( const $ do
             A.spawn_ . bundle $ Time 0
@@ -133,7 +133,7 @@ draw = const () <$> (renderWindows &&& clearKeyboard &&& clearMouseInput)
 addWindows :: System () ()
 addWindows = proc () -> do
   newWindows <- S.filter (Q.entity &&& Q.fetch @_ @Window) (without @WindowRenderer) -< ()
-  newWindows' <- S.run createNewWindows -< newWindows
+  newWindows' <- S.task createNewWindows -< newWindows
   S.queue insertNewWindows -< newWindows'
   where
     createNewWindows newWindows = mapM createWindowRenderer newWindows
@@ -214,7 +214,7 @@ renderWindows =
                     )
                 )
                 windows
-        S.run go -< windowDraws
+        S.task go -< windowDraws
 
 -- | Draw target component.
 -- This component can be used to specify which `Camera` to draw an entity to.
@@ -282,7 +282,7 @@ instance Component Time
 
 updateTime :: System () ()
 updateTime = proc () -> do
-  t <- S.run (const SDL.ticks) -< ()
+  t <- S.task (const SDL.ticks) -< ()
   S.mapSingle Q.set -< Time t
   returnA -< ()
 
@@ -333,7 +333,7 @@ instance Component MouseInput
 -- | Keyboard input system.
 handleInput :: System () ()
 handleInput = proc () -> do
-  events <- S.run . const $ SDL.pollEvents -< ()
+  events <- S.task . const $ SDL.pollEvents -< ()
   kb <- S.single Q.fetch -< ()
   mouseInput <- S.single Q.fetch -< ()
   let go (kbAcc, mouseAcc) event = case eventPayload event of

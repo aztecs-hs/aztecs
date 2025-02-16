@@ -16,10 +16,10 @@ newtype Velocity = Velocity Int deriving (Show)
 
 instance Component Velocity
 
-setup :: System IO () ()
+setup :: System () ()
 setup = S.queue . const . A.spawn_ $ bundle (Position 0) <> bundle (Velocity 1)
 
-move :: System IO () ()
+move :: System () ()
 move =
   S.map
     ( proc () -> do

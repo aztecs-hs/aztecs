@@ -35,15 +35,17 @@ setup =
               <> bundle transform {transformPosition = V2 100 100}
       )
 
+app :: Schedule IO () ()
+app =
+  schedule SDL.setup
+    >>> schedule IMG.setup
+    >>> schedule setup
+    >>> S.forever
+      ( schedule IMG.load
+          >>> schedule SDL.update
+          >>> schedule IMG.draw
+          >>> schedule SDL.draw
+      )
+
 main :: IO ()
-main =
-  runSystem_ $
-    SDL.setup
-      >>> IMG.setup
-      >>> setup
-      >>> S.forever
-        ( IMG.load
-            >>> SDL.update
-            >>> IMG.draw
-            >>> SDL.draw
-        )
+main = runSchedule_ app
