@@ -12,7 +12,7 @@ module Data.Aztecs.Query
     fetch,
     fetchMaybe,
     set,
-    run,
+    task,
     all,
 
     -- * Filters
@@ -114,8 +114,8 @@ set = Query $ \cs ->
    in (ReadsWrites Set.empty (Set.singleton cId), cs', setDyn cId)
 
 -- | Run a monadic task in a `Query`.
-run :: (Monad m) => (i -> m o) -> Query m i o
-run f = Query $ \cs ->
+task :: (Monad m) => (i -> m o) -> Query m i o
+task f = Query $ \cs ->
   ( mempty,
     cs,
     DynamicQuery

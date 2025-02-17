@@ -68,7 +68,7 @@ loadAssets :: forall a. (Typeable a) => System () ()
 loadAssets =
   S.map_
     ( Q.fetch @_ @(AssetServer a)
-        >>> Q.run
+        >>> Q.task
           ( \server ->
               foldrM
                 ( \(aId, v) acc -> do

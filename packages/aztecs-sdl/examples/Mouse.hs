@@ -16,7 +16,11 @@ setup :: System () ()
 setup = S.queue . const . A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
 
 update :: System () ()
-update = S.all (Q.fetch @_ @MouseInput) >>> S.run print
+update = S.all (Q.fetch @_ @MouseInput) >>> S.task print
 
 main :: IO ()
-main = runSystem_ $ SDL.setup >>> setup >>> S.forever (SDL.update >>> update >>> SDL.draw)
+main =
+  runSchedule_ $
+    schedule SDL.setup
+      >>> schedule setup
+      >>> forever (schedule SDL.update >>> schedule update >>> schedule SDL.draw)
