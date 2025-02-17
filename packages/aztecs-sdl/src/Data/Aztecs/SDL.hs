@@ -17,10 +17,9 @@ module Data.Aztecs.SDL
     Camera (..),
     CameraTarget (..),
 
-    -- * Draw components
-    Draw (..),
-    rect,
-    DrawTarget (..),
+    -- * Surface components
+    Surface (..),
+    SurfaceTarget (..),
 
     -- * Input
 
@@ -45,7 +44,7 @@ module Data.Aztecs.SDL
     addWindows,
     renderWindows,
     addCameraTargets,
-    addDrawTargets,
+    addSurfaceTargets,
     handleInput,
     updateTime,
     clearKeyboard,
@@ -68,7 +67,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Word (Word32)
-import SDL hiding (Texture, Window, windowTitle)
+import SDL hiding (Surface, Texture, Window, windowTitle)
 import qualified SDL hiding (Texture)
 
 #if !MIN_VERSION_base(4,20,0)
@@ -121,7 +120,7 @@ update =
     <$> ( updateTime
             &&& ( addWindows
                     >>> addCameraTargets
-                    >>> addDrawTargets
+                    >>> addSurfaceTargets
                     >>> handleInput
                 )
         )
@@ -161,7 +160,26 @@ renderWindows =
                             (fmap fromIntegral $ cameraViewport camera)
                         )
                     clear renderer
-                    mapM_ (\(d, transform) -> runDraw d transform renderer) cameraDraws'
+                    mapM_
+                      ( \(surface, transform) -> do
+                          sdlTexture <- SDL.createTextureFromSurface renderer $ sdlSurface surface
+                          textureDesc <- queryTexture sdlTexture
+                          copyEx
+                            renderer
+                            sdlTexture
+                            (fmap fromIntegral <$> surfaceBounds surface)
+                            ( Just
+                                ( Rectangle
+                                    (fmap fromIntegral . P $ transformPosition transform)
+                                    (fmap fromIntegral $ V2 (textureWidth textureDesc) (textureHeight textureDesc))
+                                )
+                            )
+                            (realToFrac $ transformRotation transform)
+                            Nothing
+                            (V2 False False)
+                          destroyTexture sdlTexture
+                      )
+                      cameraDraws'
                     present renderer
                 )
                 cameraDraws
@@ -183,9 +201,9 @@ renderWindows =
         draws <-
           S.all
             ( proc () -> do
-                d <- Q.fetch @_ @Draw -< ()
+                d <- Q.fetch @_ @Surface -< ()
                 transform <- Q.fetch @_ @Transform -< ()
-                target <- Q.fetch @_ @DrawTarget -< ()
+                target <- Q.fetch @_ @SurfaceTarget -< ()
                 returnA -< (d, transform, target)
             )
             -<
@@ -216,18 +234,21 @@ renderWindows =
                 windows
         S.task go -< windowDraws
 
--- | Draw target component.
--- This component can be used to specify which `Camera` to draw an entity to.
-newtype DrawTarget = DrawTarget {drawTargetCamera :: EntityID}
+-- | Surface target component.
+-- This component can be used to specify which `Camera` to draw a `Surface` to.
+newtype SurfaceTarget = SurfaceTarget {drawTargetCamera :: EntityID}
   deriving (Eq, Show)
 
-instance Component DrawTarget
+instance Component SurfaceTarget
 
--- | Draw component.
+-- | Surface component.
 -- This component can be used to draw to a window.
-newtype Draw = Draw {runDraw :: Transform -> Renderer -> IO ()}
+data Surface = Surface
+  { sdlSurface :: !SDL.Surface,
+    surfaceBounds :: !(Maybe (Rectangle Int))
+  }
 
-instance Component Draw
+instance Component Surface
 
 -- | Add `CameraTarget` components to entities with a new `Draw` component.
 addCameraTargets :: System () ()
@@ -242,38 +263,18 @@ addCameraTargets = proc () -> do
     -<
       (newCameras, windows)
 
--- | Add `DrawTarget` components to entities with a new `Draw` component.
-addDrawTargets :: System () ()
-addDrawTargets = proc () -> do
+-- | Add `SurfaceTarget` components to entities with a new `Surface` component.
+addSurfaceTargets :: System () ()
+addSurfaceTargets = proc () -> do
   cameras <- S.all (Q.entity &&& Q.fetch @_ @Camera) -< ()
-  newDraws <- S.filter (Q.entity &&& Q.fetch @_ @Draw) (without @DrawTarget) -< ()
+  newDraws <- S.filter (Q.entity &&& Q.fetch @_ @Surface) (without @SurfaceTarget) -< ()
   S.queue
     ( \(newDraws, cameras) -> case cameras of
-        (cameraEId, _) : _ -> mapM_ (\(eId, _) -> A.insert eId $ DrawTarget cameraEId) newDraws
+        (cameraEId, _) : _ -> mapM_ (\(eId, _) -> A.insert eId $ SurfaceTarget cameraEId) newDraws
         _ -> return ()
     )
     -<
       (newDraws, cameras)
-
--- | Draw a rectangle.
-rect :: V2 Int -> Draw
-rect size = Draw $
-  \transform renderer -> do
-    surface <- createRGBSurface (fmap fromIntegral size) RGBA8888
-    surfaceRenderer <- createSoftwareRenderer surface
-    rendererDrawColor surfaceRenderer $= V4 255 0 0 255
-    fillRect surfaceRenderer Nothing
-    texture <- SDL.createTextureFromSurface renderer surface
-    copyEx
-      renderer
-      texture
-      Nothing
-      (Just (Rectangle (P . fmap fromIntegral $ transformPosition transform) (fmap fromIntegral size)))
-      (realToFrac $ transformRotation transform)
-      Nothing
-      (V2 False False)
-    freeSurface surface
-    destroyTexture texture
 
 newtype Time = Time {elapsedMS :: Word32}
   deriving (Eq, Ord, Num, Show)

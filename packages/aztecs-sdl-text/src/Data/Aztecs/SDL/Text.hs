@@ -1,4 +1,5 @@
 {-# LANGUAGE Arrows #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
@@ -19,18 +20,17 @@ module Data.Aztecs.SDL.Text
   )
 where
 
-import Control.Arrow (Arrow (..))
+import Control.Arrow (Arrow (..), returnA)
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import Data.Aztecs.Asset (Asset (..), Handle, lookupAsset)
 import qualified Data.Aztecs.Asset as Asset
 import qualified Data.Aztecs.Query as Q
-import Data.Aztecs.SDL (Draw (..))
+import Data.Aztecs.SDL (Surface (..))
 import qualified Data.Aztecs.System as S
-import Data.Aztecs.Transform (Transform (..))
 import Data.Maybe (mapMaybe)
 import qualified Data.Text as T
-import SDL hiding (Texture, Window, windowTitle)
+import SDL hiding (Surface, Texture, Window, windowTitle)
 import qualified SDL.Font as F
 
 #if !MIN_VERSION_base(4,20,0)
@@ -49,26 +49,14 @@ data Text = Text {textContent :: !T.Text, textFont :: !(Handle Font)}
 
 instance Component Text
 
-drawText :: T.Text -> Font -> Draw
-drawText content f = Draw $ \transform renderer -> do
-  surface <- F.solid (unFont f) (V4 255 255 255 255) content
-  texture <- createTextureFromSurface renderer surface
-  textureInfo <- queryTexture texture
-  copyEx
-    renderer
-    texture
-    Nothing
-    ( Just
-        ( Rectangle
-            (fmap fromIntegral . P $ transformPosition transform)
-            (V2 (textureWidth textureInfo) (textureHeight textureInfo))
-        )
-    )
-    (realToFrac $ transformRotation transform)
-    Nothing
-    (V2 False False)
-  destroyTexture texture
-  freeSurface surface
+drawText :: T.Text -> Font -> IO Surface
+drawText content f = do
+  !s <- F.solid (unFont f) (V4 255 255 255 255) content
+  return
+    Surface
+      { sdlSurface = s,
+        surfaceBounds = Nothing
+      }
 
 -- | Setup SDL TrueType-Font (TTF) support.
 setup :: System () ()
@@ -81,11 +69,31 @@ load = Asset.loadAssets @Font
 -- | Draw text components.
 draw :: System () ()
 draw = proc () -> do
-  texts <- S.all $ Q.entity &&& Q.fetch -< ()
+  texts <-
+    S.all
+      ( proc () -> do
+          e <- Q.entity -< ()
+          t <- Q.fetch -< ()
+          s <- Q.fetchMaybe -< ()
+          returnA -< (e, t, s)
+      )
+      -<
+        ()
   assetServer <- S.single Q.fetch -< ()
   let textFonts =
         mapMaybe
-          (\(eId, t) -> (eId,textContent t,) <$> lookupAsset (textFont t) assetServer)
+          (\(eId, t, maybeSurface) -> (eId,textContent t,maybeSurface,) <$> lookupAsset (textFont t) assetServer)
           texts
-      draws = map (\(eId, content, font) -> (eId, drawText content font)) textFonts
+  draws <-
+    S.task $
+      mapM
+        ( \(eId, content, maybeSurface, font) -> do
+            case maybeSurface of
+              Just lastSurface -> freeSurface $ sdlSurface lastSurface
+              Nothing -> return ()
+            surface <- drawText content font
+            return (eId, surface)
+        )
+      -<
+        textFonts
   S.queue . mapM_ $ uncurry A.insert -< draws

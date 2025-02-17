@@ -37,12 +37,12 @@ import qualified Data.Aztecs.Access as A
 import Data.Aztecs.Asset (Asset (..), AssetServer, Handle, lookupAsset)
 import qualified Data.Aztecs.Asset as Asset
 import qualified Data.Aztecs.Query as Q
-import Data.Aztecs.SDL (Draw (..), Time (..))
+import Data.Aztecs.SDL (Surface (..), Time (..))
 import qualified Data.Aztecs.System as S
-import Data.Aztecs.Transform (Transform (..))
 import Data.Maybe (mapMaybe)
 import Data.Word (Word32)
-import SDL hiding (Texture, Window, windowTitle)
+import SDL hiding (Surface, Texture, Window, windowTitle)
+import qualified SDL
 import qualified SDL.Image as IMG
 
 #if !MIN_VERSION_base(4,20,0)
@@ -59,7 +59,7 @@ draw :: System () ()
 draw = const () <$> (drawImages &&& (animateSprites >>> drawSprites))
 
 -- | Texture asset.
-newtype Texture = Texture {textureSurface :: Surface}
+newtype Texture = Texture {textureSurface :: SDL.Surface}
 
 instance Asset Texture where
   type AssetConfig Texture = ()
@@ -77,33 +77,19 @@ instance Component Image
 -- | Draw images to their target windows.
 drawImages :: System () ()
 drawImages = proc () -> do
-  imgs <- S.filter (Q.entity &&& Q.fetch @_ @Image) (without @Draw) -< ()
+  imgs <- S.filter (Q.entity &&& Q.fetch @_ @Image) (without @Surface) -< ()
   assets <- S.single (Q.fetch @_ @(AssetServer Texture)) -< ()
   let newAssets =
         mapMaybe (\(eId, img) -> (,img,eId) <$> lookupAsset (imageTexture img) assets) imgs
   S.queue (mapM_ go) -< newAssets
   where
-    go (texture, img, eId) = do
+    go (texture, _, eId) = do
       A.insert
         eId
-        ( Draw $
-            \transform renderer -> do
-              sdlTexture <- SDL.createTextureFromSurface renderer (textureSurface texture)
-              copyEx
-                renderer
-                sdlTexture
-                Nothing
-                ( Just
-                    ( Rectangle
-                        (fmap fromIntegral . P $ transformPosition transform)
-                        (fmap fromIntegral $ imageSize img)
-                    )
-                )
-                (realToFrac $ transformRotation transform)
-                Nothing
-                (V2 False False)
-              destroyTexture sdlTexture
-        )
+        Surface
+          { sdlSurface = textureSurface texture,
+            surfaceBounds = Nothing
+          }
 
 -- | Sprite component.
 data Sprite = Sprite
@@ -118,7 +104,7 @@ instance Component Sprite
 -- | Draw images to their target windows.
 drawSprites :: System () ()
 drawSprites = proc () -> do
-  sprites <- S.all (Q.entity &&& Q.fetch @_ @Sprite) -< ()
+  sprites <- S.all $ Q.entity &&& Q.fetch -< ()
   assets <- S.single (Q.fetch @_ @(AssetServer Texture)) -< ()
   let loadedAssets =
         mapMaybe (\(eId, sprite) -> (,sprite,eId) <$> lookupAsset (spriteTexture sprite) assets) sprites
@@ -127,24 +113,10 @@ drawSprites = proc () -> do
     go (texture, sprite, eId) = do
       A.insert
         eId
-        ( Draw $
-            \transform renderer -> do
-              sdlTexture <- SDL.createTextureFromSurface renderer (textureSurface texture)
-              copyEx
-                renderer
-                sdlTexture
-                (fmap fromIntegral <$> spriteBounds sprite)
-                ( Just
-                    ( Rectangle
-                        (fmap fromIntegral . P $ transformPosition transform)
-                        (fmap fromIntegral $ spriteSize sprite)
-                    )
-                )
-                (realToFrac $ transformRotation transform)
-                Nothing
-                (V2 False False)
-              destroyTexture sdlTexture
-        )
+        Surface
+          { sdlSurface = textureSurface texture,
+            surfaceBounds = spriteBounds sprite
+          }
 
 data SpriteAnimation = SpriteAnimation
   { spriteAnimationSteps :: ![Rectangle Int],
