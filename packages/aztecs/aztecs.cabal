@@ -19,6 +19,11 @@ source-repository head
     type:     git
     location: https://github.com/matthunz/aztecs.git
 
+flag examples
+  description:       Build examples
+  default:           False
+  manual:            True
+
 library
     exposed-modules:
         Data.Aztecs
@@ -48,9 +53,11 @@ executable ecs
     hs-source-dirs:   examples
     default-language: Haskell2010
     ghc-options:      -Wall
-    build-depends:
-        base >=4.6 && <5,
-        aztecs
+    if flag(examples)
+        build-depends: base, aztecs
+    else
+        buildable: False
+
 
 test-suite aztecs-test
     type:             exitcode-stdio-1.0
