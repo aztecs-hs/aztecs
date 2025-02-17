@@ -28,8 +28,8 @@ library
     build-depends:
         base >=4.6 && <5,
         aztecs >= 0.5,
-        aztecs-asset >= 0.1,
-        aztecs-transform >= 0.1,
+        aztecs-asset >= 0.2,
+        aztecs-transform >= 0.2,
         containers >=0.6,
         mtl >=2,
         sdl2 >=2,

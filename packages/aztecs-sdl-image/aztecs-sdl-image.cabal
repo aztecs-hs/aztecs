@@ -1,6 +1,6 @@
 cabal-version: 2.4
 name:          aztecs-sdl-image
-version:       0.1.0.0
+version:       0.2.0.0
 license:       BSD-3-Clause
 license-file:  LICENSE
 maintainer:    matt@hunzinger.me
@@ -47,9 +47,9 @@ executable image
         base >=4.6 && <5,
         aztecs-sdl,
         aztecs-sdl-image,
-        aztecs >= 0.3,
-        aztecs-asset >= 0.1,
-        aztecs-transform >= 0.1,
+        aztecs >= 0.5,
+        aztecs-asset >= 0.2,
+        aztecs-transform >= 0.2,
         sdl2 >=2
 
 executable sprite
