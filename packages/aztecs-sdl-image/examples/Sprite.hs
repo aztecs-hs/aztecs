@@ -29,7 +29,7 @@ setup =
     >>> S.queue
       ( \texture -> do
           A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
-          A.spawn_ $ bundle Camera {cameraViewport = V2 1000 500} <> bundle transform
+          A.spawn_ $ bundle Camera {cameraViewport = V2 1000 500, cameraScale = 5} <> bundle transform
           A.spawn_ $
             bundle
               Sprite
@@ -38,7 +38,7 @@ setup =
                   spriteBounds = Just $ Rectangle (P $ V2 0 32) (V2 32 32)
                 }
               <> bundle (spriteAnimationGrid (V2 576 32) (V2 32 32) 3)
-              <> bundle transform {transformPosition = V2 100 100}
+              <> bundle transform {transformPosition = V2 10 10}
       )
 
 app :: Schedule IO () ()

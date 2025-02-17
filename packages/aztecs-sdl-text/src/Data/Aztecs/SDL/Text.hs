@@ -69,7 +69,7 @@ load = Asset.loadAssets @Font
 -- | Draw text components.
 draw :: System () ()
 draw = proc () -> do
-  texts <-
+  !texts <-
     S.all
       ( proc () -> do
           e <- Q.entity -< ()
@@ -79,12 +79,12 @@ draw = proc () -> do
       )
       -<
         ()
-  assetServer <- S.single Q.fetch -< ()
-  let textFonts =
+  !assetServer <- S.single Q.fetch -< ()
+  let !textFonts =
         mapMaybe
           (\(eId, t, maybeSurface) -> (eId,textContent t,maybeSurface,) <$> lookupAsset (textFont t) assetServer)
           texts
-  draws <-
+  !draws <-
     S.task $
       mapM
         ( \(eId, content, maybeSurface, font) -> do

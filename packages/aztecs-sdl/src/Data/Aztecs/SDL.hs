@@ -62,7 +62,7 @@ import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Transform (..))
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (mapMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text as T
@@ -91,7 +91,7 @@ data WindowRenderer = WindowRenderer
 
 instance Component WindowRenderer
 
-newtype Camera = Camera {cameraViewport :: V2 Int}
+data Camera = Camera {cameraViewport :: !(V2 Int), cameraScale :: !(V2 Float)}
   deriving (Show)
 
 instance Component Camera
@@ -153,6 +153,7 @@ renderWindows =
                 ( \(camera, _, cameraTransform, cameraDraws') -> do
                     let renderer = windowRenderer window
                     rendererDrawColor renderer $= V4 0 0 0 255
+                    rendererScale renderer $= fmap realToFrac (cameraScale camera)
                     rendererViewport renderer
                       $= Just
                         ( Rectangle
@@ -171,7 +172,10 @@ renderWindows =
                             ( Just
                                 ( Rectangle
                                     (fmap fromIntegral . P $ transformPosition transform)
-                                    (fmap fromIntegral $ V2 (textureWidth textureDesc) (textureHeight textureDesc))
+                                    ( fromMaybe
+                                        (fmap fromIntegral $ V2 (textureWidth textureDesc) (textureHeight textureDesc))
+                                        ((fmap (\(Rectangle _ s) -> fmap fromIntegral s) $ surfaceBounds surface))
+                                    )
                                 )
                             )
                             (realToFrac $ transformRotation transform)
