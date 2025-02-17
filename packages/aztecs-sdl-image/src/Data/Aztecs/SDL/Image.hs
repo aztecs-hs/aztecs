@@ -137,12 +137,12 @@ spriteAnimation =
     }
 
 -- | Create a sprite animation from a grid of sprites,
--- given the grid's offset, size, and number of tiles.
-spriteAnimationGrid :: V2 Int -> V2 Int -> Int -> SpriteAnimation
-spriteAnimationGrid (V2 x y) (V2 w h) n =
+-- given the grid's tile size, and a list of tile indices.
+spriteAnimationGrid :: V2 Int -> [V2 Int] -> SpriteAnimation
+spriteAnimationGrid (V2 w h) tiles =
   spriteAnimation
     { spriteAnimationSteps =
-        map (\i -> Rectangle (P $ V2 (x + i * w) y) (V2 w h)) [0 .. n]
+        map (\(V2 x y) -> Rectangle (P $ V2 (x * w) (y * h)) (V2 w h)) tiles
     }
 
 -- | Query to animate sprites based on the inputted `Time`.

@@ -39,7 +39,7 @@ setup =
                   spriteSize = V2 300 300,
                   spriteBounds = Just $ Rectangle (P $ V2 0 32) (V2 32 32)
                 }
-              <> bundle (spriteAnimationGrid (V2 576 32) (V2 32 32) 3)
+              <> bundle (spriteAnimationGrid (V2 32 32) (map (\i -> V2 (18 + i) 1) [0 .. 3]))
               <> bundle transform {transformPosition = V2 10 10}
       )
 
