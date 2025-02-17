@@ -23,7 +23,7 @@ module Data.Aztecs.System
     filterMap,
     mapSingle,
 
-    -- * Dynamic SystemTs
+    -- * Dynamic Systems
     DynamicSystemT (..),
     queueDyn,
     raceDyn,
@@ -61,7 +61,10 @@ import qualified Prelude hiding (filter, map)
 
 type System i o = SystemT IO i o
 
-newtype SystemT m i o = SystemT {runSystemT :: Components -> (DynamicSystemT m i o, ReadsWrites, Components)}
+-- | System to process entities.
+newtype SystemT m i o = SystemT {
+  -- | Run a system, producing a `DynamicSystem` that can be repeatedly run.
+  runSystemT :: Components -> (DynamicSystemT m i o, ReadsWrites, Components)}
   deriving (Functor)
 
 instance (Monad m) => Category (SystemT m) where
@@ -113,12 +116,13 @@ single q =
     )
     (all q)
 
--- | Query all matching entities.
+-- | Query and update all matching entities.
 map :: (Monad m) => Query m i a -> SystemT m i [a]
 map q = SystemT $ \cs ->
   let !(rws, cs', dynQ) = runQuery q cs
    in (mapDyn (Q.reads rws <> Q.writes rws) dynQ, rws, cs')
 
+-- | Query and update all matching entities, ignoring the results.
 map_ :: (Monad m) => Query m i o -> SystemT m i ()
 map_ q = const () <$> map q
 
@@ -143,9 +147,11 @@ mapSingle q =
     )
     (map q)
 
+-- | Queue an `Access` to happen after this system schedule.
 queue :: (Monad m) => (i -> Access m ()) -> SystemT m i ()
 queue f = SystemT $ \cs -> (queueDyn f, mempty, cs)
 
+-- | Run a monadic task from some input.
 task :: (Monad m) => (i -> m o) -> SystemT m i o
 task f = SystemT $ \cs ->
   ( DynamicSystemT $ \_ -> \i -> do
@@ -155,7 +161,10 @@ task f = SystemT $ \cs ->
     cs
   )
 
-newtype DynamicSystemT m i o = DynamicSystemT {runSystemTDyn :: World -> (i -> m (o, View, Access m ()))}
+newtype DynamicSystemT m i o = DynamicSystemT {
+  -- | Run a dynamic system, 
+  -- producing some output, an updated `View` into the `World`, and any queued `Access`.
+  runSystemTDyn :: World -> (i -> m (o, View, Access m ()))}
   deriving (Functor)
 
 instance (Monad m) => Category (DynamicSystemT m) where

@@ -63,7 +63,7 @@ For more information, please see the documentation on [Hackage](https://hackage.
 
 ## Running examples
 
-Examples can be run from the root folder of this repo with `cabal run {example} -f examples` (such as `cabal run ECS`).
+Examples can be run from the root folder of this repo with `cabal run {example} -f examples` (such as `cabal run ECS -f examples`).
 
 ## Benchmarks
 

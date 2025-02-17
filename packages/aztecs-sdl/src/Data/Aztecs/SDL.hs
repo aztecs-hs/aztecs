@@ -78,7 +78,8 @@ import Data.Foldable (foldl')
 
 -- | Window component.
 data Window = Window
-  { windowTitle :: !String
+  { -- | Window title.
+    windowTitle :: !String
   }
   deriving (Show)
 
@@ -86,19 +87,31 @@ instance Component Window
 
 -- | Window renderer component.
 data WindowRenderer = WindowRenderer
-  { windowRendererRaw :: !SDL.Window,
+  { -- | SDL window.
+    windowRendererRaw :: !SDL.Window,
+    -- | SDL renderer.
     windowRenderer :: !Renderer
   }
   deriving (Show)
 
 instance Component WindowRenderer
 
-data Camera = Camera {cameraViewport :: !(V2 Int), cameraScale :: !(V2 Float)}
+-- | Camera component.
+data Camera = Camera
+  { -- | Camera viewport size.
+    cameraViewport :: !(V2 Int),
+    -- | Camera scale factor.
+    cameraScale :: !(V2 Float)
+  }
   deriving (Show)
 
 instance Component Camera
 
-newtype CameraTarget = CameraTarget {cameraTargetWindow :: EntityID}
+-- | Camera target component.
+newtype CameraTarget = CameraTarget
+  { -- | This camera's target window.
+    cameraTargetWindow :: EntityID
+  }
   deriving (Eq, Show)
 
 instance Component CameraTarget
@@ -128,28 +141,32 @@ update =
                 )
         )
 
+-- | Draw to SDL windows and clear input events.
 draw :: System () ()
-draw = const () <$> (drawTextures &&& clearKeyboard &&& clearMouseInput)
+draw = const () <$> (drawTextures &&& clearInput)
 
 -- | Setup new windows.
 addWindows :: System () ()
 addWindows = proc () -> do
   newWindows <- S.filter (Q.entity &&& Q.fetch @_ @Window) (without @WindowRenderer) -< ()
-  newWindows' <- S.task createNewWindows -< newWindows
-  S.queue insertNewWindows -< newWindows'
+  newWindows' <- S.task $ mapM createWindowRenderer -< newWindows
+  S.queue $ mapM_ insertWindowRenderer -< newWindows'
   where
-    createNewWindows newWindows = mapM createWindowRenderer newWindows
     createWindowRenderer (eId, window) = do
       sdlWindow <- createWindow (T.pack $ windowTitle window) defaultWindow
       renderer <- createRenderer sdlWindow (-1) defaultRenderer
       return (eId, sdlWindow, renderer)
-    insertNewWindows newWindows' = mapM_ insertWindowRenderer newWindows'
     insertWindowRenderer (eId, window, renderer) = A.insert eId (WindowRenderer window renderer)
 
-newtype SurfaceTexture = SurfaceTexture {unSurfaceTexture :: SDL.Texture}
+-- | Surface texture component.
+newtype SurfaceTexture = SurfaceTexture
+  { -- | SDL texture.
+    unSurfaceTexture :: SDL.Texture
+  }
 
 instance Component SurfaceTexture
 
+-- | Build textures from surfaces in preparation for `drawTextures`.
 buildTextures :: System () ()
 buildTextures =
   let go windowDraws =
@@ -182,7 +199,7 @@ buildTextures =
           windowDraws
    in proc () -> do
         cameras <- S.all $ Q.entity &&& Q.fetch -< ()
-        windows <- S.all (Q.entity &&& Q.fetch @_ @WindowRenderer) -< ()
+        windows <- S.all $ Q.entity &&& Q.fetch -< ()
         draws <-
           S.all
             ( proc () -> do
@@ -412,7 +429,7 @@ instance Component MouseInput
 -- | Keyboard input system.
 handleInput :: System () ()
 handleInput = proc () -> do
-  events <- S.task . const $ SDL.pollEvents -< ()
+  events <- S.task $ const SDL.pollEvents -< ()
   kb <- S.single Q.fetch -< ()
   mouseInput <- S.single Q.fetch -< ()
   let go (kbAcc, mouseAcc) event = case eventPayload event of
@@ -460,6 +477,9 @@ handleInput = proc () -> do
   S.mapSingle Q.set -< kb'
   S.mapSingle Q.set -< mouseInput'
   returnA -< ()
+
+clearInput :: SystemT IO () ()
+clearInput = const () <$> (clearKeyboard &&& clearMouseInput)
 
 clearKeyboardQuery :: (Monad m) => Query m () KeyboardInput
 clearKeyboardQuery = proc () -> do
