@@ -14,3 +14,8 @@ transform :: Transform
 transform = Transform (V2 0 0) 0 (V2 1 1)
 
 instance Component Transform
+
+
+newtype Size = Size {unSize :: V2 Int}
+
+instance Component Size

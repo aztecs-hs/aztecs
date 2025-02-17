@@ -20,6 +20,7 @@ module Data.Aztecs.SDL
     -- * Surface components
     Surface (..),
     SurfaceTarget (..),
+    SurfaceTexture (..),
 
     -- * Input
 
@@ -42,7 +43,8 @@ module Data.Aztecs.SDL
 
     -- ** Primitive systems
     addWindows,
-    renderWindows,
+    buildTextures,
+    drawTextures,
     addCameraTargets,
     addSurfaceTargets,
     handleInput,
@@ -59,7 +61,7 @@ import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import qualified Data.Aztecs.Query as Q
 import qualified Data.Aztecs.System as S
-import Data.Aztecs.Transform (Transform (..))
+import Data.Aztecs.Transform (Size (..), Transform (..))
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe, mapMaybe)
@@ -68,7 +70,7 @@ import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Word (Word32)
 import SDL hiding (Surface, Texture, Window, windowTitle)
-import qualified SDL hiding (Texture)
+import qualified SDL
 
 #if !MIN_VERSION_base(4,20,0)
 import Data.Foldable (foldl')
@@ -122,11 +124,12 @@ update =
                     >>> addCameraTargets
                     >>> addSurfaceTargets
                     >>> handleInput
+                    >>> buildTextures
                 )
         )
 
 draw :: System () ()
-draw = const () <$> (renderWindows &&& clearKeyboard &&& clearMouseInput)
+draw = const () <$> (drawTextures &&& clearKeyboard &&& clearMouseInput)
 
 -- | Setup new windows.
 addWindows :: System () ()
@@ -143,9 +146,81 @@ addWindows = proc () -> do
     insertNewWindows newWindows' = mapM_ insertWindowRenderer newWindows'
     insertWindowRenderer (eId, window, renderer) = A.insert eId (WindowRenderer window renderer)
 
--- | Render windows.
-renderWindows :: System () ()
-renderWindows =
+newtype SurfaceTexture = SurfaceTexture {unSurfaceTexture :: SDL.Texture}
+
+instance Component SurfaceTexture
+
+buildTextures :: System () ()
+buildTextures =
+  let go windowDraws =
+        mapM_
+          ( \(window, cameraDraws) -> do
+              mapM_
+                ( \(_, cameraDraws') -> do
+                    let renderer = windowRenderer window
+                    mapM_
+                      ( \(eId, surface, transform, maybeTexture) -> do
+                          sdlTexture <- SDL.createTextureFromSurface renderer $ sdlSurface surface
+                          textureDesc <- queryTexture sdlTexture
+                          case maybeTexture of
+                            Just (SurfaceTexture lastTexture) -> destroyTexture lastTexture
+                            Nothing -> return ()
+                          A.insert eId (SurfaceTexture sdlTexture)
+                          A.insert
+                            eId
+                            ( Size $
+                                transformScale transform
+                                  * fromMaybe
+                                    (fmap fromIntegral $ V2 (textureWidth textureDesc) (textureHeight textureDesc))
+                                    ((fmap (\(Rectangle _ s) -> fmap fromIntegral s) $ surfaceBounds surface))
+                            )
+                      )
+                      cameraDraws'
+                )
+                cameraDraws
+          )
+          windowDraws
+   in proc () -> do
+        cameras <- S.all $ Q.entity &&& Q.fetch -< ()
+        windows <- S.all (Q.entity &&& Q.fetch @_ @WindowRenderer) -< ()
+        draws <-
+          S.all
+            ( proc () -> do
+                eId <- Q.entity -< ()
+                d <- Q.fetch @_ @Surface -< ()
+                transform <- Q.fetch @_ @Transform -< ()
+                target <- Q.fetch @_ @SurfaceTarget -< ()
+                maybeTexture <- Q.fetchMaybe @_ @SurfaceTexture -< ()
+                returnA -< (eId, d, transform, target, maybeTexture)
+            )
+            -<
+              ()
+        let cameraDraws =
+              map
+                ( \(eId, cameraTarget) ->
+                    ( cameraTarget,
+                      mapMaybe
+                        ( \(surfaceEid, d, transform, target, maybeTexture) ->
+                            if drawTargetCamera target == eId
+                              then Just (surfaceEid, d, transform, maybeTexture)
+                              else Nothing
+                        )
+                        draws
+                    )
+                )
+                cameras
+            windowDraws =
+              map
+                ( \(eId, window) ->
+                    ( window,
+                      filter (\(cameraTarget, _) -> cameraTargetWindow cameraTarget == eId) cameraDraws
+                    )
+                )
+                windows
+        S.queue go -< windowDraws
+
+drawTextures :: System () ()
+drawTextures =
   let go windowDraws =
         mapM_
           ( \(window, cameraDraws) -> do
@@ -162,12 +237,11 @@ renderWindows =
                         )
                     clear renderer
                     mapM_
-                      ( \(surface, transform) -> do
-                          sdlTexture <- SDL.createTextureFromSurface renderer $ sdlSurface surface
-                          textureDesc <- queryTexture sdlTexture
+                      ( \(surface, transform, texture) -> do
+                          textureDesc <- queryTexture $ unSurfaceTexture texture
                           copyEx
                             renderer
-                            sdlTexture
+                            (unSurfaceTexture texture)
                             (fmap fromIntegral <$> surfaceBounds surface)
                             ( Just
                                 ( Rectangle
@@ -181,7 +255,6 @@ renderWindows =
                             (realToFrac $ transformRotation transform)
                             Nothing
                             (V2 False False)
-                          destroyTexture sdlTexture
                       )
                       cameraDraws'
                     present renderer
@@ -208,7 +281,8 @@ renderWindows =
                 d <- Q.fetch @_ @Surface -< ()
                 transform <- Q.fetch @_ @Transform -< ()
                 target <- Q.fetch @_ @SurfaceTarget -< ()
-                returnA -< (d, transform, target)
+                texture <- Q.fetch @_ @SurfaceTexture -< ()
+                returnA -< (d, transform, target, texture)
             )
             -<
               ()
@@ -219,9 +293,9 @@ renderWindows =
                       cameraTarget,
                       t,
                       mapMaybe
-                        ( \(d, transform, target) ->
+                        ( \(d, transform, target, texture) ->
                             if drawTargetCamera target == eId
-                              then Just (d, transform)
+                              then Just (d, transform, texture)
                               else Nothing
                         )
                         draws
