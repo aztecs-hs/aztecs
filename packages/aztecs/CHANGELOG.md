@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [0.5.0.0](https://github.com/matthunz/aztecs/compare/aztecs-v0.4.0.1..aztecs-v0.5.0.0) - 2025-2-16
+
+# Breaking changes
+
+- New fully-parallel `System` and `Schedule` design (d51f8b0)
+  - Still based on arrows, but `Schedule` now exists to explicitly apply any deferred `Access` in order.
+- Strict by default (6a574f7) (7904a29)
+- Bump minimum `base` (e79945d)
+
 ## [0.4.0.1](https://github.com/matthunz/aztecs/compare/aztecs-v0.4.0.0...aztecs-v0.4.0.1) - 2025-2-13
 
 ## Features
