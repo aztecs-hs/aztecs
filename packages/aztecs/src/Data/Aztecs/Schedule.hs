@@ -16,7 +16,8 @@ import Control.Monad ((>=>))
 import Control.Monad.State (MonadState (..))
 import Control.Monad.Trans (MonadTrans (..))
 import Data.Aztecs.Access (Access (..), runAccess)
-import Data.Aztecs.System (DynamicSystemT (..), SystemT (..))
+import Data.Aztecs.System ( SystemT (..))
+import Data.Aztecs.System.Dynamic ( DynamicSystemT (..))
 import qualified Data.Aztecs.View as V
 import Data.Aztecs.World (World (..))
 import qualified Data.Aztecs.World as W
