@@ -16,26 +16,13 @@ where
 
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
-import Data.Aztecs.Component
 import Data.Aztecs.Entity (EntityID)
 import Data.Aztecs.Query.Dynamic.Class (ArrowDynamicQuery (..))
+import Data.Aztecs.Query.Dynamic.Reader (DynamicQueryFilter (..))
 import Data.Aztecs.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Data.Aztecs.World.Archetype (Archetype)
 import qualified Data.Aztecs.World.Archetype as A
-import Data.Set (Set)
 import Prelude hiding (all, any, id, lookup, map, mapM, reads, (.))
-
-data DynamicQueryFilter = DynamicQueryFilter
-  { filterWith :: !(Set ComponentID),
-    filterWithout :: !(Set ComponentID)
-  }
-
-instance Semigroup DynamicQueryFilter where
-  DynamicQueryFilter withA withoutA <> DynamicQueryFilter withB withoutB =
-    DynamicQueryFilter (withA <> withB) (withoutA <> withoutB)
-
-instance Monoid DynamicQueryFilter where
-  mempty = DynamicQueryFilter mempty mempty
 
 -- | Dynamic query for components by ID.
 newtype DynamicQuery i o = DynamicQuery
