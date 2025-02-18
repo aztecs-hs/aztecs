@@ -11,6 +11,9 @@ module Data.Aztecs.Query
     ArrowQuery (..),
     ArrowQueryReader (..),
 
+    -- ** Running
+    all,
+
     -- * Filters
     QueryFilter (..),
     with,
@@ -31,6 +34,10 @@ import Data.Aztecs.Query.Dynamic.Class (ArrowDynamicQuery (..))
 import Data.Aztecs.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Data.Aztecs.Query.Reader (QueryFilter (..), with, without)
 import Data.Aztecs.Query.Reader.Class (ArrowQueryReader (..))
+import Data.Aztecs.World (World (..))
+import qualified Data.Aztecs.World.Archetype as A
+import Data.Aztecs.World.Archetypes (Node (..))
+import qualified Data.Aztecs.World.Archetypes as AS
 import Data.Aztecs.World.Components (Components)
 import qualified Data.Aztecs.World.Components as CS
 import Data.Set (Set)
@@ -119,3 +126,12 @@ disjoint a b =
   Set.disjoint (reads a) (writes b)
     || Set.disjoint (reads b) (writes a)
     || Set.disjoint (writes b) (writes a)
+
+all :: Query () a -> World -> ([a], World)
+all q w =
+  let (rws, cs', dynQ) = runQuery q (components w)
+      as =
+        fmap
+          (\n -> fst $ dynQueryAll dynQ (repeat ()) (A.entities $ nodeArchetype n) (nodeArchetype n))
+          (AS.lookup (reads rws <> writes rws) (archetypes w))
+   in (concat as, w {components = cs'})

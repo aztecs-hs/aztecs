@@ -7,7 +7,6 @@ import Control.Arrow ((&&&))
 import Data.Aztecs
 import qualified Data.Aztecs.Query as Q
 import qualified Data.Aztecs.World as W
-import Data.Functor.Identity (Identity (..))
 import Test.Hspec
 import Test.QuickCheck
 
@@ -33,13 +32,13 @@ main = hspec $ do
 prop_queryOneComponent :: [X] -> Expectation
 prop_queryOneComponent xs =
   let w = foldr (\x -> snd . W.spawn (bundle x)) W.empty xs
-      (res, _) = runIdentity $ Q.all Q.fetch w
+      (res, _) =  Q.all Q.fetch w
    in res `shouldMatchList` xs
 
 prop_queryTwoComponents :: [(X, Y)] -> Expectation
 prop_queryTwoComponents xys =
   let w = foldr (\(x, y) -> snd . W.spawn (bundle x <> bundle y)) W.empty xys
-      (res, _) = runIdentity $ Q.all (Q.fetch &&& Q.fetch) w
+      (res, _) = Q.all (Q.fetch &&& Q.fetch) w
    in res `shouldMatchList` xys
 
 prop_queryThreeComponents :: [(X, Y, Z)] -> Expectation
@@ -50,5 +49,5 @@ prop_queryThreeComponents xyzs =
         y <- Q.fetch
         z <- Q.fetch
         pure (x, y, z)
-      (res, _) = runIdentity $ Q.all q w
+      (res, _) = Q.all q w
    in res `shouldMatchList` xyzs
