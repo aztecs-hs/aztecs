@@ -19,7 +19,7 @@ instance Component Velocity
 setup :: System () ()
 setup = S.queue . const . A.spawn_ $ bundle (Position 0) <> bundle (Velocity 1)
 
-move :: System () ()
+move :: System () [Position]
 move =
   S.map
     ( proc () -> do
@@ -27,10 +27,9 @@ move =
         Position p <- Q.fetch -< ()
         Q.set -< Position $ p + v
     )
-    >>> S.task print
 
 app :: Schedule IO () ()
-app = schedule setup >>> forever (schedule move)
+app = schedule setup >>> forever (schedule move) print
 
 main :: IO ()
 main = runSchedule_ $ app

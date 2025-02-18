@@ -13,7 +13,7 @@ where
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
 import Control.Monad ((>=>))
-import Control.Monad.Identity (Identity)
+import Control.Monad.Identity (Identity (runIdentity))
 import Control.Monad.State (MonadState (..))
 import Control.Monad.Trans (MonadTrans (..))
 import Data.Aztecs.Access (Access (..), runAccess)
@@ -48,25 +48,26 @@ runSchedule s w i = do
 runSchedule_ :: (Monad m) => Schedule m () () -> m ()
 runSchedule_ s = const () <$> runSchedule s (W.empty) ()
 
-schedule :: System i o -> Schedule Identity i o
+schedule :: (Monad m) => System i o -> Schedule m i o
 schedule t = Schedule $ \cs ->
   let (dynT, _, cs') = runSystem t cs
       go i = Access $ do
         w <- get
         let f = runSystemTDyn dynT w
         let (o, v, access) = f i
-        ((), w') <- lift Prelude.. runAccess access $ V.unview v w
+        let ((), w') = runIdentity $ runAccess access $ V.unview v w
         put w'
         return o
    in (go, cs')
 
-forever :: (Monad m) => Schedule m i () -> Schedule m i ()
-forever s = Schedule $ \cs ->
-  let (f, cs') = runSchedule' s cs
+forever :: (Monad m) => Schedule m i o -> (o -> m ()) -> Schedule m i ()
+forever s f = Schedule $ \cs ->
+  let (g, cs') = runSchedule' s cs
       go i = Access $ do
         w <- get
         let loop wAcc = do
-              ((), wAcc') <- lift $ runAccess (f i) wAcc
+              (o, wAcc') <- lift $ runAccess (g i) wAcc
+              lift $ f o
               loop wAcc'
         loop w
    in (go, cs')
