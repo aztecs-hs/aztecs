@@ -31,9 +31,8 @@ instance Monoid DynamicQueryFilter where
   mempty = DynamicQueryFilter mempty mempty
 
 -- | Dynamic query for components by ID.
-newtype DynamicQueryReader m i o = DynamicQueryReader
-  { dynQueryReaderAll :: [i] -> [EntityID] -> Archetype -> m [o]
-  }
+newtype DynamicQueryReader m i o
+  = DynamicQueryReader {dynQueryReaderAll :: [i] -> [EntityID] -> Archetype -> m [o]}
 
 instance (Functor m) => Functor (DynamicQueryReader m i) where
   fmap f q =

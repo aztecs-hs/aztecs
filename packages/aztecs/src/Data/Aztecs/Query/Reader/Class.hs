@@ -1,6 +1,6 @@
 module Data.Aztecs.Query.Reader.Class (ArrowQueryReader (..)) where
 
-import Control.Arrow (Arrow (..))
+import Control.Arrow (Arrow (..), (>>>))
 import Data.Aztecs.Component
 import Data.Aztecs.Entity (EntityID)
 import Prelude hiding (all, any, id, lookup, map, mapM, reads, (.))
@@ -14,3 +14,4 @@ class (Arrow arr) => ArrowQueryReader arr where
 
   -- | Fetch a `Component` by its type, returning `Nothing` if it doesn't exist.
   fetchMaybe :: (Component a) => arr () (Maybe a)
+  fetchMaybe = fetch >>> arr Just

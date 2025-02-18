@@ -98,6 +98,14 @@ instance (Monad m) => ArrowQueryReader (Query m) where
     let (cId, cs') = CS.insert @a cs
      in (ReadsWrites (Set.singleton cId) (Set.empty), cs', fetchMaybeDyn cId)
 
+instance (Monad m) => ArrowDynamicQueryReader (Query m) where
+  entityDyn = Query $ \cs -> (mempty, cs, entityDyn)
+  fetchDyn cId = Query $ \cs -> (ReadsWrites (Set.singleton cId) Set.empty, cs, fetchDyn cId)
+  fetchMaybeDyn cId = Query $ \cs -> (ReadsWrites (Set.singleton cId) Set.empty, cs, fetchMaybeDyn cId)
+
+instance (Monad m) => ArrowDynamicQuery (Query m) where
+  setDyn cId = Query $ \cs -> (ReadsWrites Set.empty (Set.singleton cId), cs, setDyn cId)
+
 instance (Monad m) => ArrowQuery (Query m) where
   set :: forall a. (Applicative m, Component a) => Query m a a
   set = Query $ \cs ->

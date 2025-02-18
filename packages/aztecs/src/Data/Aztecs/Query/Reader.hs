@@ -95,6 +95,11 @@ instance (Monad m) => ArrowQueryReader (QueryReader m) where
     let (cId, cs') = CS.insert @a cs
      in (Set.singleton cId, cs', fetchMaybeDyn cId)
 
+instance (Monad m) => ArrowDynamicQueryReader (QueryReader m) where
+  entityDyn = Query $ \cs -> (mempty, cs, entityDyn)
+  fetchDyn cId = Query $ \cs -> (Set.singleton cId, cs, fetchDyn cId)
+  fetchMaybeDyn cId = Query $ \cs -> (Set.singleton cId, cs, fetchMaybeDyn cId)
+
 -- | Run a monadic task in a `Query`.
 task :: (Monad m) => (i -> m o) -> QueryReader m i o
 task f = Query $ \cs ->
