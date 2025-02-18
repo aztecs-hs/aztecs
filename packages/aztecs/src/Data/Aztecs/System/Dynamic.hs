@@ -4,11 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TupleSections #-}
 
-module Data.Aztecs.System.Dynamic
-  ( -- * Dynamic Systems
-    DynamicSystemT (..),
-  )
-where
+module Data.Aztecs.System.Dynamic (DynamicSystemT (..)) where
 
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))

@@ -5,6 +5,7 @@ module Data.Aztecs.Query.Dynamic.Reader
   ( -- * Dynamic queries
     DynamicQueryReader (..),
     DynamicQueryFilter (..),
+    ArrowDynamicQueryReader (..),
   )
 where
 

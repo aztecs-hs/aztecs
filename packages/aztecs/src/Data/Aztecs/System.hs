@@ -6,21 +6,9 @@
 
 module Data.Aztecs.System
   ( -- * Systems
-    System(..),
-    queue,
-
-    -- ** Queries
-
-    -- *** Reading
-    all,
-    filter,
-    single,
-
-    -- *** Writing
-    map,
-    map_,
-    filterMap,
-    mapSingle,
+    System (..),
+    ArrowReaderSystem (..),
+    ArrowSystem (..),
   )
 where
 

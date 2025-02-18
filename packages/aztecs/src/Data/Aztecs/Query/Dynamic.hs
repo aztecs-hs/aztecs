@@ -4,10 +4,8 @@
 module Data.Aztecs.Query.Dynamic
   ( -- * Dynamic queries
     DynamicQuery (..),
-    entityDyn,
-    fetchDyn,
-    fetchMaybeDyn,
-    setDyn,
+    ArrowDynamicQueryReader (..),
+    ArrowDynamicQuery (..),
 
     -- * Dynamic query filters
     DynamicQueryFilter (..),
