@@ -6,9 +6,9 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Data.Aztecs.Query
+module Data.Aztecs.Query.Reader
   ( -- * Queries
-    Query (..),
+    QueryReader (..),
     entity,
     fetch,
     fetchMaybe,
@@ -20,10 +20,7 @@ module Data.Aztecs.Query
     QueryFilter (..),
     with,
     without,
-
-    -- * Reads and writes
-    ReadsWrites (..),
-    disjoint,
+    DynamicQueryFilter (..),
   )
 where
 
@@ -32,10 +29,9 @@ import Control.Category (Category (..))
 import Control.Monad (mapM)
 import Data.Aztecs.Component
 import Data.Aztecs.Query.Class (ArrowQuery (..))
-import Data.Aztecs.Query.Dynamic (DynamicQuery (..))
-import Data.Aztecs.Query.Dynamic.Class (ArrowDynamicQuery (..))
+import Data.Aztecs.Query.Dynamic (DynamicQueryFilter (..))
+import Data.Aztecs.Query.Dynamic.Reader (DynamicQueryReader (..))
 import Data.Aztecs.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
-import Data.Aztecs.Query.Reader (QueryFilter (..), with, without)
 import Data.Aztecs.Query.Reader.Class (ArrowQueryReader (..))
 import Data.Aztecs.World (World (..))
 import qualified Data.Aztecs.World.Archetype as A
@@ -64,55 +60,49 @@ import Prelude hiding (all, any, id, lookup, map, mapM, reads, (.))
 -- === Applicative combinators:
 -- > move :: (Monad m) => Query m () Position
 -- > move = (,) <$> Q.fetch <*> Q.fetch >>> arr (\(Position p, Velocity v) -> Position $ p + v) >>> Q.set
-newtype Query m i o
-  = Query {runQuery :: Components -> (ReadsWrites, Components, DynamicQuery m i o)}
+newtype QueryReader m i o
+  = Query {runQueryReader :: Components -> (Set ComponentID, Components, DynamicQueryReader m i o)}
 
-instance (Functor m) => Functor (Query m i) where
+instance (Functor m) => Functor (QueryReader m i) where
   fmap f (Query q) = Query $ \cs -> let (cIds, cs', qS) = q cs in (cIds, cs', fmap f qS)
 
-instance (Monad m) => Applicative (Query m i) where
+instance (Monad m) => Applicative (QueryReader m i) where
   pure a = Query $ \cs -> (mempty, cs, pure a)
   (Query f) <*> (Query g) = Query $ \cs ->
     let (cIdsG, cs', aQS) = g cs
         (cIdsF, cs'', bQS) = f cs'
      in (cIdsG <> cIdsF, cs'', bQS <*> aQS)
 
-instance (Monad m) => Category (Query m) where
+instance (Monad m) => Category (QueryReader m) where
   id = Query $ \cs -> (mempty, cs, id)
   (Query f) . (Query g) = Query $ \cs ->
     let (cIdsG, cs', aQS) = g cs
         (cIdsF, cs'', bQS) = f cs'
      in (cIdsG <> cIdsF, cs'', bQS . aQS)
 
-instance (Monad m) => Arrow (Query m) where
+instance (Monad m) => Arrow (QueryReader m) where
   arr f = Query $ \cs -> (mempty, cs, arr f)
   first (Query f) = Query $ \comps -> let (cIds, comps', qS) = f comps in (cIds, comps', first qS)
 
-instance (Monad m) => ArrowQueryReader (Query m) where
+instance (Monad m) => ArrowQueryReader (QueryReader m) where
   entity = Query $ \cs -> (mempty, cs, entityDyn)
-  fetch :: forall a. (Component a) => Query m () a
+  fetch :: forall a. (Component a) => QueryReader m () a
   fetch = Query $ \cs ->
     let (cId, cs') = CS.insert @a cs
-     in (ReadsWrites (Set.singleton cId) (Set.empty), cs', fetchDyn cId)
-  fetchMaybe :: forall a. (Component a) => Query m () (Maybe a)
+     in (Set.singleton cId, cs', fetchDyn cId)
+  fetchMaybe :: forall a. (Component a) => QueryReader m () (Maybe a)
   fetchMaybe = Query $ \cs ->
     let (cId, cs') = CS.insert @a cs
-     in (ReadsWrites (Set.singleton cId) (Set.empty), cs', fetchMaybeDyn cId)
-
-instance (Monad m) => ArrowQuery (Query m) where
-  set :: forall a. (Applicative m, Component a) => Query m a a
-  set = Query $ \cs ->
-    let (cId, cs') = CS.insert @a cs
-     in (ReadsWrites Set.empty (Set.singleton cId), cs', setDyn cId)
+     in (Set.singleton cId, cs', fetchMaybeDyn cId)
 
 -- | Run a monadic task in a `Query`.
-task :: (Monad m) => (i -> m o) -> Query m i o
+task :: (Monad m) => (i -> m o) -> QueryReader m i o
 task f = Query $ \cs ->
   ( mempty,
     cs,
-    DynamicQuery
-      { dynQueryAll = \is _ arch -> (,arch) <$> mapM f is,
-        dynQueryLookup = \i _ arch -> (\a -> (Just a, arch)) <$> f i
+    DynamicQueryReader
+      { dynQueryReaderAll = \is _ _ -> mapM f is,
+        dynQueryReaderLookup = \i _ _ -> (\a -> Just a) <$> f i
       }
   )
 
@@ -129,29 +119,36 @@ task f = Query $ \cs ->
 -- >>> (xs, _) <- all (fetch @_ @X) w
 -- >>> xs
 -- [X 0]
-all :: (Monad m) => Query m () a -> World -> m ([a], World)
+all :: (Monad m) => QueryReader m () a -> World -> m ([a], World)
 all q w = do
-  let (rws, cs', dynQ) = runQuery q (components w)
+  let (rs, cs', dynQ) = runQueryReader q (components w)
   as <-
     mapM
-      (\n -> fst <$> dynQueryAll dynQ (repeat ()) (A.entities $ nodeArchetype n) (nodeArchetype n))
-      (Map.elems $ AS.lookup (reads rws <> writes rws) (archetypes w))
+      (\n -> dynQueryReaderAll dynQ (repeat ()) (A.entities $ nodeArchetype n) (nodeArchetype n))
+      (Map.elems $ AS.lookup rs (archetypes w))
   return (concat as, w {components = cs'})
 
-data ReadsWrites = ReadsWrites
-  { reads :: !(Set ComponentID),
-    writes :: !(Set ComponentID)
-  }
-  deriving (Show)
+-- | Filter for a `Query`.
+newtype QueryFilter = QueryFilter {runQueryFilter :: Components -> (DynamicQueryFilter, Components)}
 
-instance Semigroup ReadsWrites where
-  ReadsWrites r1 w1 <> ReadsWrites r2 w2 = ReadsWrites (r1 <> r2) (w1 <> w2)
+instance Semigroup QueryFilter where
+  a <> b =
+    QueryFilter
+      ( \cs ->
+          let (withA', cs') = runQueryFilter a cs
+              (withB', cs'') = runQueryFilter b cs'
+           in (withA' <> withB', cs'')
+      )
 
-instance Monoid ReadsWrites where
-  mempty = ReadsWrites mempty mempty
+instance Monoid QueryFilter where
+  mempty = QueryFilter (mempty,)
 
-disjoint :: ReadsWrites -> ReadsWrites -> Bool
-disjoint a b =
-  Set.disjoint (reads a) (writes b)
-    || Set.disjoint (reads b) (writes a)
-    || Set.disjoint (writes b) (writes a)
+-- | Filter for entities containing this component.
+with :: forall a. (Component a) => QueryFilter
+with = QueryFilter $ \cs ->
+  let (cId, cs') = CS.insert @a cs in (mempty {filterWith = Set.singleton cId}, cs')
+
+-- | Filter out entities containing this component.
+without :: forall a. (Component a) => QueryFilter
+without = QueryFilter $ \cs ->
+  let (cId, cs') = CS.insert @a cs in (mempty {filterWithout = Set.singleton cId}, cs')

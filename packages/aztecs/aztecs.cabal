@@ -31,6 +31,13 @@ library
         Data.Aztecs.Component
         Data.Aztecs.Entity
         Data.Aztecs.Query
+        Data.Aztecs.Query.Class
+        Data.Aztecs.Query.Dynamic
+        Data.Aztecs.Query.Dynamic.Class
+        Data.Aztecs.Query.Dynamic.Reader
+        Data.Aztecs.Query.Dynamic.Reader.Class
+        Data.Aztecs.Query.Reader
+        Data.Aztecs.Query.Reader.Class
         Data.Aztecs.Schedule
         Data.Aztecs.Storage
         Data.Aztecs.System
@@ -57,7 +64,6 @@ executable ecs
         build-depends: base, aztecs
     else
         buildable: False
-
 
 test-suite aztecs-test
     type:             exitcode-stdio-1.0

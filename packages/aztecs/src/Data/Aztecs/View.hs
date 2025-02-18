@@ -11,10 +11,12 @@ module Data.Aztecs.View
     filterView,
     unview,
     allDyn,
+    readAllDyn,
   )
 where
 
-import Data.Aztecs.Query (DynamicQuery (..))
+import Data.Aztecs.Query.Dynamic (DynamicQuery (..))
+import Data.Aztecs.Query.Dynamic.Reader (DynamicQueryReader (..))
 import Data.Aztecs.World (World)
 import qualified Data.Aztecs.World as W
 import qualified Data.Aztecs.World.Archetype as A
@@ -68,3 +70,14 @@ allDyn i q v =
       )
       ([], Map.empty)
       (Map.toList $ viewArchetypes v)
+
+-- | Query all matching entities in a `View`.
+readAllDyn :: (Monad m) => i -> DynamicQueryReader m i a -> View -> m [a]
+readAllDyn i q v =
+  foldlM
+    ( \acc n -> do
+        as <- dynQueryReaderAll q (repeat i) (A.entities (nodeArchetype n)) (nodeArchetype n)
+        return $ as ++ acc
+    )
+    []
+    (viewArchetypes v)

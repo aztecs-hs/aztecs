@@ -46,8 +46,11 @@ import Control.Category (Category (..))
 import Control.Concurrent.ParallelIO.Global
 import Data.Aztecs.Access (Access (..))
 import Data.Aztecs.Component (ComponentID)
-import Data.Aztecs.Query (DynamicQuery, DynamicQueryFilter (..), Query (..), QueryFilter (..), ReadsWrites)
+import Data.Aztecs.Query (Query (..), QueryFilter (..), ReadsWrites (..))
 import qualified Data.Aztecs.Query as Q
+import Data.Aztecs.Query.Dynamic (DynamicQuery, DynamicQueryFilter (..))
+import Data.Aztecs.Query.Dynamic.Reader (DynamicQueryReader)
+import Data.Aztecs.Query.Reader (QueryReader (..))
 import Data.Aztecs.View (View)
 import qualified Data.Aztecs.View as V
 import Data.Aztecs.World (World (..))
@@ -62,9 +65,10 @@ import qualified Prelude hiding (filter, map)
 type System i o = SystemT IO i o
 
 -- | System to process entities.
-newtype SystemT m i o = SystemT {
-  -- | Run a system, producing a `DynamicSystem` that can be repeatedly run.
-  runSystemT :: Components -> (DynamicSystemT m i o, ReadsWrites, Components)}
+newtype SystemT m i o = SystemT
+  { -- | Run a system, producing a `DynamicSystem` that can be repeatedly run.
+    runSystemT :: Components -> (DynamicSystemT m i o, ReadsWrites, Components)
+  }
   deriving (Functor)
 
 instance (Monad m) => Category (SystemT m) where
@@ -90,10 +94,10 @@ instance Arrow (SystemT IO) where
         )
 
 -- | Query all matching entities.
-all :: (Monad m) => Query m i a -> SystemT m i [a]
+all :: (Monad m) => QueryReader m i a -> SystemT m i [a]
 all q = SystemT $ \cs ->
-  let !(rws, cs', dynQ) = runQuery q cs
-   in (allDyn (Q.reads rws <> Q.writes rws) dynQ, rws, cs')
+  let !(rs, cs', dynQ) = runQueryReader q cs
+   in (allDyn rs dynQ, (ReadsWrites rs mempty), cs')
 
 -- | Query all matching entities with a `QueryFilter`.
 filter :: (Monad m) => Query m () a -> QueryFilter -> SystemT m () [a]
@@ -107,7 +111,7 @@ filter q qf = SystemT $ \cs ->
 
 -- | Query a single matching entity.
 -- If there are zero or multiple matching entities, an error will be thrown.
-single :: (Monad m) => Query m () a -> SystemT m () a
+single :: (Monad m) => QueryReader m () a -> SystemT m () a
 single q =
   fmap
     ( \as -> case as of
@@ -161,10 +165,11 @@ task f = SystemT $ \cs ->
     cs
   )
 
-newtype DynamicSystemT m i o = DynamicSystemT {
-  -- | Run a dynamic system, 
-  -- producing some output, an updated `View` into the `World`, and any queued `Access`.
-  runSystemTDyn :: World -> (i -> m (o, View, Access m ()))}
+newtype DynamicSystemT m i o = DynamicSystemT
+  { -- | Run a dynamic system,
+    -- producing some output, an updated `View` into the `World`, and any queued `Access`.
+    runSystemTDyn :: World -> (i -> m (o, View, Access m ()))
+  }
   deriving (Functor)
 
 instance (Monad m) => Category (DynamicSystemT m) where
@@ -181,17 +186,17 @@ instance (Monad m) => Arrow (DynamicSystemT m) where
     return ((a, x), v, access)
 
 -- | Query all matching entities.
-allDyn :: (Monad m) => Set ComponentID -> DynamicQuery m i o -> DynamicSystemT m i [o]
+allDyn :: (Monad m) => Set ComponentID -> DynamicQueryReader m i o -> DynamicSystemT m i [o]
 allDyn cIds q = DynamicSystemT $ \w ->
   let !v = V.view cIds $ archetypes w
-   in \i -> fmap (\(a, _) -> (a, mempty, pure ())) (V.allDyn i q v)
+   in \i -> fmap (,mempty,pure ()) (V.readAllDyn i q v)
 
 filterDyn :: (Monad m) => Set ComponentID -> DynamicQuery m i o -> (Node -> Bool) -> DynamicSystemT m i [o]
 filterDyn cIds q f = DynamicSystemT $ \w ->
   let !v = V.filterView cIds f $ archetypes w
    in \i -> fmap (\(a, _) -> (a, mempty, pure ())) (V.allDyn i q v)
 
-singleDyn :: (Monad m) => Set ComponentID -> DynamicQuery m () a -> DynamicSystemT m () a
+singleDyn :: (Monad m) => Set ComponentID -> DynamicQueryReader m () a -> DynamicSystemT m () a
 singleDyn cIds q =
   fmap
     ( \as -> case as of
