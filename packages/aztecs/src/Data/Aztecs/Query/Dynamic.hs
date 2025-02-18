@@ -1,9 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Data.Aztecs.Query.Dynamic
@@ -13,6 +8,7 @@ module Data.Aztecs.Query.Dynamic
     fetchDyn,
     fetchMaybeDyn,
     setDyn,
+
     -- * Dynamic query filters
     DynamicQueryFilter (..),
   )

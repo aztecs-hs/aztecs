@@ -1,11 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
-
 module Data.Aztecs.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..)) where
 
 import Control.Arrow (Arrow (..))
