@@ -4,7 +4,7 @@
 
 module Main where
 
-import Control.Arrow (returnA, (>>>))
+import Control.Arrow ((>>>))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import Data.Aztecs.Asset (load)
@@ -17,38 +17,36 @@ import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (transform)
 import SDL (V2 (..))
 
-setup :: System () ()
-setup =
-  S.mapSingle
-    ( proc () -> do
-        assetServer <- Q.fetch -< ()
-        (texture, assetServer') <- Q.task $ load "assets/C&C Red Alert [INET].ttf" 50 -< assetServer
-        Q.set -< assetServer'
-        returnA -< texture
+setup :: Schedule IO () ()
+setup = proc () -> do
+  assetServer <- schedule $ S.single Q.fetch -< ()
+  (texture, assetServer') <- task $ load "assets/C&C Red Alert [INET].ttf" 48 -< assetServer
+  schedule $ S.mapSingle Q.set -< assetServer'
+  access
+    ( \fontHandle -> do
+        A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
+        A.spawn_ $ bundle Camera {cameraViewport = V2 1000 500, cameraScale = 2} <> bundle transform
+        A.spawn_ $
+          bundle
+            Text
+              { textContent = "Hello, Aztecs!",
+                textFont = fontHandle
+              }
+            <> bundle transform
     )
-    >>> S.queue
-      ( \fontHandle -> do
-          A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
-          A.spawn_ $ bundle Camera {cameraViewport = V2 1000 500, cameraScale = 2} <> bundle transform
-          A.spawn_ $
-            bundle
-              Text
-                { textContent = "Hello, Aztecs!",
-                  textFont = fontHandle
-                }
-              <> bundle transform
-      )
+    -<
+      texture
 
 app :: Schedule IO () ()
 app =
-  schedule SDL.setup
-    >>> schedule Text.setup
-    >>> schedule setup
-    >>> forever
-      ( schedule Text.load
-          >>> schedule SDL.update
-          >>> schedule Text.draw
-          >>> schedule SDL.draw
+  SDL.setup
+    >>> Text.setup
+    >>> setup
+    >>> forever_
+      ( Text.load
+          >>> SDL.update
+          >>> Text.draw
+          >>> SDL.draw
       )
 
 main :: IO ()

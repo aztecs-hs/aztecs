@@ -20,7 +20,7 @@ module Data.Aztecs.SDL.Text
   )
 where
 
-import Control.Arrow (Arrow (..), returnA)
+import Control.Arrow (returnA, (>>>))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import Data.Aztecs.Asset (Asset (..), Handle, lookupAsset)
@@ -59,33 +59,34 @@ drawText content f = do
       }
 
 -- | Setup SDL TrueType-Font (TTF) support.
-setup :: System () ()
-setup = const () <$> (Asset.setup @Font &&& S.task (const F.initialize))
+setup :: Schedule IO () ()
+setup = schedule (Asset.setup @Font) >>> task (const F.initialize)
 
 -- | Load font assets.
-load :: System () ()
+load :: Schedule IO () ()
 load = Asset.loadAssets @Font
 
 -- | Draw text components.
-draw :: System () ()
+draw :: Schedule IO () ()
 draw = proc () -> do
   !texts <-
-    S.all
-      ( proc () -> do
-          e <- Q.entity -< ()
-          t <- Q.fetch -< ()
-          s <- Q.fetchMaybe -< ()
-          returnA -< (e, t, s)
-      )
+    schedule $
+      S.all
+        ( proc () -> do
+            e <- Q.entity -< ()
+            t <- Q.fetch -< ()
+            s <- Q.fetchMaybe -< ()
+            returnA -< (e, t, s)
+        )
       -<
         ()
-  !assetServer <- S.single Q.fetch -< ()
+  !assetServer <- schedule $ S.single Q.fetch -< ()
   let !textFonts =
         mapMaybe
           (\(eId, t, maybeSurface) -> (eId,textContent t,maybeSurface,) <$> lookupAsset (textFont t) assetServer)
           texts
   !draws <-
-    S.task $
+    task $
       mapM
         ( \(eId, content, maybeSurface, font) -> do
             case maybeSurface of
@@ -96,4 +97,4 @@ draw = proc () -> do
         )
       -<
         textFonts
-  S.queue . mapM_ $ uncurry A.insert -< draws
+  access . mapM_ $ uncurry A.insert -< draws
