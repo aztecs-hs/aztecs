@@ -19,7 +19,7 @@ import Data.Aztecs.Query (Query (..), ReadsWrites)
 import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.Query.Reader (QueryFilter (..), filterWith, filterWithout)
 import Data.Aztecs.System.Dynamic.Class (filterMapDyn', mapDyn', queueDyn')
-import Data.Aztecs.System.Reader.Class (ArrowSystemReader)
+import Data.Aztecs.System.Reader.Class (ArrowReaderSystem)
 import Data.Aztecs.View (View)
 import Data.Aztecs.World (World)
 import qualified Data.Aztecs.World.Archetype as A
@@ -28,7 +28,7 @@ import Data.Aztecs.World.Components (Components)
 import qualified Data.Foldable as F
 import Prelude hiding (map)
 
-class (ArrowSystemReader arr) => ArrowSystem arr where
+class (ArrowReaderSystem arr) => ArrowSystem arr where
   -- | Set a `Component` by its type.
   runArrowSystem :: (Components -> (World -> i -> (o, View, Access Identity ()), ReadsWrites, Components)) -> arr i o
 

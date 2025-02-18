@@ -16,7 +16,7 @@ import Control.Monad.Identity (Identity)
 import Data.Aztecs.Access (Access (..))
 import Data.Aztecs.Component (ComponentID)
 import Data.Aztecs.Query.Dynamic (DynamicQuery)
-import Data.Aztecs.System.Dynamic.Reader.Class (ArrowDynamicSystemReader (..))
+import Data.Aztecs.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
 import Data.Aztecs.View (View)
 import qualified Data.Aztecs.View as V
 import Data.Aztecs.World (World (..))
@@ -24,7 +24,7 @@ import Data.Aztecs.World.Archetypes (Node (..))
 import Data.Set (Set)
 import Prelude hiding (all, any, id, lookup, map, mapM, reads, (.))
 
-class (ArrowDynamicSystemReader a) => ArrowDynamicSystem a where
+class (ArrowDynamicReaderSystem a) => ArrowDynamicSystem a where
   runArrowSystemDyn :: (World -> (i -> (o, View, Access Identity ()))) -> a i o
 
 -- | Map all matching entities, storing the updated entities.

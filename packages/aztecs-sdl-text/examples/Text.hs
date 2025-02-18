@@ -19,9 +19,9 @@ import SDL (V2 (..))
 
 setup :: Schedule IO () ()
 setup = proc () -> do
-  assetServer <- schedule $ S.single Q.fetch -< ()
+  assetServer <- reader $ S.single Q.fetch -< ()
   (texture, assetServer') <- task $ load "assets/C&C Red Alert [INET].ttf" 48 -< assetServer
-  schedule $ S.mapSingle Q.set -< assetServer'
+  system $ S.mapSingle Q.set -< assetServer'
   access
     ( \fontHandle -> do
         A.spawn_ $ bundle Window {windowTitle = "Aztecs"}

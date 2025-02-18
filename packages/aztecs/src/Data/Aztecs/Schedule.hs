@@ -4,7 +4,8 @@
 module Data.Aztecs.Schedule
   ( -- * Schedules
     Schedule (..),
-    schedule,
+    reader,
+    system,
     forever,
     forever_,
     access,
@@ -23,6 +24,8 @@ import Control.Monad.Trans (MonadTrans (..))
 import Data.Aztecs.Access (Access (..), runAccess)
 import Data.Aztecs.System (System (..))
 import Data.Aztecs.System.Dynamic (DynamicSystemT (..))
+import Data.Aztecs.System.Dynamic.Reader (DynamicReaderSystem (..))
+import Data.Aztecs.System.Reader (ReaderSystem (..))
 import qualified Data.Aztecs.View as V
 import Data.Aztecs.World (World (..))
 import qualified Data.Aztecs.World as W
@@ -53,8 +56,16 @@ runSchedule s w i = do
 runSchedule_ :: (Monad m) => Schedule m () () -> m ()
 runSchedule_ s = const () <$> runSchedule s (W.empty) ()
 
-schedule :: (Monad m) => System i o -> Schedule m i o
-schedule t = Schedule $ \cs ->
+reader :: (Monad m) => ReaderSystem i o -> Schedule m i o
+reader t = Schedule $ \cs ->
+  let (dynT, _, cs') = runReaderSystem t cs
+      go i = Access $ do
+        w <- get
+        return $ runReaderSystemDyn dynT w i
+   in (go, cs')
+
+system :: (Monad m) => System i o -> Schedule m i o
+system t = Schedule $ \cs ->
   let (dynT, _, cs') = runSystem t cs
       go i = Access $ do
         w <- get

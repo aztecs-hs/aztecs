@@ -60,7 +60,7 @@ drawText content f = do
 
 -- | Setup SDL TrueType-Font (TTF) support.
 setup :: Schedule IO () ()
-setup = schedule (Asset.setup @Font) >>> task (const F.initialize)
+setup = system (Asset.setup @Font) >>> task (const F.initialize)
 
 -- | Load font assets.
 load :: Schedule IO () ()
@@ -70,7 +70,7 @@ load = Asset.loadAssets @Font
 draw :: Schedule IO () ()
 draw = proc () -> do
   !texts <-
-    schedule $
+    reader $
       S.all
         ( proc () -> do
             e <- Q.entity -< ()
@@ -80,7 +80,7 @@ draw = proc () -> do
         )
       -<
         ()
-  !assetServer <- schedule $ S.single Q.fetch -< ()
+  !assetServer <- reader $ S.single Q.fetch -< ()
   let !textFonts =
         mapMaybe
           (\(eId, t, maybeSurface) -> (eId,textContent t,maybeSurface,) <$> lookupAsset (textFont t) assetServer)

@@ -67,7 +67,7 @@ lookupAsset h server = Map.lookup (handleId h) (assetServerAssets server)
 
 loadAssets :: forall a. (Typeable a) => Schedule IO () ()
 loadAssets = proc () -> do
-  server <- schedule $ S.single (Q.fetch @_ @(AssetServer a)) -< ()
+  server <- reader $ S.single (Q.fetch @_ @(AssetServer a)) -< ()
   server' <-
     task
       ( \server ->
@@ -88,7 +88,7 @@ loadAssets = proc () -> do
       )
       -<
         server
-  schedule $ S.mapSingle Q.set -< server'
+  system $ S.mapSingle Q.set -< server'
   returnA -< ()
 
 setup :: forall a. (Typeable a) => System () ()

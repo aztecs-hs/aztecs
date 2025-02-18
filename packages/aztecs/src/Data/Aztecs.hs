@@ -62,7 +62,8 @@ module Data.Aztecs
     without,
     System,
     Schedule,
-    schedule,
+    reader,
+    system,
     forever,
     forever_,
     access,
@@ -77,7 +78,17 @@ import Data.Aztecs.Access (Access, runAccess)
 import Data.Aztecs.Component (Component (..))
 import Data.Aztecs.Entity (EntityID)
 import Data.Aztecs.Query (Query, QueryFilter, with, without)
-import Data.Aztecs.Schedule (Schedule, access, forever, runSchedule, runSchedule_, schedule, task, forever_)
+import Data.Aztecs.Schedule
+  ( Schedule,
+    access,
+    forever,
+    forever_,
+    reader,
+    runSchedule,
+    runSchedule_,
+    system,
+    task,
+  )
 import Data.Aztecs.System (System)
 import Data.Aztecs.World (World)
 import Data.Aztecs.World.Archetype (Bundle, bundle)

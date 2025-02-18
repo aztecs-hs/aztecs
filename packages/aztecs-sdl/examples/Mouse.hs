@@ -16,7 +16,7 @@ setup :: System () ()
 setup = S.queue . const . A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
 
 update :: Schedule IO () ()
-update = schedule (S.all (Q.fetch @_ @MouseInput)) >>> task print
+update = reader (S.all (Q.fetch @_ @MouseInput)) >>> task print
 
 main :: IO ()
-main = runSchedule_ $ SDL.setup >>> schedule setup >>> forever_ (SDL.update >>> update >>> SDL.draw)
+main = runSchedule_ $ SDL.setup >>> system setup >>> forever_ (SDL.update >>> update >>> SDL.draw)

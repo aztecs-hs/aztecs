@@ -29,8 +29,8 @@ import Control.Category (Category (..))
 import Data.Aztecs.Query (ReadsWrites (..))
 import Data.Aztecs.System.Class (ArrowSystem (..), filterMap, map, mapSingle, map_, queue)
 import Data.Aztecs.System.Dynamic (DynamicSystemT (..))
-import Data.Aztecs.System.Dynamic.Reader.Class (ArrowDynamicSystemReader (runArrowSystemReaderDyn))
-import Data.Aztecs.System.Reader.Class (ArrowSystemReader (..), all, filter, single)
+import Data.Aztecs.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (runArrowReaderSystemDyn))
+import Data.Aztecs.System.Reader.Class (ArrowReaderSystem (..), all, filter, single)
 import Data.Aztecs.World.Components (Components)
 import Prelude hiding (all, filter, map, (.))
 import qualified Prelude hiding (filter, map)
@@ -67,9 +67,9 @@ a &&& b = SystemT $ \cs ->
       )
 -}
 
-instance ArrowSystemReader System where
-  runArrowSystemReader f = SystemT $ \cs ->
-    let (g, rs, cs') = f cs in (runArrowSystemReaderDyn g, ReadsWrites rs mempty, cs')
+instance ArrowReaderSystem System where
+  runArrowReaderSystem f = SystemT $ \cs ->
+    let (g, rs, cs') = f cs in (runArrowReaderSystemDyn g, ReadsWrites rs mempty, cs')
 
 instance ArrowSystem System where
   runArrowSystem f = SystemT $ \cs ->

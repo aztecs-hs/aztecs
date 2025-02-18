@@ -15,7 +15,7 @@ import Control.Category (Category (..))
 import Control.Monad.Identity (Identity)
 import Data.Aztecs.Access (Access (..))
 import Data.Aztecs.System.Dynamic.Class (ArrowDynamicSystem (..))
-import Data.Aztecs.System.Dynamic.Reader.Class (ArrowDynamicSystemReader (..))
+import Data.Aztecs.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
 import Data.Aztecs.View (View)
 import Data.Aztecs.World (World (..))
 
@@ -38,8 +38,8 @@ instance Arrow DynamicSystemT where
   first (DynamicSystemT f) = DynamicSystemT $ \w -> \(i, x) ->
     let (a, v, access) = f w i in ((a, x), v, access)
 
-instance ArrowDynamicSystemReader DynamicSystemT where
-  runArrowSystemReaderDyn f = DynamicSystemT $ \w -> \i ->
+instance ArrowDynamicReaderSystem DynamicSystemT where
+  runArrowReaderSystemDyn f = DynamicSystemT $ \w -> \i ->
     let o = f w i in (o, mempty, pure ())
 
 instance ArrowDynamicSystem DynamicSystemT where

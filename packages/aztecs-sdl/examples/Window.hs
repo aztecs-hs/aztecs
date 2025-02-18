@@ -18,5 +18,5 @@ main :: IO ()
 main =
   runSchedule_ $
     SDL.setup
-      >>> schedule setup
+      >>> system setup
       >>> forever_ (SDL.update >>> SDL.draw)

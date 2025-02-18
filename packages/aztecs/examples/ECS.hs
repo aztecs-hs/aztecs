@@ -29,7 +29,7 @@ move =
     )
 
 app :: Schedule IO () ()
-app = schedule setup >>> forever (schedule move) print
+app = system setup >>> forever (system move) print
 
 main :: IO ()
 main = runSchedule_ $ app

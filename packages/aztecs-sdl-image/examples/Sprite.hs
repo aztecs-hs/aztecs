@@ -19,9 +19,9 @@ import SDL (Point (..), Rectangle (..), V2 (..))
 
 setup :: Schedule IO () ()
 setup = proc () -> do
-  assetServer <- schedule $ S.single Q.fetch -< ()
+  assetServer <- reader $ S.single Q.fetch -< ()
   (texture, assetServer') <- task $ load "assets/characters.png" () -< assetServer
-  schedule $ S.mapSingle Q.set -< assetServer'
+  system $ S.mapSingle Q.set -< assetServer'
   access
     ( \texture -> do
         A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
@@ -44,12 +44,12 @@ setup = proc () -> do
 app :: Schedule IO () ()
 app =
   SDL.setup
-    >>> schedule IMG.setup
+    >>> system IMG.setup
     >>> setup
     >>> forever_
       ( IMG.load
           >>> SDL.update
-          >>> schedule IMG.draw
+          >>> system IMG.draw
           >>> SDL.draw
       )
 
