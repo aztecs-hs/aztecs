@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
@@ -91,27 +92,36 @@ instance (Monad m) => Arrow (Query m) where
   arr f = Query $ \cs -> (mempty, cs, arr f)
   first (Query f) = Query $ \comps -> let (cIds, comps', qS) = f comps in (cIds, comps', first qS)
 
--- | Get the currently matched `EntityID`.
-entity :: (Applicative m) => Query m () EntityID
-entity = Query $ \cs -> (mempty, cs, entityDyn)
+class (Arrow arr) => ArrowQueryReader arr where
+  -- | Fetch the currently matched `EntityID`.
+  entity :: arr () EntityID
 
--- | Fetch a `Component` by its type.
-fetch :: forall m a. (Applicative m, Component a) => Query m () (a)
-fetch = Query $ \cs ->
-  let (cId, cs') = CS.insert @a cs
-   in (ReadsWrites (Set.singleton cId) (Set.empty), cs', fetchDyn cId)
+  -- | Fetch a `Component` by its type.
+  fetch :: (Component a) => arr () a
 
--- | Fetch a `Component` by its type, returning `Nothing` if it doesn't exist.
-fetchMaybe :: forall m a. (Applicative m, Component a) => Query m () (Maybe a)
-fetchMaybe = Query $ \cs ->
-  let (cId, cs') = CS.insert @a cs
-   in (ReadsWrites (Set.singleton cId) (Set.empty), cs', fetchMaybeDyn cId)
+  -- | Fetch a `Component` by its type, returning `Nothing` if it doesn't exist.
+  fetchMaybe :: (Component a) => arr () (Maybe a)
 
--- | Set a `Component` by its type.
-set :: forall m a. (Applicative m, Component a) => Query m a a
-set = Query $ \cs ->
-  let (cId, cs') = CS.insert @a cs
-   in (ReadsWrites Set.empty (Set.singleton cId), cs', setDyn cId)
+instance (Monad m) => ArrowQueryReader (Query m) where
+  entity = Query $ \cs -> (mempty, cs, entityDyn)
+  fetch :: forall a. (Component a) => Query m () a
+  fetch = Query $ \cs ->
+    let (cId, cs') = CS.insert @a cs
+     in (ReadsWrites (Set.singleton cId) (Set.empty), cs', fetchDyn cId)
+  fetchMaybe :: forall a. (Component a) => Query m () (Maybe a)
+  fetchMaybe = Query $ \cs ->
+    let (cId, cs') = CS.insert @a cs
+     in (ReadsWrites (Set.singleton cId) (Set.empty), cs', fetchMaybeDyn cId)
+
+class (Arrow arr) => ArrowQueryWriter arr where
+  -- | Set a `Component` by its type.
+  set :: (Component a) => arr a a
+
+instance (Monad m) => ArrowQueryWriter (Query m) where
+  set :: forall a. (Applicative m, Component a) => Query m a a
+  set = Query $ \cs ->
+    let (cId, cs') = CS.insert @a cs
+     in (ReadsWrites Set.empty (Set.singleton cId), cs', setDyn cId)
 
 -- | Run a monadic task in a `Query`.
 task :: (Monad m) => (i -> m o) -> Query m i o
@@ -276,43 +286,40 @@ instance (Monad m) => Arrow (DynamicQuery m) where
             )
       }
 
--- | Fetch the `EntityID` belonging to this entity.
-entityDyn :: (Applicative m) => DynamicQuery m i EntityID
-entityDyn =
-  DynamicQuery
-    { dynQueryAll = \_ es arch -> pure (es, arch),
-      dynQueryLookup = \_ eId arch -> pure $ (Just eId, arch)
-    }
+class (Arrow arr) => ArrowDynamicQueryReader arr where
+  -- | Fetch the `EntityID` belonging to this entity.
+  entityDyn :: arr () EntityID
 
--- | Fetch an `Component` by its `ComponentID`.
-fetchDyn :: forall m a. (Applicative m, Component a) => ComponentID -> DynamicQuery m () a
-fetchDyn cId =
-  DynamicQuery
-    { dynQueryAll = \_ _ arch -> let !as = A.all cId arch in pure (fmap snd as, arch),
-      dynQueryLookup = \_ eId arch -> pure $ (A.lookupComponent eId cId arch, arch)
-    }
+  -- | Fetch a `Component` by its `ComponentID`.
+  fetchDyn :: (Component a) => ComponentID -> arr () a
 
--- | Fetch an `EntityID` and `Component` by its `ComponentID`.
-fetchMaybeDyn ::
-  forall m a.
-  (Applicative m, Component a) =>
-  ComponentID ->
-  DynamicQuery m () (Maybe a)
-fetchMaybeDyn cId =
-  DynamicQuery
-    { dynQueryAll = \_ _ arch -> let as = A.allMaybe cId arch in pure (fmap snd as, arch),
-      dynQueryLookup = \_ eId arch -> pure $ (Just <$> A.lookupComponent eId cId arch, arch)
-    }
+  -- | Try to fetch a `Component` by its `ComponentID`.
+  fetchMaybeDyn :: (Component a) => ComponentID -> arr () (Maybe a)
 
--- | Set a `Component` by its `ComponentID`.
-setDyn ::
-  forall m a.
-  (Applicative m, Component a) =>
-  ComponentID ->
-  DynamicQuery m a a
-setDyn cId =
-  DynamicQuery
-    { dynQueryAll = \is _ arch -> let !arch' = A.withAscList cId is arch in pure (is, arch'),
-      dynQueryLookup =
-        \i eId arch -> pure (A.lookupComponent eId cId arch, A.insertComponent eId cId i arch)
-    }
+instance (Monad m) => ArrowDynamicQueryReader (DynamicQuery m) where
+  entityDyn =
+    DynamicQuery
+      { dynQueryAll = \_ es arch -> pure (es, arch),
+        dynQueryLookup = \_ eId arch -> pure $ (Just eId, arch)
+      }
+  fetchDyn cId =
+    DynamicQuery
+      { dynQueryAll = \_ _ arch -> let !as = A.all cId arch in pure (fmap snd as, arch),
+        dynQueryLookup = \_ eId arch -> pure $ (A.lookupComponent eId cId arch, arch)
+      }
+  fetchMaybeDyn cId =
+    DynamicQuery
+      { dynQueryAll = \_ _ arch -> let as = A.allMaybe cId arch in pure (fmap snd as, arch),
+        dynQueryLookup = \_ eId arch -> pure $ (Just <$> A.lookupComponent eId cId arch, arch)
+      }
+
+class (Arrow arr) => ArrowDynamicQueryWriter arr where
+  setDyn :: (Component a) => ComponentID -> arr a a
+
+instance (Monad m) => ArrowDynamicQueryWriter (DynamicQuery m) where
+  setDyn cId =
+    DynamicQuery
+      { dynQueryAll = \is _ arch -> let !arch' = A.withAscList cId is arch in pure (is, arch'),
+        dynQueryLookup =
+          \i eId arch -> pure (A.lookupComponent eId cId arch, A.insertComponent eId cId i arch)
+      }
