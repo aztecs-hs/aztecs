@@ -31,90 +31,40 @@ instance Monoid DynamicQueryFilter where
   mempty = DynamicQueryFilter mempty mempty
 
 -- | Dynamic query for components by ID.
-data DynamicQueryReader m i o = DynamicQueryReader
-  { dynQueryReaderAll :: !([i] -> [EntityID] -> Archetype -> m [o]),
-    dynQueryReaderLookup :: !(i -> EntityID -> Archetype -> m (Maybe o))
+newtype DynamicQueryReader m i o = DynamicQueryReader
+  { dynQueryReaderAll :: [i] -> [EntityID] -> Archetype -> m [o]
   }
 
 instance (Functor m) => Functor (DynamicQueryReader m i) where
   fmap f q =
-    DynamicQueryReader
-      { dynQueryReaderAll =
-          \i es arch -> fmap (fmap f) $ dynQueryReaderAll q i es arch,
-        dynQueryReaderLookup = \i eId arch -> fmap (fmap f) $ dynQueryReaderLookup q i eId arch
-      }
+    DynamicQueryReader $ \i es arch -> fmap (fmap f) $ dynQueryReaderAll q i es arch
 
 instance (Monad m) => Applicative (DynamicQueryReader m i) where
   pure a =
-    DynamicQueryReader
-      { dynQueryReaderAll = \_ es _ -> pure (take (length es) $ repeat a),
-        dynQueryReaderLookup = \_ _ _ -> pure $ Just a
-      }
+    DynamicQueryReader $ \_ es _ -> pure (take (length es) $ repeat a)
+
   f <*> g =
-    DynamicQueryReader
-      { dynQueryReaderAll = \i es arch -> do
-          as <- dynQueryReaderAll g i es arch
-          fs <- dynQueryReaderAll f i es arch
-          return (zipWith ($) fs as),
-        dynQueryReaderLookup = \i eId arch -> do
-          res <- dynQueryReaderLookup g i eId arch
-          case res of
-            Just a -> do
-              res' <- dynQueryReaderLookup f i eId arch
-              return (fmap ($) res' <*> Just a)
-            Nothing -> pure Nothing
-      }
+    DynamicQueryReader $ \i es arch -> do
+      as <- dynQueryReaderAll g i es arch
+      fs <- dynQueryReaderAll f i es arch
+      return (zipWith ($) fs as)
 
 instance (Monad m) => Category (DynamicQueryReader m) where
-  id =
-    DynamicQueryReader
-      { dynQueryReaderAll = \as _ _ -> pure as,
-        dynQueryReaderLookup = \a _ _ -> pure $ Just a
-      }
-  f . g =
-    DynamicQueryReader
-      { dynQueryReaderAll = \i es arch -> do
-          as <- dynQueryReaderAll g i es arch
-          dynQueryReaderAll f as es arch,
-        dynQueryReaderLookup = \i eId arch -> do
-          res <- dynQueryReaderLookup g i eId arch
-          case res of
-            Just a -> dynQueryReaderLookup f a eId arch
-            Nothing -> pure Nothing
-      }
+  id = DynamicQueryReader $ \as _ _ -> pure as
+  f . g = DynamicQueryReader $ \i es arch -> do
+    as <- dynQueryReaderAll g i es arch
+    dynQueryReaderAll f as es arch
 
 instance (Monad m) => Arrow (DynamicQueryReader m) where
-  arr f =
-    DynamicQueryReader
-      { dynQueryReaderAll = \bs _ _ -> pure $ fmap f bs,
-        dynQueryReaderLookup = \b _ _ -> pure . Just $ f b
-      }
-  first f =
-    DynamicQueryReader
-      { dynQueryReaderAll = \bds es arch -> do
-          let (bs, ds) = unzip bds
-          cs <- dynQueryReaderAll f bs es arch
-          return $ zip cs ds,
-        dynQueryReaderLookup = \(b, d) eId arch -> do
-          res <- dynQueryReaderLookup f b eId arch
-          return $ case res of
-            Just c -> Just (c, d)
-            Nothing -> Nothing
-      }
+  arr f = DynamicQueryReader $ \bs _ _ -> pure $ fmap f bs
+  first f = DynamicQueryReader $ \bds es arch -> do
+    let (bs, ds) = unzip bds
+    cs <- dynQueryReaderAll f bs es arch
+    return $ zip cs ds
 
 instance (Monad m) => ArrowDynamicQueryReader (DynamicQueryReader m) where
-  entityDyn =
-    DynamicQueryReader
-      { dynQueryReaderAll = \_ es _ -> pure es,
-        dynQueryReaderLookup = \_ eId _ -> pure $ Just eId
-      }
+  entityDyn = DynamicQueryReader $ \_ es _ -> pure es
   fetchDyn cId =
-    DynamicQueryReader
-      { dynQueryReaderAll = \_ _ arch -> let !as = A.all cId arch in pure $ fmap snd as,
-        dynQueryReaderLookup = \_ eId arch -> pure $ A.lookupComponent eId cId arch
-      }
+    DynamicQueryReader $ \_ _ arch -> let !as = A.all cId arch in pure $ fmap snd as
   fetchMaybeDyn cId =
-    DynamicQueryReader
-      { dynQueryReaderAll = \_ _ arch -> let as = A.allMaybe cId arch in pure $ fmap snd as,
-        dynQueryReaderLookup = \_ eId arch -> pure $ Just <$> A.lookupComponent eId cId arch
-      }
+    DynamicQueryReader $ \_ _ arch -> let as = A.allMaybe cId arch in pure $ fmap snd as

@@ -100,10 +100,7 @@ task :: (Monad m) => (i -> m o) -> QueryReader m i o
 task f = Query $ \cs ->
   ( mempty,
     cs,
-    DynamicQueryReader
-      { dynQueryReaderAll = \is _ _ -> mapM f is,
-        dynQueryReaderLookup = \i _ _ -> (\a -> Just a) <$> f i
-      }
+    DynamicQueryReader $ \is _ _ -> mapM f is
   )
 
 -- | Query all matching entities.

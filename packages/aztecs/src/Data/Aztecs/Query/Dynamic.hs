@@ -38,101 +38,54 @@ instance Monoid DynamicQueryFilter where
   mempty = DynamicQueryFilter mempty mempty
 
 -- | Dynamic query for components by ID.
-data DynamicQuery m i o = DynamicQuery
-  { dynQueryAll :: !([i] -> [EntityID] -> Archetype -> m ([o], Archetype)),
-    dynQueryLookup :: !(i -> EntityID -> Archetype -> m (Maybe o, Archetype))
+newtype DynamicQuery m i o = DynamicQuery
+  { dynQueryAll :: [i] -> [EntityID] -> Archetype -> m ([o], Archetype)
   }
 
 instance (Functor m) => Functor (DynamicQuery m i) where
   fmap f q =
-    DynamicQuery
-      { dynQueryAll =
-          \i es arch -> fmap (\(a, arch') -> (fmap f a, arch')) $ dynQueryAll q i es arch,
-        dynQueryLookup = \i eId arch -> fmap (first $ fmap f) $ dynQueryLookup q i eId arch
-      }
+    DynamicQuery $ \i es arch -> fmap (\(a, arch') -> (fmap f a, arch')) $ dynQueryAll q i es arch
 
 instance (Monad m) => Applicative (DynamicQuery m i) where
-  pure a =
-    DynamicQuery
-      { dynQueryAll = \_ es arch -> pure (take (length es) $ repeat a, arch),
-        dynQueryLookup = \_ _ arch -> pure (Just a, arch)
-      }
+  pure a = DynamicQuery $ \_ es arch -> pure (take (length es) $ repeat a, arch)
+
   f <*> g =
     DynamicQuery
       { dynQueryAll = \i es arch -> do
           (as, arch') <- dynQueryAll g i es arch
           (fs, arch'') <- dynQueryAll f i es arch'
-          return (zipWith ($) fs as, arch''),
-        dynQueryLookup = \i eId arch -> do
-          (res, arch') <- dynQueryLookup g i eId arch
-          case res of
-            Just a -> do
-              (res', arch'') <- dynQueryLookup f i eId arch'
-              return (fmap ($) res' <*> Just a, arch'')
-            Nothing -> pure (Nothing, arch')
+          return (zipWith ($) fs as, arch'')
       }
 
 instance (Monad m) => Category (DynamicQuery m) where
-  id =
-    DynamicQuery
-      { dynQueryAll = \as _ arch -> pure (as, arch),
-        dynQueryLookup = \a _ arch -> pure (Just a, arch)
-      }
+  id = DynamicQuery $ \as _ arch -> pure (as, arch)
+
   f . g =
     DynamicQuery
       { dynQueryAll = \i es arch -> do
           (as, arch') <- dynQueryAll g i es arch
-          dynQueryAll f as es arch',
-        dynQueryLookup = \i eId arch -> do
-          (res, arch') <- dynQueryLookup g i eId arch
-          case res of
-            Just a -> dynQueryLookup f a eId arch'
-            Nothing -> pure (Nothing, arch')
+          dynQueryAll f as es arch'
       }
 
 instance (Monad m) => Arrow (DynamicQuery m) where
-  arr f =
-    DynamicQuery
-      { dynQueryAll = \bs _ arch -> pure (fmap f bs, arch),
-        dynQueryLookup = \b _ arch -> pure (Just (f b), arch)
-      }
+  arr f = DynamicQuery $ \bs _ arch -> pure (fmap f bs, arch)
   first f =
     DynamicQuery
       { dynQueryAll = \bds es arch -> do
           let (bs, ds) = unzip bds
           (cs, arch') <- dynQueryAll f bs es arch
-          return (zip cs ds, arch'),
-        dynQueryLookup = \(b, d) eId arch -> do
-          (res, arch') <- dynQueryLookup f b eId arch
-          return
-            ( case res of
-                Just c -> Just (c, d)
-                Nothing -> Nothing,
-              arch'
-            )
+          return (zip cs ds, arch')
       }
 
 instance (Monad m) => ArrowDynamicQueryReader (DynamicQuery m) where
-  entityDyn =
-    DynamicQuery
-      { dynQueryAll = \_ es arch -> pure (es, arch),
-        dynQueryLookup = \_ eId arch -> pure $ (Just eId, arch)
-      }
+  entityDyn = DynamicQuery $ \_ es arch -> pure (es, arch)
+
   fetchDyn cId =
-    DynamicQuery
-      { dynQueryAll = \_ _ arch -> let !as = A.all cId arch in pure (fmap snd as, arch),
-        dynQueryLookup = \_ eId arch -> pure $ (A.lookupComponent eId cId arch, arch)
-      }
+    DynamicQuery $ \_ _ arch -> let !as = A.all cId arch in pure (fmap snd as, arch)
+
   fetchMaybeDyn cId =
-    DynamicQuery
-      { dynQueryAll = \_ _ arch -> let as = A.allMaybe cId arch in pure (fmap snd as, arch),
-        dynQueryLookup = \_ eId arch -> pure $ (Just <$> A.lookupComponent eId cId arch, arch)
-      }
+    DynamicQuery $ \_ _ arch -> let as = A.allMaybe cId arch in pure (fmap snd as, arch)
 
 instance (Monad m) => ArrowDynamicQuery (DynamicQuery m) where
   setDyn cId =
-    DynamicQuery
-      { dynQueryAll = \is _ arch -> let !arch' = A.withAscList cId is arch in pure (is, arch'),
-        dynQueryLookup =
-          \i eId arch -> pure (A.lookupComponent eId cId arch, A.insertComponent eId cId i arch)
-      }
+    DynamicQuery $ \is _ arch -> let !arch' = A.withAscList cId is arch in pure (is, arch')

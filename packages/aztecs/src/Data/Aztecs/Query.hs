@@ -109,10 +109,7 @@ task :: (Monad m) => (i -> m o) -> Query m i o
 task f = Query $ \cs ->
   ( mempty,
     cs,
-    DynamicQuery
-      { dynQueryAll = \is _ arch -> (,arch) <$> mapM f is,
-        dynQueryLookup = \i _ arch -> (\a -> (Just a, arch)) <$> f i
-      }
+    DynamicQuery $ \is _ arch -> (,arch) <$> mapM f is
   )
 
 -- | Query all matching entities.
