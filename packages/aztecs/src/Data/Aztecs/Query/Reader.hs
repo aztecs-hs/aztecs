@@ -61,7 +61,7 @@ import Prelude hiding (all, any, id, lookup, map, mapM, reads, (.))
 -- > move :: (Monad m) => Query m () Position
 -- > move = (,) <$> Q.fetch <*> Q.fetch >>> arr (\(Position p, Velocity v) -> Position $ p + v) >>> Q.set
 newtype QueryReader m i o
-  = Query {runQuery :: Components -> (Set ComponentID, Components, DynamicQueryReader m i o)}
+  = Query {runQueryReader :: Components -> (Set ComponentID, Components, DynamicQueryReader m i o)}
 
 instance (Functor m) => Functor (QueryReader m i) where
   fmap f (Query q) = Query $ \cs -> let (cIds, cs', qS) = q cs in (cIds, cs', fmap f qS)
@@ -101,8 +101,8 @@ task f = Query $ \cs ->
   ( mempty,
     cs,
     DynamicQueryReader
-      { dynQueryAll = \is _ _ -> mapM f is,
-        dynQueryLookup = \i _ _ -> (\a -> Just a) <$> f i
+      { dynQueryReaderAll = \is _ _ -> mapM f is,
+        dynQueryReaderLookup = \i _ _ -> (\a -> Just a) <$> f i
       }
   )
 
@@ -121,10 +121,10 @@ task f = Query $ \cs ->
 -- [X 0]
 all :: (Monad m) => QueryReader m () a -> World -> m ([a], World)
 all q w = do
-  let (rs, cs', dynQ) = runQuery q (components w)
+  let (rs, cs', dynQ) = runQueryReader q (components w)
   as <-
     mapM
-      (\n -> dynQueryAll dynQ (repeat ()) (A.entities $ nodeArchetype n) (nodeArchetype n))
+      (\n -> dynQueryReaderAll dynQ (repeat ()) (A.entities $ nodeArchetype n) (nodeArchetype n))
       (Map.elems $ AS.lookup rs (archetypes w))
   return (concat as, w {components = cs'})
 
