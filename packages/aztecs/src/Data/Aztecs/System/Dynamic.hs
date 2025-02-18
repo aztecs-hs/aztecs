@@ -12,7 +12,6 @@ where
 
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
-import Control.Concurrent.ParallelIO.Global
 import Control.Monad.Identity (Identity)
 import Data.Aztecs.Access (Access (..))
 import Data.Aztecs.System.Dynamic.Class (ArrowDynamicSystem (..))

@@ -61,7 +61,6 @@ module Data.Aztecs
     with,
     without,
     System,
-    SystemT,
     Schedule,
     schedule,
     forever,
@@ -76,6 +75,6 @@ import Data.Aztecs.Component (Component (..))
 import Data.Aztecs.Entity (EntityID)
 import Data.Aztecs.Query (Query, QueryFilter, with, without)
 import Data.Aztecs.Schedule (Schedule, forever, runSchedule, runSchedule_, schedule)
-import Data.Aztecs.System (System, SystemT)
+import Data.Aztecs.System (System)
 import Data.Aztecs.World (World)
 import Data.Aztecs.World.Archetype (Bundle, bundle)

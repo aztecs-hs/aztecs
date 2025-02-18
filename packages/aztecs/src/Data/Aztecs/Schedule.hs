@@ -13,11 +13,12 @@ where
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
 import Control.Monad ((>=>))
+import Control.Monad.Identity (Identity)
 import Control.Monad.State (MonadState (..))
 import Control.Monad.Trans (MonadTrans (..))
 import Data.Aztecs.Access (Access (..), runAccess)
-import Data.Aztecs.System ( SystemT (..))
-import Data.Aztecs.System.Dynamic ( DynamicSystemT (..))
+import Data.Aztecs.System (System (..))
+import Data.Aztecs.System.Dynamic (DynamicSystemT (..))
 import qualified Data.Aztecs.View as V
 import Data.Aztecs.World (World (..))
 import qualified Data.Aztecs.World as W
@@ -47,13 +48,13 @@ runSchedule s w i = do
 runSchedule_ :: (Monad m) => Schedule m () () -> m ()
 runSchedule_ s = const () <$> runSchedule s (W.empty) ()
 
-schedule :: (Monad m) => SystemT m i o -> Schedule m i o
+schedule :: System i o -> Schedule Identity i o
 schedule t = Schedule $ \cs ->
-  let (dynT, _, cs') = runSystemT t cs
+  let (dynT, _, cs') = runSystem t cs
       go i = Access $ do
         w <- get
         let f = runSystemTDyn dynT w
-        (o, v, access) <- lift $ f i
+        let (o, v, access) = f i
         ((), w') <- lift Prelude.. runAccess access $ V.unview v w
         put w'
         return o

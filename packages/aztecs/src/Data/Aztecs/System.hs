@@ -6,7 +6,7 @@
 
 module Data.Aztecs.System
   ( -- * Systems
-    System,
+    System(..),
     queue,
 
     -- ** Queries
@@ -38,7 +38,7 @@ import qualified Prelude hiding (filter, map)
 -- | System to process entities.
 newtype System i o = SystemT
   { -- | Run a system, producing a `DynamicSystem` that can be repeatedly run.
-    runSystemT :: Components -> (DynamicSystemT i o, ReadsWrites, Components)
+    runSystem :: Components -> (DynamicSystemT i o, ReadsWrites, Components)
   }
   deriving (Functor)
 

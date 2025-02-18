@@ -59,8 +59,7 @@ library
     build-depends:
         base >=4.6 && <5,
         containers >=0.6,
-        mtl >=2,
-        parallel-io >=0.3.5
+        mtl >=2
 
 executable ecs
     main-is:          ECS.hs
