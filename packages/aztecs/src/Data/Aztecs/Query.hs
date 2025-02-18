@@ -22,13 +22,6 @@ module Data.Aztecs.Query
     without,
     DynamicQueryFilter (..),
 
-    -- * Dynamic queries
-    DynamicQuery (..),
-    entityDyn,
-    fetchDyn,
-    fetchMaybeDyn,
-    setDyn,
-
     -- * Reads and writes
     ReadsWrites (..),
     disjoint,
@@ -39,9 +32,12 @@ import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
 import Control.Monad (mapM)
 import Data.Aztecs.Component
-import Data.Aztecs.Entity (EntityID)
+import Data.Aztecs.Query.Class (ArrowQuery (..))
+import Data.Aztecs.Query.Dynamic (DynamicQuery (..), DynamicQueryFilter (..))
+import Data.Aztecs.Query.Dynamic.Class (ArrowDynamicQuery (..))
+import Data.Aztecs.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
+import Data.Aztecs.Query.Reader.Class (ArrowQueryReader (..))
 import Data.Aztecs.World (World (..))
-import Data.Aztecs.World.Archetype (Archetype)
 import qualified Data.Aztecs.World.Archetype as A
 import Data.Aztecs.World.Archetypes (Node (nodeArchetype))
 import qualified Data.Aztecs.World.Archetypes as AS
@@ -92,16 +88,6 @@ instance (Monad m) => Arrow (Query m) where
   arr f = Query $ \cs -> (mempty, cs, arr f)
   first (Query f) = Query $ \comps -> let (cIds, comps', qS) = f comps in (cIds, comps', first qS)
 
-class (Arrow arr) => ArrowQueryReader arr where
-  -- | Fetch the currently matched `EntityID`.
-  entity :: arr () EntityID
-
-  -- | Fetch a `Component` by its type.
-  fetch :: (Component a) => arr () a
-
-  -- | Fetch a `Component` by its type, returning `Nothing` if it doesn't exist.
-  fetchMaybe :: (Component a) => arr () (Maybe a)
-
 instance (Monad m) => ArrowQueryReader (Query m) where
   entity = Query $ \cs -> (mempty, cs, entityDyn)
   fetch :: forall a. (Component a) => Query m () a
@@ -113,11 +99,7 @@ instance (Monad m) => ArrowQueryReader (Query m) where
     let (cId, cs') = CS.insert @a cs
      in (ReadsWrites (Set.singleton cId) (Set.empty), cs', fetchMaybeDyn cId)
 
-class (Arrow arr) => ArrowQueryWriter arr where
-  -- | Set a `Component` by its type.
-  set :: (Component a) => arr a a
-
-instance (Monad m) => ArrowQueryWriter (Query m) where
+instance (Monad m) => ArrowQuery (Query m) where
   set :: forall a. (Applicative m, Component a) => Query m a a
   set = Query $ \cs ->
     let (cId, cs') = CS.insert @a cs
@@ -198,128 +180,3 @@ with = QueryFilter $ \cs ->
 without :: forall a. (Component a) => QueryFilter
 without = QueryFilter $ \cs ->
   let (cId, cs') = CS.insert @a cs in (mempty {filterWithout = Set.singleton cId}, cs')
-
-data DynamicQueryFilter = DynamicQueryFilter
-  { filterWith :: !(Set ComponentID),
-    filterWithout :: !(Set ComponentID)
-  }
-
-instance Semigroup DynamicQueryFilter where
-  DynamicQueryFilter withA withoutA <> DynamicQueryFilter withB withoutB =
-    DynamicQueryFilter (withA <> withB) (withoutA <> withoutB)
-
-instance Monoid DynamicQueryFilter where
-  mempty = DynamicQueryFilter mempty mempty
-
--- | Dynamic query for components by ID.
-data DynamicQuery m i o = DynamicQuery
-  { dynQueryAll :: !([i] -> [EntityID] -> Archetype -> m ([o], Archetype)),
-    dynQueryLookup :: !(i -> EntityID -> Archetype -> m (Maybe o, Archetype))
-  }
-
-instance (Functor m) => Functor (DynamicQuery m i) where
-  fmap f q =
-    DynamicQuery
-      { dynQueryAll =
-          \i es arch -> fmap (\(a, arch') -> (fmap f a, arch')) $ dynQueryAll q i es arch,
-        dynQueryLookup = \i eId arch -> fmap (first $ fmap f) $ dynQueryLookup q i eId arch
-      }
-
-instance (Monad m) => Applicative (DynamicQuery m i) where
-  pure a =
-    DynamicQuery
-      { dynQueryAll = \_ es arch -> pure (take (length es) $ repeat a, arch),
-        dynQueryLookup = \_ _ arch -> pure (Just a, arch)
-      }
-  f <*> g =
-    DynamicQuery
-      { dynQueryAll = \i es arch -> do
-          (as, arch') <- dynQueryAll g i es arch
-          (fs, arch'') <- dynQueryAll f i es arch'
-          return (zipWith ($) fs as, arch''),
-        dynQueryLookup = \i eId arch -> do
-          (res, arch') <- dynQueryLookup g i eId arch
-          case res of
-            Just a -> do
-              (res', arch'') <- dynQueryLookup f i eId arch'
-              return (fmap ($) res' <*> Just a, arch'')
-            Nothing -> pure (Nothing, arch')
-      }
-
-instance (Monad m) => Category (DynamicQuery m) where
-  id =
-    DynamicQuery
-      { dynQueryAll = \as _ arch -> pure (as, arch),
-        dynQueryLookup = \a _ arch -> pure (Just a, arch)
-      }
-  f . g =
-    DynamicQuery
-      { dynQueryAll = \i es arch -> do
-          (as, arch') <- dynQueryAll g i es arch
-          dynQueryAll f as es arch',
-        dynQueryLookup = \i eId arch -> do
-          (res, arch') <- dynQueryLookup g i eId arch
-          case res of
-            Just a -> dynQueryLookup f a eId arch'
-            Nothing -> pure (Nothing, arch')
-      }
-
-instance (Monad m) => Arrow (DynamicQuery m) where
-  arr f =
-    DynamicQuery
-      { dynQueryAll = \bs _ arch -> pure (fmap f bs, arch),
-        dynQueryLookup = \b _ arch -> pure (Just (f b), arch)
-      }
-  first f =
-    DynamicQuery
-      { dynQueryAll = \bds es arch -> do
-          let (bs, ds) = unzip bds
-          (cs, arch') <- dynQueryAll f bs es arch
-          return (zip cs ds, arch'),
-        dynQueryLookup = \(b, d) eId arch -> do
-          (res, arch') <- dynQueryLookup f b eId arch
-          return
-            ( case res of
-                Just c -> Just (c, d)
-                Nothing -> Nothing,
-              arch'
-            )
-      }
-
-class (Arrow arr) => ArrowDynamicQueryReader arr where
-  -- | Fetch the `EntityID` belonging to this entity.
-  entityDyn :: arr () EntityID
-
-  -- | Fetch a `Component` by its `ComponentID`.
-  fetchDyn :: (Component a) => ComponentID -> arr () a
-
-  -- | Try to fetch a `Component` by its `ComponentID`.
-  fetchMaybeDyn :: (Component a) => ComponentID -> arr () (Maybe a)
-
-instance (Monad m) => ArrowDynamicQueryReader (DynamicQuery m) where
-  entityDyn =
-    DynamicQuery
-      { dynQueryAll = \_ es arch -> pure (es, arch),
-        dynQueryLookup = \_ eId arch -> pure $ (Just eId, arch)
-      }
-  fetchDyn cId =
-    DynamicQuery
-      { dynQueryAll = \_ _ arch -> let !as = A.all cId arch in pure (fmap snd as, arch),
-        dynQueryLookup = \_ eId arch -> pure $ (A.lookupComponent eId cId arch, arch)
-      }
-  fetchMaybeDyn cId =
-    DynamicQuery
-      { dynQueryAll = \_ _ arch -> let as = A.allMaybe cId arch in pure (fmap snd as, arch),
-        dynQueryLookup = \_ eId arch -> pure $ (Just <$> A.lookupComponent eId cId arch, arch)
-      }
-
-class (Arrow arr) => ArrowDynamicQueryWriter arr where
-  setDyn :: (Component a) => ComponentID -> arr a a
-
-instance (Monad m) => ArrowDynamicQueryWriter (DynamicQuery m) where
-  setDyn cId =
-    DynamicQuery
-      { dynQueryAll = \is _ arch -> let !arch' = A.withAscList cId is arch in pure (is, arch'),
-        dynQueryLookup =
-          \i eId arch -> pure (A.lookupComponent eId cId arch, A.insertComponent eId cId i arch)
-      }

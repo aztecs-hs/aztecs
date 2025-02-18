@@ -14,7 +14,7 @@ module Data.Aztecs.View
   )
 where
 
-import Data.Aztecs.Query (DynamicQuery (..))
+import Data.Aztecs.Query.Dynamic (DynamicQuery (..))
 import Data.Aztecs.World (World)
 import qualified Data.Aztecs.World as W
 import qualified Data.Aztecs.World.Archetype as A

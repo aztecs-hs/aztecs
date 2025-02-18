@@ -46,8 +46,9 @@ import Control.Category (Category (..))
 import Control.Concurrent.ParallelIO.Global
 import Data.Aztecs.Access (Access (..))
 import Data.Aztecs.Component (ComponentID)
-import Data.Aztecs.Query (DynamicQuery, DynamicQueryFilter (..), Query (..), QueryFilter (..), ReadsWrites)
+import Data.Aztecs.Query (DynamicQueryFilter (..), Query (..), QueryFilter (..), ReadsWrites)
 import qualified Data.Aztecs.Query as Q
+import Data.Aztecs.Query.Dynamic (DynamicQuery)
 import Data.Aztecs.View (View)
 import qualified Data.Aztecs.View as V
 import Data.Aztecs.World (World (..))
@@ -62,9 +63,10 @@ import qualified Prelude hiding (filter, map)
 type System i o = SystemT IO i o
 
 -- | System to process entities.
-newtype SystemT m i o = SystemT {
-  -- | Run a system, producing a `DynamicSystem` that can be repeatedly run.
-  runSystemT :: Components -> (DynamicSystemT m i o, ReadsWrites, Components)}
+newtype SystemT m i o = SystemT
+  { -- | Run a system, producing a `DynamicSystem` that can be repeatedly run.
+    runSystemT :: Components -> (DynamicSystemT m i o, ReadsWrites, Components)
+  }
   deriving (Functor)
 
 instance (Monad m) => Category (SystemT m) where
@@ -161,10 +163,11 @@ task f = SystemT $ \cs ->
     cs
   )
 
-newtype DynamicSystemT m i o = DynamicSystemT {
-  -- | Run a dynamic system, 
-  -- producing some output, an updated `View` into the `World`, and any queued `Access`.
-  runSystemTDyn :: World -> (i -> m (o, View, Access m ()))}
+newtype DynamicSystemT m i o = DynamicSystemT
+  { -- | Run a dynamic system,
+    -- producing some output, an updated `View` into the `World`, and any queued `Access`.
+    runSystemTDyn :: World -> (i -> m (o, View, Access m ()))
+  }
   deriving (Functor)
 
 instance (Monad m) => Category (DynamicSystemT m) where
