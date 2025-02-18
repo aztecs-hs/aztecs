@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE Arrows #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -7,7 +8,7 @@
 
 module Data.Aztecs.Asset where
 
-import Control.Arrow ((>>>))
+import Control.Arrow (returnA)
 import Control.Concurrent (forkIO)
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
@@ -64,29 +65,31 @@ load path cfg server = do
 lookupAsset :: Handle a -> AssetServer a -> Maybe a
 lookupAsset h server = Map.lookup (handleId h) (assetServerAssets server)
 
-loadAssets :: forall a. (Typeable a) => System () ()
-loadAssets =
-  S.map_
-    ( Q.fetch @_ @(AssetServer a)
-        >>> Q.task
-          ( \server ->
-              foldrM
-                ( \(aId, v) acc -> do
-                    maybeSurface <- readIORef v
-                    case maybeSurface of
-                      Just surface ->
-                        return
-                          acc
-                            { assetServerAssets = Map.insert aId surface (assetServerAssets acc),
-                              loadingAssets = Map.delete aId (loadingAssets acc)
-                            }
-                      Nothing -> return acc
-                )
-                server
-                (Map.toList $ loadingAssets server)
-          )
-        >>> Q.set
-    )
+loadAssets :: forall a. (Typeable a) => Schedule IO () ()
+loadAssets = proc () -> do
+  server <- schedule $ S.single (Q.fetch @_ @(AssetServer a)) -< ()
+  server' <-
+    task
+      ( \server ->
+          foldrM
+            ( \(aId, v) acc -> do
+                maybeSurface <- readIORef v
+                case maybeSurface of
+                  Just surface ->
+                    return
+                      acc
+                        { assetServerAssets = Map.insert aId surface (assetServerAssets acc),
+                          loadingAssets = Map.delete aId (loadingAssets acc)
+                        }
+                  Nothing -> return acc
+            )
+            server
+            (Map.toList $ loadingAssets server)
+      )
+      -<
+        server
+  schedule $ S.mapSingle Q.set -< server'
+  returnA -< ()
 
 setup :: forall a. (Typeable a) => System () ()
-setup = S.queue . const . A.spawn_ @IO . bundle $ empty @a
+setup = S.queue . const . A.spawn_ . bundle $ empty @a

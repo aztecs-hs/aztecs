@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
 
 module Data.Aztecs.Schedule
@@ -5,6 +6,9 @@ module Data.Aztecs.Schedule
     Schedule (..),
     schedule,
     forever,
+    forever_,
+    access,
+    task,
     runSchedule,
     runSchedule_,
   )
@@ -25,6 +29,7 @@ import qualified Data.Aztecs.World as W
 import Data.Aztecs.World.Components (Components)
 
 newtype Schedule m i o = Schedule {runSchedule' :: Components -> (i -> Access m o, Components)}
+  deriving (Functor)
 
 instance (Monad m) => Category (Schedule m) where
   id = Schedule $ \cs -> (return, cs)
@@ -54,11 +59,17 @@ schedule t = Schedule $ \cs ->
       go i = Access $ do
         w <- get
         let f = runSystemTDyn dynT w
-        let (o, v, access) = f i
-        let ((), w') = runIdentity $ runAccess access $ V.unview v w
+        let (o, v, a) = f i
+        let ((), w') = runIdentity $ runAccess a $ V.unview v w
         put w'
         return o
    in (go, cs')
+
+access :: (Monad m) => (i -> Access m o) -> Schedule m i o
+access f = Schedule $ \cs -> (\i -> f i, cs)
+
+task :: (Monad m) => (i -> m o) -> Schedule m i o
+task f = Schedule $ \cs -> (\i -> Access Prelude.. lift $ f i, cs)
 
 forever :: (Monad m) => Schedule m i o -> (o -> m ()) -> Schedule m i ()
 forever s f = Schedule $ \cs ->
@@ -71,3 +82,6 @@ forever s f = Schedule $ \cs ->
               loop wAcc'
         loop w
    in (go, cs')
+
+forever_ :: (Monad m) => Schedule m i o -> Schedule m i ()
+forever_ s = forever s (const $ pure ())
