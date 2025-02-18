@@ -22,18 +22,18 @@ import qualified Data.Foldable as F
 import Data.Set (Set)
 import Prelude hiding (all, any, filter, id, lookup, map, mapM, reads, (.))
 
-class (Monad m, Arrow arr) => ArrowSystemReader m arr where
+class (Arrow arr) => ArrowSystemReader arr where
   -- | Set a `Component` by its type.
-  runArrowSystemReader :: (Components -> ((World -> (i -> m o)), Set ComponentID, Components)) -> arr i o
+  runArrowSystemReader :: (Components -> ((World -> i -> o), Set ComponentID, Components)) -> arr i o
 
 -- | Query all matching entities.
-all :: (ArrowSystemReader m arr) => QueryReader m i a -> arr i [a]
+all :: (ArrowSystemReader arr) => QueryReader i a -> arr i [a]
 all q = runArrowSystemReader $ \cs ->
   let !(rs, cs', dynQ) = runQueryReader q cs
    in (allDyn' rs dynQ, rs, cs')
 
 -- | Query all matching entities with a `QueryFilter`.
-filter :: (ArrowSystemReader m arr) => QueryReader m () a -> QueryFilter -> arr () [a]
+filter :: (ArrowSystemReader arr) => QueryReader () a -> QueryFilter -> arr () [a]
 filter q qf = runArrowSystemReader $ \cs ->
   let !(rs, cs', dynQ) = runQueryReader q cs
       !(dynQf, cs'') = runQueryFilter qf cs'
@@ -44,7 +44,7 @@ filter q qf = runArrowSystemReader $ \cs ->
 
 -- | Query a single matching entity.
 -- If there are zero or multiple matching entities, an error will be thrown.
-single :: (ArrowSystemReader m arr) => QueryReader m () a -> arr () a
+single :: (ArrowSystemReader arr) => QueryReader () a -> arr () a
 single q =
   (all q)
     >>> arr

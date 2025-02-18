@@ -25,51 +25,41 @@ import Data.Aztecs.World.Archetypes (Node)
 import Data.Set (Set)
 import Prelude hiding (all, any, id, lookup, map, mapM, reads, (.))
 
-class (Monad m, Arrow a) => ArrowDynamicSystemReader m a where
-  runArrowSystemReaderDyn :: (World -> (i -> m o)) -> a i o
+class (Arrow a) => ArrowDynamicSystemReader a where
+  runArrowSystemReaderDyn :: (World -> i -> o) -> a i o
 
 allDyn ::
-  (Monad m, ArrowDynamicSystemReader m arr) =>
+  (ArrowDynamicSystemReader arr) =>
   Set ComponentID ->
-  DynamicQueryReader m i o ->
+  DynamicQueryReader i o ->
   arr i [o]
 allDyn cIds q = runArrowSystemReaderDyn $ allDyn' cIds q
 
-allDyn' ::
-  (Monad m) =>
-  Set ComponentID ->
-  DynamicQueryReader m i o ->
-  World ->
-  i ->
-  m [o]
-allDyn' cIds q = \w ->
-  let !v = V.view cIds $ archetypes w
-   in \i -> V.readAllDyn i q v
+allDyn' :: Set ComponentID -> DynamicQueryReader i o -> World -> i -> [o]
+allDyn' cIds q = \w -> let !v = V.view cIds $ archetypes w in \i -> V.readAllDyn i q v
 
 filterDyn ::
-  (Monad m, ArrowDynamicSystemReader m arr) =>
+  (ArrowDynamicSystemReader arr) =>
   Set ComponentID ->
-  DynamicQueryReader m i o ->
+  DynamicQueryReader i o ->
   (Node -> Bool) ->
   arr i [o]
 filterDyn cIds q f = runArrowSystemReaderDyn $ filterDyn' cIds q f
 
 filterDyn' ::
-  (Monad m) =>
   Set ComponentID ->
-  DynamicQueryReader m i o ->
+  DynamicQueryReader i o ->
   (Node -> Bool) ->
   World ->
   i ->
-  m [o]
+  [o]
 filterDyn' cIds q f = \w ->
-  let !v = V.filterView cIds f $ archetypes w
-   in \i -> V.readAllDyn i q v
+  let !v = V.filterView cIds f $ archetypes w in \i -> V.readAllDyn i q v
 
 singleDyn ::
-  (Monad m, ArrowDynamicSystemReader m arr) =>
+  (ArrowDynamicSystemReader arr) =>
   Set ComponentID ->
-  DynamicQueryReader m () a ->
+  DynamicQueryReader () a ->
   arr () a
 singleDyn cIds q =
   (allDyn cIds q)

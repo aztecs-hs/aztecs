@@ -12,6 +12,7 @@ module Data.Aztecs.System.Dynamic.Class
   )
 where
 
+import Control.Monad.Identity (Identity)
 import Data.Aztecs.Access (Access (..))
 import Data.Aztecs.Component (ComponentID)
 import Data.Aztecs.Query.Dynamic (DynamicQuery)
@@ -23,45 +24,43 @@ import Data.Aztecs.World.Archetypes (Node (..))
 import Data.Set (Set)
 import Prelude hiding (all, any, id, lookup, map, mapM, reads, (.))
 
-class (ArrowDynamicSystemReader m a) => ArrowDynamicSystem m a where
-  runArrowSystemDyn :: (World -> (i -> m (o, View, Access m ()))) -> a i o
+class (ArrowDynamicSystemReader a) => ArrowDynamicSystem a where
+  runArrowSystemDyn :: (World -> (i -> (o, View, Access Identity ()))) -> a i o
 
 -- | Map all matching entities, storing the updated entities.
-mapDyn :: (ArrowDynamicSystem m arr) => Set ComponentID -> DynamicQuery m i o -> arr i [o]
+mapDyn :: (ArrowDynamicSystem arr) => Set ComponentID -> DynamicQuery i o -> arr i [o]
 mapDyn cIds q = runArrowSystemDyn $ mapDyn' cIds q
 
 -- | Map all matching entities, storing the updated entities.
 mapDyn' ::
-  (Monad m) =>
   Set ComponentID ->
-  DynamicQuery m i o ->
+  DynamicQuery i o ->
   World ->
-  (i -> m ([o], View, Access m ()))
+  (i -> ([o], View, Access Identity ()))
 mapDyn' cIds q = \w ->
   let !v = V.view cIds $ archetypes w
-   in \i -> fmap (\(a, v') -> (a, v', pure ())) (V.allDyn i q v)
+   in \i -> let (o, v') = V.allDyn i q v in (o, v', pure ())
 
 filterMapDyn ::
-  (ArrowDynamicSystem m arr) =>
+  (ArrowDynamicSystem arr) =>
   Set ComponentID ->
-  DynamicQuery m i o ->
+  DynamicQuery i o ->
   (Node -> Bool) ->
   arr i [o]
 filterMapDyn cIds q f = runArrowSystemDyn $ filterMapDyn' cIds q f
 
 filterMapDyn' ::
-  (Monad m) =>
   Set ComponentID ->
-  DynamicQuery m i o ->
+  DynamicQuery i o ->
   (Node -> Bool) ->
   World ->
-  (i -> m ([o], View, Access m ()))
+  (i -> ([o], View, Access Identity ()))
 filterMapDyn' cIds q f = \w ->
   let !v = V.filterView cIds f $ archetypes w
-   in \i -> fmap (\(a, v') -> (a, v', pure ())) (V.allDyn i q v)
+   in \i -> let (o, v') = V.allDyn i q v in (o, v', pure ())
 
-queueDyn :: (ArrowDynamicSystem m arr) => (i -> Access m ()) -> arr i ()
-queueDyn f = runArrowSystemDyn $ \_ -> \i -> return ((), mempty, f i)
+queueDyn :: (ArrowDynamicSystem arr) => (i -> Access Identity ()) -> arr i ()
+queueDyn f = runArrowSystemDyn $ \_ -> \i -> ((), mempty, f i)
 
-queueDyn' :: (Monad m) => (i -> Access m ()) -> World -> (i -> m ((), View, Access m ()))
-queueDyn' f _ = \i -> return ((), mempty, f i)
+queueDyn' :: (i -> Access Identity ()) -> World -> (i -> ((), View, Access Identity ()))
+queueDyn' f _ = \i -> ((), mempty, f i)
