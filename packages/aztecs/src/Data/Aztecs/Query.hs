@@ -20,7 +20,6 @@ module Data.Aztecs.Query
     QueryFilter (..),
     with,
     without,
-    DynamicQueryFilter (..),
 
     -- * Reads and writes
     ReadsWrites (..),
@@ -33,9 +32,10 @@ import Control.Category (Category (..))
 import Control.Monad (mapM)
 import Data.Aztecs.Component
 import Data.Aztecs.Query.Class (ArrowQuery (..))
-import Data.Aztecs.Query.Dynamic (DynamicQuery (..), DynamicQueryFilter (..))
+import Data.Aztecs.Query.Dynamic (DynamicQuery (..))
 import Data.Aztecs.Query.Dynamic.Class (ArrowDynamicQuery (..))
 import Data.Aztecs.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
+import Data.Aztecs.Query.Reader (QueryFilter (..), with, without)
 import Data.Aztecs.Query.Reader.Class (ArrowQueryReader (..))
 import Data.Aztecs.World (World (..))
 import qualified Data.Aztecs.World.Archetype as A
@@ -155,28 +155,3 @@ disjoint a b =
   Set.disjoint (reads a) (writes b)
     || Set.disjoint (reads b) (writes a)
     || Set.disjoint (writes b) (writes a)
-
--- | Filter for a `Query`.
-newtype QueryFilter = QueryFilter {runQueryFilter :: Components -> (DynamicQueryFilter, Components)}
-
-instance Semigroup QueryFilter where
-  a <> b =
-    QueryFilter
-      ( \cs ->
-          let (withA', cs') = runQueryFilter a cs
-              (withB', cs'') = runQueryFilter b cs'
-           in (withA' <> withB', cs'')
-      )
-
-instance Monoid QueryFilter where
-  mempty = QueryFilter (mempty,)
-
--- | Filter for entities containing this component.
-with :: forall a. (Component a) => QueryFilter
-with = QueryFilter $ \cs ->
-  let (cId, cs') = CS.insert @a cs in (mempty {filterWith = Set.singleton cId}, cs')
-
--- | Filter out entities containing this component.
-without :: forall a. (Component a) => QueryFilter
-without = QueryFilter $ \cs ->
-  let (cId, cs') = CS.insert @a cs in (mempty {filterWithout = Set.singleton cId}, cs')

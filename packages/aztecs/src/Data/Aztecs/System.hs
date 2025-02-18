@@ -46,9 +46,9 @@ import Control.Category (Category (..))
 import Control.Concurrent.ParallelIO.Global
 import Data.Aztecs.Access (Access (..))
 import Data.Aztecs.Component (ComponentID)
-import Data.Aztecs.Query (DynamicQueryFilter (..), Query (..), QueryFilter (..), ReadsWrites)
+import Data.Aztecs.Query (Query (..), QueryFilter (..), ReadsWrites)
 import qualified Data.Aztecs.Query as Q
-import Data.Aztecs.Query.Dynamic (DynamicQuery)
+import Data.Aztecs.Query.Dynamic (DynamicQuery, DynamicQueryFilter (..))
 import Data.Aztecs.View (View)
 import qualified Data.Aztecs.View as V
 import Data.Aztecs.World (World (..))

@@ -1,7 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Data.Aztecs.Query
+module Data.Aztecs.Query.Dynamic.Reader
   ( -- * Dynamic queries
     DynamicQueryReader (..),
     DynamicQueryFilter (..),
