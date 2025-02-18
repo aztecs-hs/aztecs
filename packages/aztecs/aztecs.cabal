@@ -41,6 +41,13 @@ library
         Data.Aztecs.Schedule
         Data.Aztecs.Storage
         Data.Aztecs.System
+        Data.Aztecs.System.Class
+        Data.Aztecs.System.Dynamic
+        Data.Aztecs.System.Dynamic.Class
+        Data.Aztecs.System.Dynamic.Reader
+        Data.Aztecs.System.Dynamic.Reader.Class
+        Data.Aztecs.System.Reader
+        Data.Aztecs.System.Reader.Class
         Data.Aztecs.View
         Data.Aztecs.World
         Data.Aztecs.World.Archetype
@@ -52,8 +59,7 @@ library
     build-depends:
         base >=4.6 && <5,
         containers >=0.6,
-        mtl >=2,
-        parallel-io >=0.3.5
+        mtl >=2
 
 executable ecs
     main-is:          ECS.hs

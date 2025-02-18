@@ -52,7 +52,7 @@ import Data.Foldable (foldl')
 setup :: System () ()
 setup = Asset.setup @Texture
 
-load :: System () ()
+load :: Schedule IO () ()
 load = Asset.loadAssets @Texture
 
 draw :: System () ()
@@ -146,7 +146,7 @@ spriteAnimationGrid (V2 w h) tiles =
     }
 
 -- | Query to animate sprites based on the inputted `Time`.
-animateSpritesQuery :: (Monad m) => Query m Time SpriteAnimation
+animateSpritesQuery :: Query Time SpriteAnimation
 animateSpritesQuery = proc currentTime -> do
   sprite <- Q.fetch @_ @Sprite -< ()
   animation <- Q.fetch @_ @SpriteAnimation -< ()

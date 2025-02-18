@@ -31,39 +31,36 @@ instance Monoid DynamicQueryFilter where
   mempty = DynamicQueryFilter mempty mempty
 
 -- | Dynamic query for components by ID.
-newtype DynamicQueryReader m i o
-  = DynamicQueryReader {dynQueryReaderAll :: [i] -> [EntityID] -> Archetype -> m [o]}
+newtype DynamicQueryReader i o
+  = DynamicQueryReader {dynQueryReaderAll :: [i] -> [EntityID] -> Archetype -> [o]}
 
-instance (Functor m) => Functor (DynamicQueryReader m i) where
-  fmap f q =
-    DynamicQueryReader $ \i es arch -> fmap (fmap f) $ dynQueryReaderAll q i es arch
+instance Functor (DynamicQueryReader i) where
+  fmap f q = DynamicQueryReader $ \i es arch -> f <$> dynQueryReaderAll q i es arch
 
-instance (Monad m) => Applicative (DynamicQueryReader m i) where
-  pure a =
-    DynamicQueryReader $ \_ es _ -> pure (take (length es) $ repeat a)
+instance Applicative (DynamicQueryReader i) where
+  pure a = DynamicQueryReader $ \_ es _ -> (take (length es) $ repeat a)
 
   f <*> g =
-    DynamicQueryReader $ \i es arch -> do
-      as <- dynQueryReaderAll g i es arch
-      fs <- dynQueryReaderAll f i es arch
-      return (zipWith ($) fs as)
+    DynamicQueryReader $ \i es arch ->
+      let as = dynQueryReaderAll g i es arch
+          fs = dynQueryReaderAll f i es arch
+       in zipWith ($) fs as
 
-instance (Monad m) => Category (DynamicQueryReader m) where
-  id = DynamicQueryReader $ \as _ _ -> pure as
-  f . g = DynamicQueryReader $ \i es arch -> do
-    as <- dynQueryReaderAll g i es arch
-    dynQueryReaderAll f as es arch
+instance Category (DynamicQueryReader) where
+  id = DynamicQueryReader $ \as _ _ -> as
+  f . g = DynamicQueryReader $ \i es arch ->
+    let as = dynQueryReaderAll g i es arch in dynQueryReaderAll f as es arch
 
-instance (Monad m) => Arrow (DynamicQueryReader m) where
-  arr f = DynamicQueryReader $ \bs _ _ -> pure $ fmap f bs
-  first f = DynamicQueryReader $ \bds es arch -> do
+instance Arrow DynamicQueryReader where
+  arr f = DynamicQueryReader $ \bs _ _ -> fmap f bs
+  first f = DynamicQueryReader $ \bds es arch ->
     let (bs, ds) = unzip bds
-    cs <- dynQueryReaderAll f bs es arch
-    return $ zip cs ds
+        cs = dynQueryReaderAll f bs es arch
+     in zip cs ds
 
-instance (Monad m) => ArrowDynamicQueryReader (DynamicQueryReader m) where
-  entityDyn = DynamicQueryReader $ \_ es _ -> pure es
+instance ArrowDynamicQueryReader DynamicQueryReader where
+  entityDyn = DynamicQueryReader $ \_ es _ -> es
   fetchDyn cId =
-    DynamicQueryReader $ \_ _ arch -> let !as = A.all cId arch in pure $ fmap snd as
+    DynamicQueryReader $ \_ _ arch -> let !as = A.all cId arch in fmap snd as
   fetchMaybeDyn cId =
-    DynamicQueryReader $ \_ _ arch -> let as = A.allMaybe cId arch in pure $ fmap snd as
+    DynamicQueryReader $ \_ _ arch -> let as = A.allMaybe cId arch in fmap snd as

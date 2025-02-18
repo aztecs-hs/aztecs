@@ -118,40 +118,38 @@ newtype CameraTarget = CameraTarget
 instance Component CameraTarget
 
 -- | Setup SDL
-setup :: System () ()
+setup :: Schedule IO () ()
 setup =
   fmap (const ()) $
-    S.task (const initializeAll)
-      &&& S.queue
-        ( const $ do
-            A.spawn_ . bundle $ Time 0
-            A.spawn_ . bundle $ KeyboardInput mempty mempty
-            A.spawn_ . bundle $ MouseInput (P $ V2 0 0) (V2 0 0) mempty
+    task (const initializeAll)
+      &&& schedule
+        ( S.queue
+            ( const $ do
+                A.spawn_ . bundle $ Time 0
+                A.spawn_ . bundle $ KeyboardInput mempty mempty
+                A.spawn_ . bundle $ MouseInput (P $ V2 0 0) (V2 0 0) mempty
+            )
         )
 
 -- | Update SDL windows
-update :: System () ()
+update :: Schedule IO () ()
 update =
-  const ()
-    <$> ( updateTime
-            &&& ( addWindows
-                    >>> addCameraTargets
-                    >>> addSurfaceTargets
-                    >>> handleInput
-                    >>> buildTextures
-                )
-        )
+  updateTime
+    >>> addWindows
+    >>> schedule (addCameraTargets >>> addSurfaceTargets)
+    >>> buildTextures
+    >>> handleInput
 
 -- | Draw to SDL windows and clear input events.
-draw :: System () ()
-draw = const () <$> (drawTextures &&& clearInput)
+draw :: Schedule IO () ()
+draw = drawTextures >>> schedule clearInput
 
 -- | Setup new windows.
-addWindows :: System () ()
+addWindows :: Schedule IO () ()
 addWindows = proc () -> do
-  newWindows <- S.filter (Q.entity &&& Q.fetch @_ @Window) (without @WindowRenderer) -< ()
-  newWindows' <- S.task $ mapM createWindowRenderer -< newWindows
-  S.queue $ mapM_ insertWindowRenderer -< newWindows'
+  newWindows <- schedule $ S.filter (Q.entity &&& Q.fetch @_ @Window) (without @WindowRenderer) -< ()
+  newWindows' <- task $ mapM createWindowRenderer -< newWindows
+  schedule $ S.queue $ mapM_ insertWindowRenderer -< newWindows'
   where
     createWindowRenderer (eId, window) = do
       sdlWindow <- createWindow (T.pack $ windowTitle window) defaultWindow
@@ -168,7 +166,7 @@ newtype SurfaceTexture = SurfaceTexture
 instance Component SurfaceTexture
 
 -- | Build textures from surfaces in preparation for `drawTextures`.
-buildTextures :: System () ()
+buildTextures :: Schedule IO () ()
 buildTextures =
   let go windowDraws =
         mapM_
@@ -199,18 +197,19 @@ buildTextures =
           )
           windowDraws
    in proc () -> do
-        cameras <- S.all $ Q.entity &&& Q.fetch -< ()
-        windows <- S.all $ Q.entity &&& Q.fetch -< ()
+        cameras <- schedule $ S.all $ Q.entity &&& Q.fetch -< ()
+        windows <- schedule $ S.all $ Q.entity &&& Q.fetch -< ()
         draws <-
-          S.all
-            ( proc () -> do
-                eId <- Q.entity -< ()
-                d <- Q.fetch @_ @Surface -< ()
-                transform <- Q.fetch @_ @Transform -< ()
-                target <- Q.fetch @_ @SurfaceTarget -< ()
-                maybeTexture <- Q.fetchMaybe @_ @SurfaceTexture -< ()
-                returnA -< (eId, d, transform, target, maybeTexture)
-            )
+          schedule $
+            S.all
+              ( proc () -> do
+                  eId <- Q.entity -< ()
+                  d <- Q.fetch @_ @Surface -< ()
+                  transform <- Q.fetch @_ @Transform -< ()
+                  target <- Q.fetch @_ @SurfaceTarget -< ()
+                  maybeTexture <- Q.fetchMaybe @_ @SurfaceTexture -< ()
+                  returnA -< (eId, d, transform, target, maybeTexture)
+              )
             -<
               ()
         let cameraDraws =
@@ -235,9 +234,9 @@ buildTextures =
                     )
                 )
                 windows
-        S.queue go -< windowDraws
+        access go -< windowDraws
 
-drawTextures :: System () ()
+drawTextures :: Schedule IO () ()
 drawTextures =
   let go windowDraws =
         mapM_
@@ -282,26 +281,28 @@ drawTextures =
           windowDraws
    in proc () -> do
         cameras <-
-          S.all
-            ( proc () -> do
-                eId <- Q.entity -< ()
-                camera <- Q.fetch @_ @Camera -< ()
-                cameraTarget <- Q.fetch @_ @CameraTarget -< ()
-                t <- Q.fetch @_ @Transform -< ()
-                returnA -< (eId, camera, cameraTarget, t)
-            )
+          schedule $
+            S.all
+              ( proc () -> do
+                  eId <- Q.entity -< ()
+                  camera <- Q.fetch @_ @Camera -< ()
+                  cameraTarget <- Q.fetch @_ @CameraTarget -< ()
+                  t <- Q.fetch @_ @Transform -< ()
+                  returnA -< (eId, camera, cameraTarget, t)
+              )
             -<
               ()
-        windows <- S.all (Q.entity &&& Q.fetch @_ @WindowRenderer) -< ()
+        windows <- schedule $ S.all (Q.entity &&& Q.fetch @_ @WindowRenderer) -< ()
         draws <-
-          S.all
-            ( proc () -> do
-                d <- Q.fetch @_ @Surface -< ()
-                transform <- Q.fetch @_ @Transform -< ()
-                target <- Q.fetch @_ @SurfaceTarget -< ()
-                texture <- Q.fetch @_ @SurfaceTexture -< ()
-                returnA -< (d, transform, target, texture)
-            )
+          schedule $
+            S.all
+              ( proc () -> do
+                  d <- Q.fetch @_ @Surface -< ()
+                  transform <- Q.fetch @_ @Transform -< ()
+                  target <- Q.fetch @_ @SurfaceTarget -< ()
+                  texture <- Q.fetch @_ @SurfaceTexture -< ()
+                  returnA -< (d, transform, target, texture)
+              )
             -<
               ()
         let cameraDraws =
@@ -328,7 +329,7 @@ drawTextures =
                     )
                 )
                 windows
-        S.task go -< windowDraws
+        task go -< windowDraws
 
 -- | Surface target component.
 -- This component can be used to specify which `Camera` to draw a `Surface` to.
@@ -377,10 +378,10 @@ newtype Time = Time {elapsedMS :: Word32}
 
 instance Component Time
 
-updateTime :: System () ()
+updateTime :: Schedule IO () ()
 updateTime = proc () -> do
-  t <- S.task (const SDL.ticks) -< ()
-  S.mapSingle Q.set -< Time t
+  t <- task (const SDL.ticks) -< ()
+  schedule $ S.mapSingle Q.set -< Time t
   returnA -< ()
 
 -- | Keyboard input component.
@@ -427,10 +428,12 @@ data MouseInput = MouseInput
 
 instance Component MouseInput
 
+handleInput :: Schedule IO () ()
+handleInput = task (const pollEvents) >>> schedule handleInput'
+
 -- | Keyboard input system.
-handleInput :: System () ()
-handleInput = proc () -> do
-  events <- S.task $ const SDL.pollEvents -< ()
+handleInput' :: System [Event] ()
+handleInput' = proc events -> do
   kb <- S.single Q.fetch -< ()
   mouseInput <- S.single Q.fetch -< ()
   let go (kbAcc, mouseAcc) event = case eventPayload event of
@@ -479,7 +482,7 @@ handleInput = proc () -> do
   S.mapSingle Q.set -< mouseInput'
   returnA -< ()
 
-clearInput :: SystemT IO () ()
+clearInput :: System () ()
 clearInput = const () <$> (clearKeyboard &&& clearMouseInput)
 
 clearKeyboardQuery :: (ArrowQuery arr) => arr () KeyboardInput

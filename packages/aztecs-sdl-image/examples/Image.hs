@@ -17,16 +17,12 @@ import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Transform (..), transform)
 import SDL (V2 (..))
 
-setup :: System () ()
-setup =
-  S.mapSingle
-    ( proc () -> do
-        assetServer <- Q.fetch -< ()
-        (texture, assetServer') <- Q.task $ load "assets/example.png" () -< assetServer
-        Q.set -< assetServer'
-        returnA -< texture
-    )
-    >>> S.queue
+setup :: Schedule IO () ()
+setup = proc () -> do
+  assetServer <- schedule $ S.single Q.fetch -< ()
+  (texture, assetServer') <- task $ load "assets/example.png" () -< assetServer
+  schedule $ S.mapSingle Q.set -< assetServer'
+  access
       ( \texture -> do
           A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
           A.spawn_ $
@@ -35,18 +31,18 @@ setup =
           A.spawn_ $
             bundle Image {imageTexture = texture, imageSize = V2 100 100}
               <> bundle transform {transformPosition = V2 10 10}
-      )
+      ) -< texture
 
 app :: Schedule IO () ()
 app =
-  schedule SDL.setup
+  SDL.setup
     >>> schedule IMG.setup
-    >>> schedule setup
-    >>> forever
-      ( schedule IMG.load
-          >>> schedule SDL.update
+    >>> setup
+    >>> forever_
+      ( IMG.load
+          >>> SDL.update
           >>> schedule IMG.draw
-          >>> schedule SDL.draw
+          >>> SDL.draw
       )
 
 main :: IO ()

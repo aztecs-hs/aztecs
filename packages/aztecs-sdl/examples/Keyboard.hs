@@ -19,8 +19,4 @@ update :: System () ()
 update = S.all (Q.fetch @_ @KeyboardInput) >>> S.task print
 
 main :: IO ()
-main =
-  runSchedule_ $
-    schedule SDL.setup
-      >>> schedule setup
-      >>> forever (schedule SDL.update >>> schedule update >>> schedule SDL.draw)
+main = runSchedule_ $ SDL.setup >>> schedule setup >>> forever_ (SDL.update >>> update >>> SDL.draw)
