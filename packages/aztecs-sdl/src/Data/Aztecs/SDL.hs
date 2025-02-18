@@ -59,6 +59,7 @@ where
 import Control.Arrow (Arrow (..), returnA, (>>>))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
+import Data.Aztecs.Query (ArrowQuery)
 import qualified Data.Aztecs.Query as Q
 import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Size (..), Transform (..))
@@ -481,7 +482,7 @@ handleInput = proc () -> do
 clearInput :: SystemT IO () ()
 clearInput = const () <$> (clearKeyboard &&& clearMouseInput)
 
-clearKeyboardQuery :: (Monad m) => Query m () KeyboardInput
+clearKeyboardQuery :: (ArrowQuery arr) => arr () KeyboardInput
 clearKeyboardQuery = proc () -> do
   kb <- Q.fetch -< ()
   Q.set -< kb {keyboardEvents = mempty}
@@ -489,7 +490,7 @@ clearKeyboardQuery = proc () -> do
 clearKeyboard :: System () ()
 clearKeyboard = const () <$> S.mapSingle clearKeyboardQuery
 
-clearMouseInputQuery :: (Monad m) => Query m () MouseInput
+clearMouseInputQuery :: (ArrowQuery arr) => arr () MouseInput
 clearMouseInputQuery = proc () -> do
   mouseInput <- Q.fetch -< ()
   Q.set -< mouseInput {mouseButtons = mempty, mouseOffset = V2 0 0}

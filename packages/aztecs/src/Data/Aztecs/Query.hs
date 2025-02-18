@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -9,11 +8,11 @@
 module Data.Aztecs.Query
   ( -- * Queries
     Query (..),
-    entity,
-    fetch,
-    fetchMaybe,
-    set,
     task,
+    ArrowQuery (..),
+    ArrowQueryReader (..),
+
+    -- ** Running queries
     all,
 
     -- * Filters
