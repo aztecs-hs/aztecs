@@ -45,7 +45,6 @@ module Aztecs.SDL
     -- ** Primitive systems
     addWindows,
     buildTextures,
-    drawTextures,
     addCameraTargets,
     addSurfaceTargets,
     handleInput,
@@ -65,7 +64,6 @@ import Aztecs.Input
     KeyboardInput (..),
     MouseButton (..),
     MouseInput (..),
-    clearInput,
     handleKeyboardEvent,
   )
 import Aztecs.Transform (Size (..), Transform (..))
@@ -144,10 +142,6 @@ update =
     >>> buildTextures
     >>> handleInput
 
--- | Draw to SDL windows and clear input events.
-draw :: Schedule IO () ()
-draw = drawTextures >>> system clearInput
-
 -- | Setup new windows.
 addWindows :: Schedule IO () ()
 addWindows = proc () -> do
@@ -213,8 +207,8 @@ buildTextures =
           windowDraws
    in reader allWindowTextures >>> access go
 
-drawTextures :: Schedule IO () ()
-drawTextures =
+draw :: Schedule IO () ()
+draw =
   let go windowDraws =
         mapM_
           ( \(window, cameraDraws) -> do
@@ -412,7 +406,7 @@ handleInput' = proc events -> do
               }
           )
         _ -> (kbAcc, mouseAcc)
-      (kb', mouseInput') = foldl' go (kb, mouseInput) events
+      (kb', mouseInput') = foldl' go (kb {keyboardEvents = mempty}, mouseInput) events
   S.mapSingle Q.set -< kb'
   S.mapSingle Q.set -< mouseInput'
   returnA -< ()

@@ -4,26 +4,19 @@ module Aztecs.Input
   ( Key (..),
     InputMotion (..),
     KeyboardInput (..),
+    keyboardInput,
     isKeyPressed,
     wasKeyPressed,
     wasKeyReleased,
     handleKeyboardEvent,
     MouseButton (..),
     MouseInput (..),
+    mouseInput,
     handleMouseMotion,
-    clearInput,
-    clearKeyboard,
-    clearKeyboardQuery,
-    clearMouseInput,
-    clearMouseInputQuery,
   )
 where
 
 import Aztecs.ECS
-import Aztecs.ECS.Query (ArrowQuery)
-import qualified Aztecs.ECS.Query as Q
-import qualified Aztecs.ECS.System as S
-import Control.Arrow ((&&&))
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
@@ -140,6 +133,9 @@ data KeyboardInput = KeyboardInput
 
 instance Component KeyboardInput
 
+keyboardInput :: KeyboardInput
+keyboardInput = KeyboardInput Map.empty Set.empty
+
 data InputMotion = Pressed | Released
   deriving (Show, Eq)
 
@@ -195,28 +191,12 @@ data MouseInput = MouseInput
 
 instance Component MouseInput
 
+mouseInput :: MouseInput
+mouseInput = MouseInput (P 0) (V2 0 0) Map.empty
+
 handleMouseMotion :: V2 Int -> MouseInput -> MouseInput
 handleMouseMotion delta mouse =
   mouse
     { mouseOffset = delta,
       mousePosition = mousePosition mouse + P delta
     }
-
-clearInput :: System () ()
-clearInput = const () <$> (clearKeyboard &&& clearMouseInput)
-
-clearKeyboardQuery :: (ArrowQuery arr) => arr () KeyboardInput
-clearKeyboardQuery = proc () -> do
-  kb <- Q.fetch -< ()
-  Q.set -< kb {keyboardEvents = mempty}
-
-clearKeyboard :: System () ()
-clearKeyboard = const () <$> S.mapSingle clearKeyboardQuery
-
-clearMouseInputQuery :: (ArrowQuery arr) => arr () MouseInput
-clearMouseInputQuery = proc () -> do
-  mouseInput <- Q.fetch -< ()
-  Q.set -< mouseInput {mouseButtons = mempty, mouseOffset = V2 0 0}
-
-clearMouseInput :: System () ()
-clearMouseInput = const () <$> S.mapSingle clearMouseInputQuery
