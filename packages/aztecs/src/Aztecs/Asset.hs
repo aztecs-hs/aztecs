@@ -8,12 +8,12 @@
 
 module Aztecs.Asset where
 
-import Control.Arrow (returnA)
-import Control.Concurrent (forkIO)
 import Aztecs
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
+import Control.Arrow (returnA)
+import Control.Concurrent (forkIO)
 import Data.Data (Typeable)
 import Data.Foldable (foldrM)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)

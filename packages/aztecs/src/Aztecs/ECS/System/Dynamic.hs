@@ -4,14 +4,14 @@
 
 module Aztecs.ECS.System.Dynamic (DynamicSystem (..), raceDyn) where
 
-import Control.Arrow (Arrow (..))
-import Control.Category (Category (..))
-import Control.Parallel (par)
 import Aztecs.ECS.Access (Access)
 import Aztecs.ECS.System.Dynamic.Class (ArrowDynamicSystem (..))
 import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
 import Aztecs.ECS.View (View)
 import Aztecs.ECS.World (World (..))
+import Control.Arrow (Arrow (..))
+import Control.Category (Category (..))
+import Control.Parallel (par)
 
 newtype DynamicSystem i o = DynamicSystem
   { -- | Run a dynamic system,

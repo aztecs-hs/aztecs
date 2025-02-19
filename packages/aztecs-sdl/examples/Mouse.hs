@@ -3,13 +3,13 @@
 
 module Main where
 
-import Control.Arrow ((>>>))
 import Aztecs
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import Aztecs.ECS.SDL (MouseInput, Window (..))
 import qualified Aztecs.ECS.SDL as SDL
 import qualified Aztecs.ECS.System as S
+import Control.Arrow ((>>>))
 
 setup :: System () ()
 setup = S.queue . const . A.spawn_ $ bundle Window {windowTitle = "Aztecs"}

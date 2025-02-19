@@ -3,17 +3,17 @@
 
 module Main where
 
-import Control.Arrow (returnA, (>>>))
 import Aztecs
+import Aztecs.Asset (load)
 import qualified Aztecs.ECS.Access as A
-import Aztecs.ECS.Asset (load)
 import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.SDL (Camera (..), Window (..))
-import qualified Aztecs.ECS.SDL as SDL
-import Aztecs.ECS.SDL.Image (Sprite (..), spriteAnimationGrid)
-import qualified Aztecs.ECS.SDL.Image as IMG
 import qualified Aztecs.ECS.System as S
-import Aztecs.ECS.Transform (Transform (..), transform)
+import Aztecs.SDL (Camera (..), Window (..))
+import qualified Aztecs.SDL as SDL
+import Aztecs.SDL.Image (Sprite (..), spriteAnimationGrid)
+import qualified Aztecs.SDL.Image as IMG
+import Aztecs.Transform (Transform (..), transform)
+import Control.Arrow (returnA, (>>>))
 import SDL (Point (..), Rectangle (..), V2 (..))
 
 setup :: Schedule IO () ()

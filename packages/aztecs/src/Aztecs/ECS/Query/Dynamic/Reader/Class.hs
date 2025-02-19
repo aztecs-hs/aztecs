@@ -1,8 +1,8 @@
 module Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..)) where
 
-import Control.Arrow (Arrow (..), (>>>))
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity (EntityID)
+import Control.Arrow (Arrow (..), (>>>))
 
 class (Arrow arr) => ArrowDynamicQueryReader arr where
   -- | Fetch the `EntityID` belonging to this entity.

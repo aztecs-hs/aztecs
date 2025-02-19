@@ -19,8 +19,6 @@ module Aztecs.ECS.Query.Reader
   )
 where
 
-import Control.Arrow (Arrow (..))
-import Control.Category (Category (..))
 import Aztecs.ECS.Component
 import Aztecs.ECS.Query.Dynamic (DynamicQueryFilter (..))
 import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..))
@@ -28,6 +26,8 @@ import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Aztecs.ECS.Query.Reader.Class (ArrowQueryReader (..))
 import Aztecs.ECS.World.Components (Components)
 import qualified Aztecs.ECS.World.Components as CS
+import Control.Arrow (Arrow (..))
+import Control.Category (Category (..))
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Prelude hiding (id, (.))

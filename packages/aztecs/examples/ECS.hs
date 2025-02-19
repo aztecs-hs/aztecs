@@ -2,11 +2,11 @@
 
 module Main where
 
-import Control.Arrow ((>>>))
 import Aztecs
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
+import Control.Arrow ((>>>))
 
 newtype Position = Position Int deriving (Show)
 

@@ -1,11 +1,11 @@
 {-# LANGUAGE Arrows #-}
 {-# LANGUAGE BangPatterns #-}
 
-import Criterion.Main
 import Aztecs
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
 import qualified Aztecs.ECS.World as W
+import Criterion.Main
 
 newtype Position = Position Int deriving (Show)
 

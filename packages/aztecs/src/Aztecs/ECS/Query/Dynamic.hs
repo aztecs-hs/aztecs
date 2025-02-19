@@ -12,14 +12,14 @@ module Aztecs.ECS.Query.Dynamic
   )
 where
 
-import Control.Arrow (Arrow (..))
-import Control.Category (Category (..))
 import Aztecs.ECS.Entity (EntityID)
 import Aztecs.ECS.Query.Dynamic.Class (ArrowDynamicQuery (..))
 import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryFilter (..))
 import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Aztecs.ECS.World.Archetype (Archetype)
 import qualified Aztecs.ECS.World.Archetype as A
+import Control.Arrow (Arrow (..))
+import Control.Category (Category (..))
 import Prelude hiding (all, any, id, lookup, map, mapM, reads, (.))
 
 -- | Dynamic query for components by ID.

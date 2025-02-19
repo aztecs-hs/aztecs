@@ -8,7 +8,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Aztecs.ECS.SDL
+module Aztecs.SDL
   ( -- * Window components
     Window (..),
     WindowRenderer (..),
@@ -53,10 +53,13 @@ module Aztecs.ECS.SDL
   )
 where
 
-import Control.Arrow (Arrow (..), returnA, (>>>))
 import Aztecs
 import qualified Aztecs.ECS.Access as A
-import Aztecs.ECS.Input
+import qualified Aztecs.ECS.Query as Q
+import Aztecs.ECS.Query.Reader (QueryReader)
+import Aztecs.ECS.System (ArrowReaderSystem)
+import qualified Aztecs.ECS.System as S
+import Aztecs.Input
   ( InputMotion (..),
     Key (..),
     KeyboardInput (..),
@@ -65,11 +68,8 @@ import Aztecs.ECS.Input
     clearInput,
     handleKeyboardEvent,
   )
-import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.Query.Reader (QueryReader)
-import Aztecs.ECS.System (ArrowReaderSystem)
-import qualified Aztecs.ECS.System as S
-import Aztecs.ECS.Transform (Size (..), Transform (..))
+import Aztecs.Transform (Size (..), Transform (..))
+import Control.Arrow (Arrow (..), returnA, (>>>))
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe, mapMaybe)
 import qualified Data.Text as T

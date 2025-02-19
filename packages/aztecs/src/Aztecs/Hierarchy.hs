@@ -14,14 +14,14 @@ module Aztecs.Hierarchy
   )
 where
 
-import Control.Arrow (returnA)
-import Control.Monad (when)
 import Aztecs
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import Aztecs.ECS.Query.Reader (QueryReader)
 import Aztecs.ECS.System (ArrowReaderSystem, ArrowSystem)
 import qualified Aztecs.ECS.System as S
+import Control.Arrow (returnA)
+import Control.Monad (when)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)

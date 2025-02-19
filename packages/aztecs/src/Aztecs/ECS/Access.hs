@@ -9,12 +9,12 @@ module Aztecs.ECS.Access
   )
 where
 
-import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.Identity (Identity)
-import Control.Monad.State.Strict (MonadState (..), StateT (..))
 import Aztecs.ECS.Access.Class (MonadAccess (..))
 import Aztecs.ECS.World (World (..))
 import qualified Aztecs.ECS.World as W
+import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.Identity (Identity)
+import Control.Monad.State.Strict (MonadState (..), StateT (..))
 import Prelude hiding (all, lookup, map)
 
 type Access = AccessT Identity

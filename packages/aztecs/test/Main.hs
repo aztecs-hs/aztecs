@@ -3,12 +3,12 @@
 
 module Main (main) where
 
-import Control.Arrow ((&&&))
 import Aztecs
-import Aztecs.ECS.Hierarchy (Children (..), Parent (..))
-import qualified Aztecs.ECS.Hierarchy as Hierarchy
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.World as W
+import Aztecs.Hierarchy (Children (..), Parent (..))
+import qualified Aztecs.Hierarchy as Hierarchy
+import Control.Arrow ((&&&))
 import qualified Data.Set as Set
 import Test.Hspec
 import Test.QuickCheck

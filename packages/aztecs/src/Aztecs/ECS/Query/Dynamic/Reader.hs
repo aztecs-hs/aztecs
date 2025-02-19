@@ -11,13 +11,13 @@ module Aztecs.ECS.Query.Dynamic.Reader
   )
 where
 
-import Control.Arrow (Arrow (..))
-import Control.Category (Category (..))
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity (EntityID)
 import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Aztecs.ECS.World.Archetype (Archetype)
 import qualified Aztecs.ECS.World.Archetype as A
+import Control.Arrow (Arrow (..))
+import Control.Category (Category (..))
 import Data.Set (Set)
 import Prelude hiding (all, any, id, lookup, map, mapM, reads, (.))
 

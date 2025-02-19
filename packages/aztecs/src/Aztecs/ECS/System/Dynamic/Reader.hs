@@ -8,11 +8,11 @@ module Aztecs.ECS.System.Dynamic.Reader
   )
 where
 
+import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
+import Aztecs.ECS.World (World (..))
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
 import Control.Parallel (par)
-import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
-import Aztecs.ECS.World (World (..))
 
 newtype DynamicReaderSystem i o = DynamicReaderSystem
   { -- | Run a dynamic system producing some output

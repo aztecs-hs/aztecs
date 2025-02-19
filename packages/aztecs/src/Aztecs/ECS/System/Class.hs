@@ -3,7 +3,6 @@
 
 module Aztecs.ECS.System.Class (ArrowSystem (..)) where
 
-import Control.Arrow (Arrow (..), (>>>))
 import Aztecs.ECS.Access (Access)
 import Aztecs.ECS.Query (Query (..), ReadsWrites)
 import qualified Aztecs.ECS.Query as Q
@@ -15,6 +14,7 @@ import Aztecs.ECS.World (World)
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
 import Aztecs.ECS.World.Components (Components)
+import Control.Arrow (Arrow (..), (>>>))
 import qualified Data.Foldable as F
 import Prelude hiding (map)
 

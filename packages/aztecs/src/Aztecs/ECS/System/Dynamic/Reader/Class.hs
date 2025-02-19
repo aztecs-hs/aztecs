@@ -7,12 +7,12 @@ module Aztecs.ECS.System.Dynamic.Reader.Class
   )
 where
 
-import Control.Arrow (Arrow (..), (>>>))
 import Aztecs.ECS.Component (ComponentID)
 import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader)
 import qualified Aztecs.ECS.View as V
 import Aztecs.ECS.World (World (..))
 import Aztecs.ECS.World.Archetypes (Node)
+import Control.Arrow (Arrow (..), (>>>))
 import Data.Set (Set)
 
 class (Arrow arr) => ArrowDynamicReaderSystem arr where

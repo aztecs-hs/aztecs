@@ -26,8 +26,6 @@ module Aztecs.ECS.Query
   )
 where
 
-import Control.Arrow (Arrow (..))
-import Control.Category (Category (..))
 import Aztecs.ECS.Component
 import Aztecs.ECS.Query.Class (ArrowQuery (..))
 import Aztecs.ECS.Query.Dynamic (DynamicQuery (..))
@@ -41,6 +39,8 @@ import Aztecs.ECS.World.Archetypes (Node (..))
 import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Components (Components)
 import qualified Aztecs.ECS.World.Components as CS
+import Control.Arrow (Arrow (..))
+import Control.Category (Category (..))
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Prelude hiding (all, id, reads, (.))

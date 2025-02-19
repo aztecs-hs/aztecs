@@ -19,11 +19,11 @@ module Aztecs.Input
   )
 where
 
-import Control.Arrow ((&&&))
 import Aztecs
 import Aztecs.ECS.Query (ArrowQuery)
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
+import Control.Arrow ((&&&))
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)

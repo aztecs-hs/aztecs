@@ -15,12 +15,6 @@ module Aztecs.ECS.Schedule
   )
 where
 
-import Control.Arrow (Arrow (..))
-import Control.Category (Category (..))
-import Control.Monad ((>=>))
-import Control.Monad.Identity (Identity (runIdentity))
-import Control.Monad.State (MonadState (..))
-import Control.Monad.Trans (MonadTrans (..))
 import Aztecs.ECS.Access (AccessT (..), runAccessT)
 import Aztecs.ECS.System (System (..))
 import Aztecs.ECS.System.Dynamic (DynamicSystem (..))
@@ -30,6 +24,12 @@ import qualified Aztecs.ECS.View as V
 import Aztecs.ECS.World (World (..))
 import qualified Aztecs.ECS.World as W
 import Aztecs.ECS.World.Components (Components)
+import Control.Arrow (Arrow (..))
+import Control.Category (Category (..))
+import Control.Monad ((>=>))
+import Control.Monad.Identity (Identity (runIdentity))
+import Control.Monad.State (MonadState (..))
+import Control.Monad.Trans (MonadTrans (..))
 import Data.Functor (void)
 
 newtype Schedule m i o = Schedule {runSchedule' :: Components -> (i -> AccessT m o, Components)}

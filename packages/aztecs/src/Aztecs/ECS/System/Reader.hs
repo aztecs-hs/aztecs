@@ -22,8 +22,6 @@ module Aztecs.ECS.System.Reader
   )
 where
 
-import Control.Arrow (Arrow (..))
-import Control.Category (Category (..))
 import Aztecs.ECS.Query (ReadsWrites (..))
 import qualified Aztecs.ECS.Query as Q
 import Aztecs.ECS.System.Class (filterMap, map, mapSingle, map_, queue)
@@ -31,6 +29,8 @@ import Aztecs.ECS.System.Dynamic.Reader (DynamicReaderSystem, raceDyn)
 import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (runArrowReaderSystemDyn))
 import Aztecs.ECS.System.Reader.Class (ArrowReaderSystem (..), all, filter, single)
 import Aztecs.ECS.World.Components (Components)
+import Control.Arrow (Arrow (..))
+import Control.Category (Category (..))
 import Prelude hiding (all, filter, id, map, (.))
 import qualified Prelude hiding (filter, id, map)
 

@@ -4,7 +4,6 @@
 
 module Aztecs.ECS.System.Reader.Class (ArrowReaderSystem (..)) where
 
-import Control.Arrow (Arrow (..), (>>>))
 import Aztecs.ECS.Component
 import Aztecs.ECS.Query.Reader (DynamicQueryFilter (..), QueryFilter (..), QueryReader (..))
 import Aztecs.ECS.System.Dynamic.Reader.Class (allDyn', filterDyn')
@@ -12,6 +11,7 @@ import Aztecs.ECS.World (World)
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
 import Aztecs.ECS.World.Components (Components)
+import Control.Arrow (Arrow (..), (>>>))
 import qualified Data.Foldable as F
 import Data.Set (Set)
 import Prelude hiding (all, any, filter, id, lookup, map, mapM, reads, (.))

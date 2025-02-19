@@ -3,17 +3,17 @@
 
 module Main where
 
-import Control.Arrow (returnA, (>>>))
 import Aztecs
+import Aztecs.Asset (load)
 import qualified Aztecs.ECS.Access as A
-import Aztecs.ECS.Asset (load)
 import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.SDL (Camera (..), Window (..))
-import qualified Aztecs.ECS.SDL as SDL
-import Aztecs.ECS.SDL.Text (Text (..))
-import qualified Aztecs.ECS.SDL.Text as Text
 import qualified Aztecs.ECS.System as S
-import Aztecs.ECS.Transform (transform)
+import Aztecs.SDL (Camera (..), Window (..))
+import qualified Aztecs.SDL as SDL
+import Aztecs.SDL.Text (Text (..))
+import qualified Aztecs.SDL.Text as Text
+import Aztecs.Transform (transform)
+import Control.Arrow (returnA, (>>>))
 import SDL (V2 (..))
 
 setup :: Schedule IO () ()
