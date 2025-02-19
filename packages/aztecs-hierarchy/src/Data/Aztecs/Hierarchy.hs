@@ -1,19 +1,26 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE Arrows #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Data.Aztecs.Hierarchy where
+module Data.Aztecs.Hierarchy
+  ( Parent (..),
+    Children (..),
+    update,
+    traverseHierarchy,
+    ParentState (..),
+    ChildState (..),
+  )
+where
 
 import Control.Arrow (returnA)
 import Control.Monad (when)
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import qualified Data.Aztecs.Query as Q
+import Data.Aztecs.Query.Reader (QueryReader)
+import Data.Aztecs.System (ArrowReaderSystem)
 import qualified Data.Aztecs.System as S
+import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 
@@ -100,3 +107,27 @@ update = proc () -> do
     )
     -<
       (parents, children)
+
+traverseHierarchy ::
+  (ArrowReaderSystem arr) =>
+  QueryReader i a ->
+  (Maybe (EntityID, a) -> EntityID -> a -> b) ->
+  arr i [[(EntityID, b)]]
+traverseHierarchy q f = proc i -> do
+  children <-
+    S.all
+      ( proc i -> do
+          entity <- Q.entity -< ()
+          Children cs <- Q.fetch -< ()
+          a <- q -< i
+          returnA -< (entity, (cs, a))
+      )
+      -<
+        i
+  let childMap = Map.fromList children
+  roots <- S.filter Q.entity $ with @Children <> without @Parent -< ()
+  let go parent e = case Map.lookup e childMap of
+        Just (cs, a) ->
+          let bs = concatMap (go $ Just (e, a)) (Set.toList cs) in (e, f parent e a) : bs
+        Nothing -> []
+  returnA -< map (go Nothing) roots
