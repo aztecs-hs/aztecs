@@ -36,11 +36,11 @@ class (ArrowDynamicReaderSystem arr) => ArrowDynamicSystem arr where
   filterMapDyn cIds q f = runArrowSystemDyn $ filterMapDyn' cIds q f
 
   queueDyn :: (i -> Access ()) -> arr i ()
-  queueDyn f = runArrowSystemDyn $ \_ -> \i -> ((), mempty, f i)
+  queueDyn f = runArrowSystemDyn $ \_ i -> ((), mempty, f i)
 
 -- | Map all matching entities, storing the updated entities.
 mapDyn' :: Set ComponentID -> DynamicQuery i o -> DynamicSystemT i [o]
-mapDyn' cIds q = \w ->
+mapDyn' cIds q w =
   let !v = V.view cIds $ archetypes w
    in \i -> let (o, v') = V.allDyn i q v in (o, v', pure ())
 
@@ -49,9 +49,9 @@ filterMapDyn' ::
   DynamicQuery i o ->
   (Node -> Bool) ->
   DynamicSystemT i [o]
-filterMapDyn' cIds q f = \w ->
+filterMapDyn' cIds q f w =
   let !v = V.filterView cIds f $ archetypes w
    in \i -> let (o, v') = V.allDyn i q v in (o, v', pure ())
 
 queueDyn' :: (i -> Access ()) -> DynamicSystemT i ()
-queueDyn' f _ = \i -> ((), mempty, f i)
+queueDyn' f _ i = ((), mempty, f i)

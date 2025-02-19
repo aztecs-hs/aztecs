@@ -46,7 +46,7 @@ class (ArrowReaderSystem arr) => ArrowSystem arr where
   -- If there are zero or multiple matching entities, an error will be thrown.
   mapSingle :: (ArrowSystem arr) => Query i a -> arr i a
   mapSingle q =
-    (map q)
+    map q
       >>> arr
         ( \as -> case as of
             [a] -> a

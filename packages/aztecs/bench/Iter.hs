@@ -18,13 +18,14 @@ instance Component Velocity
 run :: World -> IO ()
 run w = do
   let s =
-        const ()
-          <$> S.map
-            ( proc () -> do
-                Velocity v <- Q.fetch -< ()
-                Position p <- Q.fetch -< ()
-                Q.set -< Position $ p + v
-            )
+        Control.Monad.void
+          ( S.map
+              ( proc () -> do
+                  Velocity v <- Q.fetch -< ()
+                  Position p <- Q.fetch -< ()
+                  Q.set -< Position $ p + v
+              )
+          )
   !_ <- S.runSystemWithWorld s w
   return ()
 

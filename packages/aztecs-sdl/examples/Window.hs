@@ -1,6 +1,4 @@
-{-# LANGUAGE Arrows #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Main where
 

@@ -30,6 +30,7 @@ import qualified Data.Aztecs.View as V
 import Data.Aztecs.World (World (..))
 import qualified Data.Aztecs.World as W
 import Data.Aztecs.World.Components (Components)
+import Data.Functor (void)
 
 newtype Schedule m i o = Schedule {runSchedule' :: Components -> (i -> AccessT m o, Components)}
   deriving (Functor)
@@ -54,7 +55,7 @@ runSchedule s w i = do
   return (o, w')
 
 runSchedule_ :: (Monad m) => Schedule m () () -> m ()
-runSchedule_ s = const () <$> runSchedule s (W.empty) ()
+runSchedule_ s = void (runSchedule s (W.empty) ())
 
 reader :: (Monad m) => ReaderSystem i o -> Schedule m i o
 reader t = Schedule $ \cs ->
@@ -77,10 +78,10 @@ system t = Schedule $ \cs ->
    in (go, cs')
 
 access :: (Monad m) => (i -> AccessT m o) -> Schedule m i o
-access f = Schedule $ \cs -> (\i -> f i, cs)
+access f = Schedule $ \cs -> (f, cs)
 
 task :: (Monad m) => (i -> m o) -> Schedule m i o
-task f = Schedule $ \cs -> (\i -> AccessT Prelude.. lift $ f i, cs)
+task f = Schedule $ \cs -> (AccessT Prelude.. lift Prelude.. f, cs)
 
 forever :: (Monad m) => Schedule m i o -> (o -> m ()) -> Schedule m i ()
 forever s f = Schedule $ \cs ->

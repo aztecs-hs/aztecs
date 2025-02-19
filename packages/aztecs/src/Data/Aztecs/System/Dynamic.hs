@@ -1,8 +1,6 @@
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TupleSections #-}
 
 module Data.Aztecs.System.Dynamic (DynamicSystemT (..)) where
 
@@ -22,20 +20,18 @@ newtype DynamicSystemT i o = DynamicSystemT
   deriving (Functor)
 
 instance Category DynamicSystemT where
-  id = DynamicSystemT $ \_ -> \i -> (i, mempty, pure ())
-  DynamicSystemT f . DynamicSystemT g = DynamicSystemT $ \w -> \i ->
+  id = DynamicSystemT $ \_ i -> (i, mempty, pure ())
+  DynamicSystemT f . DynamicSystemT g = DynamicSystemT $ \w i ->
     let (b, gView, gAccess) = g w i
         (a, fView, fAccess) = f w b
      in (a, gView <> fView, gAccess >> fAccess)
 
 instance Arrow DynamicSystemT where
-  arr f = DynamicSystemT $ \_ -> \i -> (f i, mempty, pure ())
-  first (DynamicSystemT f) = DynamicSystemT $ \w -> \(i, x) ->
-    let (a, v, access) = f w i in ((a, x), v, access)
+  arr f = DynamicSystemT $ \_ i -> (f i, mempty, pure ())
+  first (DynamicSystemT f) = DynamicSystemT $ \w (i, x) -> let (a, v, access) = f w i in ((a, x), v, access)
 
 instance ArrowDynamicReaderSystem DynamicSystemT where
-  runArrowReaderSystemDyn f = DynamicSystemT $ \w -> \i ->
-    let o = f w i in (o, mempty, pure ())
+  runArrowReaderSystemDyn f = DynamicSystemT $ \w i -> let o = f w i in (o, mempty, pure ())
 
 instance ArrowDynamicSystem DynamicSystemT where
   runArrowSystemDyn = DynamicSystemT

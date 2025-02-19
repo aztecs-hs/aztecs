@@ -26,7 +26,7 @@ class (Arrow arr) => ArrowDynamicReaderSystem arr where
 
   singleDyn :: Set ComponentID -> DynamicQueryReader () a -> arr () a
   singleDyn cIds q =
-    (allDyn cIds q)
+    allDyn cIds q
       >>> arr
         ( \as -> case as of
             [a] -> a
@@ -34,7 +34,7 @@ class (Arrow arr) => ArrowDynamicReaderSystem arr where
         )
 
 allDyn' :: Set ComponentID -> DynamicQueryReader i o -> World -> i -> [o]
-allDyn' cIds q = \w -> let !v = V.view cIds $ archetypes w in \i -> V.readAllDyn i q v
+allDyn' cIds q w = let !v = V.view cIds $ archetypes w in \i -> V.readAllDyn i q v
 
 filterDyn' ::
   Set ComponentID ->
@@ -43,5 +43,4 @@ filterDyn' ::
   World ->
   i ->
   [o]
-filterDyn' cIds q f = \w ->
-  let !v = V.filterView cIds f $ archetypes w in \i -> V.readAllDyn i q v
+filterDyn' cIds q f w = let !v = V.filterView cIds f $ archetypes w in \i -> V.readAllDyn i q v

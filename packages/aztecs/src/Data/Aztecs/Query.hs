@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
@@ -69,41 +68,41 @@ instance Functor (Query i) where
   fmap f (Query q) = Query $ \cs -> let (cIds, cs', qS) = q cs in (cIds, cs', fmap f qS)
 
 instance Applicative (Query i) where
-  pure a = Query $ \cs -> (mempty, cs, pure a)
+  pure a = Query (mempty,,pure a)
   (Query f) <*> (Query g) = Query $ \cs ->
     let (cIdsG, cs', aQS) = g cs
         (cIdsF, cs'', bQS) = f cs'
      in (cIdsG <> cIdsF, cs'', bQS <*> aQS)
 
 instance Category Query where
-  id = Query $ \cs -> (mempty, cs, id)
+  id = Query (mempty,,id)
   (Query f) . (Query g) = Query $ \cs ->
     let (cIdsG, cs', aQS) = g cs
         (cIdsF, cs'', bQS) = f cs'
      in (cIdsG <> cIdsF, cs'', bQS . aQS)
 
 instance Arrow Query where
-  arr f = Query $ \cs -> (mempty, cs, arr f)
+  arr f = Query (mempty,,arr f)
   first (Query f) = Query $ \comps -> let (cIds, comps', qS) = f comps in (cIds, comps', first qS)
 
 instance ArrowQueryReader Query where
-  entity = Query $ \cs -> (mempty, cs, entityDyn)
+  entity = Query (mempty,,entityDyn)
   fetch :: forall a. (Component a) => Query () a
   fetch = Query $ \cs ->
     let (cId, cs') = CS.insert @a cs
-     in (ReadsWrites (Set.singleton cId) (Set.empty), cs', fetchDyn cId)
+     in (ReadsWrites (Set.singleton cId) Set.empty, cs', fetchDyn cId)
   fetchMaybe :: forall a. (Component a) => Query () (Maybe a)
   fetchMaybe = Query $ \cs ->
     let (cId, cs') = CS.insert @a cs
-     in (ReadsWrites (Set.singleton cId) (Set.empty), cs', fetchMaybeDyn cId)
+     in (ReadsWrites (Set.singleton cId) Set.empty, cs', fetchMaybeDyn cId)
 
 instance ArrowDynamicQueryReader Query where
-  entityDyn = Query $ \cs -> (mempty, cs, entityDyn)
-  fetchDyn cId = Query $ \cs -> (ReadsWrites (Set.singleton cId) Set.empty, cs, fetchDyn cId)
-  fetchMaybeDyn cId = Query $ \cs -> (ReadsWrites (Set.singleton cId) Set.empty, cs, fetchMaybeDyn cId)
+  entityDyn = Query (mempty,,entityDyn)
+  fetchDyn cId = Query (ReadsWrites (Set.singleton cId) Set.empty,,fetchDyn cId)
+  fetchMaybeDyn cId = Query (ReadsWrites (Set.singleton cId) Set.empty,,fetchMaybeDyn cId)
 
 instance ArrowDynamicQuery Query where
-  setDyn cId = Query $ \cs -> (ReadsWrites Set.empty (Set.singleton cId), cs, setDyn cId)
+  setDyn cId = Query (ReadsWrites Set.empty (Set.singleton cId),,setDyn cId)
 
 instance ArrowQuery Query where
   set :: forall a. (Component a) => Query a a

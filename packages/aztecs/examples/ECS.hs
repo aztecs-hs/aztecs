@@ -32,4 +32,4 @@ app :: Schedule IO () ()
 app = system setup >>> forever (system move) print
 
 main :: IO ()
-main = runSchedule_ $ app
+main = runSchedule_ app

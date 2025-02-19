@@ -9,11 +9,11 @@
 module Data.Aztecs.Hierarchy where
 
 import Control.Arrow (returnA)
+import Control.Monad (when)
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import qualified Data.Aztecs.Query as Q
 import qualified Data.Aztecs.System as S
-import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
 
@@ -64,38 +64,34 @@ update = proc () -> do
         mapM_
           ( \(entity, parent, maybeParentState) -> case maybeParentState of
               Just (ParentState parentState) -> do
-                if parent /= parentState
-                  then do
-                    A.insert parent $ ParentState parent
+                when (parent /= parentState) $ do
+                  A.insert parent $ ParentState parent
 
-                    -- Remove this entity from the previous parent's children.
-                    maybeLastChildren <- A.lookup parentState
-                    let lastChildren = fromMaybe mempty $ unChildren <$> maybeLastChildren
-                    let lastChildren' = Set.filter (/= entity) lastChildren
-                    A.insert parentState . Children $ lastChildren'
+                  -- Remove this entity from the previous parent's children.
+                  maybeLastChildren <- A.lookup parentState
+                  let lastChildren = maybe mempty unChildren maybeLastChildren
+                  let lastChildren' = Set.filter (/= entity) lastChildren
+                  A.insert parentState . Children $ lastChildren'
 
-                    -- Add this entity to the new parent's children.
-                    maybeChildren <- A.lookup parent
-                    let parentChildren = fromMaybe mempty $ unChildren <$> maybeChildren
-                    A.insert parent . Children $ Set.insert entity parentChildren
-                  else return ()
+                  -- Add this entity to the new parent's children.
+                  maybeChildren <- A.lookup parent
+                  let parentChildren = maybe mempty unChildren maybeChildren
+                  A.insert parent . Children $ Set.insert entity parentChildren
               Nothing -> do
                 A.spawn_ . bundle $ ParentState parent
                 maybeChildren <- A.lookup parent
-                let parentChildren = fromMaybe mempty $ unChildren <$> maybeChildren
+                let parentChildren = maybe mempty unChildren maybeChildren
                 A.insert parent . Children $ Set.insert entity parentChildren
           )
           parents
         mapM_
           ( \(entity, children, maybeChildState) -> case maybeChildState of
               Just (ChildState childState) -> do
-                if children /= childState
-                  then do
-                    A.insert entity $ ChildState children
-                    let added = Set.difference children childState
-                    -- TODO removed = Set.difference childState children
-                    mapM_ (\e -> A.insert e . Parent $ entity) added
-                  else return ()
+                when (children /= childState) $ do
+                  A.insert entity $ ChildState children
+                  let added = Set.difference children childState
+                  -- TODO removed = Set.difference childState children
+                  mapM_ (\e -> A.insert e . Parent $ entity) added
               Nothing -> do
                 A.insert entity $ ChildState children
                 mapM_ (\e -> A.insert e . Parent $ entity) children

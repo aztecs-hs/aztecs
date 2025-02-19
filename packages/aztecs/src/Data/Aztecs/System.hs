@@ -1,8 +1,6 @@
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TupleSections #-}
 
 module Data.Aztecs.System
   ( -- * Systems
@@ -31,14 +29,14 @@ newtype System i o = SystemT
   deriving (Functor)
 
 instance Category System where
-  id = SystemT $ \cs -> (DynamicSystemT $ \_ -> \i -> (i, mempty, pure ()), mempty, cs)
+  id = SystemT $ \cs -> (DynamicSystemT $ \_ i -> (i, mempty, pure ()), mempty, cs)
   SystemT f . SystemT g = SystemT $ \cs ->
     let (f', rwsF, cs') = f cs
         (g', rwsG, cs'') = g cs'
      in (f' . g', rwsF <> rwsG, cs'')
 
 instance Arrow System where
-  arr f = SystemT $ \cs -> (DynamicSystemT $ \_ -> \i -> (f i, mempty, pure ()), mempty, cs)
+  arr f = SystemT $ \cs -> (DynamicSystemT $ \_ i -> (f i, mempty, pure ()), mempty, cs)
   first (SystemT f) = SystemT $ \cs ->
     let (f', rwsF, cs') = f cs
      in (first f', rwsF, cs')

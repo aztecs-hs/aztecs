@@ -23,9 +23,8 @@ import qualified Data.Aztecs.World.Archetype as A
 import Prelude hiding (all, any, id, lookup, map, mapM, reads, (.))
 
 -- | Dynamic query for components by ID.
-newtype DynamicQuery i o = DynamicQuery
-  { dynQueryAll :: [i] -> [EntityID] -> Archetype -> ([o], Archetype)
-  }
+newtype DynamicQuery i o
+  = DynamicQuery {dynQueryAll :: [i] -> [EntityID] -> Archetype -> ([o], Archetype)}
 
 instance Functor (DynamicQuery i) where
   fmap f q =
@@ -34,7 +33,7 @@ instance Functor (DynamicQuery i) where
        in (fmap f a, arch')
 
 instance Applicative (DynamicQuery i) where
-  pure a = DynamicQuery $ \_ es arch -> (take (length es) $ repeat a, arch)
+  pure a = DynamicQuery $ \_ es arch -> (replicate (length es) a, arch)
 
   f <*> g =
     DynamicQuery

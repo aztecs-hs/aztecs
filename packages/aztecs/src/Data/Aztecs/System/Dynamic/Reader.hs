@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFunctor #-}
 
 module Data.Aztecs.System.Dynamic.Reader
@@ -20,13 +19,12 @@ newtype DynamicReaderSystem i o = DynamicReaderSystem
   deriving (Functor)
 
 instance Category DynamicReaderSystem where
-  id = DynamicReaderSystem $ \_ -> \i -> i
-  DynamicReaderSystem f . DynamicReaderSystem g = DynamicReaderSystem $ \w -> \i -> let b = g w i in f w b
+  id = DynamicReaderSystem $ \_ i -> i
+  DynamicReaderSystem f . DynamicReaderSystem g = DynamicReaderSystem $ \w i -> let b = g w i in f w b
 
 instance Arrow DynamicReaderSystem where
-  arr f = DynamicReaderSystem $ \_ -> \i -> f i
-  first (DynamicReaderSystem f) = DynamicReaderSystem $ \w -> \(i, x) ->
-    let a = f w i in (a, x)
+  arr f = DynamicReaderSystem $ \_ i -> f i
+  first (DynamicReaderSystem f) = DynamicReaderSystem $ \w (i, x) -> let a = f w i in (a, x)
 
 instance ArrowDynamicReaderSystem DynamicReaderSystem where
   runArrowReaderSystemDyn = DynamicReaderSystem

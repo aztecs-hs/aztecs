@@ -29,7 +29,7 @@ instance Functor (DynamicQueryReader i) where
   fmap f q = DynamicQueryReader $ \i es arch -> f <$> dynQueryReaderAll q i es arch
 
 instance Applicative (DynamicQueryReader i) where
-  pure a = DynamicQueryReader $ \_ es _ -> (take (length es) $ repeat a)
+  pure a = DynamicQueryReader $ \_ es _ -> replicate (length es) a
 
   f <*> g =
     DynamicQueryReader $ \i es arch ->
@@ -37,7 +37,7 @@ instance Applicative (DynamicQueryReader i) where
           fs = dynQueryReaderAll f i es arch
        in zipWith ($) fs as
 
-instance Category (DynamicQueryReader) where
+instance Category DynamicQueryReader where
   id = DynamicQueryReader $ \as _ _ -> as
   f . g = DynamicQueryReader $ \i es arch ->
     let as = dynQueryReaderAll g i es arch in dynQueryReaderAll f as es arch

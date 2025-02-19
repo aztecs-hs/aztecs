@@ -1,5 +1,4 @@
 {-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Main (main) where
 
