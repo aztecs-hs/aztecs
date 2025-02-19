@@ -3,7 +3,7 @@
 
 module Main where
 
-import Control.Arrow ((>>>))
+import Control.Arrow (returnA, (>>>))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import Data.Aztecs.Asset (load)
@@ -18,9 +18,17 @@ import SDL (Point (..), Rectangle (..), V2 (..))
 
 setup :: Schedule IO () ()
 setup = proc () -> do
-  assetServer <- reader $ S.single Q.fetch -< ()
-  (texture, assetServer') <- task $ load "assets/characters.png" () -< assetServer
-  system $ S.mapSingle Q.set -< assetServer'
+  texture <-
+    system $
+      S.mapSingle
+        ( proc () -> do
+            assetServer <- Q.fetch -< ()
+            let (texture, assetServer') = load "assets/characters.png" () assetServer
+            Q.set -< assetServer'
+            returnA -< texture
+        )
+      -<
+        ()
   access
     ( \texture -> do
         A.spawn_ $ bundle Window {windowTitle = "Aztecs"}

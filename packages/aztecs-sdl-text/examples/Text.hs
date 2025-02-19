@@ -3,7 +3,7 @@
 
 module Main where
 
-import Control.Arrow ((>>>))
+import Control.Arrow (returnA, (>>>))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import Data.Aztecs.Asset (load)
@@ -18,9 +18,17 @@ import SDL (V2 (..))
 
 setup :: Schedule IO () ()
 setup = proc () -> do
-  assetServer <- reader $ S.single Q.fetch -< ()
-  (texture, assetServer') <- task $ load "assets/C&C Red Alert [INET].ttf" 48 -< assetServer
-  system $ S.mapSingle Q.set -< assetServer'
+  fontHandle <-
+    system $
+      S.mapSingle
+        ( proc () -> do
+            assetServer <- Q.fetch -< ()
+            let (font, assetServer') = load "assets/C&C Red Alert [INET].ttf" 48 assetServer
+            Q.set -< assetServer'
+            returnA -< font
+        )
+      -<
+        ()
   access
     ( \fontHandle -> do
         A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
@@ -34,7 +42,7 @@ setup = proc () -> do
             <> bundle transform
     )
     -<
-      texture
+      fontHandle
 
 app :: Schedule IO () ()
 app =

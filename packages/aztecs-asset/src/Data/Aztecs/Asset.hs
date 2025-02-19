@@ -25,7 +25,7 @@ newtype AssetId = AssetId {unAssetId :: Int}
 
 data AssetServer a = AssetServer
   { assetServerAssets :: !(Map AssetId a),
-    loadingAssets :: !(Map AssetId (IORef (Maybe a))),
+    loadingAssets :: !(Map AssetId (Either (IO (IORef (Maybe a))) (IORef (Maybe a)))),
     nextAssetId :: !AssetId
   }
 
@@ -47,20 +47,21 @@ class Asset a where
 newtype Handle a = Handle {handleId :: AssetId}
   deriving (Eq, Ord, Show)
 
-load :: (Asset a) => FilePath -> AssetConfig a -> AssetServer a -> IO (Handle a, AssetServer a)
-load path cfg server = do
+load :: (Asset a) => FilePath -> AssetConfig a -> AssetServer a -> (Handle a, AssetServer a)
+load path cfg server =
   let assetId = nextAssetId server
-  v <- newIORef Nothing
-  _ <- forkIO $ do
-    a <- loadAsset path cfg
-    writeIORef v (Just a)
-  return
-    ( Handle assetId,
-      server
-        { loadingAssets = Map.insert assetId v (loadingAssets server),
-          nextAssetId = AssetId (unAssetId assetId + 1)
-        }
-    )
+      go = do
+        v <- newIORef Nothing
+        _ <- forkIO $ do
+          a <- loadAsset path cfg
+          writeIORef v (Just a)
+        return $ v
+   in ( Handle assetId,
+        server
+          { loadingAssets = Map.insert assetId (Left go) (loadingAssets server),
+            nextAssetId = AssetId (unAssetId assetId + 1)
+          }
+      )
 
 lookupAsset :: Handle a -> AssetServer a -> Maybe a
 lookupAsset h server = Map.lookup (handleId h) (assetServerAssets server)
@@ -73,15 +74,20 @@ loadAssets = proc () -> do
       ( \server ->
           foldrM
             ( \(aId, v) acc -> do
-                maybeSurface <- readIORef v
-                case maybeSurface of
-                  Just surface ->
-                    return
-                      acc
-                        { assetServerAssets = Map.insert aId surface (assetServerAssets acc),
-                          loadingAssets = Map.delete aId (loadingAssets acc)
-                        }
-                  Nothing -> return acc
+                case v of
+                  Right r -> do
+                    maybeSurface <- readIORef r
+                    case maybeSurface of
+                      Just surface ->
+                        return
+                          acc
+                            { assetServerAssets = Map.insert aId surface (assetServerAssets acc),
+                              loadingAssets = Map.delete aId (loadingAssets acc)
+                            }
+                      Nothing -> return acc
+                  Left f -> do
+                    v' <- f
+                    return $ acc {loadingAssets = Map.insert aId (Right v') (loadingAssets server)}
             )
             server
             (Map.toList $ loadingAssets server)
