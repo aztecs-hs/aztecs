@@ -28,6 +28,5 @@ library
     build-depends:
         base >=4.6 && <5,
         aztecs >= 0.5,
-        aztecs-hierarchy >= 0.1,
         mtl >=2,
         linear >= 1

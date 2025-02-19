@@ -31,6 +31,7 @@ library
         Data.Aztecs.Access.Class
         Data.Aztecs.Component
         Data.Aztecs.Entity
+        Data.Aztecs.Hierarchy
         Data.Aztecs.Query
         Data.Aztecs.Query.Class
         Data.Aztecs.Query.Dynamic
@@ -82,6 +83,7 @@ test-suite aztecs-test
     build-depends:
         base >=4.6 && <5,
         aztecs,
+        containers >=0.6,
         hspec >=2,
         QuickCheck >=2
 

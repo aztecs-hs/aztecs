@@ -1,7 +1,6 @@
 packages: 
     packages/aztecs
     packages/aztecs-asset
-    packages/aztecs-hierarchy
     packages/aztecs-sdl
     packages/aztecs-sdl-image
     packages/aztecs-sdl-text

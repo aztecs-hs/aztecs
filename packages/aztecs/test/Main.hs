@@ -9,6 +9,10 @@ import qualified Data.Aztecs.Query as Q
 import qualified Data.Aztecs.World as W
 import Test.Hspec
 import Test.QuickCheck
+import Data.Aztecs.Hierarchy (Children(..))
+import qualified Data.Set as Set
+import qualified Data.Aztecs.Hierarchy as Hierarchy
+import Data.Aztecs.Hierarchy (Parent(..))
 
 newtype X = X Int deriving (Eq, Show, Arbitrary)
 
@@ -28,6 +32,8 @@ main = hspec $ do
     it "queries a single component" $ property prop_queryOneComponent
     it "queries two components" $ property prop_queryTwoComponents
     it "queries three components" $ property prop_queryThreeComponents
+  describe "Data.Aztecs.Hierarchy.update" $ do
+      it "adds Parent components to children" $ property prop_addParents
 
 prop_queryOneComponent :: [X] -> Expectation
 prop_queryOneComponent xs =
@@ -51,3 +57,11 @@ prop_queryThreeComponents xyzs =
         pure (x, y, z)
       (res, _) = Q.all q w
    in res `shouldMatchList` xyzs
+
+prop_addParents :: Expectation
+prop_addParents = do
+  let (_, w) = W.spawnEmpty W.empty
+      (e, w') = W.spawn (bundle . Children $ Set.singleton e) w
+  (_, w'') <- runSchedule (system Hierarchy.update) w' ()
+  let (res, _) = Q.all Q.fetch w''
+  res `shouldMatchList` [Parent e]

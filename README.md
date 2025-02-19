@@ -31,12 +31,6 @@ For more information, please see the documentation on [Hackage](https://hackage.
 
   Asset loading and management
 
-- [`aztecs-hierarchy`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-hierarchy)
-
-  [![Package](https://img.shields.io/hackage/v/aztecs-hierarchy.svg)](https://hackage.haskell.org/package/aztecs-hierarchy)
-
-  Parent/child hierarchies using the ECS.
-
 - [`aztecs-sdl`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-sdl)
 
   [![Package](https://img.shields.io/hackage/v/aztecs-sdl.svg)](https://hackage.haskell.org/package/aztecs-sdl)
