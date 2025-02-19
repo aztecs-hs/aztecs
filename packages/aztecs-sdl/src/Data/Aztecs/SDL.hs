@@ -61,6 +61,8 @@ import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import Data.Aztecs.Query (ArrowQuery)
 import qualified Data.Aztecs.Query as Q
+import Data.Aztecs.Query.Reader (QueryReader)
+import Data.Aztecs.System (ArrowReaderSystem)
 import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Size (..), Transform (..))
 import Data.Map.Strict (Map)
@@ -165,76 +167,49 @@ newtype SurfaceTexture = SurfaceTexture
 
 instance Component SurfaceTexture
 
+allWindowTextures ::
+  (ArrowReaderSystem arr) =>
+  arr () [(WindowRenderer, [(EntityID, Surface, Transform, Maybe SurfaceTexture)])]
+allWindowTextures =
+  allWindowDraws
+    (pure ())
+    ( proc () -> do
+        e <- Q.entity -< ()
+        surface <- Q.fetch -< ()
+        transform <- Q.fetch -< ()
+        texture <- Q.fetchMaybe -< ()
+        returnA -< (e, surface, transform, texture)
+    )
+    >>> arr (\cs -> map (\(w, cs') -> (w, concatMap snd cs')) cs)
+
 -- | Build textures from surfaces in preparation for `drawTextures`.
 buildTextures :: Schedule IO () ()
 buildTextures =
   let go windowDraws =
         mapM_
           ( \(window, cameraDraws) -> do
+              let renderer = windowRenderer window
               mapM_
-                ( \(_, cameraDraws') -> do
-                    let renderer = windowRenderer window
-                    mapM_
-                      ( \(eId, surface, transform, maybeTexture) -> do
-                          sdlTexture <- SDL.createTextureFromSurface renderer $ sdlSurface surface
-                          textureDesc <- queryTexture sdlTexture
-                          case maybeTexture of
-                            Just (SurfaceTexture lastTexture) -> destroyTexture lastTexture
-                            Nothing -> return ()
-                          A.insert eId (SurfaceTexture sdlTexture)
-                          A.insert
-                            eId
-                            ( Size $
-                                transformScale transform
-                                  * fromMaybe
-                                    (fmap fromIntegral $ V2 (textureWidth textureDesc) (textureHeight textureDesc))
-                                    ((fmap (\(Rectangle _ s) -> fmap fromIntegral s) $ surfaceBounds surface))
-                            )
+                ( \(eId, surface, transform, maybeTexture) -> do
+                    sdlTexture <- SDL.createTextureFromSurface renderer $ sdlSurface surface
+                    textureDesc <- queryTexture sdlTexture
+                    case maybeTexture of
+                      Just (SurfaceTexture lastTexture) -> destroyTexture lastTexture
+                      Nothing -> return ()
+                    A.insert eId (SurfaceTexture sdlTexture)
+                    A.insert
+                      eId
+                      ( Size $
+                          transformScale transform
+                            * fromMaybe
+                              (fmap fromIntegral $ V2 (textureWidth textureDesc) (textureHeight textureDesc))
+                              ((fmap (\(Rectangle _ s) -> fmap fromIntegral s) $ surfaceBounds surface))
                       )
-                      cameraDraws'
                 )
                 cameraDraws
           )
           windowDraws
-   in proc () -> do
-        cameras <- reader $ S.all $ Q.entity &&& Q.fetch -< ()
-        windows <- reader $ S.all $ Q.entity &&& Q.fetch -< ()
-        draws <-
-          reader $
-            S.all
-              ( proc () -> do
-                  eId <- Q.entity -< ()
-                  d <- Q.fetch @_ @Surface -< ()
-                  transform <- Q.fetch @_ @Transform -< ()
-                  target <- Q.fetch @_ @SurfaceTarget -< ()
-                  maybeTexture <- Q.fetchMaybe @_ @SurfaceTexture -< ()
-                  returnA -< (eId, d, transform, target, maybeTexture)
-              )
-            -<
-              ()
-        let cameraDraws =
-              map
-                ( \(eId, cameraTarget) ->
-                    ( cameraTarget,
-                      mapMaybe
-                        ( \(surfaceEid, d, transform, target, maybeTexture) ->
-                            if drawTargetCamera target == eId
-                              then Just (surfaceEid, d, transform, maybeTexture)
-                              else Nothing
-                        )
-                        draws
-                    )
-                )
-                cameras
-            windowDraws =
-              map
-                ( \(eId, window) ->
-                    ( window,
-                      filter (\(cameraTarget, _) -> cameraTargetWindow cameraTarget == eId) cameraDraws
-                    )
-                )
-                windows
-        access go -< windowDraws
+   in reader allWindowTextures >>> access go
 
 drawTextures :: Schedule IO () ()
 drawTextures =
@@ -242,7 +217,7 @@ drawTextures =
         mapM_
           ( \(window, cameraDraws) -> do
               mapM_
-                ( \(camera, _, cameraTransform, cameraDraws') -> do
+                ( \((camera, cameraTransform), cameraDraws') -> do
                     let renderer = windowRenderer window
                     rendererDrawColor renderer $= V4 0 0 0 255
                     rendererScale renderer $= fmap realToFrac (cameraScale camera)
@@ -279,57 +254,72 @@ drawTextures =
                 cameraDraws
           )
           windowDraws
-   in proc () -> do
-        cameras <-
-          reader $
-            S.all
-              ( proc () -> do
-                  eId <- Q.entity -< ()
-                  camera <- Q.fetch @_ @Camera -< ()
-                  cameraTarget <- Q.fetch @_ @CameraTarget -< ()
-                  t <- Q.fetch @_ @Transform -< ()
-                  returnA -< (eId, camera, cameraTarget, t)
+   in reader allCameraSurfaces >>> access go
+
+allCameraSurfaces ::
+  (ArrowReaderSystem arr) =>
+  arr () [(WindowRenderer, [((Camera, Transform), [(Surface, Transform, SurfaceTexture)])])]
+allCameraSurfaces =
+  allWindowDraws
+    (Q.fetch &&& Q.fetch)
+    ( proc () -> do
+        surface <- Q.fetch -< ()
+        transform <- Q.fetch -< ()
+        texture <- Q.fetch -< ()
+        returnA -< (surface, transform, texture)
+    )
+
+allWindowDraws ::
+  (ArrowReaderSystem arr) =>
+  (QueryReader () a) ->
+  (QueryReader () b) ->
+  arr () [(WindowRenderer, [(a, [b])])]
+allWindowDraws qA qB = proc () -> do
+  cameras <-
+    S.all
+      ( proc () -> do
+          eId <- Q.entity -< ()
+          cameraTarget <- Q.fetch @_ @CameraTarget -< ()
+          a <- qA -< ()
+          returnA -< (eId, cameraTarget, a)
+      )
+      -<
+        ()
+  windows <- S.all (Q.entity &&& Q.fetch @_ @WindowRenderer) -< ()
+  draws <-
+    S.all
+      ( proc () -> do
+          t <- Q.fetch @_ @SurfaceTarget -< ()
+          a <- qB -< ()
+          returnA -< (t, a)
+      )
+      -<
+        ()
+  let cameraDraws =
+        map
+          ( \(eId, cameraTarget, b) ->
+              ( cameraTarget,
+                b,
+                mapMaybe
+                  ( \(surfaceTarget, a) ->
+                      if drawTargetCamera surfaceTarget == eId
+                        then Just a
+                        else Nothing
+                  )
+                  draws
               )
-            -<
-              ()
-        windows <- reader $ S.all (Q.entity &&& Q.fetch @_ @WindowRenderer) -< ()
-        draws <-
-          reader $
-            S.all
-              ( proc () -> do
-                  d <- Q.fetch @_ @Surface -< ()
-                  transform <- Q.fetch @_ @Transform -< ()
-                  target <- Q.fetch @_ @SurfaceTarget -< ()
-                  texture <- Q.fetch @_ @SurfaceTexture -< ()
-                  returnA -< (d, transform, target, texture)
+          )
+          cameras
+      windowDraws =
+        map
+          ( \(eId, window) ->
+              ( window,
+                map (\(_, a, b) -> (a, b)) $
+                  filter (\(cameraTarget, _, _) -> cameraTargetWindow cameraTarget == eId) cameraDraws
               )
-            -<
-              ()
-        let cameraDraws =
-              map
-                ( \(eId, camera, cameraTarget, t) ->
-                    ( camera,
-                      cameraTarget,
-                      t,
-                      mapMaybe
-                        ( \(d, transform, target, texture) ->
-                            if drawTargetCamera target == eId
-                              then Just (d, transform, texture)
-                              else Nothing
-                        )
-                        draws
-                    )
-                )
-                cameras
-            windowDraws =
-              map
-                ( \(eId, window) ->
-                    ( window,
-                      filter (\(_, cameraTarget, _, _) -> cameraTargetWindow cameraTarget == eId) cameraDraws
-                    )
-                )
-                windows
-        task go -< windowDraws
+          )
+          windows
+  returnA -< windowDraws
 
 -- | Surface target component.
 -- This component can be used to specify which `Camera` to draw a `Surface` to.
