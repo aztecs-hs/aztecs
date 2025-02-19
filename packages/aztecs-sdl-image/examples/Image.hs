@@ -4,31 +4,19 @@
 module Main where
 
 import Aztecs
-import Aztecs.Asset (load)
+import Aztecs.Asset (asset, load)
 import qualified Aztecs.ECS.Access as A
-import qualified Aztecs.ECS.Query as Q
-import qualified Aztecs.ECS.System as S
 import Aztecs.SDL (Camera (..), Window (..))
 import qualified Aztecs.SDL as SDL
 import Aztecs.SDL.Image (Image (..))
 import qualified Aztecs.SDL.Image as IMG
 import Aztecs.Transform (Transform (..), transform)
-import Control.Arrow (returnA, (>>>))
+import Control.Arrow ((>>>))
 import SDL (V2 (..))
 
 setup :: Schedule IO () ()
 setup = proc () -> do
-  texture <-
-    system $
-      S.mapSingle
-        ( proc () -> do
-            assetServer <- Q.fetch -< ()
-            let (texture, assetServer') = load "assets/example.png" () assetServer
-            Q.set -< assetServer'
-            returnA -< texture
-        )
-      -<
-        ()
+  texture <- system . load $ asset "assets/example.png" () -< ()
   access
     ( \texture -> do
         A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
