@@ -32,7 +32,7 @@ main = hspec $ do
 prop_queryOneComponent :: [X] -> Expectation
 prop_queryOneComponent xs =
   let w = foldr (\x -> snd . W.spawn (bundle x)) W.empty xs
-      (res, _) =  Q.all Q.fetch w
+      (res, _) = Q.all Q.fetch w
    in res `shouldMatchList` xs
 
 prop_queryTwoComponents :: [(X, Y)] -> Expectation

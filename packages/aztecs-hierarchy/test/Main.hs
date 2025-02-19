@@ -22,5 +22,5 @@ prop_addParents = do
   let (_, w) = W.spawnEmpty W.empty
       (e, w') = W.spawn (bundle . Children $ Set.singleton e) w
   (_, w'') <- runSchedule (system Hierarchy.update) w' ()
-  let (res, _) =  Q.all Q.fetch w''
+  let (res, _) = Q.all Q.fetch w''
   res `shouldMatchList` [Parent e]

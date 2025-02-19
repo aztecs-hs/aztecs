@@ -38,5 +38,5 @@ raceDyn (DynamicSystemT f) (DynamicSystemT g) = DynamicSystemT $ \w -> \i -> do
   ((a, v, fAccess), (b, v', gAccess)) <- case results of
     [(Just a, _), (_, Just b)] -> return (a, b)
     _ -> error "joinDyn: exception"
-  return ((a, b), v <> v', fAccess >> gAccess)
+  return ((a, b), v <> v', fAccessT >> gAccess)
 -}

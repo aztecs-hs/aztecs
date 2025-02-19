@@ -8,8 +8,7 @@ module Data.Aztecs.System.Dynamic (DynamicSystemT (..)) where
 
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
-import Control.Monad.Identity (Identity)
-import Data.Aztecs.Access (Access (..))
+import Data.Aztecs.Access (Access)
 import Data.Aztecs.System.Dynamic.Class (ArrowDynamicSystem (..))
 import Data.Aztecs.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
 import Data.Aztecs.View (View)
@@ -18,7 +17,7 @@ import Data.Aztecs.World (World (..))
 newtype DynamicSystemT i o = DynamicSystemT
   { -- | Run a dynamic system,
     -- producing some output, an updated `View` into the `World`, and any queued `Access`.
-    runSystemTDyn :: World -> (i -> (o, View, Access Identity ()))
+    runSystemTDyn :: World -> (i -> (o, View, Access ()))
   }
   deriving (Functor)
 
@@ -48,5 +47,5 @@ raceDyn (DynamicSystemT f) (DynamicSystemT g) = DynamicSystemT $ \w -> \i -> do
   ((a, v, fAccess), (b, v', gAccess)) <- case results of
     [(Just a, _), (_, Just b)] -> return (a, b)
     _ -> error "joinDyn: exception"
-  return ((a, b), v <> v', fAccess >> gAccess)
+  return ((a, b), v <> v', fAccessT >> gAccess)
 -}

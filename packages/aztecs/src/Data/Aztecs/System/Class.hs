@@ -4,7 +4,6 @@
 module Data.Aztecs.System.Class (ArrowSystem (..)) where
 
 import Control.Arrow (Arrow (..), (>>>))
-import Control.Monad.Identity (Identity)
 import Data.Aztecs.Access (Access)
 import Data.Aztecs.Query (Query (..), ReadsWrites)
 import qualified Data.Aztecs.Query as Q
@@ -21,7 +20,7 @@ import Prelude hiding (map)
 
 class (ArrowReaderSystem arr) => ArrowSystem arr where
   -- | Set a `Component` by its type.
-  runArrowSystem :: (Components -> (World -> i -> (o, View, Access Identity ()), ReadsWrites, Components)) -> arr i o
+  runArrowSystem :: (Components -> (World -> i -> (o, View, Access ()), ReadsWrites, Components)) -> arr i o
 
   -- | Query and update all matching entities.
   map :: (ArrowSystem arr) => Query i a -> arr i [a]
@@ -55,5 +54,5 @@ class (ArrowReaderSystem arr) => ArrowSystem arr where
         )
 
   -- | Queue an `Access` to happen after this system schedule.
-  queue :: (ArrowSystem arr) => (i -> Access Identity ()) -> arr i ()
+  queue :: (ArrowSystem arr) => (i -> Access ()) -> arr i ()
   queue f = runArrowSystem $ \cs -> (queueDyn' f, mempty, cs)

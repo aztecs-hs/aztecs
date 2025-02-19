@@ -51,7 +51,7 @@
 -- > main = runSystem_ $ setup >>> S.forever move
 module Data.Aztecs
   ( Access,
-    runAccess,
+    runAccessT,
     Bundle,
     bundle,
     Component (..),
@@ -74,7 +74,7 @@ module Data.Aztecs
   )
 where
 
-import Data.Aztecs.Access (Access, runAccess)
+import Data.Aztecs.Access (Access, runAccessT)
 import Data.Aztecs.Component (Component (..))
 import Data.Aztecs.Entity (EntityID)
 import Data.Aztecs.Query (Query, QueryFilter, with, without)

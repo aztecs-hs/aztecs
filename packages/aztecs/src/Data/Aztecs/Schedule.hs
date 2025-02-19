@@ -21,7 +21,7 @@ import Control.Monad ((>=>))
 import Control.Monad.Identity (Identity (runIdentity))
 import Control.Monad.State (MonadState (..))
 import Control.Monad.Trans (MonadTrans (..))
-import Data.Aztecs.Access (Access (..), runAccess)
+import Data.Aztecs.Access (AccessT (..), runAccessT)
 import Data.Aztecs.System (System (..))
 import Data.Aztecs.System.Dynamic (DynamicSystemT (..))
 import Data.Aztecs.System.Dynamic.Reader (DynamicReaderSystem (..))
@@ -31,7 +31,7 @@ import Data.Aztecs.World (World (..))
 import qualified Data.Aztecs.World as W
 import Data.Aztecs.World.Components (Components)
 
-newtype Schedule m i o = Schedule {runSchedule' :: Components -> (i -> Access m o, Components)}
+newtype Schedule m i o = Schedule {runSchedule' :: Components -> (i -> AccessT m o, Components)}
   deriving (Functor)
 
 instance (Monad m) => Category (Schedule m) where
@@ -50,7 +50,7 @@ instance Arrow (Schedule IO) where
 runSchedule :: (Monad m) => Schedule m i o -> World -> i -> m (o, World)
 runSchedule s w i = do
   let (f, cs) = runSchedule' s (components w)
-  (o, w') <- runAccess (f i) w {components = cs}
+  (o, w') <- runAccessT (f i) w {components = cs}
   return (o, w')
 
 runSchedule_ :: (Monad m) => Schedule m () () -> m ()
@@ -59,7 +59,7 @@ runSchedule_ s = const () <$> runSchedule s (W.empty) ()
 reader :: (Monad m) => ReaderSystem i o -> Schedule m i o
 reader t = Schedule $ \cs ->
   let (dynT, _, cs') = runReaderSystem t cs
-      go i = Access $ do
+      go i = AccessT $ do
         w <- get
         return $ runReaderSystemDyn dynT w i
    in (go, cs')
@@ -67,28 +67,28 @@ reader t = Schedule $ \cs ->
 system :: (Monad m) => System i o -> Schedule m i o
 system t = Schedule $ \cs ->
   let (dynT, _, cs') = runSystem t cs
-      go i = Access $ do
+      go i = AccessT $ do
         w <- get
         let f = runSystemTDyn dynT w
         let (o, v, a) = f i
-        let ((), w') = runIdentity $ runAccess a $ V.unview v w
+        let ((), w') = runIdentity $ runAccessT a $ V.unview v w
         put w'
         return o
    in (go, cs')
 
-access :: (Monad m) => (i -> Access m o) -> Schedule m i o
+access :: (Monad m) => (i -> AccessT m o) -> Schedule m i o
 access f = Schedule $ \cs -> (\i -> f i, cs)
 
 task :: (Monad m) => (i -> m o) -> Schedule m i o
-task f = Schedule $ \cs -> (\i -> Access Prelude.. lift $ f i, cs)
+task f = Schedule $ \cs -> (\i -> AccessT Prelude.. lift $ f i, cs)
 
 forever :: (Monad m) => Schedule m i o -> (o -> m ()) -> Schedule m i ()
 forever s f = Schedule $ \cs ->
   let (g, cs') = runSchedule' s cs
-      go i = Access $ do
+      go i = AccessT $ do
         w <- get
         let loop wAcc = do
-              (o, wAcc') <- lift $ runAccess (g i) wAcc
+              (o, wAcc') <- lift $ runAccessT (g i) wAcc
               lift $ f o
               loop wAcc'
         loop w

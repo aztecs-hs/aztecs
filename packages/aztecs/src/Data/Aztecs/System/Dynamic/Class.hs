@@ -9,8 +9,7 @@ module Data.Aztecs.System.Dynamic.Class
   )
 where
 
-import Control.Monad.Identity (Identity)
-import Data.Aztecs.Access (Access (..))
+import Data.Aztecs.Access (Access)
 import Data.Aztecs.Component (ComponentID)
 import Data.Aztecs.Query.Dynamic (DynamicQuery)
 import Data.Aztecs.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
@@ -20,7 +19,7 @@ import Data.Aztecs.World (World (..))
 import Data.Aztecs.World.Archetypes (Node (..))
 import Data.Set (Set)
 
-type DynamicSystemT i o = World -> i -> (o, View, Access Identity ())
+type DynamicSystemT i o = World -> i -> (o, View, Access ())
 
 class (ArrowDynamicReaderSystem arr) => ArrowDynamicSystem arr where
   runArrowSystemDyn :: DynamicSystemT i o -> arr i o
@@ -36,7 +35,7 @@ class (ArrowDynamicReaderSystem arr) => ArrowDynamicSystem arr where
     arr i [o]
   filterMapDyn cIds q f = runArrowSystemDyn $ filterMapDyn' cIds q f
 
-  queueDyn :: (i -> Access Identity ()) -> arr i ()
+  queueDyn :: (i -> Access ()) -> arr i ()
   queueDyn f = runArrowSystemDyn $ \_ -> \i -> ((), mempty, f i)
 
 -- | Map all matching entities, storing the updated entities.
@@ -54,5 +53,5 @@ filterMapDyn' cIds q f = \w ->
   let !v = V.filterView cIds f $ archetypes w
    in \i -> let (o, v') = V.allDyn i q v in (o, v', pure ())
 
-queueDyn' :: (i -> Access Identity ()) -> DynamicSystemT i ()
+queueDyn' :: (i -> Access ()) -> DynamicSystemT i ()
 queueDyn' f _ = \i -> ((), mempty, f i)
