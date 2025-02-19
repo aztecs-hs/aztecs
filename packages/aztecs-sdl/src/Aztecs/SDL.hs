@@ -545,6 +545,42 @@ toSDLKeycode key = case key of
 
 fromSDLKeycode :: SDL.Keycode -> Maybe Key
 fromSDLKeycode keycode = case keycode of
+  SDL.KeycodeA -> Just KeyA
+  SDL.KeycodeB -> Just KeyB
+  SDL.KeycodeC -> Just KeyC
+  SDL.KeycodeD -> Just KeyD
+  SDL.KeycodeE -> Just KeyE
+  SDL.KeycodeF -> Just KeyF
+  SDL.KeycodeG -> Just KeyG
+  SDL.KeycodeH -> Just KeyH
+  SDL.KeycodeI -> Just KeyI
+  SDL.KeycodeJ -> Just KeyJ
+  SDL.KeycodeK -> Just KeyK
+  SDL.KeycodeL -> Just KeyL
+  SDL.KeycodeM -> Just KeyM
+  SDL.KeycodeN -> Just KeyN
+  SDL.KeycodeO -> Just KeyO
+  SDL.KeycodeP -> Just KeyP
+  SDL.KeycodeQ -> Just KeyQ
+  SDL.KeycodeR -> Just KeyR
+  SDL.KeycodeS -> Just KeyS
+  SDL.KeycodeT -> Just KeyT
+  SDL.KeycodeU -> Just KeyU
+  SDL.KeycodeV -> Just KeyV
+  SDL.KeycodeW -> Just KeyW
+  SDL.KeycodeX -> Just KeyX
+  SDL.KeycodeY -> Just KeyY
+  SDL.KeycodeZ -> Just KeyZ
+  SDL.Keycode0 -> Just Key0
+  SDL.Keycode1 -> Just Key1
+  SDL.Keycode2 -> Just Key2
+  SDL.Keycode3 -> Just Key3
+  SDL.Keycode4 -> Just Key4
+  SDL.Keycode5 -> Just Key5
+  SDL.Keycode6 -> Just Key6
+  SDL.Keycode7 -> Just Key7
+  SDL.Keycode8 -> Just Key8
+  SDL.Keycode9 -> Just Key9
   SDL.KeycodeF1 -> Just KeyF1
   SDL.KeycodeF2 -> Just KeyF2
   SDL.KeycodeF3 -> Just KeyF3

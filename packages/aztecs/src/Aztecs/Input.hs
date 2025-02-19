@@ -19,7 +19,7 @@ module Aztecs.Input
   )
 where
 
-import Aztecs
+import Aztecs.ECS
 import Aztecs.ECS.Query (ArrowQuery)
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S

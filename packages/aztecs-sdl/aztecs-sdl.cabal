@@ -19,11 +19,6 @@ source-repository head
     type:     git
     location: https://github.com/matthunz/aztecs.git
 
-flag examples
-  description:       Build examples
-  default:           False
-  manual:            True
-
 library
     exposed-modules:
         Aztecs.SDL
@@ -38,34 +33,3 @@ library
         sdl2 >=2,
         text >=1.2,
         linear >= 1
-
-executable keyboard
-    main-is:          Keyboard.hs
-    hs-source-dirs:   examples
-    default-language: Haskell2010
-    ghc-options:      -Wall
-    if flag(examples)
-        build-depends: base, aztecs, aztecs-sdl, aztecs-asset, aztecs-transform, sdl2
-    else
-        buildable: False
-
-
-executable mouse
-    main-is:          Mouse.hs
-    hs-source-dirs:   examples
-    default-language: Haskell2010
-    ghc-options:      -Wall
-    if flag(examples)
-        build-depends: base, aztecs, aztecs-sdl, aztecs-asset, aztecs-transform, sdl2
-    else
-        buildable: False
-
-executable window
-    main-is:          Window.hs
-    hs-source-dirs:   examples
-    default-language: Haskell2010
-    ghc-options:      -Wall
-    if flag(examples)
-        build-depends: base, aztecs, aztecs-sdl, aztecs-asset, aztecs-transform, sdl2
-    else
-        buildable: False

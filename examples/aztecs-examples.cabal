@@ -22,8 +22,6 @@ executable keyboard
         base,
         aztecs,
         aztecs-sdl,
-        aztecs-asset,
-        aztecs-transform,
         sdl2
 
 executable mouse
@@ -34,8 +32,6 @@ executable mouse
         base,
         aztecs,
         aztecs-sdl,
-        aztecs-asset,
-        aztecs-transform,
         sdl2
 
 executable window
@@ -46,8 +42,6 @@ executable window
         base,
         aztecs,
         aztecs-sdl,
-        aztecs-asset,
-        aztecs-transform,
         sdl2
 
 executable image
