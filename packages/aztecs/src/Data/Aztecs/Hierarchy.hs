@@ -6,7 +6,8 @@ module Data.Aztecs.Hierarchy
   ( Parent (..),
     Children (..),
     update,
-    traverseHierarchy,
+    Hierarchy (..),
+    hierarchies,
     ParentState (..),
     ChildState (..),
   )
@@ -18,7 +19,7 @@ import Data.Aztecs
 import qualified Data.Aztecs.Access as A
 import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.Query.Reader (QueryReader)
-import Data.Aztecs.System (ArrowReaderSystem)
+import Data.Aztecs.System (ArrowReaderSystem, ArrowSystem)
 import qualified Data.Aztecs.System as S
 import qualified Data.Map as Map
 import Data.Set (Set)
@@ -44,7 +45,7 @@ newtype ChildState = ChildState {unChildState :: Set EntityID}
 
 instance Component ChildState
 
-update :: System () ()
+update :: (ArrowSystem arr) => arr () ()
 update = proc () -> do
   parents <-
     S.all
@@ -108,12 +109,18 @@ update = proc () -> do
     -<
       (parents, children)
 
-traverseHierarchy ::
+data Hierarchy a = Node
+  { nodeEntityId :: EntityID,
+    nodeEntity :: a,
+    nodeChildren :: [Hierarchy a]
+  }
+
+-- | Build all hierarchies of parents to children with the given query.
+hierarchies ::
   (ArrowReaderSystem arr) =>
   QueryReader i a ->
-  (Maybe (EntityID, a) -> EntityID -> a -> b) ->
-  arr i [[(EntityID, b)]]
-traverseHierarchy q f = proc i -> do
+  arr i [[Hierarchy a]]
+hierarchies q = proc i -> do
   children <-
     S.all
       ( proc i -> do
@@ -126,8 +133,14 @@ traverseHierarchy q f = proc i -> do
         i
   let childMap = Map.fromList children
   roots <- S.filter Q.entity $ with @Children <> without @Parent -< ()
-  let go parent e = case Map.lookup e childMap of
+  let go e = case Map.lookup e childMap of
         Just (cs, a) ->
-          let bs = concatMap (go $ Just (e, a)) (Set.toList cs) in (e, f parent e a) : bs
+          let bs = concatMap (go $) (Set.toList cs)
+           in [ Node
+                  { nodeEntityId = e,
+                    nodeEntity = a,
+                    nodeChildren = bs
+                  }
+              ]
         Nothing -> []
-  returnA -< map (go Nothing) roots
+  returnA -< map go roots
