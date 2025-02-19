@@ -16,8 +16,9 @@ where
 
 import Aztecs
 import qualified Aztecs.ECS.Access as A
+import Aztecs.ECS.Query (ArrowQuery)
 import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.Query.Reader (QueryReader)
+import Aztecs.ECS.Query.Reader (ArrowQueryReader)
 import Aztecs.ECS.System (ArrowReaderSystem, ArrowSystem)
 import qualified Aztecs.ECS.System as S
 import Control.Arrow (returnA)
@@ -47,7 +48,9 @@ newtype ChildState = ChildState {unChildState :: Set EntityID}
 
 instance Component ChildState
 
-update :: (ArrowSystem arr) => arr () ()
+update ::
+  (ArrowQueryReader qr, ArrowQuery q, ArrowReaderSystem qr arr, ArrowSystem q arr) =>
+  arr () ()
 update = proc () -> do
   parents <-
     S.all
@@ -118,9 +121,9 @@ data Hierarchy a = Node
   }
 
 hierarchy ::
-  (ArrowReaderSystem arr) =>
+  (ArrowQueryReader q, ArrowReaderSystem q arr) =>
   EntityID ->
-  QueryReader i a ->
+  q i a ->
   arr i [Hierarchy a]
 hierarchy e q = proc i -> do
   children <-
@@ -138,8 +141,8 @@ hierarchy e q = proc i -> do
 
 -- | Build all hierarchies of parents to children with the given query.
 hierarchies ::
-  (ArrowReaderSystem arr) =>
-  QueryReader i a ->
+  (ArrowQueryReader q, ArrowReaderSystem q arr) =>
+  q i a ->
   arr i [[Hierarchy a]]
 hierarchies q = proc i -> do
   children <-

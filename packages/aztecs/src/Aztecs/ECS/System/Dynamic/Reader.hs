@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFunctor #-}
 
 module Aztecs.ECS.System.Dynamic.Reader
@@ -8,11 +9,16 @@ module Aztecs.ECS.System.Dynamic.Reader
   )
 where
 
+import Aztecs.ECS.Component (ComponentID)
+import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader)
 import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
+import qualified Aztecs.ECS.View as V
 import Aztecs.ECS.World (World (..))
+import Aztecs.ECS.World.Archetypes (Node)
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
 import Control.Parallel (par)
+import Data.Set (Set)
 
 newtype DynamicReaderSystem i o = DynamicReaderSystem
   { -- | Run a dynamic system producing some output
@@ -29,7 +35,8 @@ instance Arrow DynamicReaderSystem where
   first (DynamicReaderSystem f) = DynamicReaderSystem $ \w (i, x) -> let a = f w i in (a, x)
 
 instance ArrowDynamicReaderSystem DynamicReaderSystem where
-  runArrowReaderSystemDyn = DynamicReaderSystem
+  allDyn cIds q = DynamicReaderSystem $ allDyn' cIds q
+  filterDyn cIds q f = DynamicReaderSystem $ filterDyn' cIds q f
 
 raceDyn :: DynamicReaderSystem i a -> DynamicReaderSystem i b -> DynamicReaderSystem i (a, b)
 raceDyn (DynamicReaderSystem f) (DynamicReaderSystem g) = DynamicReaderSystem $ \w i ->
@@ -39,3 +46,15 @@ raceDyn (DynamicReaderSystem f) (DynamicReaderSystem g) = DynamicReaderSystem $ 
       a = fa
       b = gbPar
    in (a, b)
+
+allDyn' :: Set ComponentID -> DynamicQueryReader i o -> World -> i -> [o]
+allDyn' cIds q w = let !v = V.view cIds $ archetypes w in \i -> V.readAllDyn i q v
+
+filterDyn' ::
+  Set ComponentID ->
+  DynamicQueryReader i o ->
+  (Node -> Bool) ->
+  World ->
+  i ->
+  [o]
+filterDyn' cIds q f w = let !v = V.filterView cIds f $ archetypes w in \i -> V.readAllDyn i q v

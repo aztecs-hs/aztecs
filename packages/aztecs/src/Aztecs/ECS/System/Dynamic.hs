@@ -7,7 +7,7 @@ module Aztecs.ECS.System.Dynamic (DynamicSystem (..), raceDyn) where
 import Aztecs.ECS.Access (Access)
 import Aztecs.ECS.System.Dynamic.Class (ArrowDynamicSystem (..))
 import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
-import Aztecs.ECS.View (View)
+import Aztecs.ECS.View (View, filterView, readAllDyn, view)
 import Aztecs.ECS.World (World (..))
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
@@ -32,7 +32,10 @@ instance Arrow DynamicSystem where
   first (DynamicSystem f) = DynamicSystem $ \w (i, x) -> let (a, v, access) = f w i in ((a, x), v, access)
 
 instance ArrowDynamicReaderSystem DynamicSystem where
-  runArrowReaderSystemDyn f = DynamicSystem $ \w i -> let o = f w i in (o, mempty, pure ())
+  allDyn cIds q = DynamicSystem $ \w i ->
+    let v = view cIds $ archetypes w in (readAllDyn i q v, v, pure ())
+  filterDyn cIds q f = DynamicSystem $ \w i ->
+    let v = filterView cIds f $ archetypes w in (readAllDyn i q v, v, pure ())
 
 instance ArrowDynamicSystem DynamicSystem where
   runArrowSystemDyn = DynamicSystem

@@ -52,7 +52,7 @@ import Aztecs.Camera (Camera (..), CameraTarget (..))
 import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.Query.Reader (QueryReader)
+import Aztecs.ECS.Query.Reader (ArrowQueryReader)
 import Aztecs.ECS.System (ArrowReaderSystem)
 import qualified Aztecs.ECS.System as S
 import Aztecs.Input
@@ -135,7 +135,7 @@ newtype SurfaceTexture = SurfaceTexture
 instance Component SurfaceTexture
 
 allWindowTextures ::
-  (ArrowReaderSystem arr) =>
+  (ArrowQueryReader q, ArrowReaderSystem q arr, Applicative (q ())) =>
   arr () [(WindowRenderer, [(EntityID, Surface, Transform, Maybe SurfaceTexture)])]
 allWindowTextures =
   allWindowDraws
@@ -224,7 +224,7 @@ draw =
    in reader allCameraSurfaces >>> access go
 
 allCameraSurfaces ::
-  (ArrowReaderSystem arr) =>
+  (ArrowQueryReader q, ArrowReaderSystem q arr) =>
   arr () [(WindowRenderer, [((Camera, Transform), [(Surface, Transform, SurfaceTexture)])])]
 allCameraSurfaces =
   allWindowDraws
@@ -237,9 +237,9 @@ allCameraSurfaces =
     )
 
 allWindowDraws ::
-  (ArrowReaderSystem arr) =>
-  (QueryReader () a) ->
-  (QueryReader () b) ->
+  (ArrowQueryReader q, ArrowReaderSystem q arr) =>
+  (q () a) ->
+  (q () b) ->
   arr () [(WindowRenderer, [(a, [b])])]
 allWindowDraws qA qB = proc () -> do
   cameras <-

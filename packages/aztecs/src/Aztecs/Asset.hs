@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE Arrows #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -29,6 +30,7 @@ import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import Aztecs.ECS.Query (ArrowQuery)
 import qualified Aztecs.ECS.Query as Q
+import Aztecs.ECS.Query.Reader (QueryReader)
 import Aztecs.ECS.System (ArrowSystem)
 import qualified Aztecs.ECS.System as S
 import Control.Arrow (returnA)
@@ -100,7 +102,7 @@ loadQuery a = proc () -> do
   Q.set -< assetServer'
   returnA -< o
 
-load :: (ArrowSystem arr, Asset a) => AssetLoader a o -> arr () o
+load :: (ArrowSystem Query arr, Asset a) => AssetLoader a o -> arr () o
 load a = S.mapSingle $ loadQuery a
 
 lookupAsset :: Handle a -> AssetServer a -> Maybe a
@@ -108,7 +110,7 @@ lookupAsset h server = Map.lookup (handleId h) (assetServerAssets server)
 
 loadAssets :: forall a. (Typeable a) => Schedule IO () ()
 loadAssets = proc () -> do
-  server <- reader $ S.single (Q.fetch @_ @(AssetServer a)) -< ()
+  server <- reader $ S.single (Q.fetch @QueryReader @(AssetServer a)) -< ()
   server' <-
     task
       ( \server ->
