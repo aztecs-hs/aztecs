@@ -25,13 +25,14 @@ module Data.Aztecs.SDL
     -- * Input
 
     -- ** Keyboard input
-    KeyboardInput (..),
-    isKeyPressed,
-    wasKeyPressed,
-    wasKeyReleased,
+    fromSDLKeycode,
+    toSDLKeycode,
 
     -- ** Mouse input
-    MouseInput (..),
+    mouseButtonFromSDL,
+    mouseButtonToSDL,
+    motionFromSDL,
+    motionToSDL,
 
     -- * Time
     Time (..),
@@ -49,30 +50,31 @@ module Data.Aztecs.SDL
     addSurfaceTargets,
     handleInput,
     updateTime,
-    clearKeyboard,
-    clearKeyboardQuery,
-    clearMouseInput,
-    clearMouseInputQuery,
   )
 where
 
 import Control.Arrow (Arrow (..), returnA, (>>>))
 import Data.Aztecs
 import qualified Data.Aztecs.Access as A
-import Data.Aztecs.Query (ArrowQuery)
+import Data.Aztecs.Input
+  ( InputMotion (..),
+    Key (..),
+    KeyboardInput (..),
+    MouseButton (..),
+    MouseInput (..),
+    clearInput,
+    handleKeyboardEvent,
+  )
 import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.Query.Reader (QueryReader)
 import Data.Aztecs.System (ArrowReaderSystem)
 import qualified Data.Aztecs.System as S
 import Data.Aztecs.Transform (Size (..), Transform (..))
-import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe, mapMaybe)
-import Data.Set (Set)
-import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Word (Word32)
-import SDL hiding (Surface, Texture, Window, windowTitle)
+import SDL hiding (InputMotion (..), MouseButton (..), Surface, Texture, Window, windowTitle)
 import qualified SDL
 
 #if !MIN_VERSION_base(4,20,0)
@@ -374,50 +376,6 @@ updateTime = proc () -> do
   system $ S.mapSingle Q.set -< Time t
   returnA -< ()
 
--- | Keyboard input component.
-data KeyboardInput = KeyboardInput
-  { -- | Keyboard events that occured this frame.
-    keyboardEvents :: !(Map Keycode InputMotion),
-    -- | Keys that are currently pressed.
-    keyboardPressed :: !(Set Keycode)
-  }
-  deriving (Show)
-
-instance Component KeyboardInput
-
--- | @True@ if this key is currently pressed.
-isKeyPressed :: Keycode -> KeyboardInput -> Bool
-isKeyPressed key kb = Set.member key $ keyboardPressed kb
-
--- | Check for a key event that occured this frame.
-keyEvent :: Keycode -> KeyboardInput -> Maybe InputMotion
-keyEvent key kb = Map.lookup key $ keyboardEvents kb
-
--- | @True@ if this key was pressed this frame.
-wasKeyPressed :: Keycode -> KeyboardInput -> Bool
-wasKeyPressed key kb = case keyEvent key kb of
-  Just Pressed -> True
-  _ -> False
-
--- | @True@ if this key was released this frame.
-wasKeyReleased :: Keycode -> KeyboardInput -> Bool
-wasKeyReleased key kb = case keyEvent key kb of
-  Just Released -> True
-  _ -> False
-
--- | Mouse input component.
-data MouseInput = MouseInput
-  { -- | Mouse position in screen-space.
-    mousePosition :: !(Point V2 Int),
-    -- | Mouse offset since last frame.
-    mouseOffset :: !(V2 Int),
-    -- | Mouse button states.
-    mouseButtons :: !(Map MouseButton InputMotion)
-  }
-  deriving (Show)
-
-instance Component MouseInput
-
 handleInput :: Schedule IO () ()
 handleInput = task (const pollEvents) >>> system handleInput'
 
@@ -428,22 +386,9 @@ handleInput' = proc events -> do
   mouseInput <- S.single Q.fetch -< ()
   let go (kbAcc, mouseAcc) event = case eventPayload event of
         KeyboardEvent keyboardEvent ->
-          ( KeyboardInput
-              ( Map.insert
-                  (keysymKeycode $ keyboardEventKeysym keyboardEvent)
-                  (keyboardEventKeyMotion keyboardEvent)
-                  (keyboardEvents kbAcc)
-              )
-              ( case keyboardEventKeyMotion keyboardEvent of
-                  Pressed ->
-                    Set.insert
-                      (keysymKeycode $ keyboardEventKeysym keyboardEvent)
-                      (keyboardPressed kbAcc)
-                  Released ->
-                    Set.delete
-                      (keysymKeycode $ keyboardEventKeysym keyboardEvent)
-                      (keyboardPressed kbAcc)
-              ),
+          ( case fromSDLKeycode $ keysymKeycode $ keyboardEventKeysym keyboardEvent of
+              Just key -> handleKeyboardEvent key (motionFromSDL $ keyboardEventKeyMotion keyboardEvent) kbAcc
+              Nothing -> kbAcc,
             mouseAcc
           )
         MouseMotionEvent mouseMotionEvent ->
@@ -461,8 +406,8 @@ handleInput' = proc events -> do
                 mouseOffset = V2 0 0,
                 mouseButtons =
                   Map.insert
-                    (mouseButtonEventButton mouseButtonEvent)
-                    (mouseButtonEventMotion mouseButtonEvent)
+                    (mouseButtonFromSDL $ mouseButtonEventButton mouseButtonEvent)
+                    (motionFromSDL $ mouseButtonEventMotion mouseButtonEvent)
                     (mouseButtons mouseAcc)
               }
           )
@@ -472,21 +417,195 @@ handleInput' = proc events -> do
   S.mapSingle Q.set -< mouseInput'
   returnA -< ()
 
-clearInput :: System () ()
-clearInput = const () <$> (clearKeyboard &&& clearMouseInput)
+mouseButtonFromSDL :: SDL.MouseButton -> MouseButton
+mouseButtonFromSDL b = case b of
+  SDL.ButtonLeft -> ButtonLeft
+  SDL.ButtonMiddle -> ButtonMiddle
+  SDL.ButtonRight -> ButtonRight
+  SDL.ButtonX1 -> ButtonX1
+  SDL.ButtonX2 -> ButtonX2
+  SDL.ButtonExtra i -> ButtonExtra i
 
-clearKeyboardQuery :: (ArrowQuery arr) => arr () KeyboardInput
-clearKeyboardQuery = proc () -> do
-  kb <- Q.fetch -< ()
-  Q.set -< kb {keyboardEvents = mempty}
+mouseButtonToSDL :: MouseButton -> SDL.MouseButton
+mouseButtonToSDL b = case b of
+  ButtonLeft -> SDL.ButtonLeft
+  ButtonMiddle -> SDL.ButtonMiddle
+  ButtonRight -> SDL.ButtonRight
+  ButtonX1 -> SDL.ButtonX1
+  ButtonX2 -> SDL.ButtonX2
+  ButtonExtra i -> SDL.ButtonExtra i
 
-clearKeyboard :: System () ()
-clearKeyboard = const () <$> S.mapSingle clearKeyboardQuery
+motionFromSDL :: SDL.InputMotion -> InputMotion
+motionFromSDL m = case m of
+  SDL.Pressed -> Pressed
+  SDL.Released -> Released
 
-clearMouseInputQuery :: (ArrowQuery arr) => arr () MouseInput
-clearMouseInputQuery = proc () -> do
-  mouseInput <- Q.fetch -< ()
-  Q.set -< mouseInput {mouseButtons = mempty, mouseOffset = V2 0 0}
+motionToSDL :: InputMotion -> SDL.InputMotion
+motionToSDL m = case m of
+  Pressed -> SDL.Pressed
+  Released -> SDL.Released
 
-clearMouseInput :: System () ()
-clearMouseInput = const () <$> S.mapSingle clearMouseInputQuery
+toSDLKeycode :: Key -> SDL.Keycode
+toSDLKeycode key = case key of
+  KeyA -> SDL.KeycodeA
+  KeyB -> SDL.KeycodeB
+  KeyC -> SDL.KeycodeC
+  KeyD -> SDL.KeycodeD
+  KeyE -> SDL.KeycodeE
+  KeyF -> SDL.KeycodeF
+  KeyG -> SDL.KeycodeG
+  KeyH -> SDL.KeycodeH
+  KeyI -> SDL.KeycodeI
+  KeyJ -> SDL.KeycodeJ
+  KeyK -> SDL.KeycodeK
+  KeyL -> SDL.KeycodeL
+  KeyM -> SDL.KeycodeM
+  KeyN -> SDL.KeycodeN
+  KeyO -> SDL.KeycodeO
+  KeyP -> SDL.KeycodeP
+  KeyQ -> SDL.KeycodeQ
+  KeyR -> SDL.KeycodeR
+  KeyS -> SDL.KeycodeS
+  KeyT -> SDL.KeycodeT
+  KeyU -> SDL.KeycodeU
+  KeyV -> SDL.KeycodeV
+  KeyW -> SDL.KeycodeW
+  KeyX -> SDL.KeycodeX
+  KeyY -> SDL.KeycodeY
+  KeyZ -> SDL.KeycodeZ
+  Key0 -> SDL.Keycode0
+  Key1 -> SDL.Keycode1
+  Key2 -> SDL.Keycode2
+  Key3 -> SDL.Keycode3
+  Key4 -> SDL.Keycode4
+  Key5 -> SDL.Keycode5
+  Key6 -> SDL.Keycode6
+  Key7 -> SDL.Keycode7
+  Key8 -> SDL.Keycode8
+  Key9 -> SDL.Keycode9
+  KeyF1 -> SDL.KeycodeF1
+  KeyF2 -> SDL.KeycodeF2
+  KeyF3 -> SDL.KeycodeF3
+  KeyF4 -> SDL.KeycodeF4
+  KeyF5 -> SDL.KeycodeF5
+  KeyF6 -> SDL.KeycodeF6
+  KeyF7 -> SDL.KeycodeF7
+  KeyF8 -> SDL.KeycodeF8
+  KeyF9 -> SDL.KeycodeF9
+  KeyF10 -> SDL.KeycodeF10
+  KeyF11 -> SDL.KeycodeF11
+  KeyF12 -> SDL.KeycodeF12
+  KeyEscape -> SDL.KeycodeEscape
+  KeyEnter -> SDL.KeycodeReturn
+  KeySpace -> SDL.KeycodeSpace
+  KeyBackspace -> SDL.KeycodeBackspace
+  KeyTab -> SDL.KeycodeTab
+  KeyCapsLock -> SDL.KeycodeCapsLock
+  KeyShift -> SDL.KeycodeLShift
+  KeyCtrl -> SDL.KeycodeLCtrl
+  KeyAlt -> SDL.KeycodeLAlt
+  KeyLeft -> SDL.KeycodeLeft
+  KeyRight -> SDL.KeycodeRight
+  KeyUp -> SDL.KeycodeUp
+  KeyDown -> SDL.KeycodeDown
+  KeyHome -> SDL.KeycodeHome
+  KeyEnd -> SDL.KeycodeEnd
+  KeyPageUp -> SDL.KeycodePageUp
+  KeyPageDown -> SDL.KeycodePageDown
+  KeyInsert -> SDL.KeycodeInsert
+  KeyDelete -> SDL.KeycodeDelete
+  KeyMinus -> SDL.KeycodeMinus
+  KeyEquals -> SDL.KeycodeEquals
+  KeyBracketLeft -> SDL.KeycodeLeftBracket
+  KeyBracketRight -> SDL.KeycodeRightBracket
+  KeyBackslash -> SDL.KeycodeBackslash
+  KeySemicolon -> SDL.KeycodeSemicolon
+  KeyComma -> SDL.KeycodeComma
+  KeyPeriod -> SDL.KeycodePeriod
+  KeySlash -> SDL.KeycodeSlash
+  KeyNumLock -> SDL.KeycodeNumLockClear
+  KeyNumpad0 -> SDL.KeycodeKP0
+  KeyNumpad1 -> SDL.KeycodeKP1
+  KeyNumpad2 -> SDL.KeycodeKP2
+  KeyNumpad3 -> SDL.KeycodeKP3
+  KeyNumpad4 -> SDL.KeycodeKP4
+  KeyNumpad5 -> SDL.KeycodeKP5
+  KeyNumpad6 -> SDL.KeycodeKP6
+  KeyNumpad7 -> SDL.KeycodeKP7
+  KeyNumpad8 -> SDL.KeycodeKP8
+  KeyNumpad9 -> SDL.KeycodeKP9
+  KeyNumpadDivide -> SDL.KeycodeKPDivide
+  KeyNumpadMultiply -> SDL.KeycodeKPMultiply
+  KeyNumpadMinus -> SDL.KeycodeKPMinus
+  KeyNumpadPlus -> SDL.KeycodeKPPlus
+  KeyNumpadEnter -> SDL.KeycodeKPEnter
+  KeyNumpadPeriod -> SDL.KeycodeKPPeriod
+  KeySuper -> SDL.KeycodeLGUI -- assuming left Super (Windows/Command key); SDL also has RGUI
+  KeyMenu -> SDL.KeycodeMenu
+
+fromSDLKeycode :: SDL.Keycode -> Maybe Key
+fromSDLKeycode keycode = case keycode of
+  SDL.KeycodeF1 -> Just KeyF1
+  SDL.KeycodeF2 -> Just KeyF2
+  SDL.KeycodeF3 -> Just KeyF3
+  SDL.KeycodeF4 -> Just KeyF4
+  SDL.KeycodeF5 -> Just KeyF5
+  SDL.KeycodeF6 -> Just KeyF6
+  SDL.KeycodeF7 -> Just KeyF7
+  SDL.KeycodeF8 -> Just KeyF8
+  SDL.KeycodeF9 -> Just KeyF9
+  SDL.KeycodeF10 -> Just KeyF10
+  SDL.KeycodeF11 -> Just KeyF11
+  SDL.KeycodeF12 -> Just KeyF12
+  SDL.KeycodeEscape -> Just KeyEscape
+  SDL.KeycodeReturn -> Just KeyEnter
+  SDL.KeycodeSpace -> Just KeySpace
+  SDL.KeycodeBackspace -> Just KeyBackspace
+  SDL.KeycodeTab -> Just KeyTab
+  SDL.KeycodeCapsLock -> Just KeyCapsLock
+  SDL.KeycodeLShift -> Just KeyShift
+  SDL.KeycodeRShift -> Just KeyShift
+  SDL.KeycodeLCtrl -> Just KeyCtrl
+  SDL.KeycodeRCtrl -> Just KeyCtrl
+  SDL.KeycodeLAlt -> Just KeyAlt
+  SDL.KeycodeRAlt -> Just KeyAlt
+  SDL.KeycodeLeft -> Just KeyLeft
+  SDL.KeycodeRight -> Just KeyRight
+  SDL.KeycodeUp -> Just KeyUp
+  SDL.KeycodeDown -> Just KeyDown
+  SDL.KeycodeHome -> Just KeyHome
+  SDL.KeycodeEnd -> Just KeyEnd
+  SDL.KeycodePageUp -> Just KeyPageUp
+  SDL.KeycodePageDown -> Just KeyPageDown
+  SDL.KeycodeInsert -> Just KeyInsert
+  SDL.KeycodeDelete -> Just KeyDelete
+  SDL.KeycodeMinus -> Just KeyMinus
+  SDL.KeycodeEquals -> Just KeyEquals
+  SDL.KeycodeLeftBracket -> Just KeyBracketLeft
+  SDL.KeycodeRightBracket -> Just KeyBracketRight
+  SDL.KeycodeBackslash -> Just KeyBackslash
+  SDL.KeycodeSemicolon -> Just KeySemicolon
+  SDL.KeycodeComma -> Just KeyComma
+  SDL.KeycodePeriod -> Just KeyPeriod
+  SDL.KeycodeSlash -> Just KeySlash
+  SDL.KeycodeNumLockClear -> Just KeyNumLock
+  SDL.KeycodeKP0 -> Just KeyNumpad0
+  SDL.KeycodeKP1 -> Just KeyNumpad1
+  SDL.KeycodeKP2 -> Just KeyNumpad2
+  SDL.KeycodeKP3 -> Just KeyNumpad3
+  SDL.KeycodeKP4 -> Just KeyNumpad4
+  SDL.KeycodeKP5 -> Just KeyNumpad5
+  SDL.KeycodeKP6 -> Just KeyNumpad6
+  SDL.KeycodeKP7 -> Just KeyNumpad7
+  SDL.KeycodeKP8 -> Just KeyNumpad8
+  SDL.KeycodeKP9 -> Just KeyNumpad9
+  SDL.KeycodeKPDivide -> Just KeyNumpadDivide
+  SDL.KeycodeKPMultiply -> Just KeyNumpadMultiply
+  SDL.KeycodeKPMinus -> Just KeyNumpadMinus
+  SDL.KeycodeKPPlus -> Just KeyNumpadPlus
+  SDL.KeycodeKPEnter -> Just KeyNumpadEnter
+  SDL.KeycodeKPPeriod -> Just KeyNumpadPeriod
+  SDL.KeycodeLGUI -> Just KeySuper
+  SDL.KeycodeRGUI -> Just KeySuper
+  SDL.KeycodeMenu -> Just KeyMenu
+  _ -> Nothing
