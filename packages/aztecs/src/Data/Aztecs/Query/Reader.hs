@@ -31,7 +31,7 @@ import Data.Aztecs.World.Components (Components)
 import qualified Data.Aztecs.World.Components as CS
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Prelude hiding (all, any, id, lookup, map, mapM, reads, (.))
+import Prelude hiding (id, (.))
 
 -- | Query for matching entities.
 --

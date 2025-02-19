@@ -1,12 +1,10 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TupleSections #-}
 
 module Data.Aztecs.System.Dynamic.Reader
   ( -- * Dynamic Systems
     DynamicReaderSystem (..),
+    ArrowDynamicReaderSystem (..),
   )
 where
 

@@ -4,8 +4,10 @@
 module Data.Aztecs.Query.Dynamic.Reader
   ( -- * Dynamic queries
     DynamicQueryReader (..),
-    DynamicQueryFilter (..),
     ArrowDynamicQueryReader (..),
+
+    -- * Dynamic query filters
+    DynamicQueryFilter (..),
   )
 where
 
@@ -18,18 +20,6 @@ import Data.Aztecs.World.Archetype (Archetype)
 import qualified Data.Aztecs.World.Archetype as A
 import Data.Set (Set)
 import Prelude hiding (all, any, id, lookup, map, mapM, reads, (.))
-
-data DynamicQueryFilter = DynamicQueryFilter
-  { filterWith :: !(Set ComponentID),
-    filterWithout :: !(Set ComponentID)
-  }
-
-instance Semigroup DynamicQueryFilter where
-  DynamicQueryFilter withA withoutA <> DynamicQueryFilter withB withoutB =
-    DynamicQueryFilter (withA <> withB) (withoutA <> withoutB)
-
-instance Monoid DynamicQueryFilter where
-  mempty = DynamicQueryFilter mempty mempty
 
 -- | Dynamic query for components by ID.
 newtype DynamicQueryReader i o
@@ -65,3 +55,15 @@ instance ArrowDynamicQueryReader DynamicQueryReader where
     DynamicQueryReader $ \_ _ arch -> let !as = A.all cId arch in fmap snd as
   fetchMaybeDyn cId =
     DynamicQueryReader $ \_ _ arch -> let as = A.allMaybe cId arch in fmap snd as
+
+data DynamicQueryFilter = DynamicQueryFilter
+  { filterWith :: !(Set ComponentID),
+    filterWithout :: !(Set ComponentID)
+  }
+
+instance Semigroup DynamicQueryFilter where
+  DynamicQueryFilter withA withoutA <> DynamicQueryFilter withB withoutB =
+    DynamicQueryFilter (withA <> withB) (withoutA <> withoutB)
+
+instance Monoid DynamicQueryFilter where
+  mempty = DynamicQueryFilter mempty mempty

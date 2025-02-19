@@ -3,7 +3,6 @@ module Data.Aztecs.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..)) whe
 import Control.Arrow (Arrow (..), (>>>))
 import Data.Aztecs.Component
 import Data.Aztecs.Entity (EntityID)
-import Prelude hiding (all, any, id, lookup, map, mapM, reads, (.))
 
 class (Arrow arr) => ArrowDynamicQueryReader arr where
   -- | Fetch the `EntityID` belonging to this entity.
