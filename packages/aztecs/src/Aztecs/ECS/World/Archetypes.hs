@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -20,12 +21,19 @@ module Aztecs.ECS.World.Archetypes
     map,
     adjustArchetype,
     insert,
+    remove,
   )
 where
 
 import Aztecs.ECS.Component (Component (..), ComponentID)
 import Aztecs.ECS.Entity (EntityID (..))
-import Aztecs.ECS.World.Archetype hiding (empty)
+import Aztecs.ECS.World.Archetype
+  ( AnyStorage (..),
+    Archetype (..),
+    insertComponent,
+    removeStorages,
+  )
+import qualified Aztecs.ECS.World.Archetype as A
 import Data.Data (Typeable)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -140,7 +148,7 @@ insert e aId cId c arches = case lookupNode aId arches of
       then (Nothing, arches {nodes = Map.adjust (\n -> n {nodeArchetype = insertComponent e cId c (nodeArchetype n)}) aId (nodes arches)})
       else case lookupArchetypeId (Set.insert cId (nodeComponentIds node)) arches of
         Just nextAId ->
-          let !(cs, arch') = remove e (nodeArchetype node)
+          let !(cs, arch') = A.remove e (nodeArchetype node)
               !arches' = arches {nodes = Map.insert aId node {nodeArchetype = arch'} (nodes arches)}
               f archAcc (itemCId, dyn) =
                 archAcc
@@ -190,4 +198,65 @@ insert e aId cId c arches = case lookupNode aId arches of
                         (nodes arches')
                   }
               )
+  Nothing -> (Nothing, arches)
+
+remove ::
+  (Component a, Typeable (StorageT a)) =>
+  EntityID ->
+  ArchetypeID ->
+  ComponentID ->
+  Archetypes ->
+  (Maybe ArchetypeID, Archetypes)
+remove e aId cId arches = case lookupNode aId arches of
+  Just node -> case lookupArchetypeId (Set.delete cId (nodeComponentIds node)) arches of
+    Just nextAId ->
+      let !(cs, arch') = A.remove e (nodeArchetype node)
+          !arches' = arches {nodes = Map.insert aId node {nodeArchetype = arch'} (nodes arches)}
+          f archAcc (itemCId, dyn) =
+            archAcc
+              { storages =
+                  Map.adjust
+                    (\s -> s {storageDyn = insertDyn s (unEntityId e) dyn (storageDyn s)})
+                    itemCId
+                    (storages archAcc)
+              }
+       in ( Just nextAId,
+            arches'
+              { nodes =
+                  Map.adjust
+                    ( \nextNode ->
+                        nextNode
+                          { nodeArchetype =
+                              foldl'
+                                f
+                                (nodeArchetype nextNode)
+                                (Map.toList $ Map.delete cId cs)
+                          }
+                    )
+                    nextAId
+                    (nodes $ arches')
+              }
+          )
+    Nothing ->
+      let !(s, arch') = removeStorages e (nodeArchetype node)
+          !n =
+            Node
+              { nodeComponentIds = Set.insert cId (nodeComponentIds node),
+                nodeArchetype = Archetype {storages = s},
+                nodeAdd = Map.empty,
+                nodeRemove = Map.singleton cId aId
+              }
+          !(nextAId, arches') = insertArchetype (Set.insert cId (nodeComponentIds node)) n arches
+       in ( Just nextAId,
+            arches'
+              { nodes =
+                  Map.insert
+                    aId
+                    node
+                      { nodeArchetype = arch',
+                        nodeAdd = Map.insert cId nextAId (nodeAdd node)
+                      }
+                    (nodes arches')
+              }
+          )
   Nothing -> (Nothing, arches)

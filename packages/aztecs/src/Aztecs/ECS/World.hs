@@ -17,6 +17,8 @@ module Aztecs.ECS.World
     insert,
     insertWithId,
     lookup,
+    remove,
+    removeWithId,
     despawn,
   )
 where
@@ -26,7 +28,7 @@ import Aztecs.ECS.Component
     ComponentID,
   )
 import Aztecs.ECS.Entity (EntityID (..))
-import Aztecs.ECS.World.Archetype (Archetype (..), Bundle (..), DynamicBundle (..))
+import Aztecs.ECS.World.Archetype (Bundle (..), DynamicBundle (..))
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (ArchetypeID, Archetypes, Node (..))
 import qualified Aztecs.ECS.World.Archetypes as AS
@@ -204,6 +206,22 @@ lookup e w = do
   !aId <- Map.lookup e (entities w)
   !node <- AS.lookupNode aId (archetypes w)
   A.lookupComponent e cId (nodeArchetype node)
+
+-- | Insert a component into an entity.
+remove :: forall a. (Component a, Typeable (StorageT a)) => EntityID -> World -> World
+remove e w =
+  let !(cId, components') = CS.insert @a (components w)
+   in removeWithId @a e cId w {components = components'}
+
+removeWithId :: forall a. (Component a, Typeable (StorageT a)) => EntityID -> ComponentID -> World -> World
+removeWithId e cId w = case Map.lookup e (entities w) of
+  Just aId ->
+    let (maybeNextAId, as) = AS.remove @a e aId cId $ archetypes w
+        es = case maybeNextAId of
+          Just nextAId -> Map.insert e nextAId (entities w)
+          Nothing -> entities w
+     in w {archetypes = as, entities = es}
+  Nothing -> w
 
 -- | Despawn an entity, returning its components.
 despawn :: EntityID -> World -> (Map ComponentID Dynamic, World)
