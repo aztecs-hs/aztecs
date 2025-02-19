@@ -7,7 +7,7 @@ import Aztecs.ECS.Access (Access)
 import Aztecs.ECS.Query (Query (..), ReadsWrites)
 import qualified Aztecs.ECS.Query as Q
 import Aztecs.ECS.Query.Reader (QueryFilter (..), filterWith, filterWithout)
-import Aztecs.ECS.System.Dynamic.Class (filterMapDyn', mapDyn', queueDyn')
+import Aztecs.ECS.System.Dynamic.Class (filterMapDyn', mapDyn', mapSingleDyn', mapSingleMaybeDyn', queueDyn')
 import Aztecs.ECS.System.Reader.Class (ArrowReaderSystem)
 import Aztecs.ECS.View (View)
 import Aztecs.ECS.World (World)
@@ -45,13 +45,14 @@ class (ArrowReaderSystem arr) => ArrowSystem arr where
   -- | Map a single matching entity, storing the updated components.
   -- If there are zero or multiple matching entities, an error will be thrown.
   mapSingle :: (ArrowSystem arr) => Query i a -> arr i a
-  mapSingle q =
-    map q
-      >>> arr
-        ( \as -> case as of
-            [a] -> a
-            _ -> error "TODO"
-        )
+  mapSingle q = runArrowSystem $ \cs ->
+    let !(rws, cs', dynQ) = runQuery q cs
+     in (mapSingleDyn' (Q.reads rws <> Q.writes rws) dynQ, rws, cs')
+
+  mapSingleMaybe :: (ArrowSystem arr) => Query i a -> arr i (Maybe a)
+  mapSingleMaybe q = runArrowSystem $ \cs ->
+    let !(rws, cs', dynQ) = runQuery q cs
+     in (mapSingleMaybeDyn' (Q.reads rws <> Q.writes rws) dynQ, rws, cs')
 
   -- | Queue an `Access` to happen after this system schedule.
   queue :: (ArrowSystem arr) => (i -> Access ()) -> arr i ()

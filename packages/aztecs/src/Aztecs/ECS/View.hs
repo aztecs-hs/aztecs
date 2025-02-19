@@ -8,9 +8,11 @@
 module Aztecs.ECS.View
   ( View (..),
     view,
+    viewSingle,
     filterView,
     unview,
     allDyn,
+    singleDyn,
     readAllDyn,
   )
 where
@@ -38,6 +40,11 @@ newtype View = View {viewArchetypes :: Map ArchetypeID Node}
 -- | View into all archetypes containing the provided component IDs.
 view :: Set ComponentID -> Archetypes -> View
 view cIds as = View $ AS.lookup cIds as
+
+viewSingle :: Set ComponentID -> Archetypes -> Maybe View
+viewSingle cIds as = case Map.toList $ AS.lookup cIds as of
+  [a] -> Just . View $ Map.singleton (fst a) (snd a)
+  _ -> Nothing
 
 -- | View into all archetypes containing the provided component IDs and matching the provided predicate.
 filterView ::
@@ -70,6 +77,13 @@ allDyn i q v =
           ([], Map.empty)
           (Map.toList $ viewArchetypes v)
    in (as, View arches)
+
+-- | Query all matching entities in a `View`.
+singleDyn :: i -> DynamicQuery i a -> View -> (Maybe a, View)
+singleDyn i q v = case allDyn i q v of
+  -- TODO [a], removing this errors for now
+  ((a: _), v') -> (Just a, v')
+  _ -> (Nothing, v)
 
 -- | Query all matching entities in a `View`.
 readAllDyn :: i -> DynamicQueryReader i a -> View -> [a]
