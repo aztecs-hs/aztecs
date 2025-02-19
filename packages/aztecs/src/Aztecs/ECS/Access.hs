@@ -1,6 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Aztecs.ECS.Access
   ( Access,
     AccessT (..),
@@ -40,6 +39,11 @@ instance (Monad m) => MonadAccess (AccessT m) where
   lookup e = AccessT $ do
     !w <- get
     return $ W.lookup e w
+  remove e = AccessT $ do
+    !w <- get
+    let !(a, w') = W.remove e w
+    put w'
+    return a
   despawn e = AccessT $ do
     !w <- get
     let !(_, w') = W.despawn e w

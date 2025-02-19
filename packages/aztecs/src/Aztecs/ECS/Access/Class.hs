@@ -25,5 +25,8 @@ class (Monad m) => MonadAccess m where
   -- | Lookup a component on an entity.
   lookup :: (Component a) => EntityID -> m (Maybe a)
 
+  -- | Remove a component from an entity.
+  remove :: (Component a, Typeable (StorageT a)) => EntityID -> m (Maybe a)
+
   -- | Despawn an entity.
   despawn :: EntityID -> m ()

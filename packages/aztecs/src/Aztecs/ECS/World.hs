@@ -2,7 +2,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -208,20 +207,20 @@ lookup e w = do
   A.lookupComponent e cId (nodeArchetype node)
 
 -- | Insert a component into an entity.
-remove :: forall a. (Component a, Typeable (StorageT a)) => EntityID -> World -> World
+remove :: forall a. (Component a, Typeable (StorageT a)) => EntityID -> World -> (Maybe a, World)
 remove e w =
   let !(cId, components') = CS.insert @a (components w)
    in removeWithId @a e cId w {components = components'}
 
-removeWithId :: forall a. (Component a, Typeable (StorageT a)) => EntityID -> ComponentID -> World -> World
+removeWithId :: forall a. (Component a, Typeable (StorageT a)) => EntityID -> ComponentID -> World -> (Maybe a, World)
 removeWithId e cId w = case Map.lookup e (entities w) of
   Just aId ->
-    let (maybeNextAId, as) = AS.remove @a e aId cId $ archetypes w
-        es = case maybeNextAId of
-          Just nextAId -> Map.insert e nextAId (entities w)
-          Nothing -> entities w
-     in w {archetypes = as, entities = es}
-  Nothing -> w
+    let (res, as) = AS.remove @a e aId cId $ archetypes w
+        (maybeA, es) = case res of
+          Just (a, nextAId) -> (Just a, Map.insert e nextAId (entities w))
+          Nothing -> (Nothing, entities w)
+     in (maybeA, w {archetypes = as, entities = es})
+  Nothing -> (Nothing, w)
 
 -- | Despawn an entity, returning its components.
 despawn :: EntityID -> World -> (Map ComponentID Dynamic, World)

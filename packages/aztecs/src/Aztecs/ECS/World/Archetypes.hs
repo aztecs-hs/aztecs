@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -6,6 +5,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Aztecs.ECS.World.Archetypes
@@ -35,6 +35,7 @@ import Aztecs.ECS.World.Archetype
   )
 import qualified Aztecs.ECS.World.Archetype as A
 import Data.Data (Typeable)
+import Data.Dynamic (fromDynamic)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (mapMaybe)
@@ -206,7 +207,7 @@ remove ::
   ArchetypeID ->
   ComponentID ->
   Archetypes ->
-  (Maybe ArchetypeID, Archetypes)
+  (Maybe (a, ArchetypeID), Archetypes)
 remove e aId cId arches = case lookupNode aId arches of
   Just node -> case lookupArchetypeId (Set.delete cId (nodeComponentIds node)) arches of
     Just nextAId ->
@@ -220,7 +221,8 @@ remove e aId cId arches = case lookupNode aId arches of
                     itemCId
                     (storages archAcc)
               }
-       in ( Just nextAId,
+          (a, cs') = Map.updateLookupWithKey (\_ _ -> Nothing) cId cs
+       in ( (,nextAId) <$> (a >>= fromDynamic),
             arches'
               { nodes =
                   Map.adjust
@@ -230,7 +232,7 @@ remove e aId cId arches = case lookupNode aId arches of
                               foldl'
                                 f
                                 (nodeArchetype nextNode)
-                                (Map.toList $ Map.delete cId cs)
+                                (Map.toList cs')
                           }
                     )
                     nextAId
@@ -238,16 +240,17 @@ remove e aId cId arches = case lookupNode aId arches of
               }
           )
     Nothing ->
-      let !(s, arch') = removeStorages e (nodeArchetype node)
+      let !(cs, arch') = removeStorages e (nodeArchetype node)
+          (a, cs') = Map.updateLookupWithKey (\_ _ -> Nothing) cId cs
           !n =
             Node
               { nodeComponentIds = Set.insert cId (nodeComponentIds node),
-                nodeArchetype = Archetype {storages = s},
+                nodeArchetype = Archetype {storages = cs'},
                 nodeAdd = Map.empty,
                 nodeRemove = Map.singleton cId aId
               }
           !(nextAId, arches') = insertArchetype (Set.insert cId (nodeComponentIds node)) n arches
-       in ( Just nextAId,
+       in ( (,nextAId) <$> (a >>= (\a' -> (fst $ A.removeDyn a' (unEntityId e) (A.storageDyn a')) >>= fromDynamic)),
             arches'
               { nodes =
                   Map.insert
