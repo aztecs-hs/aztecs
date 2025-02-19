@@ -55,15 +55,23 @@ module Aztecs
     load,
     Transform (..),
     transform,
-    Key(..),
-    KeyboardInput(..),
+    Key (..),
+    KeyboardInput (..),
     isKeyPressed,
     wasKeyPressed,
-    wasKeyReleased
+    wasKeyReleased,
+    MouseInput (..),
   )
 where
 
 import Aztecs.Asset (asset, load)
 import Aztecs.ECS
+import Aztecs.Input
+  ( Key (..),
+    KeyboardInput (..),
+    MouseInput (..),
+    isKeyPressed,
+    wasKeyPressed,
+    wasKeyReleased,
+  )
 import Aztecs.Transform (Transform (..), transform)
-import Aztecs.Input (Key(..), KeyboardInput(..), isKeyPressed, wasKeyPressed, wasKeyReleased)

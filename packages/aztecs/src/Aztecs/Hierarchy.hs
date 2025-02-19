@@ -154,12 +154,12 @@ hierarchies q = proc i -> do
         i
   let childMap = Map.fromList children
   roots <- S.filter Q.entity $ with @Children <> without @Parent -< ()
-  returnA -< map (flip hierarchy' childMap) roots
+  returnA -< map (`hierarchy'` childMap) roots
 
 hierarchy' :: EntityID -> Map EntityID (Set EntityID, a) -> [Hierarchy a]
 hierarchy' e childMap = case Map.lookup e childMap of
   Just (cs, a) ->
-    let bs = concatMap (flip hierarchy' childMap) (Set.toList cs)
+    let bs = concatMap (`hierarchy'` childMap) (Set.toList cs)
      in [ Node
             { nodeEntityId = e,
               nodeEntity = a,

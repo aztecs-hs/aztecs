@@ -54,7 +54,7 @@ runSchedule s w i = do
   return (o, w')
 
 runSchedule_ :: (Monad m) => Schedule m () () -> m ()
-runSchedule_ s = void (runSchedule s (W.empty) ())
+runSchedule_ s = void (runSchedule s W.empty ())
 
 reader :: (Monad m) => ReaderSystem i o -> Schedule m i o
 reader t = Schedule $ \cs ->

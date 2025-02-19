@@ -20,9 +20,9 @@ module Aztecs.SDL.Text
   )
 where
 
-import Aztecs.ECS
 import Aztecs.Asset (Asset (..), Handle, lookupAsset)
 import qualified Aztecs.Asset as Asset
+import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S

@@ -1,12 +1,10 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-
 module Main where
 
 import Aztecs
 import qualified Aztecs.ECS.Access as A
-import Aztecs.ECS.SDL (Window (..))
-import qualified Aztecs.ECS.SDL as SDL
 import qualified Aztecs.ECS.System as S
+import Aztecs.SDL (Window (..))
+import qualified Aztecs.SDL as SDL
 import Control.Arrow ((>>>))
 
 setup :: System () ()

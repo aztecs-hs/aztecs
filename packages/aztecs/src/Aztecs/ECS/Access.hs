@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Aztecs.ECS.Access
   ( Access,
     AccessT (..),

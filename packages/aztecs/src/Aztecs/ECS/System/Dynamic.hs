@@ -38,7 +38,7 @@ instance ArrowDynamicSystem DynamicSystem where
   runArrowSystemDyn = DynamicSystem
 
 raceDyn :: DynamicSystem i a -> DynamicSystem i b -> DynamicSystem i (a, b)
-raceDyn (DynamicSystem f) (DynamicSystem g) = DynamicSystem $ \w -> \i ->
+raceDyn (DynamicSystem f) (DynamicSystem g) = DynamicSystem $ \w i ->
   let fa = f w i
       gb = g w i
       gbPar = fa `par` gb

@@ -1,4 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Main where
@@ -6,9 +5,9 @@ module Main where
 import Aztecs
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.SDL (MouseInput, Window (..))
-import qualified Aztecs.ECS.SDL as SDL
 import qualified Aztecs.ECS.System as S
+import Aztecs.SDL (Window (..))
+import qualified Aztecs.SDL as SDL
 import Control.Arrow ((>>>))
 
 setup :: System () ()

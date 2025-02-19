@@ -32,7 +32,7 @@ instance ArrowDynamicReaderSystem DynamicReaderSystem where
   runArrowReaderSystemDyn = DynamicReaderSystem
 
 raceDyn :: DynamicReaderSystem i a -> DynamicReaderSystem i b -> DynamicReaderSystem i (a, b)
-raceDyn (DynamicReaderSystem f) (DynamicReaderSystem g) = DynamicReaderSystem $ \w -> \i ->
+raceDyn (DynamicReaderSystem f) (DynamicReaderSystem g) = DynamicReaderSystem $ \w i ->
   let fa = f w i
       gb = g w i
       gbPar = fa `par` gb

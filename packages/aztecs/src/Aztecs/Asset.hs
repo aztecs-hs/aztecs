@@ -3,7 +3,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -86,7 +85,7 @@ instance (Monad m, Asset a) => MonadAssetLoader a (AssetLoaderT a m) where
           _ <- forkIO $ do
             a <- loadAsset path cfg
             writeIORef v (Just a)
-          return $ v
+          return v
     put $
       server
         { loadingAssets = Map.insert assetId (Left go) (loadingAssets server),

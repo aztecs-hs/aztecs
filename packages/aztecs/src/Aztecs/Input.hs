@@ -1,5 +1,3 @@
-{-# LANGUAGE Arrows #-}
-
 module Aztecs.Input
   ( Key (..),
     InputMotion (..),
