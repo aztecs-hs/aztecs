@@ -1,4 +1,5 @@
-packages: 
+packages:
+    examples
     packages/aztecs
     packages/aztecs-sdl
     packages/aztecs-sdl-image

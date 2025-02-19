@@ -19,11 +19,6 @@ source-repository head
     type:     git
     location: https://github.com/matthunz/aztecs.git
 
-flag examples
-  description:       Build examples
-  default:           False
-  manual:            True
-
 library
     exposed-modules:
         Aztecs.SDL.Image
@@ -40,23 +35,3 @@ library
         sdl2-image >=2,
         text >=1.2,
         linear >= 1
-
-executable image
-    main-is:          Image.hs
-    hs-source-dirs:   examples
-    default-language: Haskell2010
-    ghc-options:      -Wall
-    if flag(examples)
-        build-depends: base, aztecs, aztecs-sdl, aztecs-sdl-image, sdl2
-    else
-        buildable: False
-
-executable sprite
-    main-is:          Sprite.hs
-    hs-source-dirs:   examples
-    default-language: Haskell2010
-    ghc-options:      -Wall
-    if flag(examples)
-        build-depends: base, aztecs, aztecs-sdl, aztecs-sdl-image, sdl2
-    else
-        buildable: False

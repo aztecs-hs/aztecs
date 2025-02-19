@@ -20,7 +20,7 @@ module Aztecs.SDL.Text
   )
 where
 
-import Aztecs
+import Aztecs.ECS
 import Aztecs.Asset (Asset (..), Handle, lookupAsset)
 import qualified Aztecs.Asset as Asset
 import qualified Aztecs.ECS.Access as A
