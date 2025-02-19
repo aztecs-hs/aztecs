@@ -28,6 +28,7 @@ library
     exposed-modules:
         Data.Aztecs
         Data.Aztecs.Access
+        Data.Aztecs.Access.Class
         Data.Aztecs.Component
         Data.Aztecs.Entity
         Data.Aztecs.Query
