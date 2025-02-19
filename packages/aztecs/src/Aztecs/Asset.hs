@@ -9,7 +9,22 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Aztecs.Asset where
+module Aztecs.Asset
+  ( AssetId (..),
+    AssetServer (..),
+    empty,
+    Asset (..),
+    Handle (..),
+    MonadAssetLoader (..),
+    AssetLoader,
+    AssetLoaderT (..),
+    load,
+    setup,
+    loadQuery,
+    loadAssets,
+    lookupAsset,
+  )
+where
 
 import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
@@ -54,7 +69,7 @@ class (Typeable a) => Asset a where
 newtype Handle a = Handle {handleId :: AssetId}
   deriving (Eq, Ord, Show)
 
-class MonadAssetServer a m | m -> a where
+class MonadAssetLoader a m | m -> a where
   asset :: FilePath -> AssetConfig a -> m (Handle a)
 
 type AssetLoader a o = AssetLoaderT a Identity o
@@ -62,7 +77,7 @@ type AssetLoader a o = AssetLoaderT a Identity o
 newtype AssetLoaderT a m o = AssetLoaderT {unAssetLoader :: StateT (AssetServer a) m o}
   deriving (Functor, Applicative, Monad)
 
-instance (Monad m, Asset a) => MonadAssetServer a (AssetLoaderT a m) where
+instance (Monad m, Asset a) => MonadAssetLoader a (AssetLoaderT a m) where
   asset path cfg = AssetLoaderT $ do
     server <- get
     let assetId = nextAssetId server
