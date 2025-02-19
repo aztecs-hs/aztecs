@@ -4,6 +4,7 @@ module Main where
 
 import Aztecs
 import qualified Aztecs.ECS.Access as A
+import qualified Aztecs.ECS.System as S
 import Aztecs.SDL (Camera (..), Window (..))
 import qualified Aztecs.SDL as SDL
 import Aztecs.SDL.Image (Sprite (..), spriteAnimationGrid)
@@ -11,10 +12,10 @@ import qualified Aztecs.SDL.Image as IMG
 import Control.Arrow ((>>>))
 import SDL (Point (..), Rectangle (..), V2 (..))
 
-setup :: Schedule IO () ()
+setup :: System () ()
 setup = proc () -> do
-  texture <- system . load $ asset "assets/characters.png" () -< ()
-  access
+  texture <- load $ asset "assets/characters.png" () -< ()
+  S.queue
     ( \texture -> do
         A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
         A.spawn_ $
@@ -37,7 +38,7 @@ app :: Schedule IO () ()
 app =
   SDL.setup
     >>> system IMG.setup
-    >>> setup
+    >>> system setup
     >>> forever_
       ( IMG.load
           >>> SDL.update
