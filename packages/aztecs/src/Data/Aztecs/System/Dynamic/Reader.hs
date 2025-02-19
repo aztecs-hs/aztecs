@@ -4,11 +4,13 @@ module Data.Aztecs.System.Dynamic.Reader
   ( -- * Dynamic Systems
     DynamicReaderSystem (..),
     ArrowDynamicReaderSystem (..),
+    raceDyn
   )
 where
 
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
+import Control.Parallel (par)
 import Data.Aztecs.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
 import Data.Aztecs.World (World (..))
 
@@ -29,12 +31,11 @@ instance Arrow DynamicReaderSystem where
 instance ArrowDynamicReaderSystem DynamicReaderSystem where
   runArrowReaderSystemDyn = DynamicReaderSystem
 
-{- TODO
-raceDyn :: DynamicSystemT i a -> DynamicSystemT  i b -> DynamicSystemT  i (a, b)
-raceDyn (DynamicSystemT f) (DynamicSystemT g) = DynamicSystemT $ \w -> \i -> do
-  results <- parallel [fmap (\a -> (Just a, Nothing)) $ f w i, fmap (\b -> (Nothing, Just b)) $ g w i]
-  ((a, v, fAccess), (b, v', gAccess)) <- case results of
-    [(Just a, _), (_, Just b)] -> return (a, b)
-    _ -> error "joinDyn: exception"
-  return ((a, b), v <> v', fAccessT >> gAccess)
--}
+raceDyn :: DynamicReaderSystem i a -> DynamicReaderSystem i b -> DynamicReaderSystem i (a, b)
+raceDyn (DynamicReaderSystem f) (DynamicReaderSystem g) = DynamicReaderSystem $ \w -> \i ->
+  let fa = f w i
+      gb = g w i
+      gbPar = fa `par` gb
+      a = fa
+      b = gbPar
+   in (a, b)

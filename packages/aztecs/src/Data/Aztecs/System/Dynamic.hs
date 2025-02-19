@@ -2,46 +2,46 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Data.Aztecs.System.Dynamic (DynamicSystemT (..)) where
+module Data.Aztecs.System.Dynamic (DynamicSystem (..), raceDyn) where
 
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
+import Control.Parallel (par)
 import Data.Aztecs.Access (Access)
 import Data.Aztecs.System.Dynamic.Class (ArrowDynamicSystem (..))
 import Data.Aztecs.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
 import Data.Aztecs.View (View)
 import Data.Aztecs.World (World (..))
 
-newtype DynamicSystemT i o = DynamicSystemT
+newtype DynamicSystem i o = DynamicSystem
   { -- | Run a dynamic system,
     -- producing some output, an updated `View` into the `World`, and any queued `Access`.
-    runSystemTDyn :: World -> (i -> (o, View, Access ()))
+    runSystemDyn :: World -> (i -> (o, View, Access ()))
   }
   deriving (Functor)
 
-instance Category DynamicSystemT where
-  id = DynamicSystemT $ \_ i -> (i, mempty, pure ())
-  DynamicSystemT f . DynamicSystemT g = DynamicSystemT $ \w i ->
+instance Category DynamicSystem where
+  id = DynamicSystem $ \_ i -> (i, mempty, pure ())
+  DynamicSystem f . DynamicSystem g = DynamicSystem $ \w i ->
     let (b, gView, gAccess) = g w i
         (a, fView, fAccess) = f w b
      in (a, gView <> fView, gAccess >> fAccess)
 
-instance Arrow DynamicSystemT where
-  arr f = DynamicSystemT $ \_ i -> (f i, mempty, pure ())
-  first (DynamicSystemT f) = DynamicSystemT $ \w (i, x) -> let (a, v, access) = f w i in ((a, x), v, access)
+instance Arrow DynamicSystem where
+  arr f = DynamicSystem $ \_ i -> (f i, mempty, pure ())
+  first (DynamicSystem f) = DynamicSystem $ \w (i, x) -> let (a, v, access) = f w i in ((a, x), v, access)
 
-instance ArrowDynamicReaderSystem DynamicSystemT where
-  runArrowReaderSystemDyn f = DynamicSystemT $ \w i -> let o = f w i in (o, mempty, pure ())
+instance ArrowDynamicReaderSystem DynamicSystem where
+  runArrowReaderSystemDyn f = DynamicSystem $ \w i -> let o = f w i in (o, mempty, pure ())
 
-instance ArrowDynamicSystem DynamicSystemT where
-  runArrowSystemDyn = DynamicSystemT
+instance ArrowDynamicSystem DynamicSystem where
+  runArrowSystemDyn = DynamicSystem
 
-{- TODO
-raceDyn :: DynamicSystemT i a -> DynamicSystemT  i b -> DynamicSystemT  i (a, b)
-raceDyn (DynamicSystemT f) (DynamicSystemT g) = DynamicSystemT $ \w -> \i -> do
-  results <- parallel [fmap (\a -> (Just a, Nothing)) $ f w i, fmap (\b -> (Nothing, Just b)) $ g w i]
-  ((a, v, fAccess), (b, v', gAccess)) <- case results of
-    [(Just a, _), (_, Just b)] -> return (a, b)
-    _ -> error "joinDyn: exception"
-  return ((a, b), v <> v', fAccessT >> gAccess)
--}
+raceDyn :: DynamicSystem i a -> DynamicSystem i b -> DynamicSystem i (a, b)
+raceDyn (DynamicSystem f) (DynamicSystem g) = DynamicSystem $ \w -> \i ->
+  let fa = f w i
+      gb = g w i
+      gbPar = fa `par` gb
+      (a, v, fAccess) = fa
+      (b, v', gAccess) = gbPar
+   in ((a, b), v <> v', fAccess >> gAccess)

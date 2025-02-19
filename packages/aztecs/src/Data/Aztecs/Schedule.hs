@@ -23,7 +23,7 @@ import Control.Monad.State (MonadState (..))
 import Control.Monad.Trans (MonadTrans (..))
 import Data.Aztecs.Access (AccessT (..), runAccessT)
 import Data.Aztecs.System (System (..))
-import Data.Aztecs.System.Dynamic (DynamicSystemT (..))
+import Data.Aztecs.System.Dynamic (DynamicSystem (..))
 import Data.Aztecs.System.Dynamic.Reader (DynamicReaderSystem (..))
 import Data.Aztecs.System.Reader (ReaderSystem (..))
 import qualified Data.Aztecs.View as V
@@ -45,8 +45,7 @@ instance (Monad m) => Category (Schedule m) where
 instance Arrow (Schedule IO) where
   arr f = Schedule $ \cs -> (return Prelude.. f, cs)
   first (Schedule f) = Schedule $ \cs ->
-    let (g, cs') = f cs
-     in (\(b, d) -> (,) <$> g b <*> return d, cs')
+    let (g, cs') = f cs in (\(b, d) -> (,) <$> g b <*> return d, cs')
 
 runSchedule :: (Monad m) => Schedule m i o -> World -> i -> m (o, World)
 runSchedule s w i = do
@@ -70,9 +69,8 @@ system t = Schedule $ \cs ->
   let (dynT, _, cs') = runSystem t cs
       go i = AccessT $ do
         w <- get
-        let f = runSystemTDyn dynT w
-        let (o, v, a) = f i
-        let ((), w') = runIdentity $ runAccessT a $ V.unview v w
+        let (o, v, a) = runSystemDyn dynT w i
+            ((), w') = runIdentity $ runAccessT a $ V.unview v w
         put w'
         return o
    in (go, cs')

@@ -60,7 +60,8 @@ library
     build-depends:
         base >=4.6 && <5,
         containers >=0.6,
-        mtl >=2
+        mtl >=2,
+        parallel >=3,
 
 executable ecs
     main-is:          ECS.hs

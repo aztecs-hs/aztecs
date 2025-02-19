@@ -25,8 +25,9 @@ where
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
 import Data.Aztecs.Query (ReadsWrites (..))
+import qualified Data.Aztecs.Query as Q
 import Data.Aztecs.System.Class (filterMap, map, mapSingle, map_, queue)
-import Data.Aztecs.System.Dynamic.Reader (DynamicReaderSystem)
+import Data.Aztecs.System.Dynamic.Reader (DynamicReaderSystem, raceDyn)
 import Data.Aztecs.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (runArrowReaderSystemDyn))
 import Data.Aztecs.System.Reader.Class (ArrowReaderSystem (..), all, filter, single)
 import Data.Aztecs.World.Components (Components)
@@ -52,18 +53,13 @@ instance Arrow ReaderSystem where
   first (SystemT f) = SystemT $ \cs ->
     let (f', rwsF, cs') = f cs
      in (first f', rwsF, cs')
-
-{-TODO
-a &&& b = SystemT $ \cs ->
-  let (dynA, rwsA, cs') = runSystemT a cs
-      (dynB, rwsB, cs'') = runSystemT b cs'
-   in ( if Q.disjoint rwsA rwsB
-          then dynA &&& dynB
-          else raceDyn dynA dynB,
-        rwsA <> rwsB,
-        cs''
-      )
--}
+  f &&& g = SystemT $ \cs ->
+    let (dynF, rwsA, cs') = runReaderSystem f cs
+        (dynG, rwsB, cs'') = runReaderSystem g cs'
+     in ( if Q.disjoint rwsA rwsB then dynF &&& dynG else raceDyn dynF dynG,
+          rwsA <> rwsB,
+          cs''
+        )
 
 instance ArrowReaderSystem ReaderSystem where
   runArrowReaderSystem f = SystemT $ \cs ->
