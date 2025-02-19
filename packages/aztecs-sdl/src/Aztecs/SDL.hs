@@ -53,7 +53,7 @@ module Aztecs.SDL
   )
 where
 
-import Aztecs
+import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import Aztecs.ECS.Query.Reader (QueryReader)

@@ -27,6 +27,7 @@ flag examples
 library
     exposed-modules:
         Aztecs
+        Aztecs.ECS
         Aztecs.ECS.Access
         Aztecs.ECS.Access.Class
         Aztecs.ECS.Component

@@ -49,15 +49,46 @@
 --
 -- > main :: IO ()
 -- > main = runSystem_ $ setup >>> S.forever move
-module Aztecs
-  ( module Aztecs.ECS,
-    asset,
-    load,
-    Transform (..),
-    transform,
+module Aztecs.ECS
+  ( Access,
+    runAccessT,
+    Bundle,
+    bundle,
+    Component (..),
+    EntityID,
+    Query,
+    QueryFilter,
+    with,
+    without,
+    System,
+    Schedule,
+    reader,
+    system,
+    forever,
+    forever_,
+    access,
+    task,
+    runSchedule,
+    runSchedule_,
+    World,
   )
 where
 
-import Aztecs.Asset (asset, load)
-import Aztecs.ECS
-import Aztecs.Transform (Transform (..), transform)
+import Aztecs.ECS.Access (Access, runAccessT)
+import Aztecs.ECS.Component (Component (..))
+import Aztecs.ECS.Entity (EntityID)
+import Aztecs.ECS.Query (Query, QueryFilter, with, without)
+import Aztecs.ECS.Schedule
+  ( Schedule,
+    access,
+    forever,
+    forever_,
+    reader,
+    runSchedule,
+    runSchedule_,
+    system,
+    task,
+  )
+import Aztecs.ECS.System (System)
+import Aztecs.ECS.World (World)
+import Aztecs.ECS.World.Archetype (Bundle, bundle)

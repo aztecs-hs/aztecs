@@ -1,6 +1,6 @@
 module Aztecs.Transform where
 
-import Aztecs
+import Aztecs.ECS
 import Linear (V2 (..))
 
 data Transform = Transform

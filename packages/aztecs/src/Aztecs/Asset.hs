@@ -11,7 +11,7 @@
 
 module Aztecs.Asset where
 
-import Aztecs
+import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import Aztecs.ECS.Query (ArrowQuery)
 import qualified Aztecs.ECS.Query as Q

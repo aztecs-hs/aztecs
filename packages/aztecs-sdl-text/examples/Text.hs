@@ -4,13 +4,11 @@
 module Main where
 
 import Aztecs
-import Aztecs.Asset (asset, load)
 import qualified Aztecs.ECS.Access as A
 import Aztecs.SDL (Camera (..), Window (..))
 import qualified Aztecs.SDL as SDL
 import Aztecs.SDL.Text (Text (..))
 import qualified Aztecs.SDL.Text as Text
-import Aztecs.Transform (transform)
 import Control.Arrow ((>>>))
 import SDL (V2 (..))
 
