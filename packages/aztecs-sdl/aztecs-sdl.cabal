@@ -26,7 +26,7 @@ flag examples
 
 library
     exposed-modules:
-        Data.Aztecs.SDL
+        Aztecs.ECS.SDL
     hs-source-dirs:   src
     default-language: Haskell2010
     ghc-options:      -Wall

@@ -1,0 +1,138 @@
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+
+module Aztecs.ECS.Query
+  ( -- * Queries
+    Query (..),
+    ArrowQueryReader (..),
+    ArrowQuery (..),
+    ArrowDynamicQueryReader (..),
+    ArrowDynamicQuery (..),
+
+    -- ** Running
+    all,
+
+    -- * Filters
+    QueryFilter (..),
+    with,
+    without,
+
+    -- * Reads and writes
+    ReadsWrites (..),
+    disjoint,
+  )
+where
+
+import Control.Arrow (Arrow (..))
+import Control.Category (Category (..))
+import Aztecs.ECS.Component
+import Aztecs.ECS.Query.Class (ArrowQuery (..))
+import Aztecs.ECS.Query.Dynamic (DynamicQuery (..))
+import Aztecs.ECS.Query.Dynamic.Class (ArrowDynamicQuery (..))
+import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
+import Aztecs.ECS.Query.Reader (QueryFilter (..), with, without)
+import Aztecs.ECS.Query.Reader.Class (ArrowQueryReader (..))
+import Aztecs.ECS.World (World (..))
+import qualified Aztecs.ECS.World.Archetype as A
+import Aztecs.ECS.World.Archetypes (Node (..))
+import qualified Aztecs.ECS.World.Archetypes as AS
+import Aztecs.ECS.World.Components (Components)
+import qualified Aztecs.ECS.World.Components as CS
+import Data.Set (Set)
+import qualified Data.Set as Set
+import Prelude hiding (all, id, reads, (.))
+
+-- | Query for matching entities.
+--
+-- === Do notation:
+-- > move :: (Monad m) => Query m () Position
+-- > move = proc () -> do
+-- >   Velocity v <- Q.fetch -< ()
+-- >   Position p <- Q.fetch -< ()
+-- >   Q.set -< Position $ p + v
+--
+-- === Arrow combinators:
+-- > move :: (Monad m) => Query m () Position
+-- > move = Q.fetch &&& Q.fetch >>> arr (\(Position p, Velocity v) -> Position $ p + v) >>> Q.set
+--
+-- === Applicative combinators:
+-- > move :: (Monad m) => Query m () Position
+-- > move = (,) <$> Q.fetch <*> Q.fetch >>> arr (\(Position p, Velocity v) -> Position $ p + v) >>> Q.set
+newtype Query i o
+  = Query {runQuery :: Components -> (ReadsWrites, Components, DynamicQuery i o)}
+
+instance Functor (Query i) where
+  fmap f (Query q) = Query $ \cs -> let (cIds, cs', qS) = q cs in (cIds, cs', fmap f qS)
+
+instance Applicative (Query i) where
+  pure a = Query (mempty,,pure a)
+  (Query f) <*> (Query g) = Query $ \cs ->
+    let (cIdsG, cs', aQS) = g cs
+        (cIdsF, cs'', bQS) = f cs'
+     in (cIdsG <> cIdsF, cs'', bQS <*> aQS)
+
+instance Category Query where
+  id = Query (mempty,,id)
+  (Query f) . (Query g) = Query $ \cs ->
+    let (cIdsG, cs', aQS) = g cs
+        (cIdsF, cs'', bQS) = f cs'
+     in (cIdsG <> cIdsF, cs'', bQS . aQS)
+
+instance Arrow Query where
+  arr f = Query (mempty,,arr f)
+  first (Query f) = Query $ \comps -> let (cIds, comps', qS) = f comps in (cIds, comps', first qS)
+
+instance ArrowQueryReader Query where
+  entity = Query (mempty,,entityDyn)
+  fetch :: forall a. (Component a) => Query () a
+  fetch = Query $ \cs ->
+    let (cId, cs') = CS.insert @a cs
+     in (ReadsWrites (Set.singleton cId) Set.empty, cs', fetchDyn cId)
+  fetchMaybe :: forall a. (Component a) => Query () (Maybe a)
+  fetchMaybe = Query $ \cs ->
+    let (cId, cs') = CS.insert @a cs
+     in (ReadsWrites (Set.singleton cId) Set.empty, cs', fetchMaybeDyn cId)
+
+instance ArrowDynamicQueryReader Query where
+  entityDyn = Query (mempty,,entityDyn)
+  fetchDyn cId = Query (ReadsWrites (Set.singleton cId) Set.empty,,fetchDyn cId)
+  fetchMaybeDyn cId = Query (ReadsWrites (Set.singleton cId) Set.empty,,fetchMaybeDyn cId)
+
+instance ArrowDynamicQuery Query where
+  setDyn cId = Query (ReadsWrites Set.empty (Set.singleton cId),,setDyn cId)
+
+instance ArrowQuery Query where
+  set :: forall a. (Component a) => Query a a
+  set = Query $ \cs ->
+    let (cId, cs') = CS.insert @a cs
+     in (ReadsWrites Set.empty (Set.singleton cId), cs', setDyn cId)
+
+data ReadsWrites = ReadsWrites
+  { reads :: !(Set ComponentID),
+    writes :: !(Set ComponentID)
+  }
+  deriving (Show)
+
+instance Semigroup ReadsWrites where
+  ReadsWrites r1 w1 <> ReadsWrites r2 w2 = ReadsWrites (r1 <> r2) (w1 <> w2)
+
+instance Monoid ReadsWrites where
+  mempty = ReadsWrites mempty mempty
+
+disjoint :: ReadsWrites -> ReadsWrites -> Bool
+disjoint a b =
+  Set.disjoint (reads a) (writes b)
+    || Set.disjoint (reads b) (writes a)
+    || Set.disjoint (writes b) (writes a)
+
+all :: Query () a -> World -> ([a], World)
+all q w =
+  let (rws, cs', dynQ) = runQuery q (components w)
+      as =
+        fmap
+          (\n -> fst $ dynQueryAll dynQ (repeat ()) (A.entities $ nodeArchetype n) (nodeArchetype n))
+          (AS.lookup (reads rws <> writes rws) (archetypes w))
+   in (concat as, w {components = cs'})

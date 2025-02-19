@@ -4,11 +4,11 @@
 module Main (main) where
 
 import Control.Arrow ((&&&))
-import Data.Aztecs
-import Data.Aztecs.Hierarchy (Children (..), Parent (..))
-import qualified Data.Aztecs.Hierarchy as Hierarchy
-import qualified Data.Aztecs.Query as Q
-import qualified Data.Aztecs.World as W
+import Aztecs
+import Aztecs.ECS.Hierarchy (Children (..), Parent (..))
+import qualified Aztecs.ECS.Hierarchy as Hierarchy
+import qualified Aztecs.ECS.Query as Q
+import qualified Aztecs.ECS.World as W
 import qualified Data.Set as Set
 import Test.Hspec
 import Test.QuickCheck
@@ -27,11 +27,11 @@ instance Component Z
 
 main :: IO ()
 main = hspec $ do
-  describe "Data.Aztecs.Query.all" $ do
+  describe "Aztecs.ECS.Query.all" $ do
     it "queries a single component" $ property prop_queryOneComponent
     it "queries two components" $ property prop_queryTwoComponents
     it "queries three components" $ property prop_queryThreeComponents
-  describe "Data.Aztecs.Hierarchy.update" $ do
+  describe "Aztecs.ECS.Hierarchy.update" $ do
     it "adds Parent components to children" $ property prop_addParents
 
 prop_queryOneComponent :: [X] -> Expectation

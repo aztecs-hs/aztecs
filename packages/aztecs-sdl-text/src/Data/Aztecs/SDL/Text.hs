@@ -10,7 +10,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Data.Aztecs.SDL.Text
+module Aztecs.ECS.SDL.Text
   ( Font (..),
     Text (..),
     drawText,
@@ -21,13 +21,13 @@ module Data.Aztecs.SDL.Text
 where
 
 import Control.Arrow (returnA, (>>>))
-import Data.Aztecs
-import qualified Data.Aztecs.Access as A
-import Data.Aztecs.Asset (Asset (..), Handle, lookupAsset)
-import qualified Data.Aztecs.Asset as Asset
-import qualified Data.Aztecs.Query as Q
-import Data.Aztecs.SDL (Surface (..))
-import qualified Data.Aztecs.System as S
+import Aztecs
+import qualified Aztecs.ECS.Access as A
+import Aztecs.ECS.Asset (Asset (..), Handle, lookupAsset)
+import qualified Aztecs.ECS.Asset as Asset
+import qualified Aztecs.ECS.Query as Q
+import Aztecs.ECS.SDL (Surface (..))
+import qualified Aztecs.ECS.System as S
 import Data.Maybe (mapMaybe)
 import qualified Data.Text as T
 import SDL hiding (Surface, Texture, Window, windowTitle)

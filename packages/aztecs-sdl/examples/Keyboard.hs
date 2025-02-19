@@ -4,12 +4,12 @@
 module Main where
 
 import Control.Arrow ((>>>))
-import Data.Aztecs
-import qualified Data.Aztecs.Access as A
-import qualified Data.Aztecs.Query as Q
-import Data.Aztecs.SDL (KeyboardInput, Window (..))
-import qualified Data.Aztecs.SDL as SDL
-import qualified Data.Aztecs.System as S
+import Aztecs
+import qualified Aztecs.ECS.Access as A
+import qualified Aztecs.ECS.Query as Q
+import Aztecs.ECS.SDL (KeyboardInput, Window (..))
+import qualified Aztecs.ECS.SDL as SDL
+import qualified Aztecs.ECS.System as S
 
 setup :: System () ()
 setup = S.queue . const . A.spawn_ $ bundle Window {windowTitle = "Aztecs"}

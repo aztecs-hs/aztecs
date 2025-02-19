@@ -9,7 +9,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Data.Aztecs.SDL.Image
+module Aztecs.ECS.SDL.Image
   ( -- * Components
     Texture (..),
     Image (..),
@@ -32,13 +32,13 @@ module Data.Aztecs.SDL.Image
 where
 
 import Control.Arrow (Arrow (..), (>>>))
-import Data.Aztecs
-import qualified Data.Aztecs.Access as A
-import Data.Aztecs.Asset (Asset (..), AssetServer, Handle, lookupAsset)
-import qualified Data.Aztecs.Asset as Asset
-import qualified Data.Aztecs.Query as Q
-import Data.Aztecs.SDL (Surface (..), Time (..))
-import qualified Data.Aztecs.System as S
+import Aztecs
+import qualified Aztecs.ECS.Access as A
+import Aztecs.ECS.Asset (Asset (..), AssetServer, Handle, lookupAsset)
+import qualified Aztecs.ECS.Asset as Asset
+import qualified Aztecs.ECS.Query as Q
+import Aztecs.ECS.SDL (Surface (..), Time (..))
+import qualified Aztecs.ECS.System as S
 import Data.Maybe (mapMaybe)
 import Data.Word (Word32)
 import SDL hiding (Surface, Texture, Window, windowTitle)

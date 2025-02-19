@@ -4,16 +4,16 @@
 module Main where
 
 import Control.Arrow (returnA, (>>>))
-import Data.Aztecs
-import qualified Data.Aztecs.Access as A
-import Data.Aztecs.Asset (load)
-import qualified Data.Aztecs.Query as Q
-import Data.Aztecs.SDL (Camera (..), Window (..))
-import qualified Data.Aztecs.SDL as SDL
-import Data.Aztecs.SDL.Text (Text (..))
-import qualified Data.Aztecs.SDL.Text as Text
-import qualified Data.Aztecs.System as S
-import Data.Aztecs.Transform (transform)
+import Aztecs
+import qualified Aztecs.ECS.Access as A
+import Aztecs.ECS.Asset (load)
+import qualified Aztecs.ECS.Query as Q
+import Aztecs.ECS.SDL (Camera (..), Window (..))
+import qualified Aztecs.ECS.SDL as SDL
+import Aztecs.ECS.SDL.Text (Text (..))
+import qualified Aztecs.ECS.SDL.Text as Text
+import qualified Aztecs.ECS.System as S
+import Aztecs.ECS.Transform (transform)
 import SDL (V2 (..))
 
 setup :: Schedule IO () ()

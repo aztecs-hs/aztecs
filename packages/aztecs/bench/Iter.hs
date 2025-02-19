@@ -2,10 +2,10 @@
 {-# LANGUAGE BangPatterns #-}
 
 import Criterion.Main
-import Data.Aztecs
-import qualified Data.Aztecs.Query as Q
-import qualified Data.Aztecs.System as S
-import qualified Data.Aztecs.World as W
+import Aztecs
+import qualified Aztecs.ECS.Query as Q
+import qualified Aztecs.ECS.System as S
+import qualified Aztecs.ECS.World as W
 
 newtype Position = Position Int deriving (Show)
 

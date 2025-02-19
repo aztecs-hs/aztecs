@@ -8,7 +8,7 @@
 A type-safe and friendly [ECS](https://en.wikipedia.org/wiki/Entity_component_system) for Haskell.
 An ECS is a modern approach to organizing your application state as a database,
 providing patterns for data-oriented design and parallel processing.
-For more information, please see the documentation on [Hackage](https://hackage.haskell.org/package/aztecs/docs/Data-Aztecs.html).
+For more information, please see the documentation on [Hackage](https://hackage.haskell.org/package/aztecs/docs/Data-Aztecs.ECS.html).
 
 ## Features
 
@@ -23,13 +23,7 @@ For more information, please see the documentation on [Hackage](https://hackage.
 
   [![Package](https://img.shields.io/hackage/v/aztecs.svg)](https://hackage.haskell.org/package/aztecs)
 
-  Core ECS and state management
-
-- [`aztecs-asset`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-asset)
-
-  [![Package](https://img.shields.io/hackage/v/aztecs-asset.svg)](https://hackage.haskell.org/package/aztecs-asset)
-
-  Asset loading and management
+  Modular game engine and ECS.
 
 - [`aztecs-sdl`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-sdl)
 
@@ -48,12 +42,6 @@ For more information, please see the documentation on [Hackage](https://hackage.
   [![Package](https://img.shields.io/hackage/v/aztecs-sdl-text.svg)](https://hackage.haskell.org/package/aztecs-sdl-text)
 
   SDL text rendering support.
-
-- [`aztecs-transform`](https://github.com/matthunz/aztecs/blob/main/packages/aztecs-transform)
-
-  [![Package](https://img.shields.io/hackage/v/aztecs-transform.svg)](https://hackage.haskell.org/package/aztecs-transform)
-
-  Transform hierarchies and components.
 
 ## Running examples
 

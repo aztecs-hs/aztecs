@@ -3,10 +3,10 @@
 module Main where
 
 import Control.Arrow ((>>>))
-import Data.Aztecs
-import qualified Data.Aztecs.Access as A
-import qualified Data.Aztecs.Query as Q
-import qualified Data.Aztecs.System as S
+import Aztecs
+import qualified Aztecs.ECS.Access as A
+import qualified Aztecs.ECS.Query as Q
+import qualified Aztecs.ECS.System as S
 
 newtype Position = Position Int deriving (Show)
 
