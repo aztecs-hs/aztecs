@@ -4,7 +4,7 @@ module Data.Aztecs.System.Dynamic.Reader
   ( -- * Dynamic Systems
     DynamicReaderSystem (..),
     ArrowDynamicReaderSystem (..),
-    raceDyn
+    raceDyn,
   )
 where
 

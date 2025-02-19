@@ -5,14 +5,13 @@ module Main (main) where
 
 import Control.Arrow ((&&&))
 import Data.Aztecs
+import Data.Aztecs.Hierarchy (Children (..), Parent (..))
+import qualified Data.Aztecs.Hierarchy as Hierarchy
 import qualified Data.Aztecs.Query as Q
 import qualified Data.Aztecs.World as W
+import qualified Data.Set as Set
 import Test.Hspec
 import Test.QuickCheck
-import Data.Aztecs.Hierarchy (Children(..))
-import qualified Data.Set as Set
-import qualified Data.Aztecs.Hierarchy as Hierarchy
-import Data.Aztecs.Hierarchy (Parent(..))
 
 newtype X = X Int deriving (Eq, Show, Arbitrary)
 
@@ -33,7 +32,7 @@ main = hspec $ do
     it "queries two components" $ property prop_queryTwoComponents
     it "queries three components" $ property prop_queryThreeComponents
   describe "Data.Aztecs.Hierarchy.update" $ do
-      it "adds Parent components to children" $ property prop_addParents
+    it "adds Parent components to children" $ property prop_addParents
 
 prop_queryOneComponent :: [X] -> Expectation
 prop_queryOneComponent xs =

@@ -36,9 +36,9 @@ where
 
 import Data.Aztecs.Component (Component (..), ComponentID)
 import Data.Aztecs.Entity (EntityID (..))
-import qualified Data.Aztecs.Storage as S
 import Data.Aztecs.World.Components (Components)
 import qualified Data.Aztecs.World.Components as CS
+import qualified Data.Aztecs.World.Storage as S
 import Data.Bifunctor (Bifunctor (..))
 import Data.Dynamic (Dynamic, Typeable, fromDynamic, toDyn)
 import Data.Map.Strict (Map)

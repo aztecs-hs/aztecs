@@ -41,7 +41,6 @@ library
         Data.Aztecs.Query.Reader
         Data.Aztecs.Query.Reader.Class
         Data.Aztecs.Schedule
-        Data.Aztecs.Storage
         Data.Aztecs.System
         Data.Aztecs.System.Class
         Data.Aztecs.System.Dynamic
@@ -55,6 +54,7 @@ library
         Data.Aztecs.World.Archetype
         Data.Aztecs.World.Archetypes
         Data.Aztecs.World.Components
+        Data.Aztecs.World.Storage
     hs-source-dirs:   src
     default-language: Haskell2010
     ghc-options:      -Wall
