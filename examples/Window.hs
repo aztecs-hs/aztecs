@@ -3,7 +3,6 @@ module Main where
 import Aztecs
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.System as S
-import Aztecs.SDL (Window (..))
 import qualified Aztecs.SDL as SDL
 import Control.Arrow ((>>>))
 

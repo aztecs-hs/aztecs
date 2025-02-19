@@ -37,7 +37,8 @@ import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
-import Aztecs.SDL (Surface (..), Time (..))
+import Aztecs.SDL (Surface (..))
+import Aztecs.Time
 import Control.Arrow (Arrow (..), (>>>))
 import Data.Maybe (mapMaybe)
 import Data.Word (Word32)

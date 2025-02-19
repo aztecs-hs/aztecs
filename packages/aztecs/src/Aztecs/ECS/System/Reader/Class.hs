@@ -38,7 +38,7 @@ class (Arrow arr) => ArrowReaderSystem arr where
 
   -- | Query a single matching entity.
   -- If there are zero or multiple matching entities, an error will be thrown.
-  single :: (ArrowReaderSystem arr) => QueryReader () a -> arr () a
+  single :: (ArrowReaderSystem arr) => QueryReader i a -> arr i a
   single q =
     all q
       >>> arr

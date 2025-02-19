@@ -10,7 +10,6 @@
 
 module Aztecs.SDL
   ( -- * Window components
-    Window (..),
     WindowRenderer (..),
 
     -- * Camera components
@@ -34,9 +33,6 @@ module Aztecs.SDL
     motionFromSDL,
     motionToSDL,
 
-    -- * Time
-    Time (..),
-
     -- * Systems
     setup,
     update,
@@ -52,6 +48,7 @@ module Aztecs.SDL
   )
 where
 
+import Aztecs.Camera (Camera (..), CameraTarget (..))
 import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
@@ -65,28 +62,22 @@ import Aztecs.Input
     MouseButton (..),
     MouseInput (..),
     handleKeyboardEvent,
+    keyboardInput,
+    mouseInput,
   )
+import Aztecs.Time
 import Aztecs.Transform (Size (..), Transform (..))
+import Aztecs.Window
 import Control.Arrow (Arrow (..), returnA, (>>>))
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe, mapMaybe)
 import qualified Data.Text as T
-import Data.Word (Word32)
 import SDL hiding (InputMotion (..), MouseButton (..), Surface, Texture, Window, windowTitle)
 import qualified SDL
 
 #if !MIN_VERSION_base(4,20,0)
 import Data.Foldable (foldl')
 #endif
-
--- | Window component.
-data Window = Window
-  { -- | Window title.
-    windowTitle :: !String
-  }
-  deriving (Show)
-
-instance Component Window
 
 -- | Window renderer component.
 data WindowRenderer = WindowRenderer
@@ -99,26 +90,6 @@ data WindowRenderer = WindowRenderer
 
 instance Component WindowRenderer
 
--- | Camera component.
-data Camera = Camera
-  { -- | Camera viewport size.
-    cameraViewport :: !(V2 Int),
-    -- | Camera scale factor.
-    cameraScale :: !(V2 Float)
-  }
-  deriving (Show)
-
-instance Component Camera
-
--- | Camera target component.
-newtype CameraTarget = CameraTarget
-  { -- | This camera's target window.
-    cameraTargetWindow :: EntityID
-  }
-  deriving (Eq, Show)
-
-instance Component CameraTarget
-
 -- | Setup SDL
 setup :: Schedule IO () ()
 setup =
@@ -128,8 +99,8 @@ setup =
         ( S.queue
             ( const $ do
                 A.spawn_ . bundle $ Time 0
-                A.spawn_ . bundle $ KeyboardInput mempty mempty
-                A.spawn_ . bundle $ MouseInput (P $ V2 0 0) (V2 0 0) mempty
+                A.spawn_ $ bundle keyboardInput
+                A.spawn_ $ bundle mouseInput
             )
         )
 
@@ -359,11 +330,6 @@ addSurfaceTargets = proc () -> do
     -<
       (newDraws, cameras)
 
-newtype Time = Time {elapsedMS :: Word32}
-  deriving (Eq, Ord, Num, Show)
-
-instance Component Time
-
 updateTime :: Schedule IO () ()
 updateTime = proc () -> do
   t <- task (const SDL.ticks) -< ()
@@ -377,7 +343,7 @@ handleInput = task (const pollEvents) >>> system handleInput'
 handleInput' :: System [Event] ()
 handleInput' = proc events -> do
   kb <- S.single Q.fetch -< ()
-  mouseInput <- S.single Q.fetch -< ()
+  mouse <- S.single Q.fetch -< ()
   let go (kbAcc, mouseAcc) event = case eventPayload event of
         KeyboardEvent keyboardEvent ->
           ( case fromSDLKeycode $ keysymKeycode $ keyboardEventKeysym keyboardEvent of
@@ -387,7 +353,7 @@ handleInput' = proc events -> do
           )
         MouseMotionEvent mouseMotionEvent ->
           ( kbAcc,
-            MouseInput
+            mouseAcc
               { mousePosition = (fmap fromIntegral $ mouseMotionEventPos mouseMotionEvent),
                 mouseOffset = (fmap fromIntegral $ mouseMotionEventRelMotion mouseMotionEvent),
                 mouseButtons = (mouseButtons mouseAcc)
@@ -395,9 +361,8 @@ handleInput' = proc events -> do
           )
         MouseButtonEvent mouseButtonEvent ->
           ( kbAcc,
-            MouseInput
+            mouseAcc
               { mousePosition = (fmap fromIntegral $ mouseButtonEventPos mouseButtonEvent),
-                mouseOffset = V2 0 0,
                 mouseButtons =
                   Map.insert
                     (mouseButtonFromSDL $ mouseButtonEventButton mouseButtonEvent)
@@ -406,7 +371,7 @@ handleInput' = proc events -> do
               }
           )
         _ -> (kbAcc, mouseAcc)
-      (kb', mouseInput') = foldl' go (kb {keyboardEvents = mempty}, mouseInput) events
+      (kb', mouseInput') = foldl' go (kb {keyboardEvents = mempty}, mouse {mouseOffset = V2 0 0}) events
   S.mapSingle Q.set -< kb'
   S.mapSingle Q.set -< mouseInput'
   returnA -< ()

@@ -53,6 +53,8 @@ module Aztecs
   ( module Aztecs.ECS,
     asset,
     load,
+    Camera (..),
+    CameraTarget (..),
     Transform (..),
     transform,
     Key (..),
@@ -61,10 +63,13 @@ module Aztecs
     wasKeyPressed,
     wasKeyReleased,
     MouseInput (..),
+    Time (..),
+    Window (..),
   )
 where
 
 import Aztecs.Asset (asset, load)
+import Aztecs.Camera
 import Aztecs.ECS
 import Aztecs.Input
   ( Key (..),
@@ -74,4 +79,6 @@ import Aztecs.Input
     wasKeyPressed,
     wasKeyReleased,
   )
+import Aztecs.Time
 import Aztecs.Transform (Transform (..), transform)
+import Aztecs.Window
