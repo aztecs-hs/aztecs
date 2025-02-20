@@ -113,7 +113,7 @@ loadQuery a = proc () -> do
   Q.set -< assetServer'
   returnA -< o
 
-load :: (ArrowSystem Query arr, Asset a) => AssetLoader a o -> arr () o
+load :: (ArrowQuery q, ArrowSystem q arr, Asset a) => AssetLoader a o -> arr () o
 load a = S.mapSingle $ loadQuery a
 
 lookupAsset :: Handle a -> AssetServer a -> Maybe a
