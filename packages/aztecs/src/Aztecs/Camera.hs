@@ -12,9 +12,7 @@ where
 
 import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
-import Aztecs.ECS.Query.Reader (ArrowQueryReader)
 import qualified Aztecs.ECS.Query.Reader as Q
-import Aztecs.ECS.System (ArrowQueueSystem, ArrowReaderSystem)
 import qualified Aztecs.ECS.System as S
 import Aztecs.Window (Window)
 import Control.Arrow (Arrow (..))

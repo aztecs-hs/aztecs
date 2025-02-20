@@ -43,6 +43,7 @@ import Aztecs.SDL (Surface (..))
 import Aztecs.Time
 import Control.Arrow (Arrow (..), (>>>))
 import Control.DeepSeq
+import Control.Monad.IO.Class
 import Data.Maybe (mapMaybe)
 import Data.Word (Word32)
 import GHC.Generics (Generic)
@@ -57,7 +58,7 @@ import Data.Foldable (foldl')
 setup :: System () ()
 setup = Asset.setup @Texture
 
-load :: Schedule IO () ()
+load :: (MonadIO m) => Schedule m () ()
 load = Asset.loadAssets @Texture
 
 draw :: System () ()

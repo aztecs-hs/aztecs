@@ -18,8 +18,6 @@ where
 import Aztecs
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.Query.Reader (ArrowQueryReader)
-import Aztecs.ECS.System (ArrowQueueSystem, ArrowReaderSystem)
 import qualified Aztecs.ECS.System as S
 import Control.Arrow (returnA)
 import Control.DeepSeq

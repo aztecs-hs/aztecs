@@ -30,10 +30,7 @@ where
 
 import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
-import Aztecs.ECS.Query (ArrowQuery)
 import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.Query.Reader (QueryReader)
-import Aztecs.ECS.System (ArrowSystem)
 import qualified Aztecs.ECS.System as S
 import Control.Arrow (returnA)
 import Control.Concurrent (forkIO)
@@ -120,9 +117,21 @@ load a = S.mapSingle $ loadQuery a
 lookupAsset :: Handle a -> AssetServer a -> Maybe a
 lookupAsset h server = Map.lookup (handleId h) (assetServerAssets server)
 
-loadAssets :: forall a. (Typeable a) => Schedule IO () ()
+loadAssets ::
+  forall a qr rs q s m arr.
+  ( Typeable a,
+    ArrowQueryReader qr,
+    ArrowReaderSystem qr rs,
+    ArrowReaderSchedule rs arr,
+    ArrowQuery q,
+    ArrowSystem q s,
+    ArrowSchedule s arr,
+    MonadIO m,
+    ArrowAccessSchedule m arr
+  ) =>
+  arr () ()
 loadAssets = proc () -> do
-  server <- reader $ S.single (Q.fetch @QueryReader @(AssetServer a)) -< ()
+  server <- reader $ S.single (Q.fetch @_ @(AssetServer a)) -< ()
   server' <-
     access
       ( \server ->

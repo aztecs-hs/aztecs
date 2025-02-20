@@ -3,6 +3,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TupleSections #-}
@@ -52,8 +53,6 @@ import Aztecs.Camera (Camera (..), CameraTarget (..), addCameraTargets)
 import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.Query.Reader (ArrowQueryReader)
-import Aztecs.ECS.System (ArrowReaderSystem)
 import qualified Aztecs.ECS.System as S
 import Aztecs.Input
   ( InputMotion (..),
@@ -97,34 +96,52 @@ instance NFData WindowRenderer where
   rnf = rwhnf
 
 -- | Setup SDL
-setup :: Schedule IO () ()
+setup :: (MonadIO m) => (ArrowAccessSchedule m arr) => arr () ()
 setup =
-  fmap (const ()) $
-    access (const $ liftIO initializeAll)
-      &&& system
-        ( S.queue
-            ( const $ do
-                A.spawn_ . bundle $ Time 0
-                A.spawn_ $ bundle keyboardInput
-                A.spawn_ $ bundle mouseInput
-            )
-        )
+  access (const $ liftIO initializeAll)
+    >>> access
+      ( const $ do
+          A.spawn_ . bundle $ Time 0
+          A.spawn_ $ bundle keyboardInput
+          A.spawn_ $ bundle mouseInput
+      )
 
 -- | Update SDL windows
-update :: Schedule IO () ()
+update ::
+  ( ArrowQueryReader qr,
+    ArrowReaderSystem qr rs,
+    ArrowQueueSystem rs,
+    ArrowReaderSchedule rs arr,
+    ArrowQuery q,
+    ArrowSystem q s,
+    ArrowReaderSystem qr s,
+    ArrowQueueSystem s,
+    ArrowSchedule s arr,
+    MonadIO m,
+    ArrowAccessSchedule m arr
+  ) =>
+  arr () ()
 update =
   updateTime
     >>> addWindows
-    >>> system (addCameraTargets >>> addSurfaceTargets)
+    >>> reader (addCameraTargets >>> addSurfaceTargets)
     >>> buildTextures
     >>> handleInput
 
 -- | Setup new windows.
-addWindows :: Schedule IO () ()
+addWindows ::
+  ( ArrowQueryReader q,
+    ArrowReaderSystem q s,
+    ArrowQueueSystem s,
+    ArrowReaderSchedule s arr,
+    MonadIO m,
+    ArrowAccessSchedule m arr
+  ) =>
+  arr () ()
 addWindows = proc () -> do
   newWindows <- reader $ S.filter (Q.entity &&& Q.fetch @_ @Window) (without @WindowRenderer) -< ()
   newWindows' <- access $ liftIO . mapM createWindowRenderer -< newWindows
-  system $ S.queue $ mapM_ insertWindowRenderer -< newWindows'
+  reader $ S.queue $ mapM_ insertWindowRenderer -< newWindows'
   where
     createWindowRenderer (eId, window) = do
       sdlWindow <- createWindow (T.pack $ windowTitle window) defaultWindow
@@ -145,11 +162,11 @@ instance NFData SurfaceTexture where
   rnf = rwhnf
 
 allWindowTextures ::
-  (ArrowQueryReader q, ArrowReaderSystem q arr, Applicative (q ())) =>
+  (ArrowQueryReader q, ArrowReaderSystem q arr) =>
   arr () [(WindowRenderer, [(EntityID, Surface, Transform, Maybe SurfaceTexture)])]
 allWindowTextures =
   allWindowDraws
-    (pure ())
+    (arr (const ()))
     ( proc () -> do
         e <- Q.entity -< ()
         surface <- Q.fetch -< ()
@@ -160,7 +177,14 @@ allWindowTextures =
     >>> arr (\cs -> map (\(w, cs') -> (w, concatMap snd cs')) cs)
 
 -- | Build textures from surfaces in preparation for `drawTextures`.
-buildTextures :: Schedule IO () ()
+buildTextures ::
+  ( ArrowQueryReader q,
+    ArrowReaderSystem q s,
+    ArrowReaderSchedule s arr,
+    MonadIO m,
+    ArrowAccessSchedule m arr
+  ) =>
+  arr () ()
 buildTextures =
   let go windowDraws =
         mapM_
@@ -188,7 +212,14 @@ buildTextures =
           windowDraws
    in reader allWindowTextures >>> access go
 
-draw :: Schedule IO () ()
+draw ::
+  ( ArrowQueryReader q,
+    ArrowReaderSystem q s,
+    ArrowReaderSchedule s arr,
+    MonadIO m,
+    ArrowAccessSchedule m arr
+  ) =>
+  arr () ()
 draw =
   let go windowDraws =
         mapM_
@@ -318,7 +349,8 @@ instance NFData Surface where
   rnf = rwhnf
 
 -- | Add `SurfaceTarget` components to entities with a new `Surface` component.
-addSurfaceTargets :: System () ()
+addSurfaceTargets ::
+  (ArrowQueryReader q, ArrowReaderSystem q arr, ArrowQueueSystem arr) => arr () ()
 addSurfaceTargets = proc () -> do
   cameras <- S.all (Q.entity &&& Q.fetch @_ @Camera) -< ()
   newDraws <- S.filter (Q.entity &&& Q.fetch @_ @Surface) (without @SurfaceTarget) -< ()
@@ -330,17 +362,35 @@ addSurfaceTargets = proc () -> do
     -<
       (newDraws, cameras)
 
-updateTime :: Schedule IO () ()
+updateTime ::
+  ( ArrowQuery q,
+    ArrowSystem q s,
+    ArrowSchedule s arr,
+    MonadIO m,
+    ArrowAccessSchedule m arr
+  ) =>
+  arr () ()
 updateTime = proc () -> do
   t <- access . const $ liftIO SDL.ticks -< ()
   system $ S.mapSingle Q.set -< Time t
   returnA -< ()
 
-handleInput :: Schedule IO () ()
+handleInput ::
+  ( ArrowQueryReader qr,
+    ArrowReaderSystem qr s,
+    ArrowQuery q,
+    ArrowSystem q s,
+    ArrowSchedule s arr,
+    MonadIO m,
+    ArrowAccessSchedule m arr
+  ) =>
+  arr () ()
 handleInput = access (const pollEvents) >>> system handleInput'
 
 -- | Keyboard input system.
-handleInput' :: System [Event] ()
+handleInput' ::
+  (ArrowQueryReader qr, ArrowReaderSystem qr arr, ArrowQuery q, ArrowSystem q arr) =>
+  arr [Event] ()
 handleInput' = proc events -> do
   kb <- S.single Q.fetch -< ()
   mouse <- S.single Q.fetch -< ()

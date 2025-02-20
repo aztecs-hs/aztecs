@@ -7,13 +7,14 @@ import Aztecs.ECS.Access (AccessT (..))
 import Aztecs.ECS.Schedule (ArrowAccessSchedule (..))
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
+import Control.Monad ((>=>))
 
 newtype AcessSchedule m i o = AcessSchedule {runAcessSchedule :: i -> AccessT m o}
   deriving (Functor)
 
 instance (Monad m) => Category (AcessSchedule m) where
   id = AcessSchedule return
-  AcessSchedule f . AcessSchedule g = AcessSchedule $ (g Control.Monad.>=> f)
+  AcessSchedule f . AcessSchedule g = AcessSchedule $ (g >=> f)
 
 instance (Monad m) => Arrow (AcessSchedule m) where
   arr f = AcessSchedule $ \i -> return $ f i

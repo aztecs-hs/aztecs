@@ -31,6 +31,7 @@ import qualified Aztecs.ECS.System as S
 import Aztecs.SDL (Surface (..))
 import Control.Arrow (returnA, (>>>))
 import Control.DeepSeq
+import Control.Monad.IO.Class
 import Data.Maybe (mapMaybe)
 import qualified Data.Text as T
 import GHC.Generics (Generic)
@@ -59,15 +60,15 @@ drawText content f = do
   return Surface {sdlSurface = s, surfaceBounds = Nothing}
 
 -- | Setup SDL TrueType-Font (TTF) support.
-setup :: Schedule IO () ()
-setup = system (Asset.setup @Font) >>> task (const F.initialize)
+setup :: (MonadIO m) => Schedule m () ()
+setup = system (Asset.setup @Font) >>> access (const F.initialize)
 
 -- | Load font assets.
-load :: Schedule IO () ()
+load :: (MonadIO m) => Schedule m () ()
 load = Asset.loadAssets @Font
 
 -- | Draw text components.
-draw :: Schedule IO () ()
+draw :: (MonadIO m) => Schedule m () ()
 draw = proc () -> do
   !texts <-
     reader $
@@ -86,13 +87,13 @@ draw = proc () -> do
           (\(eId, t, maybeSurface) -> (eId,textContent t,maybeSurface,) <$> lookupAsset (textFont t) assetServer)
           texts
   !draws <-
-    task $
+    access $
       mapM
         ( \(eId, content, maybeSurface, font) -> do
             case maybeSurface of
               Just lastSurface -> freeSurface $ sdlSurface lastSurface
               Nothing -> return ()
-            surface <- drawText content font
+            surface <- liftIO $ drawText content font
             return (eId, surface)
         )
       -<

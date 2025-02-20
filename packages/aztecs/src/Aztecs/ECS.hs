@@ -57,11 +57,19 @@ module Aztecs.ECS
     Component (..),
     EntityID,
     Query,
+    ArrowQueryReader,
+    ArrowQuery,
     QueryFilter,
     with,
     without,
     System,
+    ArrowReaderSystem,
+    ArrowSystem,
+    ArrowQueueSystem,
     Schedule,
+    ArrowReaderSchedule,
+    ArrowSchedule,
+    ArrowAccessSchedule,
     reader,
     system,
     forever,
@@ -76,9 +84,12 @@ where
 import Aztecs.ECS.Access (Access, runAccessT)
 import Aztecs.ECS.Component (Component (..))
 import Aztecs.ECS.Entity (EntityID)
-import Aztecs.ECS.Query (Query, QueryFilter, with, without)
+import Aztecs.ECS.Query (ArrowQuery, ArrowQueryReader, Query, QueryFilter, with, without)
 import Aztecs.ECS.Schedule
-  ( Schedule,
+  ( ArrowAccessSchedule,
+    ArrowReaderSchedule,
+    ArrowSchedule,
+    Schedule,
     access,
     forever,
     forever_,
@@ -87,6 +98,6 @@ import Aztecs.ECS.Schedule
     runSchedule_,
     system,
   )
-import Aztecs.ECS.System (System)
+import Aztecs.ECS.System (ArrowQueueSystem, ArrowReaderSystem, ArrowSystem, System)
 import Aztecs.ECS.World (World)
 import Aztecs.ECS.World.Archetype (Bundle, bundle)

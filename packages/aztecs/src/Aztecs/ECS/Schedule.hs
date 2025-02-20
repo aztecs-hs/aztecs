@@ -4,7 +4,8 @@
 
 module Aztecs.ECS.Schedule
   ( -- * Schedules
-    Schedule (..),
+    Schedule,
+    ScheduleT (..),
     ArrowReaderSchedule (..),
     ArrowSchedule (..),
     ArrowAccessSchedule (..),
@@ -37,7 +38,9 @@ import Control.Monad.State (MonadState (..))
 import Control.Monad.Trans (MonadTrans (..))
 import Data.Functor (void)
 
-newtype Schedule m i o = Schedule {runSchedule' :: Components -> (i -> AccessT m o, Components)}
+type Schedule m = ScheduleT (AccessT m)
+
+newtype ScheduleT m i o = Schedule {runSchedule' :: Components -> (i -> m o, Components)}
   deriving (Functor)
 
 instance (Monad m) => Category (Schedule m) where
