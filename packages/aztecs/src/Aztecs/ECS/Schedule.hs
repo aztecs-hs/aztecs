@@ -1,21 +1,24 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Aztecs.ECS.Schedule
   ( -- * Schedules
     Schedule (..),
-    reader,
-    system,
+    ArrowReaderSchedule (..),
+    ArrowSchedule (..),
+    ArrowAccessSchedule (..),
     forever,
     forever_,
-    access,
-    task,
     runSchedule,
     runSchedule_,
   )
 where
 
 import Aztecs.ECS.Access (AccessT (..), runAccessT)
+import Aztecs.ECS.Schedule.Access.Class (ArrowAccessSchedule (..))
+import Aztecs.ECS.Schedule.Class (ArrowSchedule (..))
+import Aztecs.ECS.Schedule.Reader.Class (ArrowReaderSchedule (..))
 import Aztecs.ECS.System (System (..))
 import Aztecs.ECS.System.Dynamic (DynamicSystem (..))
 import Aztecs.ECS.System.Dynamic.Reader (DynamicReaderSystem (..))
@@ -44,10 +47,35 @@ instance (Monad m) => Category (Schedule m) where
         (f', cs'') = f cs'
      in (g' >=> f', cs'')
 
-instance Arrow (Schedule IO) where
+instance (Monad m) => Arrow (Schedule m) where
   arr f = Schedule $ \cs -> (return Prelude.. f, cs)
   first (Schedule f) = Schedule $ \cs ->
     let (g, cs') = f cs in (\(b, d) -> (,) <$> g b <*> return d, cs')
+
+instance (Monad m) => ArrowAccessSchedule (AccessT m) (Schedule m) where
+  access f = Schedule $ \cs -> (f, cs)
+
+instance (Monad m) => ArrowReaderSchedule ReaderSystem (Schedule m) where
+  reader t = Schedule $ \cs ->
+    let (dynT, _, cs') = runReaderSystem t cs
+        go i = AccessT $ do
+          w <- get
+          let (o, a) = runReaderSystemDyn dynT w i
+              ((), w') = runIdentity $ runAccessT a w
+          put w'
+          return o
+     in (go, cs')
+
+instance (Monad m) => ArrowSchedule System (Schedule m) where
+  system t = Schedule $ \cs ->
+    let (dynT, _, cs') = runSystem t cs
+        go i = AccessT $ do
+          w <- get
+          let (o, v, a) = runSystemDyn dynT w i
+              ((), w') = runIdentity $ runAccessT a $ V.unview v w
+          put w'
+          return o
+     in (go, cs')
 
 runSchedule :: (Monad m) => Schedule m i o -> World -> i -> m (o, World)
 runSchedule s w i = do
@@ -57,34 +85,6 @@ runSchedule s w i = do
 
 runSchedule_ :: (Monad m) => Schedule m () () -> m ()
 runSchedule_ s = void (runSchedule s W.empty ())
-
-reader :: (Monad m) => ReaderSystem i o -> Schedule m i o
-reader t = Schedule $ \cs ->
-  let (dynT, _, cs') = runReaderSystem t cs
-      go i = AccessT $ do
-        w <- get
-        let (o, a) = runReaderSystemDyn dynT w i
-            ((), w') = runIdentity $ runAccessT a w
-        put w'
-        return o
-   in (go, cs')
-
-system :: (Monad m) => System i o -> Schedule m i o
-system t = Schedule $ \cs ->
-  let (dynT, _, cs') = runSystem t cs
-      go i = AccessT $ do
-        w <- get
-        let (o, v, a) = runSystemDyn dynT w i
-            ((), w') = runIdentity $ runAccessT a $ V.unview v w
-        put w'
-        return o
-   in (go, cs')
-
-access :: (Monad m) => (i -> AccessT m o) -> Schedule m i o
-access f = Schedule $ \cs -> (f, cs)
-
-task :: (Monad m) => (i -> m o) -> Schedule m i o
-task f = Schedule $ \cs -> (AccessT Prelude.. lift Prelude.. f, cs)
 
 forever :: Schedule IO i o -> (o -> IO ()) -> Schedule IO i ()
 forever s f = Schedule $ \cs ->

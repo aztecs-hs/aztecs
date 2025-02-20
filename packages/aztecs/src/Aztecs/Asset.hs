@@ -38,6 +38,7 @@ import qualified Aztecs.ECS.System as S
 import Control.Arrow (returnA)
 import Control.Concurrent (forkIO)
 import Control.DeepSeq
+import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Identity (Identity)
 import Control.Monad.State.Strict (MonadState (..), StateT, runState)
 import Data.Data (Typeable)
@@ -123,27 +124,28 @@ loadAssets :: forall a. (Typeable a) => Schedule IO () ()
 loadAssets = proc () -> do
   server <- reader $ S.single (Q.fetch @QueryReader @(AssetServer a)) -< ()
   server' <-
-    task
+    access
       ( \server ->
-          foldrM
-            ( \(aId, v) acc -> do
-                case v of
-                  Right r -> do
-                    maybeSurface <- readIORef r
-                    case maybeSurface of
-                      Just surface ->
-                        return
-                          acc
-                            { assetServerAssets = Map.insert aId surface (assetServerAssets acc),
-                              loadingAssets = Map.delete aId (loadingAssets acc)
-                            }
-                      Nothing -> return acc
-                  Left f -> do
-                    v' <- f
-                    return $ acc {loadingAssets = Map.insert aId (Right v') (loadingAssets server)}
-            )
-            server
-            (Map.toList $ loadingAssets server)
+          liftIO $
+            foldrM
+              ( \(aId, v) acc -> do
+                  case v of
+                    Right r -> do
+                      maybeSurface <- readIORef r
+                      case maybeSurface of
+                        Just surface ->
+                          return
+                            acc
+                              { assetServerAssets = Map.insert aId surface (assetServerAssets acc),
+                                loadingAssets = Map.delete aId (loadingAssets acc)
+                              }
+                        Nothing -> return acc
+                    Left f -> do
+                      v' <- f
+                      return $ acc {loadingAssets = Map.insert aId (Right v') (loadingAssets server)}
+              )
+              server
+              (Map.toList $ loadingAssets server)
       )
       -<
         server

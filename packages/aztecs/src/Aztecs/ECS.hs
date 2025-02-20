@@ -67,7 +67,6 @@ module Aztecs.ECS
     forever,
     forever_,
     access,
-    task,
     runSchedule,
     runSchedule_,
     World,
@@ -87,7 +86,6 @@ import Aztecs.ECS.Schedule
     runSchedule,
     runSchedule_,
     system,
-    task,
   )
 import Aztecs.ECS.System (System)
 import Aztecs.ECS.World (World)

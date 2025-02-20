@@ -70,6 +70,7 @@ import Aztecs.Transform (Size (..), Transform (..))
 import Aztecs.Window
 import Control.Arrow (Arrow (..), returnA, (>>>))
 import Control.DeepSeq
+import Control.Monad.IO.Class
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe, mapMaybe)
 import qualified Data.Text as T
@@ -99,7 +100,7 @@ instance NFData WindowRenderer where
 setup :: Schedule IO () ()
 setup =
   fmap (const ()) $
-    task (const initializeAll)
+    access (const $ liftIO initializeAll)
       &&& system
         ( S.queue
             ( const $ do
@@ -122,7 +123,7 @@ update =
 addWindows :: Schedule IO () ()
 addWindows = proc () -> do
   newWindows <- reader $ S.filter (Q.entity &&& Q.fetch @_ @Window) (without @WindowRenderer) -< ()
-  newWindows' <- task $ mapM createWindowRenderer -< newWindows
+  newWindows' <- access $ liftIO . mapM createWindowRenderer -< newWindows
   system $ S.queue $ mapM_ insertWindowRenderer -< newWindows'
   where
     createWindowRenderer (eId, window) = do
@@ -331,12 +332,12 @@ addSurfaceTargets = proc () -> do
 
 updateTime :: Schedule IO () ()
 updateTime = proc () -> do
-  t <- task (const SDL.ticks) -< ()
+  t <- access . const $ liftIO SDL.ticks -< ()
   system $ S.mapSingle Q.set -< Time t
   returnA -< ()
 
 handleInput :: Schedule IO () ()
-handleInput = task (const pollEvents) >>> system handleInput'
+handleInput = access (const pollEvents) >>> system handleInput'
 
 -- | Keyboard input system.
 handleInput' :: System [Event] ()
