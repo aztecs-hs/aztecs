@@ -24,4 +24,8 @@ update =
       )
 
 main :: IO ()
-main = runSchedule_ $ SDL.setup >>> system setup >>> forever_ (SDL.update >>> update >>> SDL.draw)
+main =
+  runSchedule_ $
+    SDL.setup
+      >>> system setup
+      >>> forever_ (SDL.update >>> update >>> SDL.draw)

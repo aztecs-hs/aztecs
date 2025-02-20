@@ -2,13 +2,46 @@
 
 [![License](https://img.shields.io/badge/license-BSD3-blue.svg)](https://github.com/matthunz/aztecs/blob/main/LICENSE)
 [![CI status](https://github.com/matthunz/aztecs/actions/workflows/ci.yml/badge.svg)](https://github.com/matthunz/aztecs/actions)
+[![Package](https://img.shields.io/hackage/v/aztecs.svg)](https://hackage.haskell.org/package/aztecs)
+
+A modular game engine and ECS [ECS](https://en.wikipedia.org/wiki/Entity_component_system) for Haskell.
+An ECS is a modern approach to organizing your application state as a database,
+providing patterns for data-oriented design and parallel processing.
+For more information, please see the documentation on [Hackage](https://hackage.haskell.org/package/aztecs/).
 
 [Aztecs: An Empirical Entity Component System (ECS) for Haskell](https://github.com/matthunz/paper) [Draft]
 
-A type-safe and friendly [ECS](https://en.wikipedia.org/wiki/Entity_component_system) for Haskell.
-An ECS is a modern approach to organizing your application state as a database,
-providing patterns for data-oriented design and parallel processing.
-For more information, please see the documentation on [Hackage](https://hackage.haskell.org/package/aztecs/docs/Data-Aztecs.ECS.html).
+[Examples](https://github.com/matthunz/aztecs/tree/main/examples)
+
+```hs
+import Aztecs
+import qualified Aztecs.ECS.Access as A
+import qualified Aztecs.ECS.Query as Q
+import qualified Aztecs.ECS.System as S
+import qualified Aztecs.SDL as SDL
+import Control.Arrow ((>>>))
+import Control.Monad (when)
+
+setup :: System () ()
+setup = S.queue . const . A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
+
+update :: Schedule IO () ()
+update =
+  reader (S.single (Q.fetch @_ @KeyboardInput))
+    >>> task
+      ( \kb -> do
+          when (wasKeyPressed KeyW kb) $ print "Onwards!"
+          when (wasKeyPressed KeyS kb) $ print "Retreat..."
+          when (wasKeyReleased KeyW kb || wasKeyReleased KeyS kb) $ print "Halt!"
+      )
+
+main :: IO ()
+main =
+  runSchedule_ $
+    SDL.setup
+      >>> system setup
+      >>> forever_ (SDL.update >>> update >>> SDL.draw)
+```
 
 ## Features
 
@@ -45,7 +78,7 @@ For more information, please see the documentation on [Hackage](https://hackage.
 
 ## Running examples
 
-Examples can be run from the root folder of this repo with `cabal run {example} -f examples` (such as `cabal run ECS -f examples`).
+Examples can be run from the root folder of this repo with `cabal run {example}` (such as `cabal run ECS`).
 
 ## Benchmarks
 
