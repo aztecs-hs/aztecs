@@ -9,6 +9,7 @@ import qualified Aztecs.ECS.System as S
 import qualified Aztecs.SDL as SDL
 import Control.Arrow ((>>>))
 import Control.Monad (when)
+import Control.Monad.IO.Class
 
 setup :: System () ()
 setup = S.queue . const . A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
@@ -16,8 +17,8 @@ setup = S.queue . const . A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
 update :: Schedule IO () ()
 update =
   reader (S.single (Q.fetch @_ @KeyboardInput))
-    >>> task
-      ( \kb -> do
+    >>> access
+      ( \kb -> liftIO $ do
           when (wasKeyPressed KeyW kb) $ print "Onwards!"
           when (wasKeyPressed KeyS kb) $ print "Retreat..."
           when (wasKeyReleased KeyW kb || wasKeyReleased KeyS kb) $ print "Halt!"
