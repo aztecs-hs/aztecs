@@ -1,6 +1,7 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Main (main) where
 
@@ -36,6 +37,7 @@ main = hspec $ do
     it "queries three components" $ property prop_queryThreeComponents
   describe "Aztecs.ECS.Hierarchy.update" $ do
     it "adds Parent components to children" $ property prop_addParents
+    it "removes Parent components from removed children" $ property prop_removeParents
 
 prop_queryOneComponent :: [X] -> Expectation
 prop_queryOneComponent xs =
@@ -67,3 +69,13 @@ prop_addParents = do
   (_, w'') <- runSchedule (system Hierarchy.update) w' ()
   let (res, _) = Q.all Q.fetch w''
   res `shouldMatchList` [Parent e]
+
+prop_removeParents :: Expectation
+prop_removeParents = do
+  let (_, w) = W.spawnEmpty W.empty
+      (e, w') = W.spawn (bundle . Children $ Set.singleton e) w
+  (_, w'') <- runSchedule (system Hierarchy.update) w' ()
+  let w''' = W.insert e (Children Set.empty) w''
+  (_, w'''') <- runSchedule (system Hierarchy.update) w''' ()
+  let (res, _) = Q.all (Q.fetch @_ @Parent) w''''
+  res `shouldMatchList` []
