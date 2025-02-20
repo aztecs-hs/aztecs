@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -14,9 +15,11 @@ module Aztecs.ECS.World.Components
 where
 
 import Aztecs.ECS.Component (Component, ComponentID (..))
+import Control.DeepSeq (NFData)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Typeable (Proxy (..), TypeRep, Typeable, typeOf)
+import GHC.Generics (Generic)
 import Prelude hiding (lookup)
 
 -- | Component ID map.
@@ -24,7 +27,9 @@ data Components = Components
   { componentIds :: !(Map TypeRep ComponentID),
     nextComponentId :: !ComponentID
   }
-  deriving (Show)
+  deriving (Show, Generic)
+
+instance NFData Components
 
 -- | Empty `Components`.
 empty :: Components

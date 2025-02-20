@@ -1,5 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE Arrows #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -35,6 +37,7 @@ import Aztecs.ECS.System (ArrowSystem)
 import qualified Aztecs.ECS.System as S
 import Control.Arrow (returnA)
 import Control.Concurrent (forkIO)
+import Control.DeepSeq
 import Control.Monad.Identity (Identity)
 import Control.Monad.State.Strict (MonadState (..), StateT, runState)
 import Data.Data (Typeable)
@@ -42,6 +45,7 @@ import Data.Foldable (foldrM)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import GHC.Generics (Generic)
 
 newtype AssetId = AssetId {unAssetId :: Int}
   deriving (Eq, Ord, Show)
@@ -51,8 +55,12 @@ data AssetServer a = AssetServer
     loadingAssets :: !(Map AssetId (Either (IO (IORef (Maybe a))) (IORef (Maybe a)))),
     nextAssetId :: !AssetId
   }
+  deriving (Generic)
 
 instance (Typeable a) => Component (AssetServer a)
+
+instance NFData (AssetServer a) where
+  rnf a = rwhnf a
 
 empty :: AssetServer a
 empty =
@@ -69,6 +77,9 @@ class (Typeable a) => Asset a where
 
 newtype Handle a = Handle {handleId :: AssetId}
   deriving (Eq, Ord, Show)
+
+instance NFData (Handle a) where
+  rnf a = rwhnf a
 
 class MonadAssetLoader a m | m -> a where
   asset :: FilePath -> AssetConfig a -> m (Handle a)

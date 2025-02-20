@@ -1,7 +1,9 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -34,6 +36,7 @@ import Aztecs.ECS.World.Archetype
     removeStorages,
   )
 import qualified Aztecs.ECS.World.Archetype as A
+import Control.DeepSeq (NFData (..))
 import Data.Data (Typeable)
 import Data.Dynamic (fromDynamic)
 import Data.Map.Strict (Map)
@@ -41,6 +44,7 @@ import qualified Data.Map.Strict as Map
 import Data.Maybe (mapMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
+import GHC.Generics (Generic)
 import Prelude hiding (all, lookup, map)
 
 #if !MIN_VERSION_base(4,20,0)
@@ -49,7 +53,7 @@ import Data.Foldable (foldl')
 
 -- | `Archetype` ID.
 newtype ArchetypeID = ArchetypeID {unArchetypeId :: Int}
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, NFData)
 
 -- | Node in `Archetypes`.
 data Node = Node
@@ -62,7 +66,9 @@ data Node = Node
     -- | Edges to other `Archetype`s by removing a `ComponentID`.
     nodeRemove :: !(Map ComponentID ArchetypeID)
   }
-  deriving (Show)
+  deriving (Show, Generic)
+
+instance NFData Node
 
 -- | `Archetype` graph.
 data Archetypes = Archetypes
@@ -75,7 +81,9 @@ data Archetypes = Archetypes
     -- | Mapping of `ComponentID`s to `ArchetypeID`s of `Archetypes` that contain them.
     componentIds :: !(Map ComponentID (Set ArchetypeID))
   }
-  deriving (Show)
+  deriving (Show, Generic)
+
+instance NFData Archetypes
 
 -- | Empty `Archetypes`.
 empty :: Archetypes

@@ -2,7 +2,9 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
@@ -28,8 +30,10 @@ import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
 import Aztecs.SDL (Surface (..))
 import Control.Arrow (returnA, (>>>))
+import Control.DeepSeq
 import Data.Maybe (mapMaybe)
 import qualified Data.Text as T
+import GHC.Generics (Generic)
 import SDL hiding (Surface, Texture, Window, windowTitle)
 import qualified SDL.Font as F
 
@@ -45,18 +49,14 @@ instance Asset Font where
   loadAsset fp size = Font <$> F.load fp size
 
 data Text = Text {textContent :: !T.Text, textFont :: !(Handle Font)}
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, NFData)
 
 instance Component Text
 
 drawText :: T.Text -> Font -> IO Surface
 drawText content f = do
   !s <- F.solid (unFont f) (V4 255 255 255 255) content
-  return
-    Surface
-      { sdlSurface = s,
-        surfaceBounds = Nothing
-      }
+  return Surface {sdlSurface = s, surfaceBounds = Nothing}
 
 -- | Setup SDL TrueType-Font (TTF) support.
 setup :: Schedule IO () ()

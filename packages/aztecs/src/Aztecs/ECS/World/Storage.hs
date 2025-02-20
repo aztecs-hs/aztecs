@@ -4,12 +4,13 @@
 
 module Aztecs.ECS.World.Storage (Storage (..)) where
 
+import Control.DeepSeq (NFData)
 import Data.Data (Typeable)
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
 
 -- | Component storage, containing zero or many components of the same type.
-class (Typeable (s a), Typeable a) => Storage s a where
+class (Typeable (s a), NFData (s a), Typeable a) => Storage s a where
   -- | Storage with a single component.
   singleton :: Int -> a -> s a
 
@@ -28,7 +29,7 @@ class (Typeable (s a), Typeable a) => Storage s a where
   -- | Remove a component from the storage.
   remove :: Int -> s a -> (Maybe a, s a)
 
-instance (Typeable a) => Storage IntMap a where
+instance (Typeable a, NFData a) => Storage IntMap a where
   singleton = IntMap.singleton
   all = IntMap.toList
   insert = IntMap.insert

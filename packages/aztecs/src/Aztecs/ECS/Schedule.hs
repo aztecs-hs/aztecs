@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
 
@@ -26,6 +27,8 @@ import qualified Aztecs.ECS.World as W
 import Aztecs.ECS.World.Components (Components)
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
+import Control.DeepSeq
+import Control.Exception (evaluate)
 import Control.Monad ((>=>))
 import Control.Monad.Identity (Identity (runIdentity))
 import Control.Monad.State (MonadState (..))
@@ -81,17 +84,18 @@ access f = Schedule $ \cs -> (f, cs)
 task :: (Monad m) => (i -> m o) -> Schedule m i o
 task f = Schedule $ \cs -> (AccessT Prelude.. lift Prelude.. f, cs)
 
-forever :: (Monad m) => Schedule m i o -> (o -> m ()) -> Schedule m i ()
+forever :: Schedule IO i o -> (o -> IO ()) -> Schedule IO i ()
 forever s f = Schedule $ \cs ->
   let (g, cs') = runSchedule' s cs
       go i = AccessT $ do
         w <- get
         let loop wAcc = do
               (o, wAcc') <- lift $ runAccessT (g i) wAcc
-              lift $ f o
+
+              lift $ evaluate $ rnf wAcc'
               loop wAcc'
         loop w
    in (go, cs')
 
-forever_ :: (Monad m) => Schedule m i o -> Schedule m i ()
+forever_ :: Schedule IO i o -> Schedule IO i ()
 forever_ s = forever s (const $ pure ())

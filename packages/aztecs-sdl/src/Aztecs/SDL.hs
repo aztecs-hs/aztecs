@@ -2,6 +2,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TupleSections #-}
@@ -47,7 +48,7 @@ module Aztecs.SDL
   )
 where
 
-import Aztecs.Camera (Camera (..), CameraTarget (..))
+import Aztecs.Camera (Camera (..), CameraTarget (..), addCameraTargets)
 import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
@@ -68,12 +69,13 @@ import Aztecs.Time
 import Aztecs.Transform (Size (..), Transform (..))
 import Aztecs.Window
 import Control.Arrow (Arrow (..), returnA, (>>>))
+import Control.DeepSeq
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe, mapMaybe)
 import qualified Data.Text as T
+import GHC.Generics (Generic)
 import SDL hiding (InputMotion (..), MouseButton (..), Surface, Texture, Window, windowTitle)
 import qualified SDL
-import Aztecs.Camera (addCameraTargets)
 
 #if !MIN_VERSION_base(4,20,0)
 import Data.Foldable (foldl')
@@ -86,9 +88,12 @@ data WindowRenderer = WindowRenderer
     -- | SDL renderer.
     windowRenderer :: !Renderer
   }
-  deriving (Show)
+  deriving (Show, Generic)
 
 instance Component WindowRenderer
+
+instance NFData WindowRenderer where
+  rnf = rwhnf
 
 -- | Setup SDL
 setup :: Schedule IO () ()
@@ -131,8 +136,12 @@ newtype SurfaceTexture = SurfaceTexture
   { -- | SDL texture.
     unSurfaceTexture :: SDL.Texture
   }
+  deriving (Generic)
 
 instance Component SurfaceTexture
+
+instance NFData SurfaceTexture where
+  rnf = rwhnf
 
 allWindowTextures ::
   (ArrowQueryReader q, ArrowReaderSystem q arr, Applicative (q ())) =>
@@ -291,7 +300,7 @@ allWindowDraws qA qB = proc () -> do
 -- | Surface target component.
 -- This component can be used to specify which `Camera` to draw a `Surface` to.
 newtype SurfaceTarget = SurfaceTarget {drawTargetCamera :: EntityID}
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, NFData)
 
 instance Component SurfaceTarget
 
@@ -304,6 +313,8 @@ data Surface = Surface
 
 instance Component Surface
 
+instance NFData Surface where
+  rnf = rwhnf
 
 -- | Add `SurfaceTarget` components to entities with a new `Surface` component.
 addSurfaceTargets :: System () ()

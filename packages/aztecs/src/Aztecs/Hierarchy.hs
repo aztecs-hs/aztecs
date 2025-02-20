@@ -1,4 +1,5 @@
 {-# LANGUAGE Arrows #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -22,29 +23,31 @@ import Aztecs.ECS.Query.Reader (ArrowQueryReader)
 import Aztecs.ECS.System (ArrowReaderSystem, ArrowSystem)
 import qualified Aztecs.ECS.System as S
 import Control.Arrow (returnA)
+import Control.DeepSeq
 import Control.Monad (when)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
+import GHC.Generics (Generic)
 
 newtype Parent = Parent {unParent :: EntityID}
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic, NFData)
 
 instance Component Parent
 
 newtype ParentState = ParentState {unParentState :: EntityID}
-  deriving (Show)
+  deriving (Show, Generic, NFData)
 
 instance Component ParentState
 
 newtype Children = Children {unChildren :: Set EntityID}
-  deriving (Eq, Ord, Show, Semigroup, Monoid)
+  deriving (Eq, Ord, Show, Semigroup, Monoid, Generic, NFData)
 
 instance Component Children
 
 newtype ChildState = ChildState {unChildState :: Set EntityID}
-  deriving (Show)
+  deriving (Show, Generic, NFData)
 
 instance Component ChildState
 

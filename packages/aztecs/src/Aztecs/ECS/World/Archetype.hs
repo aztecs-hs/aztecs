@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -39,6 +40,7 @@ import Aztecs.ECS.Entity (EntityID (..))
 import Aztecs.ECS.World.Components (Components)
 import qualified Aztecs.ECS.World.Components as CS
 import qualified Aztecs.ECS.World.Storage as S
+import Control.DeepSeq (NFData (..), rwhnf)
 import Data.Bifunctor (Bifunctor (..))
 import Data.Dynamic (Dynamic, Typeable, fromDynamic, toDyn)
 import Data.Map.Strict (Map)
@@ -46,6 +48,7 @@ import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
+import GHC.Generics (Generic)
 import Prelude hiding (all, lookup)
 
 #if !MIN_VERSION_base(4,20,0)
@@ -57,11 +60,15 @@ data AnyStorage = AnyStorage
     insertDyn :: !(Int -> Dynamic -> Dynamic -> Dynamic),
     removeDyn :: !(Int -> Dynamic -> (Maybe Dynamic, Dynamic)),
     removeAny :: !(Int -> Dynamic -> (Maybe AnyStorage, Dynamic)),
-    entitiesDyn :: !(Dynamic -> [Int])
+    entitiesDyn :: !(Dynamic -> [Int]),
+    storageRnf :: !(Dynamic -> ())
   }
 
 instance Show AnyStorage where
   show s = "AnyStorage " ++ show (storageDyn s)
+
+instance NFData AnyStorage where
+  rnf s = storageRnf s (storageDyn s)
 
 anyStorage :: forall s a. (S.Storage s a) => s a -> AnyStorage
 anyStorage s =
@@ -80,11 +87,16 @@ anyStorage s =
         Nothing -> (Nothing, dyn),
       entitiesDyn = \dyn -> case fromDynamic @(s a) dyn of
         Just s' -> map fst $ S.all s'
-        Nothing -> []
+        Nothing -> [],
+      storageRnf = \dyn -> case fromDynamic @(s a) dyn of
+        Just s' -> rnf s'
+        Nothing -> ()
     }
 
 newtype Archetype = Archetype {storages :: Map ComponentID AnyStorage}
-  deriving (Show)
+  deriving (Show, Generic)
+
+instance NFData Archetype
 
 empty :: Archetype
 empty = Archetype {storages = Map.empty}

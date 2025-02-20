@@ -13,10 +13,11 @@ where
 
 import Aztecs.ECS.Query (Query (..), QueryFilter (..), ReadsWrites (..))
 import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.Query.Reader (filterWith, filterWithout, QueryReader (..))
+import Aztecs.ECS.Query.Reader (QueryReader (..), filterWith, filterWithout)
 import Aztecs.ECS.System.Class (ArrowSystem (..), filterMap, map, mapSingle, map_, queue)
 import Aztecs.ECS.System.Dynamic (DynamicSystem (..), raceDyn)
 import Aztecs.ECS.System.Dynamic.Class (ArrowDynamicSystem (..))
+import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
 import Aztecs.ECS.System.Reader.Class (ArrowReaderSystem (..), all, filter, single)
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
@@ -26,7 +27,6 @@ import Control.Category (Category (..))
 import qualified Data.Foldable as F
 import Prelude hiding (all, filter, map, (.))
 import qualified Prelude hiding (filter, map)
-import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem(..))
 
 -- | System to process entities.
 newtype System i o = System
@@ -53,6 +53,7 @@ instance Arrow System where
           rwsA <> rwsB,
           cs''
         )
+
 instance ArrowReaderSystem QueryReader System where
   all q = System $ \cs ->
     let !(rs, cs', dynQ) = runQueryReader q cs in (allDyn rs dynQ, ReadsWrites rs mempty, cs')

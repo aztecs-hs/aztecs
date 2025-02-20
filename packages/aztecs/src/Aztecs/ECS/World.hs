@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -33,12 +34,14 @@ import Aztecs.ECS.World.Archetypes (ArchetypeID, Archetypes, Node (..))
 import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Components (Components (..))
 import qualified Aztecs.ECS.World.Components as CS
+import Control.DeepSeq (NFData)
 import Data.Dynamic (Dynamic)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import Data.Typeable (Proxy (..), Typeable, typeOf)
+import GHC.Generics (Generic)
 import Prelude hiding (lookup)
 
 #if !MIN_VERSION_base(4,20,0)
@@ -52,7 +55,9 @@ data World = World
     entities :: !(Map EntityID ArchetypeID),
     nextEntityId :: !EntityID
   }
-  deriving (Show)
+  deriving (Show, Generic)
+
+instance NFData World
 
 -- | Empty `World`.
 empty :: World

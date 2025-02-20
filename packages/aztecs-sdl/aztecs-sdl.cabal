@@ -29,6 +29,7 @@ library
         base >=4.6 && <5,
         aztecs >= 0.5,
         containers >=0.6,
+        deepseq >=1,
         mtl >=2,
         sdl2 >=2,
         text >=1.2,

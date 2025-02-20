@@ -63,6 +63,7 @@ library
     build-depends:
         base >=4.6 && <5,
         containers >=0.6,
+        deepseq >=1,
         linear >=1,
         mtl >=2,
         parallel >=3,

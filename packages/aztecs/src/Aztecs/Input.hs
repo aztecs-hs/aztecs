@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+
 module Aztecs.Input
   ( Key (..),
     InputMotion (..),
@@ -15,10 +18,12 @@ module Aztecs.Input
 where
 
 import Aztecs.ECS
+import Control.DeepSeq (NFData)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
+import GHC.Generics (Generic)
 import Linear (V2 (..))
 import Linear.Affine (Point (..))
 
@@ -118,7 +123,7 @@ data Key
   | KeyNumpadPeriod
   | KeySuper
   | KeyMenu
-  deriving (Show, Eq, Ord, Enum, Bounded)
+  deriving (Show, Eq, Ord, Enum, Bounded, Generic, NFData)
 
 -- | Keyboard input component.
 data KeyboardInput = KeyboardInput
@@ -127,7 +132,7 @@ data KeyboardInput = KeyboardInput
     -- | Keys that are currently pressed.
     keyboardPressed :: !(Set Key)
   }
-  deriving (Show)
+  deriving (Show, Generic, NFData)
 
 instance Component KeyboardInput
 
@@ -135,7 +140,7 @@ keyboardInput :: KeyboardInput
 keyboardInput = KeyboardInput Map.empty Set.empty
 
 data InputMotion = Pressed | Released
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic, NFData)
 
 -- | @True@ if this key is currently pressed.
 isKeyPressed :: Key -> KeyboardInput -> Bool
@@ -174,7 +179,7 @@ data MouseButton
   | ButtonX2
   | -- | An unknown mouse button.
     ButtonExtra !Int
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic, NFData)
 
 -- | Mouse input component.
 data MouseInput = MouseInput
@@ -185,7 +190,7 @@ data MouseInput = MouseInput
     -- | Mouse button states.
     mouseButtons :: !(Map MouseButton InputMotion)
   }
-  deriving (Show)
+  deriving (Show, Generic, NFData)
 
 instance Component MouseInput
 

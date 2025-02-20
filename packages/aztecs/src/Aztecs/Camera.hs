@@ -1,4 +1,6 @@
 {-# LANGUAGE Arrows #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Aztecs.Camera
@@ -16,6 +18,8 @@ import Aztecs.ECS.System (ArrowReaderSystem, ArrowSystem)
 import qualified Aztecs.ECS.System as S
 import Aztecs.Window (Window)
 import Control.Arrow (Arrow (..))
+import Control.DeepSeq
+import GHC.Generics (Generic)
 import Linear (V2 (..))
 
 -- | Camera component.
@@ -25,7 +29,7 @@ data Camera = Camera
     -- | Camera scale factor.
     cameraScale :: !(V2 Float)
   }
-  deriving (Show)
+  deriving (Show, Generic, NFData)
 
 instance Component Camera
 
@@ -34,7 +38,7 @@ newtype CameraTarget = CameraTarget
   { -- | This camera's target window.
     cameraTargetWindow :: EntityID
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, NFData)
 
 instance Component CameraTarget
 

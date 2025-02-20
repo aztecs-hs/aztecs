@@ -29,6 +29,7 @@ library
         aztecs >= 0.5,
         aztecs-sdl >= 0.2,
         containers >=0.6,
+        deepseq >=1,
         mtl >=2,
         sdl2 >=2,
         sdl2-ttf >=2,

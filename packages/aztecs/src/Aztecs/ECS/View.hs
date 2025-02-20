@@ -82,7 +82,7 @@ allDyn i q v =
 singleDyn :: i -> DynamicQuery i a -> View -> (Maybe a, View)
 singleDyn i q v = case allDyn i q v of
   -- TODO [a], removing this errors for now
-  ((a: _), v') -> (Just a, v')
+  ((a : _), v') -> (Just a, v')
   _ -> (Nothing, v)
 
 -- | Query all matching entities in a `View`.
