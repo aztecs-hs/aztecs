@@ -4,7 +4,7 @@
 [![CI status](https://github.com/matthunz/aztecs/actions/workflows/ci.yml/badge.svg)](https://github.com/matthunz/aztecs/actions)
 [![Package](https://img.shields.io/hackage/v/aztecs.svg)](https://hackage.haskell.org/package/aztecs)
 
-A modular game engine and ECS [ECS](https://en.wikipedia.org/wiki/Entity_component_system) for Haskell.
+A modular game engine and [ECS](https://en.wikipedia.org/wiki/Entity_component_system) for Haskell.
 An ECS is a modern approach to organizing your application state as a database,
 providing patterns for data-oriented design and parallel processing.
 For more information, please see the documentation on [Hackage](https://hackage.haskell.org/package/aztecs/).
