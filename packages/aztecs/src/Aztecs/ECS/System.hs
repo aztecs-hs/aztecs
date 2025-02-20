@@ -2,11 +2,11 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Aztecs.ECS.System
   ( -- * Systems
     System (..),
+    ArrowQueueSystem (..),
     ArrowReaderSystem (..),
     ArrowSystem (..),
   )
@@ -14,12 +14,12 @@ where
 
 import Aztecs.ECS.Query (Query (..), QueryFilter (..), ReadsWrites (..))
 import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.Query.Dynamic (DynamicQuery)
 import Aztecs.ECS.Query.Reader (QueryReader (..), filterWith, filterWithout)
-import Aztecs.ECS.System.Class (ArrowSystem (..), filterMap, map, mapSingle, map_, queue)
+import Aztecs.ECS.System.Class (ArrowSystem (..))
 import Aztecs.ECS.System.Dynamic (DynamicSystem (..), raceDyn)
 import Aztecs.ECS.System.Dynamic.Class (ArrowDynamicSystem (..))
 import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
+import Aztecs.ECS.System.Queue (ArrowQueueSystem (..))
 import Aztecs.ECS.System.Reader.Class (ArrowReaderSystem (..), all, filter, single)
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
@@ -84,4 +84,6 @@ instance ArrowSystem Query System where
   mapSingleMaybe q = System $ \cs ->
     let !(rws, cs', dynQ) = runQuery q cs
      in (mapSingleMaybeDyn (Q.reads rws <> Q.writes rws) dynQ, rws, cs')
-  queue f = System $ \cs -> (queueDyn @DynamicQuery f, mempty, cs)
+
+instance ArrowQueueSystem System where
+  queue f = System $ \cs -> (queue f, mempty, cs)

@@ -17,10 +17,9 @@ where
 
 import Aztecs
 import qualified Aztecs.ECS.Access as A
-import Aztecs.ECS.Query (ArrowQuery)
 import qualified Aztecs.ECS.Query as Q
 import Aztecs.ECS.Query.Reader (ArrowQueryReader)
-import Aztecs.ECS.System (ArrowReaderSystem, ArrowSystem)
+import Aztecs.ECS.System (ArrowQueueSystem, ArrowReaderSystem)
 import qualified Aztecs.ECS.System as S
 import Control.Arrow (returnA)
 import Control.DeepSeq
@@ -52,7 +51,7 @@ newtype ChildState = ChildState {unChildState :: Set EntityID}
 instance Component ChildState
 
 update ::
-  (ArrowQueryReader qr, ArrowQuery q, ArrowReaderSystem qr arr, ArrowSystem q arr) =>
+  (ArrowQueryReader qr, ArrowReaderSystem qr arr, ArrowQueueSystem arr) =>
   arr () ()
 update = proc () -> do
   parents <-

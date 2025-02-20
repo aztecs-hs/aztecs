@@ -11,6 +11,7 @@ import Aztecs.ECS.Query.Dynamic (DynamicQuery)
 import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader)
 import Aztecs.ECS.System.Dynamic.Class (ArrowDynamicSystem (..))
 import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
+import Aztecs.ECS.System.Queue (ArrowQueueSystem (..))
 import Aztecs.ECS.View (View, filterView, readAllDyn, view)
 import qualified Aztecs.ECS.View as V
 import Aztecs.ECS.World (World (..))
@@ -50,7 +51,9 @@ instance ArrowDynamicSystem DynamicQuery DynamicSystem where
   mapSingleDyn cIds q = DynamicSystem $ mapSingleDyn' cIds q
   mapSingleMaybeDyn cIds q = DynamicSystem $ mapSingleMaybeDyn' cIds q
   filterMapDyn cIds q f = DynamicSystem $ filterMapDyn' cIds q f
-  queueDyn f = DynamicSystem $ queueDyn' f
+
+instance ArrowQueueSystem DynamicSystem where
+  queue f = DynamicSystem $ queueDyn' f
 
 raceDyn :: DynamicSystem i a -> DynamicSystem i b -> DynamicSystem i (a, b)
 raceDyn (DynamicSystem f) (DynamicSystem g) = DynamicSystem $ \w i ->

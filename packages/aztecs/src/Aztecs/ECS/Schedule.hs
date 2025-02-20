@@ -63,7 +63,10 @@ reader t = Schedule $ \cs ->
   let (dynT, _, cs') = runReaderSystem t cs
       go i = AccessT $ do
         w <- get
-        return $ runReaderSystemDyn dynT w i
+        let (o, a) = runReaderSystemDyn dynT w i
+            ((), w') = runIdentity $ runAccessT a w
+        put w'
+        return o
    in (go, cs')
 
 system :: (Monad m) => System i o -> Schedule m i o

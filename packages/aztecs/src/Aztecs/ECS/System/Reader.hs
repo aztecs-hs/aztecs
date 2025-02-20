@@ -6,28 +6,15 @@
 module Aztecs.ECS.System.Reader
   ( -- * Systems
     ReaderSystem (..),
-    queue,
 
     -- ** Queries
-
-    -- *** Reading
-    all,
-    filter,
-    single,
-
-    -- *** Writing
-    map,
-    map_,
-    filterMap,
-    mapSingle,
   )
 where
 
 import Aztecs.ECS.Query.Reader
-import Aztecs.ECS.System.Class (filterMap, map, mapSingle, map_, queue)
 import Aztecs.ECS.System.Dynamic.Reader (DynamicReaderSystem, raceDyn)
 import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
-import Aztecs.ECS.System.Reader.Class (ArrowReaderSystem (..), all, filter, single)
+import Aztecs.ECS.System.Reader.Class (ArrowReaderSystem (..))
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
 import Aztecs.ECS.World.Components (ComponentID, Components)
@@ -35,8 +22,7 @@ import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
 import qualified Data.Foldable as F
 import Data.Set (Set)
-import Prelude hiding (all, filter, id, map, (.))
-import qualified Prelude hiding (filter, id, map)
+import Prelude hiding (id, (.))
 
 -- | System to process entities.
 newtype ReaderSystem i o = ReaderSystem

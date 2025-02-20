@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FunctionalDependencies #-}
 
 module Aztecs.ECS.System.Dynamic.Class
@@ -6,7 +5,6 @@ module Aztecs.ECS.System.Dynamic.Class
   )
 where
 
-import Aztecs.ECS.Access (Access)
 import Aztecs.ECS.Component (ComponentID)
 import Aztecs.ECS.World.Archetypes (Node (..))
 import Data.Set (Set)
@@ -24,5 +22,3 @@ class ArrowDynamicSystem q arr | arr -> q where
     q i o ->
     (Node -> Bool) ->
     arr i [o]
-
-  queueDyn :: (i -> Access ()) -> arr i ()

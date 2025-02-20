@@ -42,6 +42,8 @@ library
         Aztecs.ECS.System.Dynamic.Class
         Aztecs.ECS.System.Dynamic.Reader
         Aztecs.ECS.System.Dynamic.Reader.Class
+        Aztecs.ECS.System.Queue
+        Aztecs.ECS.System.Queue.Class
         Aztecs.ECS.System.Reader
         Aztecs.ECS.System.Reader.Class
         Aztecs.ECS.View

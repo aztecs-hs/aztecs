@@ -14,7 +14,7 @@ import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import Aztecs.ECS.Query.Reader (ArrowQueryReader)
 import qualified Aztecs.ECS.Query.Reader as Q
-import Aztecs.ECS.System (ArrowReaderSystem, ArrowSystem)
+import Aztecs.ECS.System (ArrowQueueSystem, ArrowReaderSystem)
 import qualified Aztecs.ECS.System as S
 import Aztecs.Window (Window)
 import Control.Arrow (Arrow (..))
@@ -43,7 +43,9 @@ newtype CameraTarget = CameraTarget
 instance Component CameraTarget
 
 -- | Add `CameraTarget` components to entities with a new `Draw` component.
-addCameraTargets :: (ArrowQueryReader qr, ArrowReaderSystem qr arr, ArrowSystem q arr) => arr () ()
+addCameraTargets ::
+  (ArrowQueryReader qr, ArrowReaderSystem qr arr, ArrowQueueSystem arr) =>
+  arr () ()
 addCameraTargets = proc () -> do
   windows <- S.all (Q.entity &&& Q.fetch @_ @Window) -< ()
   newCameras <- S.filter (Q.entity &&& Q.fetch @_ @Camera) (without @CameraTarget) -< ()

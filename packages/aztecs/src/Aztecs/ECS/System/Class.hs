@@ -2,7 +2,6 @@
 
 module Aztecs.ECS.System.Class (ArrowSystem (..)) where
 
-import Aztecs.ECS.Access (Access)
 import Aztecs.ECS.Query.Reader (QueryFilter (..))
 import Control.Arrow (Arrow (..), (>>>))
 import Prelude hiding (map)
@@ -23,6 +22,3 @@ class (Arrow arr) => ArrowSystem q arr | arr -> q where
   mapSingle :: q i a -> arr i a
 
   mapSingleMaybe :: q i a -> arr i (Maybe a)
-
-  -- | Queue an `Access` to happen after this system schedule.
-  queue :: (i -> Access ()) -> arr i ()
