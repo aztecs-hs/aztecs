@@ -4,11 +4,10 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Aztecs.ECS.System
-  ( -- * Systems
-    System (..),
-    ArrowQueueSystem (..),
+  ( System (..),
     ArrowReaderSystem (..),
     ArrowSystem (..),
+    ArrowQueueSystem (..),
   )
 where
 

@@ -3,7 +3,14 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Aztecs.ECS.System.Dynamic (DynamicSystem (..), raceDyn) where
+module Aztecs.ECS.System.Dynamic
+  ( DynamicSystem (..),
+    ArrowDynamicReaderSystem (..),
+    ArrowDynamicSystem (..),
+    ArrowQueueSystem (..),
+    raceDyn,
+  )
+where
 
 import Aztecs.ECS.Access (Access)
 import Aztecs.ECS.Component (ComponentID)

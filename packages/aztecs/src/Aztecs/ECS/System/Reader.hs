@@ -4,10 +4,9 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Aztecs.ECS.System.Reader
-  ( -- * Systems
-    ReaderSystem (..),
-
-    -- ** Queries
+  ( ReaderSystem (..),
+    ArrowReaderSystem (..),
+    ArrowQueueSystem (..),
   )
 where
 

@@ -3,9 +3,9 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Aztecs.ECS.System.Dynamic.Reader
-  ( -- * Dynamic Systems
-    DynamicReaderSystem (..),
+  ( DynamicReaderSystem (..),
     ArrowDynamicReaderSystem (..),
+    ArrowQueueSystem (..),
     raceDyn,
   )
 where

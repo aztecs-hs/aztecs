@@ -1,9 +1,6 @@
 {-# LANGUAGE FunctionalDependencies #-}
 
-module Aztecs.ECS.System.Dynamic.Class
-  ( ArrowDynamicSystem (..),
-  )
-where
+module Aztecs.ECS.System.Dynamic.Class (ArrowDynamicSystem (..)) where
 
 import Aztecs.ECS.Component (ComponentID)
 import Aztecs.ECS.World.Archetypes (Node (..))
