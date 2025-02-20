@@ -12,7 +12,8 @@ executable ecs
     ghc-options:      -Wall
     build-depends:
         base,
-        aztecs
+        aztecs,
+        deepseq >=1
 
 executable keyboard
     main-is:          Keyboard.hs

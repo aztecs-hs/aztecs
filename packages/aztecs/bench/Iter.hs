@@ -1,24 +1,29 @@
 {-# LANGUAGE Arrows #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-import Aztecs
+import Aztecs.ECS
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
 import qualified Aztecs.ECS.World as W
+import Control.DeepSeq
+import Control.Monad (void)
 import Criterion.Main
+import GHC.Generics (Generic)
 
-newtype Position = Position Int deriving (Show)
+newtype Position = Position Int deriving (Show, Generic, NFData)
 
 instance Component Position
 
-newtype Velocity = Velocity Int deriving (Show)
+newtype Velocity = Velocity Int deriving (Show, Generic, NFData)
 
 instance Component Velocity
 
 run :: World -> IO ()
 run w = do
   let s =
-        Control.Monad.void
+        void
           ( S.map
               ( proc () -> do
                   Velocity v <- Q.fetch -< ()
@@ -26,7 +31,7 @@ run w = do
                   Q.set -< Position $ p + v
               )
           )
-  !_ <- S.runSystemWithWorld s w
+  !_ <- runSchedule (system s) w ()
   return ()
 
 main :: IO ()

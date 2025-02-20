@@ -1,4 +1,6 @@
 {-# LANGUAGE Arrows #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Main where
 
@@ -7,12 +9,14 @@ import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
 import Control.Arrow ((>>>))
+import Control.DeepSeq
+import GHC.Generics (Generic)
 
-newtype Position = Position Int deriving (Show)
+newtype Position = Position Int deriving (Show, Generic, NFData)
 
 instance Component Position
 
-newtype Velocity = Velocity Int deriving (Show)
+newtype Velocity = Velocity Int deriving (Show, Generic, NFData)
 
 instance Component Velocity
 

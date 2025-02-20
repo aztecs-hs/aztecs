@@ -78,6 +78,7 @@ test-suite aztecs-test
         base >=4.6 && <5,
         aztecs,
         containers >=0.6,
+        deepseq >=1,
         hspec >=2,
         QuickCheck >=2
 
@@ -90,4 +91,5 @@ benchmark aztecs-bench
     build-depends:
         base >=4.6 && <5,
         aztecs,
-        criterion >=1
+        criterion >=1,
+        deepseq >=1

@@ -1,4 +1,5 @@
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Main (main) where
@@ -9,19 +10,21 @@ import qualified Aztecs.ECS.World as W
 import Aztecs.Hierarchy (Children (..), Parent (..))
 import qualified Aztecs.Hierarchy as Hierarchy
 import Control.Arrow ((&&&))
+import Control.DeepSeq
 import qualified Data.Set as Set
+import GHC.Generics
 import Test.Hspec
 import Test.QuickCheck
 
-newtype X = X Int deriving (Eq, Show, Arbitrary)
+newtype X = X Int deriving (Eq, Show, Arbitrary, Generic, NFData)
 
 instance Component X
 
-newtype Y = Y Int deriving (Eq, Show, Arbitrary)
+newtype Y = Y Int deriving (Eq, Show, Arbitrary, Generic, NFData)
 
 instance Component Y
 
-newtype Z = Z Int deriving (Eq, Show, Arbitrary)
+newtype Z = Z Int deriving (Eq, Show, Arbitrary, Generic, NFData)
 
 instance Component Z
 
