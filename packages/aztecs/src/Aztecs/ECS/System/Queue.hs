@@ -1,21 +1,14 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 
-module Aztecs.ECS.System.Queue
-  ( -- * Systems
-    QueueSystem (..),
-    ArrowQueueSystem (..),
-  )
-where
+module Aztecs.ECS.System.Queue (QueueSystem (..), ArrowQueueSystem (..)) where
 
 import Aztecs.ECS.Access (Access)
 import Aztecs.ECS.System.Queue.Class (ArrowQueueSystem (..))
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
 
--- | System to process entities.
+-- | System that can queue `Access` to a `World`.
 newtype QueueSystem i o = QueueSystem {runQueueSystem :: i -> (o, Access ())}
   deriving (Functor)
 

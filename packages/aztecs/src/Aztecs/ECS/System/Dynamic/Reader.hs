@@ -11,16 +11,14 @@ module Aztecs.ECS.System.Dynamic.Reader
 where
 
 import Aztecs.ECS.Access (Access)
-import Aztecs.ECS.Component (ComponentID)
 import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader)
 import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
+import Aztecs.ECS.System.Queue (ArrowQueueSystem (..))
 import qualified Aztecs.ECS.View as V
 import Aztecs.ECS.World (World (..))
-import Aztecs.ECS.World.Archetypes (Node)
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
 import Control.Parallel (par)
-import Data.Set (Set)
 
 newtype DynamicReaderSystem i o = DynamicReaderSystem
   { -- | Run a dynamic system producing some output
@@ -44,6 +42,9 @@ instance ArrowDynamicReaderSystem DynamicQueryReader DynamicReaderSystem where
     let !v = V.view cIds $ archetypes w in (V.readAllDyn i q v, pure ())
   filterDyn cIds q f = DynamicReaderSystem $ \w i ->
     let !v = V.filterView cIds f $ archetypes w in (V.readAllDyn i q v, pure ())
+
+instance ArrowQueueSystem DynamicReaderSystem where
+  queue f = DynamicReaderSystem $ \_ i -> let !a = f i in ((), a)
 
 raceDyn :: DynamicReaderSystem i a -> DynamicReaderSystem i b -> DynamicReaderSystem i (a, b)
 raceDyn (DynamicReaderSystem f) (DynamicReaderSystem g) = DynamicReaderSystem $ \w i ->
