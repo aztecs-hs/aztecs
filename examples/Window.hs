@@ -10,8 +10,4 @@ setup :: System () ()
 setup = S.queue . const . A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
 
 main :: IO ()
-main =
-  runSchedule_ $
-    SDL.setup
-      >>> system setup
-      >>> forever_ (SDL.update >>> SDL.draw)
+main = runSchedule_ $ SDL.setup >>> system setup >>> forever_ (SDL.update >>> SDL.draw)

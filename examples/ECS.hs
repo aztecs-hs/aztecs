@@ -20,10 +20,10 @@ newtype Velocity = Velocity Int deriving (Show, Generic, NFData)
 
 instance Component Velocity
 
-setup :: System () ()
+setup :: (ArrowQueueSystem arr) => arr () ()
 setup = S.queue . const . A.spawn_ $ bundle (Position 0) <> bundle (Velocity 1)
 
-move :: System () [Position]
+move :: (ArrowQuery q, ArrowSystem q arr) => arr () [Position]
 move =
   S.map
     ( proc () -> do

@@ -17,4 +17,6 @@ update :: Schedule IO () ()
 update = reader (S.all (Q.fetch @_ @MouseInput)) >>> access (liftIO . print)
 
 main :: IO ()
-main = runSchedule_ $ SDL.setup >>> system setup >>> forever_ (SDL.update >>> update >>> SDL.draw)
+main =
+  runSchedule_ $
+    SDL.setup >>> system setup >>> forever_ (SDL.update >>> update >>> SDL.draw)
