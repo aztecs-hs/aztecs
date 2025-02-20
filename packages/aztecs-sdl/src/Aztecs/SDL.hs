@@ -49,24 +49,18 @@ module Aztecs.SDL
   )
 where
 
-import Aztecs.Camera (Camera (..), CameraTarget (..), addCameraTargets)
-import Aztecs.ECS
+import Aztecs
+import Aztecs.Camera (addCameraTargets)
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
 import Aztecs.Input
   ( InputMotion (..),
-    Key (..),
-    KeyboardInput (..),
     MouseButton (..),
-    MouseInput (..),
     handleKeyboardEvent,
     keyboardInput,
     mouseInput,
   )
-import Aztecs.Time
-import Aztecs.Transform (Size (..), Transform (..))
-import Aztecs.Window
 import Control.Arrow (Arrow (..), returnA, (>>>))
 import Control.DeepSeq
 import Control.Monad.IO.Class
@@ -163,7 +157,7 @@ instance NFData SurfaceTexture where
 
 allWindowTextures ::
   (ArrowQueryReader q, ArrowReaderSystem q arr) =>
-  arr () [(WindowRenderer, [(EntityID, Surface, Transform, Maybe SurfaceTexture)])]
+  arr () [(WindowRenderer, [(EntityID, Surface, Transform2D, Maybe SurfaceTexture)])]
 allWindowTextures =
   allWindowDraws
     (arr (const ()))
@@ -232,7 +226,7 @@ draw =
                     rendererViewport renderer
                       $= Just
                         ( Rectangle
-                            (P (fmap fromIntegral $ transformPosition cameraTransform))
+                            (P (fmap fromIntegral $ transformTranslation cameraTransform))
                             (fmap fromIntegral $ cameraViewport camera)
                         )
                     clear renderer
@@ -245,7 +239,7 @@ draw =
                             (fmap fromIntegral <$> surfaceBounds surface)
                             ( Just
                                 ( Rectangle
-                                    (fmap fromIntegral . P $ transformPosition transform)
+                                    (fmap fromIntegral . P $ transformTranslation transform)
                                     ( fromMaybe
                                         (fmap fromIntegral $ V2 (textureWidth textureDesc) (textureHeight textureDesc))
                                         ((fmap (\(Rectangle _ s) -> fmap fromIntegral s) $ surfaceBounds surface))
@@ -266,7 +260,7 @@ draw =
 
 allCameraSurfaces ::
   (ArrowQueryReader q, ArrowReaderSystem q arr) =>
-  arr () [(WindowRenderer, [((Camera, Transform), [(Surface, Transform, SurfaceTexture)])])]
+  arr () [(WindowRenderer, [((Camera, Transform2D), [(Surface, Transform2D, SurfaceTexture)])])]
 allCameraSurfaces =
   allWindowDraws
     (Q.fetch &&& Q.fetch)

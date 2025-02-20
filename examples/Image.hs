@@ -19,10 +19,10 @@ setup = proc () -> do
         A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
         A.spawn_ $
           bundle Camera {cameraViewport = V2 1000 500, cameraScale = 5}
-            <> bundle transform
+            <> bundle transform2d
         A.spawn_ $
           bundle Image {imageTexture = texture, imageSize = V2 100 100}
-            <> bundle transform {transformPosition = V2 10 10}
+            <> bundle transform2d {transformTranslation = V2 10 10}
     )
     -<
       texture

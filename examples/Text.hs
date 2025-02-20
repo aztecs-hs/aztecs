@@ -18,14 +18,14 @@ setup = proc () -> do
   S.queue
     ( \fontHandle -> do
         A.spawn_ $ bundle Window {windowTitle = "Aztecs"}
-        A.spawn_ $ bundle Camera {cameraViewport = V2 1000 500, cameraScale = 2} <> bundle transform
+        A.spawn_ $ bundle Camera {cameraViewport = V2 1000 500, cameraScale = 2} <> bundle transform2d
         A.spawn_ $
           bundle
             Text
               { textContent = "Hello, Aztecs!",
                 textFont = fontHandle
               }
-            <> bundle transform
+            <> bundle transform2d
     )
     -<
       fontHandle

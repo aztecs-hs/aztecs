@@ -55,8 +55,7 @@ module Aztecs
     load,
     Camera (..),
     CameraTarget (..),
-    Transform (..),
-    transform,
+    module Aztecs.Transform,
     Key (..),
     KeyboardInput (..),
     isKeyPressed,
@@ -80,5 +79,5 @@ import Aztecs.Input
     wasKeyReleased,
   )
 import Aztecs.Time
-import Aztecs.Transform (Transform (..), transform)
+import Aztecs.Transform
 import Aztecs.Window
