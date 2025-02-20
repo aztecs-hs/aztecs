@@ -1,7 +1,9 @@
 {-# LANGUAGE Arrows #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TupleSections #-}
@@ -40,8 +42,10 @@ import qualified Aztecs.ECS.System as S
 import Aztecs.SDL (Surface (..))
 import Aztecs.Time
 import Control.Arrow (Arrow (..), (>>>))
+import Control.DeepSeq
 import Data.Maybe (mapMaybe)
 import Data.Word (Word32)
+import GHC.Generics (Generic)
 import SDL hiding (Surface, Texture, Window, windowTitle)
 import qualified SDL
 import qualified SDL.Image as IMG
@@ -71,7 +75,7 @@ data Image = Image
   { imageTexture :: !(Handle Texture),
     imageSize :: !(V2 Int)
   }
-  deriving (Show)
+  deriving (Show, Generic, NFData)
 
 instance Component Image
 
@@ -102,6 +106,9 @@ data Sprite = Sprite
 
 instance Component Sprite
 
+instance NFData Sprite where
+  rnf (Sprite texture bounds size) = rnf texture `seq` (fmap (fmap rnf) bounds) `seq` rnf size
+
 -- | Draw images to their target windows.
 drawSprites :: System () ()
 drawSprites = proc () -> do
@@ -125,8 +132,12 @@ data SpriteAnimation = SpriteAnimation
     spriteAnimationMS :: !Word32,
     spriteAnimationStart :: !Word32
   }
+  deriving (Generic)
 
 instance Component SpriteAnimation
+
+instance NFData SpriteAnimation where
+  rnf (SpriteAnimation steps index ms start) = (fmap (fmap rnf) steps) `seq` rnf index `seq` rnf ms `seq` rnf start
 
 spriteAnimation :: SpriteAnimation
 spriteAnimation =
