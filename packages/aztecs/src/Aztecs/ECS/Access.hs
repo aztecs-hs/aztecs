@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Aztecs.ECS.Access
   ( Access,
@@ -12,6 +13,7 @@ where
 import Aztecs.ECS.Access.Class (MonadAccess (..))
 import Aztecs.ECS.World (World (..))
 import qualified Aztecs.ECS.World as W
+import Aztecs.ECS.World.Bundle (Bundle)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Identity (Identity)
 import Control.Monad.State.Strict (MonadState (..), StateT (..))
@@ -27,7 +29,7 @@ newtype AccessT m a = AccessT {unAccessT :: StateT World m a}
 runAccessT :: (Functor m) => AccessT m a -> World -> m (a, World)
 runAccessT a = runStateT $ unAccessT a
 
-instance (Monad m) => MonadAccess (AccessT m) where
+instance (Monad m) => MonadAccess Bundle (AccessT m) where
   spawn b = AccessT $ do
     !w <- get
     let !(e, w') = W.spawn b w

@@ -5,6 +5,7 @@ module Aztecs.ECS.Schedule.Access (AcessSchedule (..), ArrowAccessSchedule (..))
 
 import Aztecs.ECS.Access (AccessT (..))
 import Aztecs.ECS.Schedule (ArrowAccessSchedule (..))
+import Aztecs.ECS.World.Bundle (Bundle)
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
 import Control.Monad ((>=>))
@@ -22,5 +23,5 @@ instance (Monad m) => Arrow (AcessSchedule m) where
     c <- f b
     return (c, d)
 
-instance (Monad m) => ArrowAccessSchedule (AccessT m) (AcessSchedule m) where
+instance (Monad m) => ArrowAccessSchedule Bundle (AccessT m) (AcessSchedule m) where
   access = AcessSchedule

@@ -24,13 +24,7 @@ module Aztecs.ECS.World.Archetype
     remove,
     removeStorages,
     insertComponent,
-    insertAscList,
     withAscList,
-    Bundle (..),
-    bundle,
-    runBundle,
-    DynamicBundle (..),
-    dynBundle,
     AnyStorage (..),
     anyStorage,
   )
@@ -38,17 +32,13 @@ where
 
 import Aztecs.ECS.Component (Component (..), ComponentID)
 import Aztecs.ECS.Entity (EntityID (..))
-import Aztecs.ECS.World.Components (Components)
-import qualified Aztecs.ECS.World.Components as CS
 import qualified Aztecs.ECS.World.Storage as S
 import Control.DeepSeq
 import Data.Bifunctor (Bifunctor (..))
-import Data.Dynamic (Dynamic, Typeable, fromDynamic, toDyn)
+import Data.Dynamic (Dynamic, fromDynamic, toDyn)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
-import Data.Set (Set)
-import qualified Data.Set as Set
 import GHC.Generics (Generic)
 import Prelude hiding (all, lookup)
 
@@ -135,15 +125,6 @@ entities arch = case Map.toList $ storages arch of
 lookupComponent :: forall a. (Component a) => EntityID -> ComponentID -> Archetype -> Maybe a
 lookupComponent e cId w = lookupStorage cId w >>= S.lookup (unEntityId e)
 
-insertAscList :: forall a. (Component a) => ComponentID -> [(EntityID, a)] -> Archetype -> Archetype
-insertAscList cId as arch =
-  let !storages' =
-        Map.insert
-          cId
-          (anyStorage $ S.fromAscList @(StorageT a) (map (first unEntityId) as))
-          (storages arch)
-   in arch {storages = storages'}
-
 withAscList :: forall a. (Component a) => ComponentID -> [a] -> Archetype -> Archetype
 withAscList cId as arch =
   let !storages' =
@@ -184,35 +165,3 @@ removeStorages e arch =
     )
     (Map.empty, arch)
     (Map.toList $ storages arch)
-
-newtype Bundle = Bundle {unBundle :: Components -> (Set ComponentID, Components, DynamicBundle)}
-
-instance Monoid Bundle where
-  mempty = Bundle $ \cs -> (Set.empty, cs, mempty)
-
-instance Semigroup Bundle where
-  Bundle b1 <> Bundle b2 = Bundle $ \cs ->
-    let (cIds1, cs', d1) = b1 cs
-        (cIds2, cs'', d2) = b2 cs'
-     in (cIds1 <> cIds2, cs'', d1 <> d2)
-
-bundle :: forall a. (Component a, Typeable (StorageT a)) => a -> Bundle
-bundle a = Bundle $ \cs ->
-  let (cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', dynBundle cId a)
-
-newtype DynamicBundle = DynamicBundle {runDynamicBundle :: EntityID -> Archetype -> Archetype}
-
-instance Semigroup DynamicBundle where
-  DynamicBundle d1 <> DynamicBundle d2 = DynamicBundle $ \eId arch -> d2 eId (d1 eId arch)
-
-instance Monoid DynamicBundle where
-  mempty = DynamicBundle $ \_ arch -> arch
-
-dynBundle :: (Component a, Typeable (StorageT a)) => ComponentID -> a -> DynamicBundle
-dynBundle cId a = DynamicBundle $ \eId arch -> insertComponent eId cId a arch
-
-runBundle :: Bundle -> Components -> EntityID -> Archetype -> (Components, Archetype)
-runBundle b cs eId arch =
-  let !(_, cs', d) = unBundle b cs
-      !arch' = runDynamicBundle d eId arch
-   in (cs', arch')

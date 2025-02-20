@@ -11,6 +11,7 @@ module Aztecs.ECS.System
   )
 where
 
+import Aztecs.ECS.Access (Access)
 import Aztecs.ECS.Query (Query (..), QueryFilter (..), ReadsWrites (..))
 import qualified Aztecs.ECS.Query as Q
 import Aztecs.ECS.Query.Reader (QueryReader (..), filterWith, filterWithout)
@@ -22,6 +23,7 @@ import Aztecs.ECS.System.Queue (ArrowQueueSystem (..))
 import Aztecs.ECS.System.Reader.Class (ArrowReaderSystem (..), all, filter, single)
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
+import Aztecs.ECS.World.Bundle (Bundle)
 import Aztecs.ECS.World.Components (Components)
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
@@ -84,5 +86,5 @@ instance ArrowSystem Query System where
     let !(rws, cs', dynQ) = runQuery q cs
      in (mapSingleMaybeDyn (Q.reads rws <> Q.writes rws) dynQ, rws, cs')
 
-instance ArrowQueueSystem System where
+instance ArrowQueueSystem Bundle Access System where
   queue f = System $ \cs -> (queue f, mempty, cs)

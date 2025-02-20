@@ -118,7 +118,7 @@ lookupAsset :: Handle a -> AssetServer a -> Maybe a
 lookupAsset h server = Map.lookup (handleId h) (assetServerAssets server)
 
 loadAssets ::
-  forall a qr rs q s m arr.
+  forall a qr rs q s b m arr.
   ( Typeable a,
     ArrowQueryReader qr,
     ArrowReaderSystem qr rs,
@@ -127,7 +127,7 @@ loadAssets ::
     ArrowSystem q s,
     ArrowSchedule s arr,
     MonadIO m,
-    ArrowAccessSchedule m arr
+    ArrowAccessSchedule b m arr
   ) =>
   arr () ()
 loadAssets = proc () -> do

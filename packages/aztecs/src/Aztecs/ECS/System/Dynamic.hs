@@ -23,6 +23,7 @@ import Aztecs.ECS.View (View, filterView, readAllDyn, view)
 import qualified Aztecs.ECS.View as V
 import Aztecs.ECS.World (World (..))
 import Aztecs.ECS.World.Archetypes (Node)
+import Aztecs.ECS.World.Bundle (Bundle)
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
 import Control.Parallel (par)
@@ -59,7 +60,7 @@ instance ArrowDynamicSystem DynamicQuery DynamicSystem where
   mapSingleMaybeDyn cIds q = DynamicSystem $ mapSingleMaybeDyn' cIds q
   filterMapDyn cIds q f = DynamicSystem $ filterMapDyn' cIds q f
 
-instance ArrowQueueSystem DynamicSystem where
+instance ArrowQueueSystem Bundle Access DynamicSystem where
   queue f = DynamicSystem $ queueDyn' f
 
 raceDyn :: DynamicSystem i a -> DynamicSystem i b -> DynamicSystem i (a, b)

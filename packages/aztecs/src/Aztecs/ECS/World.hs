@@ -29,10 +29,11 @@ import Aztecs.ECS.Component
     ComponentID,
   )
 import Aztecs.ECS.Entity (EntityID (..))
-import Aztecs.ECS.World.Archetype (Bundle (..), DynamicBundle (..))
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (ArchetypeID, Archetypes, Node (..))
 import qualified Aztecs.ECS.World.Archetypes as AS
+import Aztecs.ECS.World.Bundle (Bundle (..))
+import Aztecs.ECS.World.Bundle.Dynamic (DynamicBundle (..))
 import Aztecs.ECS.World.Components (Components (..))
 import qualified Aztecs.ECS.World.Components as CS
 import Control.DeepSeq (NFData)

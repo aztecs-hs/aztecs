@@ -27,6 +27,7 @@ import Aztecs.ECS.System.Reader (ReaderSystem (..))
 import qualified Aztecs.ECS.View as V
 import Aztecs.ECS.World (World (..))
 import qualified Aztecs.ECS.World as W
+import Aztecs.ECS.World.Bundle (Bundle)
 import Aztecs.ECS.World.Components (Components)
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
@@ -55,7 +56,7 @@ instance (Monad m) => Arrow (Schedule m) where
   first (Schedule f) = Schedule $ \cs ->
     let (g, cs') = f cs in (\(b, d) -> (,) <$> g b <*> return d, cs')
 
-instance (Monad m) => ArrowAccessSchedule (AccessT m) (Schedule m) where
+instance (Monad m) => ArrowAccessSchedule Bundle (AccessT m) (Schedule m) where
   access f = Schedule $ \cs -> (f, cs)
 
 instance (Monad m) => ArrowReaderSchedule ReaderSystem (Schedule m) where

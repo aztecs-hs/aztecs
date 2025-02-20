@@ -1,10 +1,14 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module Aztecs.ECS.System.Queue (QueueSystem (..), ArrowQueueSystem (..)) where
 
 import Aztecs.ECS.Access (Access)
 import Aztecs.ECS.System.Queue.Class (ArrowQueueSystem (..))
+import Aztecs.ECS.World.Bundle (Bundle)
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
 
@@ -24,5 +28,5 @@ instance Arrow QueueSystem where
   first (QueueSystem f) = QueueSystem $ \(b, d) ->
     let (c, access) = f b in ((c, d), access)
 
-instance ArrowQueueSystem QueueSystem where
+instance ArrowQueueSystem Bundle Access QueueSystem where
   queue f = QueueSystem $ \i -> let !a = f i in ((), a)

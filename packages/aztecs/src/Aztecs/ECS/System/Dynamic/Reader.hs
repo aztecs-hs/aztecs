@@ -1,6 +1,8 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module Aztecs.ECS.System.Dynamic.Reader
   ( DynamicReaderSystem (..),
@@ -16,6 +18,7 @@ import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
 import Aztecs.ECS.System.Queue (ArrowQueueSystem (..))
 import qualified Aztecs.ECS.View as V
 import Aztecs.ECS.World (World (..))
+import Aztecs.ECS.World.Bundle (Bundle)
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
 import Control.Parallel (par)
@@ -43,7 +46,7 @@ instance ArrowDynamicReaderSystem DynamicQueryReader DynamicReaderSystem where
   filterDyn cIds q f = DynamicReaderSystem $ \w i ->
     let !v = V.filterView cIds f $ archetypes w in (V.readAllDyn i q v, pure ())
 
-instance ArrowQueueSystem DynamicReaderSystem where
+instance ArrowQueueSystem Bundle Access DynamicReaderSystem where
   queue f = DynamicReaderSystem $ \_ i -> let !a = f i in ((), a)
 
 raceDyn :: DynamicReaderSystem i a -> DynamicReaderSystem i b -> DynamicReaderSystem i (a, b)

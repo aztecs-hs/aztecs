@@ -59,6 +59,10 @@ library
         Aztecs.ECS.World
         Aztecs.ECS.World.Archetype
         Aztecs.ECS.World.Archetypes
+        Aztecs.ECS.World.Bundle
+        Aztecs.ECS.World.Bundle.Class
+        Aztecs.ECS.World.Bundle.Dynamic
+        Aztecs.ECS.World.Bundle.Dynamic.Class
         Aztecs.ECS.World.Components
         Aztecs.ECS.World.Storage
         Aztecs.Asset

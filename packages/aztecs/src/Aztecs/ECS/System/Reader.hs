@@ -10,6 +10,7 @@ module Aztecs.ECS.System.Reader
   )
 where
 
+import Aztecs.ECS.Access (Access)
 import Aztecs.ECS.Query.Reader
 import Aztecs.ECS.System.Dynamic.Reader (DynamicReaderSystem, raceDyn)
 import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
@@ -17,6 +18,7 @@ import Aztecs.ECS.System.Queue (ArrowQueueSystem (..))
 import Aztecs.ECS.System.Reader.Class (ArrowReaderSystem (..))
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
+import Aztecs.ECS.World.Bundle (Bundle)
 import Aztecs.ECS.World.Components (ComponentID, Components)
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
@@ -59,5 +61,5 @@ instance ArrowReaderSystem QueryReader ReaderSystem where
             && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynQf)
      in (filterDyn rs dynQ qf', rs, cs'')
 
-instance ArrowQueueSystem ReaderSystem where
+instance ArrowQueueSystem Bundle Access ReaderSystem where
   queue f = ReaderSystem $ \cs -> (queue f, mempty, cs)

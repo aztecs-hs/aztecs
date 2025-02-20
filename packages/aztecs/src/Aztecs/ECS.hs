@@ -53,7 +53,9 @@ module Aztecs.ECS
   ( Access,
     runAccessT,
     Bundle,
-    bundle,
+    MonoidBundle (..),
+    DynamicBundle,
+    MonoidDynamicBundle (..),
     Component (..),
     EntityID,
     Query,
@@ -100,4 +102,5 @@ import Aztecs.ECS.Schedule
   )
 import Aztecs.ECS.System (ArrowQueueSystem, ArrowReaderSystem, ArrowSystem, System)
 import Aztecs.ECS.World (World)
-import Aztecs.ECS.World.Archetype (Bundle, bundle)
+import Aztecs.ECS.World.Bundle (Bundle, MonoidBundle (..))
+import Aztecs.ECS.World.Bundle.Dynamic (DynamicBundle, MonoidDynamicBundle (..))

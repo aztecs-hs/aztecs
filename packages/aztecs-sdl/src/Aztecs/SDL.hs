@@ -90,7 +90,7 @@ instance NFData WindowRenderer where
   rnf = rwhnf
 
 -- | Setup SDL
-setup :: (MonadIO m) => (ArrowAccessSchedule m arr) => arr () ()
+setup :: (MonadIO m) => (ArrowAccessSchedule b m arr) => arr () ()
 setup =
   access (const $ liftIO initializeAll)
     >>> access
@@ -104,15 +104,15 @@ setup =
 update ::
   ( ArrowQueryReader qr,
     ArrowReaderSystem qr rs,
-    ArrowQueueSystem rs,
+    ArrowQueueSystem b qm rs,
     ArrowReaderSchedule rs arr,
     ArrowQuery q,
     ArrowSystem q s,
     ArrowReaderSystem qr s,
-    ArrowQueueSystem s,
+    ArrowQueueSystem b qm s,
     ArrowSchedule s arr,
     MonadIO m,
-    ArrowAccessSchedule m arr
+    ArrowAccessSchedule b m arr
   ) =>
   arr () ()
 update =
@@ -126,10 +126,10 @@ update =
 addWindows ::
   ( ArrowQueryReader q,
     ArrowReaderSystem q s,
-    ArrowQueueSystem s,
+    ArrowQueueSystem b qm s,
     ArrowReaderSchedule s arr,
     MonadIO m,
-    ArrowAccessSchedule m arr
+    ArrowAccessSchedule b m arr
   ) =>
   arr () ()
 addWindows = proc () -> do
@@ -176,7 +176,7 @@ buildTextures ::
     ArrowReaderSystem q s,
     ArrowReaderSchedule s arr,
     MonadIO m,
-    ArrowAccessSchedule m arr
+    ArrowAccessSchedule b m arr
   ) =>
   arr () ()
 buildTextures =
@@ -211,7 +211,7 @@ draw ::
     ArrowReaderSystem q s,
     ArrowReaderSchedule s arr,
     MonadIO m,
-    ArrowAccessSchedule m arr
+    ArrowAccessSchedule b m arr
   ) =>
   arr () ()
 draw =
@@ -344,7 +344,7 @@ instance NFData Surface where
 
 -- | Add `SurfaceTarget` components to entities with a new `Surface` component.
 addSurfaceTargets ::
-  (ArrowQueryReader q, ArrowReaderSystem q arr, ArrowQueueSystem arr) => arr () ()
+  (ArrowQueryReader q, ArrowReaderSystem q arr, ArrowQueueSystem b m arr) => arr () ()
 addSurfaceTargets = proc () -> do
   cameras <- S.all (Q.entity &&& Q.fetch @_ @Camera) -< ()
   newDraws <- S.filter (Q.entity &&& Q.fetch @_ @Surface) (without @SurfaceTarget) -< ()
@@ -361,7 +361,7 @@ updateTime ::
     ArrowSystem q s,
     ArrowSchedule s arr,
     MonadIO m,
-    ArrowAccessSchedule m arr
+    ArrowAccessSchedule b m arr
   ) =>
   arr () ()
 updateTime = proc () -> do
@@ -376,7 +376,7 @@ handleInput ::
     ArrowSystem q s,
     ArrowSchedule s arr,
     MonadIO m,
-    ArrowAccessSchedule m arr
+    ArrowAccessSchedule b m arr
   ) =>
   arr () ()
 handleInput = access (const pollEvents) >>> system handleInput'

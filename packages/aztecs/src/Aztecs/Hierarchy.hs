@@ -49,7 +49,7 @@ newtype ChildState = ChildState {unChildState :: Set EntityID}
 instance Component ChildState
 
 update ::
-  (ArrowQueryReader qr, ArrowReaderSystem qr arr, ArrowQueueSystem arr) =>
+  (ArrowQueryReader qr, ArrowReaderSystem qr arr, ArrowQueueSystem b m arr) =>
   arr () ()
 update = proc () -> do
   parents <-
@@ -105,7 +105,7 @@ update = proc () -> do
                   let added = Set.difference children childState
                       removed = Set.difference childState children
                   mapM_ (\e -> A.insert e . Parent $ entity) added
-                  mapM_ (A.remove @_ @Parent) removed
+                  mapM_ (A.remove @_ @_ @Parent) removed
               Nothing -> do
                 A.insert entity $ ChildState children
                 mapM_ (\e -> A.insert e . Parent $ entity) children
