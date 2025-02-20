@@ -1,6 +1,8 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -53,7 +55,7 @@ import Data.Foldable (foldl')
 
 -- | `Archetype` ID.
 newtype ArchetypeID = ArchetypeID {unArchetypeId :: Int}
-  deriving (Eq, Ord, Show, NFData)
+  deriving newtype (Eq, Ord, Show, NFData)
 
 -- | Node in `Archetypes`.
 data Node = Node
@@ -66,9 +68,7 @@ data Node = Node
     -- | Edges to other `Archetype`s by removing a `ComponentID`.
     nodeRemove :: !(Map ComponentID ArchetypeID)
   }
-  deriving (Show, Generic)
-
-instance NFData Node
+  deriving (Show, Generic, NFData)
 
 -- | `Archetype` graph.
 data Archetypes = Archetypes
@@ -81,9 +81,7 @@ data Archetypes = Archetypes
     -- | Mapping of `ComponentID`s to `ArchetypeID`s of `Archetypes` that contain them.
     componentIds :: !(Map ComponentID (Set ArchetypeID))
   }
-  deriving (Show, Generic)
-
-instance NFData Archetypes
+  deriving (Show, Generic, NFData)
 
 -- | Empty `Archetypes`.
 empty :: Archetypes

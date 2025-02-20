@@ -1,7 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE Arrows #-}
-{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -60,7 +60,7 @@ data AssetServer a = AssetServer
 instance (Typeable a) => Component (AssetServer a)
 
 instance NFData (AssetServer a) where
-  rnf a = rwhnf a
+  rnf = rwhnf
 
 empty :: AssetServer a
 empty =
@@ -79,7 +79,7 @@ newtype Handle a = Handle {handleId :: AssetId}
   deriving (Eq, Ord, Show)
 
 instance NFData (Handle a) where
-  rnf a = rwhnf a
+  rnf = rwhnf
 
 class MonadAssetLoader a m | m -> a where
   asset :: FilePath -> AssetConfig a -> m (Handle a)
@@ -87,7 +87,7 @@ class MonadAssetLoader a m | m -> a where
 type AssetLoader a o = AssetLoaderT a Identity o
 
 newtype AssetLoaderT a m o = AssetLoaderT {unAssetLoader :: StateT (AssetServer a) m o}
-  deriving (Functor, Applicative, Monad)
+  deriving newtype (Functor, Applicative, Monad)
 
 instance (Monad m, Asset a) => MonadAssetLoader a (AssetLoaderT a m) where
   asset path cfg = AssetLoaderT $ do

@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -27,9 +28,7 @@ data Components = Components
   { componentIds :: !(Map TypeRep ComponentID),
     nextComponentId :: !ComponentID
   }
-  deriving (Show, Generic)
-
-instance NFData Components
+  deriving (Show, Generic, NFData)
 
 -- | Empty `Components`.
 empty :: Components

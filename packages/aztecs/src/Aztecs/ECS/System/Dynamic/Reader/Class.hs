@@ -1,5 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
-
 module Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..)) where
 
 import Aztecs.ECS.Component (ComponentID)

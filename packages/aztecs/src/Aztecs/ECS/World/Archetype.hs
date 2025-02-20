@@ -4,6 +4,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -40,7 +41,7 @@ import Aztecs.ECS.Entity (EntityID (..))
 import Aztecs.ECS.World.Components (Components)
 import qualified Aztecs.ECS.World.Components as CS
 import qualified Aztecs.ECS.World.Storage as S
-import Control.DeepSeq (NFData (..), rwhnf)
+import Control.DeepSeq
 import Data.Bifunctor (Bifunctor (..))
 import Data.Dynamic (Dynamic, Typeable, fromDynamic, toDyn)
 import Data.Map.Strict (Map)
@@ -94,9 +95,7 @@ anyStorage s =
     }
 
 newtype Archetype = Archetype {storages :: Map ComponentID AnyStorage}
-  deriving (Show, Generic)
-
-instance NFData Archetype
+  deriving (Show, Generic, NFData)
 
 empty :: Archetype
 empty = Archetype {storages = Map.empty}

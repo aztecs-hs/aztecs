@@ -14,4 +14,4 @@ newtype Time = Time {elapsedMS :: Word32}
 instance Component Time
 
 instance NFData Time where
-  rnf a = rwhnf a
+  rnf = rwhnf

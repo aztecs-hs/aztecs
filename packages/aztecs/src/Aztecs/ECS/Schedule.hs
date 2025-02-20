@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
 
@@ -91,8 +90,8 @@ forever s f = Schedule $ \cs ->
         w <- get
         let loop wAcc = do
               (o, wAcc') <- lift $ runAccessT (g i) wAcc
-
               lift $ evaluate $ rnf wAcc'
+              lift $ f o
               loop wAcc'
         loop w
    in (go, cs')

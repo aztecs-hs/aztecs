@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -55,9 +56,7 @@ data World = World
     entities :: !(Map EntityID ArchetypeID),
     nextEntityId :: !EntityID
   }
-  deriving (Show, Generic)
-
-instance NFData World
+  deriving (Show, Generic, NFData)
 
 -- | Empty `World`.
 empty :: World
