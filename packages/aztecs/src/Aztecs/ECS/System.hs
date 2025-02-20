@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Aztecs.ECS.System
   ( -- * Systems
@@ -13,6 +14,7 @@ where
 
 import Aztecs.ECS.Query (Query (..), QueryFilter (..), ReadsWrites (..))
 import qualified Aztecs.ECS.Query as Q
+import Aztecs.ECS.Query.Dynamic (DynamicQuery)
 import Aztecs.ECS.Query.Reader (QueryReader (..), filterWith, filterWithout)
 import Aztecs.ECS.System.Class (ArrowSystem (..), filterMap, map, mapSingle, map_, queue)
 import Aztecs.ECS.System.Dynamic (DynamicSystem (..), raceDyn)
@@ -82,4 +84,4 @@ instance ArrowSystem Query System where
   mapSingleMaybe q = System $ \cs ->
     let !(rws, cs', dynQ) = runQuery q cs
      in (mapSingleMaybeDyn (Q.reads rws <> Q.writes rws) dynQ, rws, cs')
-  queue f = System $ \cs -> (queueDyn f, mempty, cs)
+  queue f = System $ \cs -> (queueDyn @DynamicQuery f, mempty, cs)

@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Aztecs.ECS.System.Dynamic.Reader
   ( -- * Dynamic Systems
@@ -34,7 +35,7 @@ instance Arrow DynamicReaderSystem where
   arr f = DynamicReaderSystem $ \_ i -> f i
   first (DynamicReaderSystem f) = DynamicReaderSystem $ \w (i, x) -> let a = f w i in (a, x)
 
-instance ArrowDynamicReaderSystem DynamicReaderSystem where
+instance ArrowDynamicReaderSystem DynamicQueryReader DynamicReaderSystem where
   allDyn cIds q = DynamicReaderSystem $ allDyn' cIds q
   filterDyn cIds q f = DynamicReaderSystem $ filterDyn' cIds q f
 
