@@ -1,6 +1,6 @@
 cabal-version: 2.4
 name:          aztecs-sdl
-version:       0.2.0.1
+version:       0.3.0
 license:       BSD-3-Clause
 license-file:  LICENSE
 maintainer:    matt@hunzinger.me
@@ -27,7 +27,7 @@ library
     ghc-options:      -Wall
     build-depends:
         base >=4.6 && <5,
-        aztecs >= 0.5,
+        aztecs >= 0.6 && <0.7,
         containers >=0.6,
         deepseq >=1,
         mtl >=2,
