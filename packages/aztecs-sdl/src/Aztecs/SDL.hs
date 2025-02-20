@@ -41,7 +41,6 @@ module Aztecs.SDL
     -- ** Primitive systems
     addWindows,
     buildTextures,
-    addCameraTargets,
     addSurfaceTargets,
     handleInput,
     updateTime,
@@ -74,6 +73,7 @@ import Data.Maybe (fromMaybe, mapMaybe)
 import qualified Data.Text as T
 import SDL hiding (InputMotion (..), MouseButton (..), Surface, Texture, Window, windowTitle)
 import qualified SDL
+import Aztecs.Camera (addCameraTargets)
 
 #if !MIN_VERSION_base(4,20,0)
 import Data.Foldable (foldl')
@@ -304,18 +304,6 @@ data Surface = Surface
 
 instance Component Surface
 
--- | Add `CameraTarget` components to entities with a new `Draw` component.
-addCameraTargets :: System () ()
-addCameraTargets = proc () -> do
-  windows <- S.all (Q.entity &&& Q.fetch @_ @Window) -< ()
-  newCameras <- S.filter (Q.entity &&& Q.fetch @_ @Camera) (without @CameraTarget) -< ()
-  S.queue
-    ( \(newCameras, windows) -> case windows of
-        (windowEId, _) : _ -> mapM_ (\(eId, _) -> A.insert eId $ CameraTarget windowEId) newCameras
-        _ -> return ()
-    )
-    -<
-      (newCameras, windows)
 
 -- | Add `SurfaceTarget` components to entities with a new `Surface` component.
 addSurfaceTargets :: System () ()
