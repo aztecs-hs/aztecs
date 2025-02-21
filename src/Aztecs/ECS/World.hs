@@ -154,8 +154,7 @@ spawnWithArchetypeId ::
   World ->
   (EntityID, World)
 spawnWithArchetypeId c cId aId w =
-  let !(e, w') = spawnEmpty w
-   in (e, spawnWithArchetypeId' e aId cId c w')
+  let !(e, w') = spawnEmpty w in (e, spawnWithArchetypeId' e aId cId c w')
 
 spawnWithArchetypeId' ::
   forall a.
