@@ -5,7 +5,7 @@ license:       BSD-3-Clause
 license-file:  LICENSE
 maintainer:    matt@hunzinger.me
 author:        Matt Hunzinger
-homepage:      https://github.com/matthunz/aztecs
+homepage:      https://github.com/aztecs-hs/aztecs
 synopsis:
     A modular game engine and Entity-Component-System (ECS) for Haskell.
 
@@ -21,7 +21,7 @@ category:      Game Engine
 
 source-repository head
     type:     git
-    location: https://github.com/matthunz/aztecs.git
+    location: https://github.com/aztecs-hs/aztecs.git
 
 library
     exposed-modules:

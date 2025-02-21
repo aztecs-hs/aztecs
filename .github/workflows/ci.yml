@@ -38,7 +38,7 @@ jobs:
         run: cabal update
 
       - name: Run tests
-        run: cabal build all
+        run: cabal build
   test:
     runs-on: ubuntu-latest
 
@@ -67,7 +67,7 @@ jobs:
         run: cabal update
 
       - name: Run tests
-        run: cabal test all
+        run: cabal test
   doctest:
     runs-on: ubuntu-latest
 

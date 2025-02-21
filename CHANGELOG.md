@@ -4,15 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
-## [0.6.0](https://github.com/matthunz/aztecs/compare/aztecs-v0.5.0.1..aztecs-v0.6.0) - 2025-2-19
+## [0.6.0](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.5.0.1..aztecs-v0.6.0) - 2025-2-19
 
-## [0.5.0.1](https://github.com/matthunz/aztecs/compare/aztecs-v0.5.0.0..aztecs-v0.5.0.1) - 2025-2-17
+## [0.5.0.1](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.5.0.0..aztecs-v0.5.0.1) - 2025-2-17
 
 ## Fixes
 
 - Fix `Hackage` compilation with `examples` build flag (1b0655a)
 
-## [0.5.0.0](https://github.com/matthunz/aztecs/compare/aztecs-v0.4.0.1..aztecs-v0.5.0.0) - 2025-2-16
+## [0.5.0.0](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.4.0.1..aztecs-v0.5.0.0) - 2025-2-16
 
 # Breaking changes
 
@@ -21,7 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Strict by default (6a574f7) (7904a29)
 - Bump minimum `base` (e79945d)
 
-## [0.4.0.1](https://github.com/matthunz/aztecs/compare/aztecs-v0.4.0.0...aztecs-v0.4.0.1) - 2025-2-13
+## [0.4.0.1](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.4.0.0...aztecs-v0.4.0.1) - 2025-2-13
 
 ## Features
 
@@ -43,12 +43,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Add property tests (fb15d0f)
 - Update benchmark (bfc8930)
 
-## [0.4.0.0](https://github.com/matthunz/aztecs/compare/v0.3.0.0..aztecs-v0.4.0.0) - 2025-2-7
+## [0.4.0.0](https://github.com/aztecs-hs/aztecs/compare/v0.3.0.0..aztecs-v0.4.0.0) - 2025-2-7
 
-## [0.3.0.0](https://github.com/matthunz/aztecs/compare/v0.3.0.0..v0.4.0.0) - 2025-2-1
+## [0.3.0.0](https://github.com/aztecs-hs/aztecs/compare/v0.3.0.0..v0.4.0.0) - 2025-2-1
 
-## [0.2.0.0](https://github.com/matthunz/aztecs/compare/v0.1.0.1..v0.2.0.0) - 2025-1-24
+## [0.2.0.0](https://github.com/aztecs-hs/aztecs/compare/v0.1.0.1..v0.2.0.0) - 2025-1-24
 
-## [0.1.0.1](https://github.com/matthunz/aztecs/compare/v0.1.0.0..v0.1.0.1) - 2025-1-1
+## [0.1.0.1](https://github.com/aztecs-hs/aztecs/compare/v0.1.0.0..v0.1.0.1) - 2025-1-1
 
-## [0.1.0.0](https://github.com/matthunz/aztecs/compare/v0.1.0.0) - 2025-1-1
+## [0.1.0.0](https://github.com/aztecs-hs/aztecs/compare/v0.1.0.0) - 2025-1-1
