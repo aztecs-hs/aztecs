@@ -11,19 +11,13 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Aztecs.Asset
-  ( AssetId (..),
-    AssetServer (..),
-    MonadAssetLoader (..),
-    Asset (..),
-    Handle (..),
-    lookupAsset,
-    setup,
-    loadAssets,
-    load,
+module Aztecs.Asset.AssetLoader.Class
+  ( MonadAssetLoader (..),
   )
 where
 
-import Aztecs.Asset.AssetLoader
-import Aztecs.Asset.AssetServer
+import Aztecs.Asset.AssetServer (Handle)
 import Aztecs.Asset.Class
+
+class MonadAssetLoader a m | m -> a where
+  asset :: FilePath -> AssetConfig a -> m (Handle a)

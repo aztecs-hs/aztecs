@@ -66,6 +66,10 @@ library
         Aztecs.ECS.World.Components
         Aztecs.ECS.World.Storage
         Aztecs.Asset
+        Aztecs.Asset.AssetLoader
+        Aztecs.Asset.AssetLoader.Class
+        Aztecs.Asset.AssetServer
+        Aztecs.Asset.Class
         Aztecs.Camera
         Aztecs.Hierarchy
         Aztecs.Input
