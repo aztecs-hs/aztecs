@@ -21,7 +21,7 @@ setup = proc () -> do
           bundle Camera {cameraViewport = V2 1000 500, cameraScale = 5}
             <> bundle transform2d
         A.spawn_ $
-          bundle Image {imageTexture = texture, imageSize = V2 100 100}
+          bundle Image {imageTexture = texture}
             <> bundle transform2d {transformTranslation = V2 10 10}
     )
     -<

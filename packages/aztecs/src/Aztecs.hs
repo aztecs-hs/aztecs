@@ -55,7 +55,6 @@ module Aztecs
     load,
     Camera (..),
     CameraTarget (..),
-    module Aztecs.Transform,
     Key (..),
     KeyboardInput (..),
     isKeyPressed,
@@ -63,6 +62,12 @@ module Aztecs
     wasKeyReleased,
     MouseInput (..),
     Time (..),
+    Transform (..),
+    Transform2D,
+    transform2d,
+    Size (..),
+    Size2D,
+    size2D,
     Window (..),
   )
 where

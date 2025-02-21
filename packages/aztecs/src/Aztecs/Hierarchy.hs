@@ -1,5 +1,7 @@
 {-# LANGUAGE Arrows #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -8,6 +10,10 @@ module Aztecs.Hierarchy
     Children (..),
     update,
     Hierarchy (..),
+    toList,
+    foldWithKey,
+    mapWithKey,
+    mapWithAccum,
     hierarchy,
     hierarchies,
     ParentState (..),
@@ -15,7 +21,7 @@ module Aztecs.Hierarchy
   )
 where
 
-import Aztecs
+import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
@@ -24,6 +30,7 @@ import Control.DeepSeq
 import Control.Monad (when)
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Maybe (mapMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Generics (Generic)
@@ -120,12 +127,32 @@ data Hierarchy a = Node
     nodeEntity :: a,
     nodeChildren :: [Hierarchy a]
   }
+  deriving (Functor)
+
+instance Foldable Hierarchy where
+  foldMap f n = f (nodeEntity n) <> foldMap (foldMap f) (nodeChildren n)
+
+instance Traversable Hierarchy where
+  traverse f n = Node (nodeEntityId n) <$> f (nodeEntity n) <*> traverse (traverse f) (nodeChildren n)
+
+toList :: Hierarchy a -> [(EntityID, a)]
+toList n = (nodeEntityId n, nodeEntity n) : concatMap toList (nodeChildren n)
+
+foldWithKey :: (EntityID -> a -> b -> b) -> Hierarchy a -> b -> b
+foldWithKey f n b = f (nodeEntityId n) (nodeEntity n) (foldr (foldWithKey f) b (nodeChildren n))
+
+mapWithKey :: (EntityID -> a -> b) -> Hierarchy a -> Hierarchy b
+mapWithKey f n = Node (nodeEntityId n) (f (nodeEntityId n) (nodeEntity n)) (map (mapWithKey f) (nodeChildren n))
+
+mapWithAccum :: (EntityID -> a -> b -> (c, b)) -> b -> Hierarchy a -> Hierarchy c
+mapWithAccum f b n = case f (nodeEntityId n) (nodeEntity n) b of
+  (c, b') -> Node (nodeEntityId n) c (map (mapWithAccum f b') (nodeChildren n))
 
 hierarchy ::
   (ArrowQueryReader q, ArrowReaderSystem q arr) =>
   EntityID ->
   q i a ->
-  arr i [Hierarchy a]
+  arr i (Maybe (Hierarchy a))
 hierarchy e q = proc i -> do
   children <-
     S.all
@@ -144,7 +171,7 @@ hierarchy e q = proc i -> do
 hierarchies ::
   (ArrowQueryReader q, ArrowReaderSystem q arr) =>
   q i a ->
-  arr i [[Hierarchy a]]
+  arr i [Hierarchy a]
 hierarchies q = proc i -> do
   children <-
     S.all
@@ -158,16 +185,16 @@ hierarchies q = proc i -> do
         i
   let childMap = Map.fromList children
   roots <- S.filter Q.entity $ with @Children <> without @Parent -< ()
-  returnA -< map (`hierarchy'` childMap) roots
+  returnA -< mapMaybe (`hierarchy'` childMap) roots
 
-hierarchy' :: EntityID -> Map EntityID (Set EntityID, a) -> [Hierarchy a]
+hierarchy' :: EntityID -> Map EntityID (Set EntityID, a) -> Maybe (Hierarchy a)
 hierarchy' e childMap = case Map.lookup e childMap of
   Just (cs, a) ->
-    let bs = concatMap (`hierarchy'` childMap) (Set.toList cs)
-     in [ Node
+    let bs = mapMaybe (`hierarchy'` childMap) (Set.toList cs)
+     in Just
+          Node
             { nodeEntityId = e,
               nodeEntity = a,
               nodeChildren = bs
             }
-        ]
-  Nothing -> []
+  Nothing -> Nothing
