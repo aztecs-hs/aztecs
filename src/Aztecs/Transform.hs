@@ -37,7 +37,6 @@ import qualified Aztecs.ECS.System as S
 import Aztecs.Hierarchy (Hierarchy, hierarchies, mapWithAccum, toList)
 import Control.Arrow (Arrow (..), (>>>))
 import Control.DeepSeq
-import Data.Data (Typeable)
 import GHC.Generics (Generic)
 import Linear (V2 (..))
 
@@ -85,7 +84,6 @@ update ::
     ArrowReaderSystem q arr,
     ArrowQueueSystem b m arr,
     Component a,
-    Typeable (StorageT a),
     Monoid a
   ) =>
   arr () ()

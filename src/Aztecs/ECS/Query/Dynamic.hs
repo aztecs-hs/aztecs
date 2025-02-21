@@ -33,55 +33,38 @@ newtype DynamicQuery i o
 instance Applicative (DynamicQuery i) where
   pure a = DynamicQuery $ \_ es arch -> (replicate (length es) a, arch)
 
-  f <*> g =
-    DynamicQuery
-      { dynQueryAll = \i es arch ->
-          let (as, arch') = dynQueryAll g i es arch
-              (fs, arch'') = dynQueryAll f i es arch'
-           in (zipWith ($) fs as, arch'')
-      }
+  f <*> g = DynamicQuery $ \i es arch ->
+    let (as, arch') = dynQueryAll g i es arch
+        (fs, arch'') = dynQueryAll f i es arch'
+     in (zipWith ($) fs as, arch'')
 
 instance Category DynamicQuery where
   id = DynamicQuery $ \as _ arch -> (as, arch)
 
-  f . g =
-    DynamicQuery
-      { dynQueryAll = \i es arch ->
-          let (as, arch') = dynQueryAll g i es arch
-           in dynQueryAll f as es arch'
-      }
+  f . g = DynamicQuery $ \i es arch ->
+    let (as, arch') = dynQueryAll g i es arch in dynQueryAll f as es arch'
 
 instance Arrow DynamicQuery where
   arr f = DynamicQuery $ \bs _ arch -> (fmap f bs, arch)
-  first f =
-    DynamicQuery
-      { dynQueryAll = \bds es arch ->
-          let (bs, ds) = unzip bds
-              (cs, arch') = dynQueryAll f bs es arch
-           in (zip cs ds, arch')
-      }
+  first f = DynamicQuery $ \bds es arch ->
+    let (bs, ds) = unzip bds
+        (cs, arch') = dynQueryAll f bs es arch
+     in (zip cs ds, arch')
 
 instance ArrowChoice DynamicQuery where
-  left f =
-    DynamicQuery
-      { dynQueryAll = \eds es arch ->
-          let (es', ds) = partitionEithers eds
-              (cs, arch') = dynQueryAll f es' es arch
-           in (fmap Left cs ++ fmap Right ds, arch')
-      }
+  left f = DynamicQuery $ \eds es arch ->
+    let (es', ds) = partitionEithers eds
+        (cs, arch') = dynQueryAll f es' es arch
+     in (fmap Left cs ++ fmap Right ds, arch')
 
 instance ArrowDynamicQueryReader DynamicQuery where
-  entityDyn = DynamicQuery $ \_ es arch -> (es, arch)
-
-  fetchDyn cId =
-    DynamicQuery $ \_ _ arch -> let !as = A.all cId arch in (fmap snd as, arch)
-
-  fetchMaybeDyn cId =
-    DynamicQuery $ \_ _ arch -> let as = A.allMaybe cId arch in (fmap snd as, arch)
+  entityDyn = fromDynReader entityDyn
+  fetchDyn = fromDynReader . fetchDyn
+  fetchMaybeDyn = fromDynReader . fetchMaybeDyn
 
 instance ArrowDynamicQuery DynamicQuery where
-  setDyn cId =
-    DynamicQuery $ \is _ arch -> let !arch' = A.withAscList cId is arch in (is, arch')
+  setDyn cId = DynamicQuery $ \is _ arch ->
+    let !arch' = A.withAscList cId is arch in (is, arch')
 
 fromDynReader :: DynamicQueryReader i o -> DynamicQuery i o
 fromDynReader q = DynamicQuery $ \is es arch ->

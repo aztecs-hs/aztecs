@@ -39,7 +39,6 @@ import Aztecs.ECS.World.Archetype
   )
 import qualified Aztecs.ECS.World.Archetype as A
 import Control.DeepSeq (NFData (..))
-import Data.Data (Typeable)
 import Data.Dynamic (fromDynamic)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -142,7 +141,7 @@ lookupNode aId arches = Map.lookup aId (nodes arches)
 
 -- | Insert a component into an entity with its `ComponentID`.
 insert ::
-  (Component a, Typeable (StorageT a)) =>
+  (Component a) =>
   EntityID ->
   ArchetypeID ->
   ComponentID ->
@@ -208,7 +207,7 @@ insert e aId cId c arches = case lookupNode aId arches of
   Nothing -> (Nothing, arches)
 
 remove ::
-  (Component a, Typeable (StorageT a)) =>
+  (Component a) =>
   EntityID ->
   ArchetypeID ->
   ComponentID ->

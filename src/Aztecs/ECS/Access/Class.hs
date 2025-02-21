@@ -22,13 +22,13 @@ class (MonoidBundle b, Monad m) => MonadAccess b m | m -> b where
     return ()
 
   -- | Insert a component into an entity.
-  insert :: (Component a, Typeable (StorageT a)) => EntityID -> a -> m ()
+  insert :: (Component a) => EntityID -> a -> m ()
 
   -- | Lookup a component on an entity.
   lookup :: (Component a) => EntityID -> m (Maybe a)
 
   -- | Remove a component from an entity.
-  remove :: (Component a, Typeable (StorageT a)) => EntityID -> m (Maybe a)
+  remove :: (Component a) => EntityID -> m (Maybe a)
 
   -- | Despawn an entity.
   despawn :: EntityID -> m ()

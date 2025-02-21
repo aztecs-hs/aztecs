@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Aztecs.ECS.World
   ( World (..),
@@ -42,7 +43,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
-import Data.Typeable (Proxy (..), Typeable, typeOf)
+import Data.Typeable (Proxy (..), typeOf)
 import GHC.Generics (Generic)
 import Prelude hiding (lookup)
 
@@ -107,7 +108,7 @@ spawn b w =
               )
 
 -- | Spawn an entity with a component.
-spawnComponent :: forall a. (Component a, Typeable (StorageT a)) => a -> World -> (EntityID, World)
+spawnComponent :: forall a. (Component a) => a -> World -> (EntityID, World)
 spawnComponent c w = case Map.lookup (typeOf (Proxy @a)) (componentIds (components w)) of
   Just cId -> spawnWithId cId c w
   Nothing ->
@@ -121,7 +122,7 @@ spawnEmpty w = let e = nextEntityId w in (e, w {nextEntityId = EntityID (unEntit
 -- | Spawn an entity with a component and its `ComponentID`.
 spawnWithId ::
   forall a.
-  (Component a, Typeable (StorageT a)) =>
+  (Component a) =>
   ComponentID ->
   a ->
   World ->
@@ -147,7 +148,7 @@ spawnWithId cId c w =
 -- | Spawn an entity with a component and its `ComponentID` directly into an archetype.
 spawnWithArchetypeId ::
   forall a.
-  (Component a, Typeable (StorageT a)) =>
+  (Component a) =>
   a ->
   ComponentID ->
   ArchetypeID ->
@@ -158,7 +159,7 @@ spawnWithArchetypeId c cId aId w =
 
 spawnWithArchetypeId' ::
   forall a.
-  (Component a, Typeable (StorageT a)) =>
+  (Component a) =>
   EntityID ->
   ArchetypeID ->
   ComponentID ->
@@ -173,13 +174,13 @@ spawnWithArchetypeId' e aId cId c w =
         }
 
 -- | Insert a component into an entity.
-insert :: forall a. (Component a, Typeable (StorageT a)) => EntityID -> a -> World -> World
+insert :: forall a. (Component a) => EntityID -> a -> World -> World
 insert e c w =
   let !(cId, components') = CS.insert @a (components w)
    in insertWithId e cId c w {components = components'}
 
 -- | Insert a component into an entity with its `ComponentID`.
-insertWithId :: (Component a, Typeable (StorageT a)) => EntityID -> ComponentID -> a -> World -> World
+insertWithId :: (Component a) => EntityID -> ComponentID -> a -> World -> World
 insertWithId e cId c w = case Map.lookup e (entities w) of
   Just aId ->
     let (maybeNextAId, arches) = AS.insert e aId cId c $ archetypes w
@@ -211,12 +212,12 @@ lookup e w = do
   A.lookupComponent e cId (nodeArchetype node)
 
 -- | Insert a component into an entity.
-remove :: forall a. (Component a, Typeable (StorageT a)) => EntityID -> World -> (Maybe a, World)
+remove :: forall a. (Component a) => EntityID -> World -> (Maybe a, World)
 remove e w =
   let !(cId, components') = CS.insert @a (components w)
    in removeWithId @a e cId w {components = components'}
 
-removeWithId :: forall a. (Component a, Typeable (StorageT a)) => EntityID -> ComponentID -> World -> (Maybe a, World)
+removeWithId :: forall a. (Component a) => EntityID -> ComponentID -> World -> (Maybe a, World)
 removeWithId e cId w = case Map.lookup e (entities w) of
   Just aId ->
     let (res, as) = AS.remove @a e aId cId $ archetypes w

@@ -4,6 +4,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Aztecs.ECS.World.Bundle
   ( Bundle (..),
@@ -20,7 +21,6 @@ import Aztecs.ECS.World.Bundle.Class
 import Aztecs.ECS.World.Bundle.Dynamic
 import Aztecs.ECS.World.Components (Components)
 import qualified Aztecs.ECS.World.Components as CS
-import Data.Data (Typeable)
 import Data.Set (Set)
 import qualified Data.Set as Set
 
@@ -37,7 +37,7 @@ instance Semigroup Bundle where
      in (cIds1 <> cIds2, cs'', d1 <> d2)
 
 instance MonoidBundle Bundle where
-  bundle :: forall a. (Component a, Typeable (StorageT a)) => a -> Bundle
+  bundle :: forall a. (Component a) => a -> Bundle
   bundle a = Bundle $ \cs ->
     let (cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', dynBundle cId a)
 
