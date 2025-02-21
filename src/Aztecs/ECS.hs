@@ -94,13 +94,13 @@ import Aztecs.ECS.Schedule
     ArrowSchedule,
     Schedule,
     access,
+    delay,
     forever,
     forever_,
     reader,
     runSchedule,
     runSchedule_,
     system,
-    delay,
   )
 import Aztecs.ECS.System (ArrowQueueSystem, ArrowReaderSystem, ArrowSystem, System)
 import Aztecs.ECS.World (World)

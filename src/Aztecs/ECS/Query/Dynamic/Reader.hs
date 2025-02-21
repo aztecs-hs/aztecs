@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Aztecs.ECS.Query.Dynamic.Reader
@@ -25,9 +26,7 @@ import Prelude hiding (all, any, id, lookup, map, mapM, reads, (.))
 -- | Dynamic query for components by ID.
 newtype DynamicQueryReader i o
   = DynamicQueryReader {dynQueryReaderAll :: [i] -> [EntityID] -> Archetype -> [o]}
-
-instance Functor (DynamicQueryReader i) where
-  fmap f q = DynamicQueryReader $ \i es arch -> f <$> dynQueryReaderAll q i es arch
+  deriving (Functor)
 
 instance Applicative (DynamicQueryReader i) where
   pure a = DynamicQueryReader $ \_ es _ -> replicate (length es) a

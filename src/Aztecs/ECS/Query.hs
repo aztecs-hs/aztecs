@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
@@ -28,10 +29,10 @@ where
 
 import Aztecs.ECS.Component
 import Aztecs.ECS.Query.Class (ArrowQuery (..))
-import Aztecs.ECS.Query.Dynamic (DynamicQuery (..))
+import Aztecs.ECS.Query.Dynamic (DynamicQuery (..), fromDynReader)
 import Aztecs.ECS.Query.Dynamic.Class (ArrowDynamicQuery (..))
 import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
-import Aztecs.ECS.Query.Reader (QueryFilter (..), with, without)
+import Aztecs.ECS.Query.Reader (QueryFilter (..), QueryReader (..), with, without)
 import Aztecs.ECS.Query.Reader.Class (ArrowQueryReader (..))
 import Aztecs.ECS.World (World (..))
 import qualified Aztecs.ECS.World.Archetype as A
@@ -61,11 +62,8 @@ import Prelude hiding (all, id, reads, (.))
 -- === Applicative combinators:
 -- > move :: (ArrowQuery arr) => arr () Position
 -- > move = (,) <$> Q.fetch <*> Q.fetch >>> arr (\(Position p, Velocity v) -> Position $ p + v) >>> Q.set
-newtype Query i o
-  = Query {runQuery :: Components -> (ReadsWrites, Components, DynamicQuery i o)}
-
-instance Functor (Query i) where
-  fmap f (Query q) = Query $ \cs -> let (cIds, cs', qS) = q cs in (cIds, cs', fmap f qS)
+newtype Query i o = Query {runQuery :: Components -> (ReadsWrites, Components, DynamicQuery i o)}
+  deriving (Functor)
 
 instance Applicative (Query i) where
   pure a = Query (mempty,,pure a)
@@ -89,20 +87,14 @@ instance ArrowChoice Query where
   left (Query f) = Query $ \comps -> let (cIds, comps', qS) = f comps in (cIds, comps', left qS)
 
 instance ArrowQueryReader Query where
-  entity = Query (mempty,,entityDyn)
-  fetch :: forall a. (Component a) => Query () a
-  fetch = Query $ \cs ->
-    let (cId, cs') = CS.insert @a cs
-     in (ReadsWrites (Set.singleton cId) Set.empty, cs', fetchDyn cId)
-  fetchMaybe :: forall a. (Component a) => Query () (Maybe a)
-  fetchMaybe = Query $ \cs ->
-    let (cId, cs') = CS.insert @a cs
-     in (ReadsWrites (Set.singleton cId) Set.empty, cs', fetchMaybeDyn cId)
+  entity = fromReader entity
+  fetch = fromReader fetch
+  fetchMaybe = fromReader fetchMaybe
 
 instance ArrowDynamicQueryReader Query where
-  entityDyn = Query (mempty,,entityDyn)
-  fetchDyn cId = Query (ReadsWrites (Set.singleton cId) Set.empty,,fetchDyn cId)
-  fetchMaybeDyn cId = Query (ReadsWrites (Set.singleton cId) Set.empty,,fetchMaybeDyn cId)
+  entityDyn = fromReader entityDyn
+  fetchDyn = fromReader . fetchDyn
+  fetchMaybeDyn = fromReader . fetchMaybeDyn
 
 instance ArrowDynamicQuery Query where
   setDyn cId = Query (ReadsWrites Set.empty (Set.singleton cId),,setDyn cId)
@@ -112,6 +104,10 @@ instance ArrowQuery Query where
   set = Query $ \cs ->
     let (cId, cs') = CS.insert @a cs
      in (ReadsWrites Set.empty (Set.singleton cId), cs', setDyn cId)
+
+fromReader :: QueryReader i o -> Query i o
+fromReader (QueryReader f) = Query $ \cs ->
+  let (cIds, cs', dynQ) = f cs in (ReadsWrites cIds Set.empty, cs', fromDynReader dynQ)
 
 -- | Reads and writes of a `Query`.
 data ReadsWrites = ReadsWrites

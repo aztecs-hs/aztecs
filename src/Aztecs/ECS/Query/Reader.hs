@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
@@ -34,45 +35,43 @@ import Prelude hiding (id, (.))
 
 -- | Query to read from entities.
 newtype QueryReader i o
-  = Query {runQueryReader :: Components -> (Set ComponentID, Components, DynamicQueryReader i o)}
-
-instance Functor (QueryReader i) where
-  fmap f (Query q) = Query $ \cs -> let (cIds, cs', qS) = q cs in (cIds, cs', fmap f qS)
+  = QueryReader {runQueryReader :: Components -> (Set ComponentID, Components, DynamicQueryReader i o)}
+  deriving (Functor)
 
 instance Applicative (QueryReader i) where
-  pure a = Query $ \cs -> (mempty, cs, pure a)
-  (Query f) <*> (Query g) = Query $ \cs ->
+  pure a = QueryReader $ \cs -> (mempty, cs, pure a)
+  (QueryReader f) <*> (QueryReader g) = QueryReader $ \cs ->
     let (cIdsG, cs', aQS) = g cs
         (cIdsF, cs'', bQS) = f cs'
      in (cIdsG <> cIdsF, cs'', bQS <*> aQS)
 
 instance Category QueryReader where
-  id = Query $ \cs -> (mempty, cs, id)
-  (Query f) . (Query g) = Query $ \cs ->
+  id = QueryReader $ \cs -> (mempty, cs, id)
+  (QueryReader f) . (QueryReader g) = QueryReader $ \cs ->
     let (cIdsG, cs', aQS) = g cs
         (cIdsF, cs'', bQS) = f cs'
      in (cIdsG <> cIdsF, cs'', bQS . aQS)
 
 instance Arrow QueryReader where
-  arr f = Query $ \cs -> (mempty, cs, arr f)
-  first (Query f) = Query $ \comps -> let (cIds, comps', qS) = f comps in (cIds, comps', first qS)
+  arr f = QueryReader $ \cs -> (mempty, cs, arr f)
+  first (QueryReader f) = QueryReader $ \comps -> let (cIds, comps', qS) = f comps in (cIds, comps', first qS)
 
 instance ArrowChoice QueryReader where
-  left (Query f) = Query $ \comps -> let (cIds, comps', qS) = f comps in (cIds, comps', left qS)
+  left (QueryReader f) = QueryReader $ \comps -> let (cIds, comps', qS) = f comps in (cIds, comps', left qS)
 
 instance ArrowQueryReader QueryReader where
-  entity = Query $ \cs -> (mempty, cs, entityDyn)
+  entity = QueryReader $ \cs -> (mempty, cs, entityDyn)
   fetch :: forall a. (Component a) => QueryReader () a
-  fetch = Query $ \cs ->
+  fetch = QueryReader $ \cs ->
     let (cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', fetchDyn cId)
   fetchMaybe :: forall a. (Component a) => QueryReader () (Maybe a)
-  fetchMaybe = Query $ \cs ->
+  fetchMaybe = QueryReader $ \cs ->
     let (cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', fetchMaybeDyn cId)
 
 instance ArrowDynamicQueryReader QueryReader where
-  entityDyn = Query $ \cs -> (mempty, cs, entityDyn)
-  fetchDyn cId = Query $ \cs -> (Set.singleton cId, cs, fetchDyn cId)
-  fetchMaybeDyn cId = Query $ \cs -> (Set.singleton cId, cs, fetchMaybeDyn cId)
+  entityDyn = QueryReader $ \cs -> (mempty, cs, entityDyn)
+  fetchDyn cId = QueryReader $ \cs -> (Set.singleton cId, cs, fetchDyn cId)
+  fetchMaybeDyn cId = QueryReader $ \cs -> (Set.singleton cId, cs, fetchMaybeDyn cId)
 
 -- | Filter for a `Query`.
 newtype QueryFilter = QueryFilter {runQueryFilter :: Components -> (DynamicQueryFilter, Components)}

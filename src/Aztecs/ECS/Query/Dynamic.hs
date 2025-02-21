@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Aztecs.ECS.Query.Dynamic
@@ -6,6 +7,7 @@ module Aztecs.ECS.Query.Dynamic
     DynamicQuery (..),
     ArrowDynamicQueryReader (..),
     ArrowDynamicQuery (..),
+    fromDynReader,
 
     -- * Dynamic query filters
     DynamicQueryFilter (..),
@@ -14,7 +16,7 @@ where
 
 import Aztecs.ECS.Entity (EntityID)
 import Aztecs.ECS.Query.Dynamic.Class (ArrowDynamicQuery (..))
-import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryFilter (..))
+import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryFilter (..), DynamicQueryReader (..))
 import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Aztecs.ECS.World.Archetype (Archetype)
 import qualified Aztecs.ECS.World.Archetype as A
@@ -26,12 +28,7 @@ import Prelude hiding (all, any, id, lookup, map, mapM, reads, (.))
 -- | Dynamic query for components by ID.
 newtype DynamicQuery i o
   = DynamicQuery {dynQueryAll :: [i] -> [EntityID] -> Archetype -> ([o], Archetype)}
-
-instance Functor (DynamicQuery i) where
-  fmap f q =
-    DynamicQuery $ \i es arch ->
-      let (a, arch') = dynQueryAll q i es arch
-       in (fmap f a, arch')
+  deriving (Functor)
 
 instance Applicative (DynamicQuery i) where
   pure a = DynamicQuery $ \_ es arch -> (replicate (length es) a, arch)
@@ -85,3 +82,7 @@ instance ArrowDynamicQueryReader DynamicQuery where
 instance ArrowDynamicQuery DynamicQuery where
   setDyn cId =
     DynamicQuery $ \is _ arch -> let !arch' = A.withAscList cId is arch in (is, arch')
+
+fromDynReader :: DynamicQueryReader i o -> DynamicQuery i o
+fromDynReader q = DynamicQuery $ \is es arch ->
+  let os = dynQueryReaderAll q is es arch in (os, arch)
