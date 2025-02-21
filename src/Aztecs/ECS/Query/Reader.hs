@@ -26,28 +26,13 @@ import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Aztecs.ECS.Query.Reader.Class (ArrowQueryReader (..))
 import Aztecs.ECS.World.Components (Components)
 import qualified Aztecs.ECS.World.Components as CS
-import Control.Arrow (Arrow (..))
+import Control.Arrow (Arrow (..), ArrowChoice (..))
 import Control.Category (Category (..))
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Prelude hiding (id, (.))
 
--- | Query for matching entities.
---
--- === Do notation:
--- > move :: (Monad m) => Query m () Position
--- > move = proc () -> do
--- >   Velocity v <- Q.fetch -< ()
--- >   Position p <- Q.fetch -< ()
--- >   Q.set -< Position $ p + v
---
--- === Arrow combinators:
--- > move :: (Monad m) => Query m () Position
--- > move = Q.fetch &&& Q.fetch >>> arr (\(Position p, Velocity v) -> Position $ p + v) >>> Q.set
---
--- === Applicative combinators:
--- > move :: (Monad m) => Query m () Position
--- > move = (,) <$> Q.fetch <*> Q.fetch >>> arr (\(Position p, Velocity v) -> Position $ p + v) >>> Q.set
+-- | Query to read from entities.
 newtype QueryReader i o
   = Query {runQueryReader :: Components -> (Set ComponentID, Components, DynamicQueryReader i o)}
 
@@ -72,16 +57,17 @@ instance Arrow QueryReader where
   arr f = Query $ \cs -> (mempty, cs, arr f)
   first (Query f) = Query $ \comps -> let (cIds, comps', qS) = f comps in (cIds, comps', first qS)
 
+instance ArrowChoice QueryReader where
+  left (Query f) = Query $ \comps -> let (cIds, comps', qS) = f comps in (cIds, comps', left qS)
+
 instance ArrowQueryReader QueryReader where
   entity = Query $ \cs -> (mempty, cs, entityDyn)
   fetch :: forall a. (Component a) => QueryReader () a
   fetch = Query $ \cs ->
-    let (cId, cs') = CS.insert @a cs
-     in (Set.singleton cId, cs', fetchDyn cId)
+    let (cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', fetchDyn cId)
   fetchMaybe :: forall a. (Component a) => QueryReader () (Maybe a)
   fetchMaybe = Query $ \cs ->
-    let (cId, cs') = CS.insert @a cs
-     in (Set.singleton cId, cs', fetchMaybeDyn cId)
+    let (cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', fetchMaybeDyn cId)
 
 instance ArrowDynamicQueryReader QueryReader where
   entityDyn = Query $ \cs -> (mempty, cs, entityDyn)

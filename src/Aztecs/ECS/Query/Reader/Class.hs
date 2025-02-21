@@ -4,6 +4,7 @@ import Aztecs.ECS.Component
 import Aztecs.ECS.Entity (EntityID)
 import Control.Arrow (Arrow (..), (>>>))
 
+-- | Arrow for queries that can read from entities.
 class (Arrow arr) => ArrowQueryReader arr where
   -- | Fetch the currently matched `EntityID`.
   entity :: arr () EntityID

@@ -18,8 +18,9 @@ import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryFilter (..))
 import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Aztecs.ECS.World.Archetype (Archetype)
 import qualified Aztecs.ECS.World.Archetype as A
-import Control.Arrow (Arrow (..))
+import Control.Arrow (Arrow (..), ArrowChoice (..))
 import Control.Category (Category (..))
+import Data.Either (partitionEithers)
 import Prelude hiding (all, any, id, lookup, map, mapM, reads, (.))
 
 -- | Dynamic query for components by ID.
@@ -61,6 +62,15 @@ instance Arrow DynamicQuery where
           let (bs, ds) = unzip bds
               (cs, arch') = dynQueryAll f bs es arch
            in (zip cs ds, arch')
+      }
+
+instance ArrowChoice DynamicQuery where
+  left f =
+    DynamicQuery
+      { dynQueryAll = \eds es arch ->
+          let (es', ds) = partitionEithers eds
+              (cs, arch') = dynQueryAll f es' es arch
+           in (fmap Left cs ++ fmap Right ds, arch')
       }
 
 instance ArrowDynamicQueryReader DynamicQuery where
