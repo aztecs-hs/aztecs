@@ -51,25 +51,19 @@ main =
 
 ## Packages
 
-- [`aztecs`](https://github.com/aztecs-hs/aztecs/blob/main/packages/aztecs)
-
-  [![Package](https://img.shields.io/hackage/v/aztecs.svg)](https://hackage.haskell.org/package/aztecs)
-
-  Modular game engine and ECS.
-
-- [`aztecs-sdl`](https://github.com/aztecs-hs/aztecs/blob/main/packages/aztecs-sdl)
+- [`aztecs-sdl`](https://github.com/aztecs-hs/aztecs-sdl)
 
   [![Package](https://img.shields.io/hackage/v/aztecs-sdl.svg)](https://hackage.haskell.org/package/aztecs-sdl)
 
   SDL window management and rendering support.
 
-- [`aztecs-sdl-image`](https://github.com/aztecs-hs/aztecs/blob/main/packages/aztecs-sdl-image)
+- [`aztecs-sdl-image`](https://github.com/aztecs-hs/aztecs-sdl-image)
 
   [![Package](https://img.shields.io/hackage/v/aztecs-sdl-image.svg)](https://hackage.haskell.org/package/aztecs-sdl-image)
 
   SDL image and spritesheet rendering support.
 
-- [`aztecs-sdl-text`](https://github.com/aztecs-hs/aztecs/blob/main/packages/aztecs-sdl-text)
+- [`aztecs-sdl-text`](https://github.com/aztecs-hs/aztecs-sdl-text)
 
   [![Package](https://img.shields.io/hackage/v/aztecs-sdl-text.svg)](https://hackage.haskell.org/package/aztecs-sdl-text)
 
