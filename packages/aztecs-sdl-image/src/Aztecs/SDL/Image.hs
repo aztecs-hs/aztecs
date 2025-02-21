@@ -4,6 +4,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TupleSections #-}
@@ -72,11 +73,9 @@ instance Asset Texture where
   loadAsset path _ = Texture <$> IMG.load path
 
 -- | Image component.
-data Image = Image
-  { imageTexture :: !(Handle Texture),
-    imageSize :: !(V2 Int)
-  }
-  deriving (Show, Generic, NFData)
+newtype Image = Image {imageTexture :: Handle Texture}
+  deriving (Generic)
+  deriving newtype (Show, NFData)
 
 instance Component Image
 
@@ -89,26 +88,20 @@ drawImages = proc () -> do
         mapMaybe (\(eId, img) -> (,img,eId) <$> lookupAsset (imageTexture img) assets) imgs
   S.queue (mapM_ go) -< newAssets
   where
-    go (texture, _, eId) = do
-      A.insert
-        eId
-        Surface
-          { sdlSurface = textureSurface texture,
-            surfaceBounds = Nothing
-          }
+    go (texture, _, eId) =
+      A.insert eId Surface {sdlSurface = textureSurface texture, surfaceBounds = Nothing}
 
 -- | Sprite component.
 data Sprite = Sprite
   { spriteTexture :: !(Handle Texture),
-    spriteBounds :: !(Maybe (Rectangle Int)),
-    spriteSize :: !(V2 Int)
+    spriteBounds :: !(Maybe (Rectangle Int))
   }
   deriving (Show)
 
 instance Component Sprite
 
 instance NFData Sprite where
-  rnf (Sprite texture bounds size) = rnf texture `seq` (fmap (fmap rnf) bounds) `seq` rnf size
+  rnf (Sprite texture bounds) = (fmap (fmap rnf) bounds) `seq` rnf texture
 
 -- | Draw images to their target windows.
 drawSprites :: System () ()
@@ -119,14 +112,10 @@ drawSprites = proc () -> do
         mapMaybe (\(eId, sprite) -> (,sprite,eId) <$> lookupAsset (spriteTexture sprite) assets) sprites
   S.queue (mapM_ go) -< loadedAssets
   where
-    go (texture, sprite, eId) = do
-      A.insert
-        eId
-        Surface
-          { sdlSurface = textureSurface texture,
-            surfaceBounds = spriteBounds sprite
-          }
+    go (texture, sprite, eId) =
+      A.insert eId Surface {sdlSurface = textureSurface texture, surfaceBounds = spriteBounds sprite}
 
+-- | Sprite animation component.
 data SpriteAnimation = SpriteAnimation
   { spriteAnimationSteps :: ![Rectangle Int],
     spriteAnimationIndex :: !Int,

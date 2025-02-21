@@ -24,6 +24,7 @@ import Data.Data (Typeable)
 import Data.Set (Set)
 import qualified Data.Set as Set
 
+-- | Bundle of components.
 newtype Bundle = Bundle {unBundle :: Components -> (Set ComponentID, Components, DynamicBundle)}
 
 instance Monoid Bundle where
@@ -43,6 +44,7 @@ instance MonoidBundle Bundle where
 instance MonoidDynamicBundle Bundle where
   dynBundle cId c = Bundle $ \cs -> (Set.singleton cId, cs, dynBundle cId c)
 
+-- | Insert a bundle of components into an archetype.
 runBundle :: Bundle -> Components -> EntityID -> Archetype -> (Components, Archetype)
 runBundle b cs eId arch =
   let !(_, cs', d) = unBundle b cs

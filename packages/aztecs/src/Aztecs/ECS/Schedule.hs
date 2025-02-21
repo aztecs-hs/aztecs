@@ -41,6 +41,7 @@ import Data.Functor (void)
 
 type Schedule m = ScheduleT (AccessT m)
 
+-- | System schedule.
 newtype ScheduleT m i o = Schedule {runSchedule' :: Components -> (i -> m o, Components)}
   deriving (Functor)
 

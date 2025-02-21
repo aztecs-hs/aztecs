@@ -8,10 +8,8 @@ import Control.DeepSeq
 import Data.Word (Word32)
 import GHC.Generics
 
+-- | Time component.
 newtype Time = Time {elapsedMS :: Word32}
-  deriving (Eq, Ord, Num, Show, Generic)
+  deriving (Eq, Ord, Num, Show, Generic, NFData)
 
 instance Component Time
-
-instance NFData Time where
-  rnf = rwhnf

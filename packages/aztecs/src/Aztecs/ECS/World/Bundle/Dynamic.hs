@@ -17,6 +17,7 @@ import Aztecs.ECS.World.Archetype (Archetype, insertComponent)
 import Aztecs.ECS.World.Bundle.Dynamic.Class (MonoidDynamicBundle (..))
 import Data.Data (Typeable)
 
+-- | Dynamic bundle of components.
 newtype DynamicBundle = DynamicBundle {runDynamicBundle :: EntityID -> Archetype -> Archetype}
 
 instance Semigroup DynamicBundle where
