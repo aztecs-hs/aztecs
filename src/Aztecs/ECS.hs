@@ -74,6 +74,7 @@ module Aztecs.ECS
     ArrowAccessSchedule,
     reader,
     system,
+    delay,
     forever,
     forever_,
     access,
@@ -99,6 +100,7 @@ import Aztecs.ECS.Schedule
     runSchedule,
     runSchedule_,
     system,
+    delay,
   )
 import Aztecs.ECS.System (ArrowQueueSystem, ArrowReaderSystem, ArrowSystem, System)
 import Aztecs.ECS.World (World)

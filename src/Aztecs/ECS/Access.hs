@@ -14,6 +14,7 @@ import Aztecs.ECS.Access.Class (MonadAccess (..))
 import Aztecs.ECS.World (World (..))
 import qualified Aztecs.ECS.World as W
 import Aztecs.ECS.World.Bundle (Bundle)
+import Control.Monad.Fix (MonadFix)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Identity (Identity)
 import Control.Monad.State.Strict (MonadState (..), StateT (..))
@@ -23,7 +24,7 @@ type Access = AccessT Identity
 
 -- | Access into the `World`.
 newtype AccessT m a = AccessT {unAccessT :: StateT World m a}
-  deriving (Functor, Applicative, Monad, MonadIO)
+  deriving (Functor, Applicative, Monad, MonadFix, MonadIO)
 
 -- | Run an `Access` on a `World`, returning the output and updated `World`.
 runAccessT :: (Functor m) => AccessT m a -> World -> m (a, World)

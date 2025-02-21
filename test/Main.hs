@@ -1,4 +1,5 @@
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE Arrows #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeApplications #-}
@@ -7,10 +8,11 @@ module Main (main) where
 
 import Aztecs
 import qualified Aztecs.ECS.Query as Q
+import qualified Aztecs.ECS.System as S
 import qualified Aztecs.ECS.World as W
 import Aztecs.Hierarchy (Children (..), Parent (..))
 import qualified Aztecs.Hierarchy as Hierarchy
-import Control.Arrow ((&&&))
+import Control.Arrow (returnA, (&&&))
 import Control.DeepSeq
 import qualified Data.Set as Set
 import GHC.Generics
@@ -38,6 +40,8 @@ main = hspec $ do
   describe "Aztecs.ECS.Hierarchy.update" $ do
     it "adds Parent components to children" $ property prop_addParents
     it "removes Parent components from removed children" $ property prop_removeParents
+  describe "Aztecs.ECS.Schedule" $ do
+    it "increments components" prop_quit
 
 prop_queryOneComponent :: [X] -> Expectation
 prop_queryOneComponent xs =
@@ -66,7 +70,7 @@ prop_addParents :: Expectation
 prop_addParents = do
   let (_, w) = W.spawnEmpty W.empty
       (e, w') = W.spawn (bundle . Children $ Set.singleton e) w
-  (_, w'') <- runSchedule (system Hierarchy.update) w' ()
+  (_, _, w'') <- runSchedule (system Hierarchy.update) w' ()
   let (res, _) = Q.all Q.fetch w''
   res `shouldMatchList` [Parent e]
 
@@ -74,8 +78,31 @@ prop_removeParents :: Expectation
 prop_removeParents = do
   let (_, w) = W.spawnEmpty W.empty
       (e, w') = W.spawn (bundle . Children $ Set.singleton e) w
-  (_, w'') <- runSchedule (system Hierarchy.update) w' ()
+  (_, _, w'') <- runSchedule (system Hierarchy.update) w' ()
   let w''' = W.insert e (Children Set.empty) w''
-  (_, w'''') <- runSchedule (system Hierarchy.update) w''' ()
+  (_, _, w'''') <- runSchedule (system Hierarchy.update) w''' ()
   let (res, _) = Q.all (Q.fetch @_ @Parent) w''''
   res `shouldMatchList` []
+
+prop_quit :: Expectation
+prop_quit = do
+  let (_, w) = W.spawn (bundle $ X 1) W.empty
+  (_, _, w') <- runSchedule quit w ()
+  (x, _, _) <- runSchedule quit w' ()
+  x `shouldBe` True
+
+quit :: Schedule IO () Bool
+quit = proc () -> do
+  rec lastShouldQuit <- delay False -< shouldQuit
+      x <-
+        system $
+          S.mapSingle
+            ( proc () -> do
+                X x <- Q.fetch -< ()
+                Q.set -< X $ x + 1
+                returnA -< x
+            )
+          -<
+            ()
+      let shouldQuit = (lastShouldQuit || x > 1)
+  returnA -< shouldQuit
