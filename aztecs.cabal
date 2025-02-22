@@ -43,6 +43,8 @@ library
         Aztecs.ECS.Schedule.Access
         Aztecs.ECS.Schedule.Access.Class
         Aztecs.ECS.Schedule.Class
+        Aztecs.ECS.Schedule.Dynamic
+        Aztecs.ECS.Schedule.Dynamic.Reader
         Aztecs.ECS.Schedule.Reader
         Aztecs.ECS.Schedule.Reader.Class
         Aztecs.ECS.System

@@ -9,99 +9,83 @@ module Aztecs.ECS.System.Dynamic
     ArrowDynamicSystem (..),
     ArrowQueueSystem (..),
     raceDyn,
+    fromDynReaderSystem,
   )
 where
 
 import Aztecs.ECS.Access (Access)
-import Aztecs.ECS.Component (ComponentID)
 import Aztecs.ECS.Query.Dynamic (DynamicQuery)
 import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader)
 import Aztecs.ECS.System.Dynamic.Class (ArrowDynamicSystem (..))
+import Aztecs.ECS.System.Dynamic.Reader (DynamicReaderSystem (..))
 import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
 import Aztecs.ECS.System.Queue (ArrowQueueSystem (..))
-import Aztecs.ECS.View (View, filterView, readAllDyn, view)
+import Aztecs.ECS.View (View)
 import qualified Aztecs.ECS.View as V
 import Aztecs.ECS.World (World (..))
-import Aztecs.ECS.World.Archetypes (Node)
 import Aztecs.ECS.World.Bundle (Bundle)
-import Control.Arrow (Arrow (..))
+import Control.Arrow (Arrow (..), (>>>))
 import Control.Category (Category (..))
 import Control.Parallel (par)
 import Data.Maybe (fromMaybe)
-import Data.Set (Set)
+import Prelude hiding (id, (.))
 
 newtype DynamicSystem i o = DynamicSystem
   { -- | Run a dynamic system,
     -- producing some output, an updated `View` into the `World`, and any queued `Access`.
-    runSystemDyn :: World -> (i -> (o, View, Access ()))
+    runSystemDyn :: World -> i -> (o, View, Access (), DynamicSystem i o)
   }
   deriving (Functor)
 
 instance Category DynamicSystem where
-  id = DynamicSystem $ \_ i -> (i, mempty, pure ())
+  id = DynamicSystem $ \_ i -> (i, mempty, pure (), id)
   DynamicSystem f . DynamicSystem g = DynamicSystem $ \w i ->
-    let (b, gView, gAccess) = g w i
-        (a, fView, fAccess) = f w b
-     in (a, gView <> fView, gAccess >> fAccess)
+    let (b, gView, gAccess, g') = g w i
+        (a, fView, fAccess, f') = f w b
+     in (a, gView <> fView, gAccess >> fAccess, f' . g')
 
 instance Arrow DynamicSystem where
-  arr f = DynamicSystem $ \_ i -> (f i, mempty, pure ())
-  first (DynamicSystem f) = DynamicSystem $ \w (i, x) -> let (a, v, access) = f w i in ((a, x), v, access)
+  arr f = DynamicSystem $ \_ i -> (f i, mempty, pure (), arr f)
+  first (DynamicSystem f) = DynamicSystem $ \w (i, x) ->
+    let (a, v, access, f') = f w i in ((a, x), v, access, first f')
 
 instance ArrowDynamicReaderSystem DynamicQueryReader DynamicSystem where
-  allDyn cIds q = DynamicSystem $ \w i ->
-    let v = view cIds $ archetypes w in (readAllDyn i q v, v, pure ())
-  filterDyn cIds q f = DynamicSystem $ \w i ->
-    let v = filterView cIds f $ archetypes w in (readAllDyn i q v, v, pure ())
+  allDyn cIds q = fromDynReaderSystem $ allDyn cIds q
+  filterDyn cIds qf q = fromDynReaderSystem $ filterDyn cIds qf q
 
 instance ArrowDynamicSystem DynamicQuery DynamicSystem where
-  mapDyn cIds q = DynamicSystem $ mapDyn' cIds q
-  mapSingleDyn cIds q = DynamicSystem $ mapSingleDyn' cIds q
-  mapSingleMaybeDyn cIds q = DynamicSystem $ mapSingleMaybeDyn' cIds q
-  filterMapDyn cIds q f = DynamicSystem $ filterMapDyn' cIds q f
+  mapDyn cIds q = DynamicSystem $ \w i ->
+    let !v = V.view cIds $ archetypes w
+        (o, v') = V.allDyn i q v
+     in (o, v', pure (), mapDyn cIds q)
+  mapSingleDyn cIds q = DynamicSystem $ \w i ->
+    let s =
+          mapSingleMaybeDyn cIds q
+            >>> arr (fromMaybe (error "Expected a single matching entity."))
+     in runSystemDyn s w i
+  mapSingleMaybeDyn cIds q = DynamicSystem $ \w i ->
+    let !res = V.viewSingle cIds $ archetypes w
+        (res', v'') = case res of
+          Just v -> let (o, v') = V.singleDyn i q v in (o, v')
+          Nothing -> (Nothing, mempty)
+     in (res', v'', pure (), mapSingleMaybeDyn cIds q)
+  filterMapDyn cIds q f = DynamicSystem $ \w i ->
+    let !v = V.filterView cIds f $ archetypes w
+        (o, v') = V.allDyn i q v
+     in (o, v', pure (), filterMapDyn cIds q f)
 
 instance ArrowQueueSystem Bundle Access DynamicSystem where
-  queue f = DynamicSystem $ queueDyn' f
+  queue f = DynamicSystem $ \_ i -> ((), mempty, f i, queue f)
 
 raceDyn :: DynamicSystem i a -> DynamicSystem i b -> DynamicSystem i (a, b)
 raceDyn (DynamicSystem f) (DynamicSystem g) = DynamicSystem $ \w i ->
   let fa = f w i
       gb = g w i
       gbPar = fa `par` gb
-      (a, v, fAccess) = fa
-      (b, v', gAccess) = gbPar
-   in ((a, b), v <> v', fAccess >> gAccess)
+      (a, v, fAccess, f') = fa
+      (b, v', gAccess, g') = gbPar
+   in ((a, b), v <> v', fAccess >> gAccess, raceDyn f' g')
 
-type DynamicSystemT i o = World -> i -> (o, View, Access ())
-
--- | Map all matching entities, storing the updated entities.
-mapDyn' :: Set ComponentID -> DynamicQuery i o -> DynamicSystemT i [o]
-mapDyn' cIds q w =
-  let !v = V.view cIds $ archetypes w
-   in \i -> let (o, v') = V.allDyn i q v in (o, v', pure ())
-
-mapSingleDyn' :: Set ComponentID -> DynamicQuery i o -> DynamicSystemT i o
-mapSingleDyn' cIds q w i =
-  let !(maybeO, v, access) = mapSingleMaybeDyn' cIds q w i
-      !o = fromMaybe (error "Expected a single matching entity.") maybeO
-   in (o, v, access)
-
--- | Map all matching entities, storing the updated entities.
-mapSingleMaybeDyn' :: Set ComponentID -> DynamicQuery i o -> DynamicSystemT i (Maybe o)
-mapSingleMaybeDyn' cIds q w i =
-  let !res = V.viewSingle cIds $ archetypes w
-   in case res of
-        Just v -> let (o, v') = V.singleDyn i q v in (o, v', pure ())
-        Nothing -> (Nothing, mempty, pure ())
-
-filterMapDyn' ::
-  Set ComponentID ->
-  DynamicQuery i o ->
-  (Node -> Bool) ->
-  DynamicSystemT i [o]
-filterMapDyn' cIds q f w =
-  let !v = V.filterView cIds f $ archetypes w
-   in \i -> let (o, v') = V.allDyn i q v in (o, v', pure ())
-
-queueDyn' :: (i -> Access ()) -> DynamicSystemT i ()
-queueDyn' f _ i = ((), mempty, f i)
+fromDynReaderSystem :: DynamicReaderSystem i o -> DynamicSystem i o
+fromDynReaderSystem (DynamicReaderSystem f) = DynamicSystem $ \w i ->
+  let (o, access, f') = f w i in (o, mempty, access, fromDynReaderSystem f')

@@ -8,6 +8,7 @@ module Aztecs.ECS.System
     ArrowReaderSystem (..),
     ArrowSystem (..),
     ArrowQueueSystem (..),
+    fromReader,
   )
 where
 
@@ -16,10 +17,11 @@ import Aztecs.ECS.Query (Query (..), QueryFilter (..), ReadsWrites (..))
 import qualified Aztecs.ECS.Query as Q
 import Aztecs.ECS.Query.Reader (QueryReader (..), filterWith, filterWithout)
 import Aztecs.ECS.System.Class (ArrowSystem (..))
-import Aztecs.ECS.System.Dynamic (DynamicSystem (..), raceDyn)
+import Aztecs.ECS.System.Dynamic (DynamicSystem (..), fromDynReaderSystem, raceDyn)
 import Aztecs.ECS.System.Dynamic.Class (ArrowDynamicSystem (..))
 import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
 import Aztecs.ECS.System.Queue (ArrowQueueSystem (..))
+import Aztecs.ECS.System.Reader (ReaderSystem (..))
 import Aztecs.ECS.System.Reader.Class (ArrowReaderSystem (..), all, filter, single)
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
@@ -28,8 +30,8 @@ import Aztecs.ECS.World.Components (Components)
 import Control.Arrow (Arrow (..))
 import Control.Category (Category (..))
 import qualified Data.Foldable as F
-import Prelude hiding (all, filter, map, (.))
-import qualified Prelude hiding (filter, map)
+import Prelude hiding (all, filter, id, map, (.))
+import qualified Prelude hiding (filter, id, map)
 
 -- | System to process entities.
 newtype System i o = System
@@ -39,14 +41,14 @@ newtype System i o = System
   deriving (Functor)
 
 instance Category System where
-  id = System $ \cs -> (DynamicSystem $ \_ i -> (i, mempty, pure ()), mempty, cs)
+  id = System $ \cs -> (DynamicSystem $ \_ i -> (i, mempty, pure (), id), mempty, cs)
   System f . System g = System $ \cs ->
     let (f', rwsF, cs') = f cs
         (g', rwsG, cs'') = g cs'
      in (f' . g', rwsF <> rwsG, cs'')
 
 instance Arrow System where
-  arr f = System $ \cs -> (DynamicSystem $ \_ i -> (f i, mempty, pure ()), mempty, cs)
+  arr f = System $ \cs -> (DynamicSystem $ \_ i -> (f i, mempty, pure (), arr f), mempty, cs)
   first (System f) = System $ \cs ->
     let (f', rwsF, cs') = f cs in (first f', rwsF, cs')
   f &&& g = System $ \cs ->
@@ -88,3 +90,8 @@ instance ArrowSystem Query System where
 
 instance ArrowQueueSystem Bundle Access System where
   queue f = System $ \cs -> (queue f, mempty, cs)
+
+fromReader :: ReaderSystem i o -> System i o
+fromReader (ReaderSystem f) = System $ \cs ->
+  let (f', rs, cs') = f cs
+   in (fromDynReaderSystem f', ReadsWrites rs mempty, cs')

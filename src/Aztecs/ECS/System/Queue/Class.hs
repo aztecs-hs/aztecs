@@ -1,5 +1,4 @@
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Aztecs.ECS.System.Queue.Class (ArrowQueueSystem (..)) where
 

@@ -1,13 +1,11 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Aztecs.ECS.Access.Class (MonadAccess (..)) where
 
 import Aztecs.ECS.Component (Component (..))
 import Aztecs.ECS.Entity (EntityID (..))
 import Aztecs.ECS.World.Bundle (MonoidBundle (..))
-import Data.Data (Typeable)
 import Prelude hiding (all, lookup, map)
 
 -- | Monadic access to a `World`.

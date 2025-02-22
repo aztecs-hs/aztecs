@@ -1,7 +1,6 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RecursiveDo #-}
 
 module Aztecs.ECS.Schedule
   ( -- * Schedules
@@ -21,6 +20,7 @@ where
 import Aztecs.ECS.Access (AccessT (..), runAccessT)
 import Aztecs.ECS.Schedule.Access.Class (ArrowAccessSchedule (..))
 import Aztecs.ECS.Schedule.Class (ArrowSchedule (..))
+import Aztecs.ECS.Schedule.Dynamic (DynamicSchedule, DynamicScheduleT (..))
 import Aztecs.ECS.Schedule.Reader.Class (ArrowReaderSchedule (..))
 import Aztecs.ECS.System (System (..))
 import Aztecs.ECS.System.Dynamic (DynamicSystem (..))
@@ -43,29 +43,6 @@ import Data.Functor (void)
 import Prelude hiding (id, (.))
 
 type Schedule m = ScheduleT (AccessT m)
-
-type DynamicSchedule m = DynamicScheduleT (AccessT m)
-
-newtype DynamicScheduleT m i o = DynamicSchedule {runScheduleDyn :: i -> m (o, DynamicScheduleT m i o)}
-  deriving (Functor)
-
-instance (Monad m) => Category (DynamicScheduleT m) where
-  id = DynamicSchedule $ \i -> pure (i, id)
-  DynamicSchedule f . DynamicSchedule g = DynamicSchedule $ \i -> do
-    (b, g') <- g i
-    (c, f') <- f b
-    return (c, f' . g')
-
-instance (Monad m) => Arrow (DynamicScheduleT m) where
-  arr f = DynamicSchedule $ \i -> pure (f i, arr f)
-  first (DynamicSchedule f) = DynamicSchedule $ \(b, d) -> do
-    (c, f') <- f b
-    return ((c, d), first f')
-
-instance (MonadFix m) => ArrowLoop (DynamicScheduleT m) where
-  loop (DynamicSchedule f) = DynamicSchedule $ \b -> do
-    rec ((c, d), f') <- f (b, d)
-    return (c, loop f')
 
 accessDyn :: (Monad m) => (i -> m o) -> DynamicScheduleT m i o
 accessDyn f = DynamicSchedule $ \i -> do
@@ -91,34 +68,32 @@ instance (Monad m) => Arrow (ScheduleT m) where
   first (Schedule f) = Schedule $ \cs -> let (f', cs') = f cs in (first f', cs')
 
 instance (MonadFix m) => ArrowLoop (ScheduleT m) where
-  loop (Schedule f) = Schedule $ \cs ->
-    let (f', cs') = f cs
-     in (loop f', cs')
+  loop (Schedule f) = Schedule $ \cs -> let (f', cs') = f cs in (loop f', cs')
 
 instance (Monad m) => ArrowAccessSchedule Bundle (AccessT m) (Schedule m) where
   access f = Schedule $ \cs -> (accessDyn f, cs)
 
 instance (Monad m) => ArrowReaderSchedule ReaderSystem (Schedule m) where
-  reader t = Schedule $ \cs ->
-    let (dynT, _, cs') = runReaderSystem t cs
-        go i = AccessT $ do
+  reader s = Schedule $ \cs ->
+    let (dynS, _, cs') = runReaderSystem s cs
+        go dynSAcc i = AccessT $ do
           w <- get
-          let (o, a) = runReaderSystemDyn dynT w i
+          let (o, a, dynSAcc') = runReaderSystemDyn dynSAcc w i
               ((), w') = runIdentity $ runAccessT a w
           put w'
-          return (o, DynamicSchedule go)
-     in (DynamicSchedule go, cs')
+          return (o, DynamicSchedule $ go dynSAcc')
+     in (DynamicSchedule $ go dynS, cs')
 
 instance (Monad m) => ArrowSchedule System (Schedule m) where
-  system t = Schedule $ \cs ->
-    let (dynT, _, cs') = runSystem t cs
-        go i = AccessT $ do
+  system s = Schedule $ \cs ->
+    let (dynS, _, cs') = runSystem s cs
+        go dynSAcc i = AccessT $ do
           w <- get
-          let (o, v, a) = runSystemDyn dynT w i
+          let (o, v, a, dynSAcc') = runSystemDyn dynSAcc w i
               ((), w') = runIdentity $ runAccessT a $ V.unview v w
           put w'
-          return (o, DynamicSchedule go)
-     in (DynamicSchedule go, cs')
+          return (o, DynamicSchedule $ go dynSAcc')
+     in (DynamicSchedule $ go dynS, cs')
 
 delay :: (Monad m) => a -> Schedule m a a
 delay d = Schedule $ \cs -> (delayDyn d, cs)

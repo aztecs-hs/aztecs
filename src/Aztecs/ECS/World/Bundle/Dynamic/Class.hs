@@ -1,5 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
-
 module Aztecs.ECS.World.Bundle.Dynamic.Class (MonoidDynamicBundle (..)) where
 
 import Aztecs.ECS.Component (Component (..))

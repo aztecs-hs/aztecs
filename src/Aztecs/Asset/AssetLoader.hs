@@ -1,8 +1,8 @@
 {-# LANGUAGE Arrows #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Aztecs.Asset.AssetLoader
   ( MonadAssetLoader (..),

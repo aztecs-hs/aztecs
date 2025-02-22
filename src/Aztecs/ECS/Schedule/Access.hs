@@ -15,7 +15,7 @@ newtype AcessSchedule m i o = AcessSchedule {runAcessSchedule :: i -> AccessT m 
 
 instance (Monad m) => Category (AcessSchedule m) where
   id = AcessSchedule return
-  AcessSchedule f . AcessSchedule g = AcessSchedule $ (g >=> f)
+  AcessSchedule f . AcessSchedule g = AcessSchedule (g >=> f)
 
 instance (Monad m) => Arrow (AcessSchedule m) where
   arr f = AcessSchedule $ \i -> return $ f i
