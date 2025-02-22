@@ -60,7 +60,6 @@ instance ArrowChoice QueryReader where
   left (QueryReader f) = QueryReader $ \comps -> let (cIds, comps', qS) = f comps in (cIds, comps', left qS)
 
 instance ArrowQueryReader QueryReader where
-  entity = QueryReader $ \cs -> (mempty, cs, entityDyn)
   fetch :: forall a. (Component a) => QueryReader () a
   fetch = QueryReader $ \cs ->
     let (cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', fetchDyn cId)
@@ -69,7 +68,7 @@ instance ArrowQueryReader QueryReader where
     let (cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', fetchMaybeDyn cId)
 
 instance ArrowDynamicQueryReader QueryReader where
-  entityDyn = QueryReader $ \cs -> (mempty, cs, entityDyn)
+  entity = QueryReader $ \cs -> (mempty, cs, entity)
   fetchDyn cId = QueryReader $ \cs -> (Set.singleton cId, cs, fetchDyn cId)
   fetchMaybeDyn cId = QueryReader $ \cs -> (Set.singleton cId, cs, fetchMaybeDyn cId)
 

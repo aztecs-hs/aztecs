@@ -87,12 +87,11 @@ instance ArrowChoice Query where
   left (Query f) = Query $ \comps -> let (cIds, comps', qS) = f comps in (cIds, comps', left qS)
 
 instance ArrowQueryReader Query where
-  entity = fromReader entity
   fetch = fromReader fetch
   fetchMaybe = fromReader fetchMaybe
 
 instance ArrowDynamicQueryReader Query where
-  entityDyn = fromReader entityDyn
+  entity = fromReader entity
   fetchDyn = fromReader . fetchDyn
   fetchMaybeDyn = fromReader . fetchMaybeDyn
 

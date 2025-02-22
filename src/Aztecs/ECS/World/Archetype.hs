@@ -101,7 +101,7 @@ remove :: EntityID -> Archetype -> (Map ComponentID Dynamic, Archetype)
 remove e arch =
   foldl'
     ( \(dynAcc, archAcc) (cId, s) ->
-        let !(dynA, dynS) = removeDyn  (unEntityId e) s
+        let !(dynA, dynS) = removeDyn (unEntityId e) s
             !dynAcc' = case dynA of
               Just d -> Map.insert cId d dynAcc
               Nothing -> dynAcc
@@ -116,7 +116,7 @@ removeStorages :: EntityID -> Archetype -> (Map ComponentID DynamicStorage, Arch
 removeStorages e arch =
   foldl'
     ( \(dynAcc, archAcc) (cId, s) ->
-        let (dynA, dynS) = removeAny  (unEntityId e) s
+        let (dynA, dynS) = removeAny (unEntityId e) s
             dynAcc' = case dynA of
               Just d -> Map.insert cId d dynAcc
               Nothing -> dynAcc

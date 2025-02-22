@@ -55,7 +55,7 @@ instance ArrowChoice DynamicQueryReader where
      in fmap Left cs ++ fmap Right ds
 
 instance ArrowDynamicQueryReader DynamicQueryReader where
-  entityDyn = DynamicQueryReader $ \_ es _ -> es
+  entity = DynamicQueryReader $ \_ es _ -> es
   fetchDyn cId =
     DynamicQueryReader $ \_ _ arch -> let !as = A.all cId arch in fmap snd as
   fetchMaybeDyn cId =

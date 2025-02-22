@@ -56,7 +56,11 @@ newtype ChildState = ChildState {unChildState :: Set EntityID}
 instance Component ChildState
 
 update ::
-  (ArrowQueryReader qr, ArrowReaderSystem qr arr, ArrowQueueSystem b m arr) =>
+  ( ArrowQueryReader qr,
+    ArrowDynamicQueryReader qr,
+    ArrowReaderSystem qr arr,
+    ArrowQueueSystem b m arr
+  ) =>
   arr () ()
 update = proc () -> do
   parents <-
@@ -149,7 +153,7 @@ mapWithAccum f b n = case f (nodeEntityId n) (nodeEntity n) b of
   (c, b') -> Node (nodeEntityId n) c (map (mapWithAccum f b') (nodeChildren n))
 
 hierarchy ::
-  (ArrowQueryReader q, ArrowReaderSystem q arr) =>
+  (ArrowQueryReader q, ArrowDynamicQueryReader q, ArrowReaderSystem q arr) =>
   EntityID ->
   q i a ->
   arr i (Maybe (Hierarchy a))
@@ -169,7 +173,7 @@ hierarchy e q = proc i -> do
 
 -- | Build all hierarchies of parents to children with the given query.
 hierarchies ::
-  (ArrowQueryReader q, ArrowReaderSystem q arr) =>
+  (ArrowQueryReader q, ArrowDynamicQueryReader q, ArrowReaderSystem q arr) =>
   q i a ->
   arr i [Hierarchy a]
 hierarchies q = proc i -> do

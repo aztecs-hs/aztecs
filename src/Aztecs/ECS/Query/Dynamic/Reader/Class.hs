@@ -5,8 +5,8 @@ import Aztecs.ECS.Entity (EntityID)
 import Control.Arrow (Arrow (..), (>>>))
 
 class (Arrow arr) => ArrowDynamicQueryReader arr where
-  -- | Fetch the `EntityID` belonging to this entity.
-  entityDyn :: arr () EntityID
+  -- \| Fetch the currently matched `EntityID`.
+  entity :: arr () EntityID
 
   -- | Fetch a `Component` by its `ComponentID`.
   fetchDyn :: (Component a) => ComponentID -> arr () a

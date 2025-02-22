@@ -58,7 +58,7 @@ instance ArrowChoice DynamicQuery where
      in (fmap Left cs ++ fmap Right ds, arch')
 
 instance ArrowDynamicQueryReader DynamicQuery where
-  entityDyn = fromDynReader entityDyn
+  entity = fromDynReader entity
   fetchDyn = fromDynReader . fetchDyn
   fetchMaybeDyn = fromDynReader . fetchMaybeDyn
 

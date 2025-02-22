@@ -61,6 +61,8 @@ module Aztecs.ECS
     Query,
     ArrowQueryReader,
     ArrowQuery,
+    ArrowDynamicQueryReader,
+    ArrowDynamicQuery,
     QueryFilter,
     with,
     without,
@@ -87,7 +89,16 @@ where
 import Aztecs.ECS.Access (Access, runAccessT)
 import Aztecs.ECS.Component (Component (..))
 import Aztecs.ECS.Entity (EntityID)
-import Aztecs.ECS.Query (ArrowQuery, ArrowQueryReader, Query, QueryFilter, with, without)
+import Aztecs.ECS.Query
+  ( ArrowDynamicQuery,
+    ArrowDynamicQueryReader,
+    ArrowQuery,
+    ArrowQueryReader,
+    Query,
+    QueryFilter,
+    with,
+    without,
+  )
 import Aztecs.ECS.Schedule
   ( ArrowAccessSchedule,
     ArrowReaderSchedule,

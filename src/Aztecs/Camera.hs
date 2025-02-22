@@ -42,7 +42,11 @@ instance Component CameraTarget
 
 -- | Add `CameraTarget` components to entities with a new `Draw` component.
 addCameraTargets ::
-  (ArrowQueryReader qr, ArrowReaderSystem qr arr, ArrowQueueSystem b m arr) =>
+  ( ArrowQueryReader qr,
+    ArrowDynamicQueryReader qr,
+    ArrowReaderSystem qr arr,
+    ArrowQueueSystem b m arr
+  ) =>
   arr () ()
 addCameraTargets = proc () -> do
   windows <- S.all (Q.entity &&& Q.fetch @_ @Window) -< ()
