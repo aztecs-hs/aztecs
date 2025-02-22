@@ -32,12 +32,12 @@ where
 import Aztecs.ECS.Component (Component (..), ComponentID)
 import Aztecs.ECS.Entity (EntityID (..))
 import Aztecs.ECS.World.Archetype
-  ( AnyStorage (..),
-    Archetype (..),
+  ( Archetype (..),
     insertComponent,
     removeStorages,
   )
 import qualified Aztecs.ECS.World.Archetype as A
+import Aztecs.ECS.World.Storage.Dynamic (insertDyn, removeDyn)
 import Control.DeepSeq (NFData (..))
 import Data.Dynamic (fromDynamic)
 import Data.Map.Strict (Map)
@@ -160,7 +160,7 @@ insert e aId cId c arches = case lookupNode aId arches of
                 archAcc
                   { storages =
                       Map.adjust
-                        (\s -> s {storageDyn = insertDyn s (unEntityId e) dyn (storageDyn s)})
+                        (\s -> insertDyn (unEntityId e) dyn s)
                         itemCId
                         (storages archAcc)
                   }
@@ -222,7 +222,7 @@ remove e aId cId arches = case lookupNode aId arches of
             archAcc
               { storages =
                   Map.adjust
-                    (\s -> s {storageDyn = insertDyn s (unEntityId e) dyn (storageDyn s)})
+                    (\s -> insertDyn (unEntityId e) dyn s)
                     itemCId
                     (storages archAcc)
               }
@@ -255,7 +255,7 @@ remove e aId cId arches = case lookupNode aId arches of
                 nodeRemove = Map.singleton cId aId
               }
           !(nextAId, arches') = insertArchetype (Set.insert cId (nodeComponentIds node)) n arches
-       in ( (,nextAId) <$> (a >>= (\a' -> (fst $ A.removeDyn a' (unEntityId e) (A.storageDyn a')) >>= fromDynamic)),
+       in ( (,nextAId) <$> (a >>= (\a' -> (fst $ removeDyn (unEntityId e) a') >>= fromDynamic)),
             arches'
               { nodes =
                   Map.insert
