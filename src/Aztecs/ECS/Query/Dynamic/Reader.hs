@@ -21,7 +21,6 @@ import qualified Aztecs.ECS.World.Storage as S
 import Control.Arrow
 import Control.Category
 import Data.Either (partitionEithers)
-import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 
 -- | Dynamic query for components by ID.
@@ -59,7 +58,7 @@ instance ArrowChoice DynamicQueryReader where
 instance ArrowDynamicQueryReader DynamicQueryReader where
   entity = DynamicQueryReader $ \_ es _ -> es
   fetchDyn cId = DynamicQueryReader $ \_ _ arch ->
-    let !as = fromMaybe [] $ S.toList <$> A.lookupStorage cId arch in fmap snd as
+    let !as = maybe [] S.toList (A.lookupStorage cId arch) in fmap snd as
   fetchMaybeDyn cId = DynamicQueryReader $ \_ es arch -> case A.lookupStorage cId arch of
     Just s -> let !as = S.toList s in fmap Just $ snd <$> as
     Nothing -> map (const Nothing) es

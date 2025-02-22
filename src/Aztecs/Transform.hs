@@ -52,7 +52,7 @@ instance (Num v, Num r) => Semigroup (Transform v r) where
   Transform t1 r1 s1 <> Transform t2 r2 s2 = Transform (t1 + t2) (r1 + r2) (s1 + s2)
 
 instance (Num v, Num r) => Monoid (Transform v r) where
-  mempty = Transform (0) (0) (0)
+  mempty = Transform 0 0 0
 
 -- | 2D transform component.
 type Transform2D = Transform (V2 Int) Int

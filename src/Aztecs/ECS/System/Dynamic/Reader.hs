@@ -2,7 +2,6 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RecursiveDo #-}
 
 module Aztecs.ECS.System.Dynamic.Reader
   ( DynamicReaderSystem (..),

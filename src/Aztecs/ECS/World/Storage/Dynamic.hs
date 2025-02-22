@@ -1,16 +1,13 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
 
 module Aztecs.ECS.World.Storage.Dynamic
   ( DynamicStorage (..),
@@ -60,9 +57,7 @@ dynStorage s =
       entitiesDyn' = \dyn -> case fromDynamic @(s a) dyn of
         Just s' -> map fst $ S.toList s'
         Nothing -> [],
-      storageRnf = \dyn -> case fromDynamic @(s a) dyn of
-        Just s' -> rnf s'
-        Nothing -> ()
+      storageRnf = \dyn -> maybe () rnf (fromDynamic @(s a) dyn)
     }
 
 insertDyn :: Int -> Dynamic -> DynamicStorage -> DynamicStorage
