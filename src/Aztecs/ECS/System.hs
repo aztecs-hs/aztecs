@@ -27,8 +27,8 @@ import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
 import Aztecs.ECS.World.Bundle (Bundle)
 import Aztecs.ECS.World.Components (Components)
-import Control.Arrow (Arrow (..))
-import Control.Category (Category (..))
+import Control.Arrow
+import Control.Category
 import qualified Data.Foldable as F
 import Prelude hiding (all, filter, id, map, (.))
 import qualified Prelude hiding (filter, id, map)
@@ -54,10 +54,14 @@ instance Arrow System where
   f &&& g = System $ \cs ->
     let (dynF, rwsA, cs') = runSystem f cs
         (dynG, rwsB, cs'') = runSystem g cs'
-     in ( if Q.disjoint rwsA rwsB then dynF &&& dynG else raceDyn dynF dynG,
-          rwsA <> rwsB,
-          cs''
-        )
+        dynS = if Q.disjoint rwsA rwsB then dynF &&& dynG else raceDyn dynF dynG
+     in (dynS, rwsA <> rwsB, cs'')
+
+instance ArrowChoice System where
+  left (System f) = System $ \cs -> let (f', rwsF, cs') = f cs in (left f', rwsF, cs')
+
+instance ArrowLoop System where
+  loop (System f) = System $ \cs -> let (f', rwsF, cs') = f cs in (loop f', rwsF, cs')
 
 instance ArrowReaderSystem QueryReader System where
   all q = System $ \cs ->
@@ -93,5 +97,4 @@ instance ArrowQueueSystem Bundle Access System where
 
 fromReader :: ReaderSystem i o -> System i o
 fromReader (ReaderSystem f) = System $ \cs ->
-  let (f', rs, cs') = f cs
-   in (fromDynReaderSystem f', ReadsWrites rs mempty, cs')
+  let (f', rs, cs') = f cs in (fromDynReaderSystem f', ReadsWrites rs mempty, cs')

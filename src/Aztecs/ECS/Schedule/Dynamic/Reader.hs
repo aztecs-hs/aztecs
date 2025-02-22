@@ -32,6 +32,13 @@ instance (Monad m) => Arrow (DynamicReaderScheduleT m) where
     (c, f') <- f b
     return ((c, d), first f')
 
+instance (Monad m) => ArrowChoice (DynamicReaderScheduleT m) where
+  left (DynamicReaderSchedule f) = DynamicReaderSchedule $ \i -> case i of
+    Left b -> do
+      (c, f') <- f b
+      return (Left c, left f')
+    Right d -> return (Right d, left (DynamicReaderSchedule f))
+
 instance (MonadFix m) => ArrowLoop (DynamicReaderScheduleT m) where
   loop (DynamicReaderSchedule f) = DynamicReaderSchedule $ \b -> do
     rec ((c, d), f') <- f (b, d)

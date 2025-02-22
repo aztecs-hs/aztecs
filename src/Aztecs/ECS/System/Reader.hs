@@ -20,8 +20,8 @@ import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
 import Aztecs.ECS.World.Bundle (Bundle)
 import Aztecs.ECS.World.Components (ComponentID, Components)
-import Control.Arrow (Arrow (..))
-import Control.Category (Category (..))
+import Control.Arrow
+import Control.Category
 import qualified Data.Foldable as F
 import Data.Set (Set)
 import Prelude hiding (id, (.))
@@ -43,12 +43,17 @@ instance Category ReaderSystem where
 instance Arrow ReaderSystem where
   arr f = ReaderSystem $ \cs -> (arr f, mempty, cs)
   first (ReaderSystem f) = ReaderSystem $ \cs ->
-    let (f', rwsF, cs') = f cs
-     in (first f', rwsF, cs')
+    let (f', rwsF, cs') = f cs in (first f', rwsF, cs')
   f &&& g = ReaderSystem $ \cs ->
     let (dynF, rwsA, cs') = runReaderSystem f cs
         (dynG, rwsB, cs'') = runReaderSystem g cs'
      in (raceDyn dynF dynG, rwsA <> rwsB, cs'')
+
+instance ArrowChoice ReaderSystem where
+  left (ReaderSystem f) = ReaderSystem $ \cs -> let (f', rwsF, cs') = f cs in (left f', rwsF, cs')
+
+instance ArrowLoop ReaderSystem where
+  loop (ReaderSystem f) = ReaderSystem $ \cs -> let (f', rwsF, cs') = f cs in (loop f', rwsF, cs')
 
 instance ArrowReaderSystem QueryReader ReaderSystem where
   all q = ReaderSystem $ \cs ->

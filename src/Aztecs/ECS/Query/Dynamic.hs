@@ -23,7 +23,7 @@ import qualified Aztecs.ECS.World.Archetype as A
 import Control.Arrow (Arrow (..), ArrowChoice (..))
 import Control.Category (Category (..))
 import Data.Either (partitionEithers)
-import Prelude hiding (all, any, id, lookup, map, mapM, reads, (.))
+import Prelude hiding ((.))
 
 -- | Dynamic query for components by ID.
 newtype DynamicQuery i o

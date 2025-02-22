@@ -24,8 +24,8 @@ import Aztecs.ECS.View (View)
 import qualified Aztecs.ECS.View as V
 import Aztecs.ECS.World (World (..))
 import Aztecs.ECS.World.Bundle (Bundle)
-import Control.Arrow (Arrow (..), (>>>))
-import Control.Category (Category (..))
+import Control.Arrow
+import Control.Category
 import Control.Parallel (par)
 import Data.Maybe (fromMaybe)
 import Prelude hiding (id, (.))
@@ -48,6 +48,15 @@ instance Arrow DynamicSystem where
   arr f = DynamicSystem $ \_ i -> (f i, mempty, pure (), arr f)
   first (DynamicSystem f) = DynamicSystem $ \w (i, x) ->
     let (a, v, access, f') = f w i in ((a, x), v, access, first f')
+
+instance ArrowChoice DynamicSystem where
+  left (DynamicSystem f) = DynamicSystem $ \w i -> case i of
+    Left b -> let (c, v, access, f') = f w b in (Left c, v, access, left f')
+    Right d -> (Right d, mempty, pure (), left (DynamicSystem f))
+
+instance ArrowLoop DynamicSystem where
+  loop (DynamicSystem f) = DynamicSystem $ \w b ->
+    let ((c, d), v, access, f') = f w (b, d) in (c, v, access, loop f')
 
 instance ArrowDynamicReaderSystem DynamicQueryReader DynamicSystem where
   allDyn cIds q = fromDynReaderSystem $ allDyn cIds q

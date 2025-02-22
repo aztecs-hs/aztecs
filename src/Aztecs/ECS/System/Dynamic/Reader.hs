@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RecursiveDo #-}
 
 module Aztecs.ECS.System.Dynamic.Reader
   ( DynamicReaderSystem (..),
@@ -18,8 +19,8 @@ import Aztecs.ECS.System.Queue (ArrowQueueSystem (..))
 import qualified Aztecs.ECS.View as V
 import Aztecs.ECS.World (World (..))
 import Aztecs.ECS.World.Bundle (Bundle)
-import Control.Arrow (Arrow (..))
-import Control.Category (Category (..))
+import Control.Arrow
+import Control.Category
 import Control.Parallel (par)
 import Prelude hiding (id, (.))
 
@@ -40,6 +41,15 @@ instance Arrow DynamicReaderSystem where
   arr f = DynamicReaderSystem $ \_ i -> (f i, pure (), arr f)
   first (DynamicReaderSystem f) = DynamicReaderSystem $ \w (i, x) ->
     let (a, access, f') = f w i in ((a, x), access, first f')
+
+instance ArrowChoice DynamicReaderSystem where
+  left (DynamicReaderSystem f) = DynamicReaderSystem $ \w i -> case i of
+    Left b -> let (c, access, f') = f w b in (Left c, access, left f')
+    Right d -> (Right d, pure (), left (DynamicReaderSystem f))
+
+instance ArrowLoop DynamicReaderSystem where
+  loop (DynamicReaderSystem f) = DynamicReaderSystem $ \w b ->
+    let ((c, d), access, f') = f w (b, d) in (c, access, loop f')
 
 instance ArrowDynamicReaderSystem DynamicQueryReader DynamicReaderSystem where
   allDyn cIds q = DynamicReaderSystem $ \w i ->

@@ -31,6 +31,13 @@ instance (Monad m) => Arrow (DynamicScheduleT m) where
     (c, f') <- f b
     return ((c, d), first f')
 
+instance (Monad m) => ArrowChoice (DynamicScheduleT m) where
+  left (DynamicSchedule f) = DynamicSchedule $ \i -> case i of
+    Left b -> do
+      (c, f') <- f b
+      return (Left c, left f')
+    Right d -> return (Right d, left (DynamicSchedule f))
+
 instance (MonadFix m) => ArrowLoop (DynamicScheduleT m) where
   loop (DynamicSchedule f) = DynamicSchedule $ \b -> do
     rec ((c, d), f') <- f (b, d)

@@ -13,8 +13,8 @@ import Aztecs.ECS.Schedule.Reader.Class
 import Aztecs.ECS.System.Dynamic.Reader (DynamicReaderSystem (..))
 import Aztecs.ECS.System.Reader (ReaderSystem (..))
 import Aztecs.ECS.World.Components (Components)
-import Control.Arrow (Arrow (..), ArrowLoop (..))
-import Control.Category (Category (..))
+import Control.Arrow
+import Control.Category
 import Control.Monad.Fix
 import Control.Monad.Identity (Identity (runIdentity))
 import Control.Monad.State (MonadState (..))
@@ -36,6 +36,9 @@ instance (Monad m) => Category (ReaderScheduleT m) where
 instance (Monad m) => Arrow (ReaderScheduleT m) where
   arr f = ReaderSchedule $ \cs -> (arr f, cs)
   first (ReaderSchedule f) = ReaderSchedule $ \cs -> let (f', cs') = f cs in (first f', cs')
+
+instance (Monad m) => ArrowChoice (ReaderScheduleT m) where
+  left (ReaderSchedule f) = ReaderSchedule $ \cs -> let (f', cs') = f cs in (left f', cs')
 
 instance (MonadFix m) => ArrowLoop (ReaderScheduleT m) where
   loop (ReaderSchedule f) = ReaderSchedule $ \cs -> let (f', cs') = f cs in (loop f', cs')

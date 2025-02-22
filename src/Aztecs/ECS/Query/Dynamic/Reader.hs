@@ -17,11 +17,10 @@ import Aztecs.ECS.Entity (EntityID)
 import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Aztecs.ECS.World.Archetype (Archetype)
 import qualified Aztecs.ECS.World.Archetype as A
-import Control.Arrow (Arrow (..), ArrowChoice (..))
-import Control.Category (Category (..))
+import Control.Arrow
+import Control.Category
 import Data.Either (partitionEithers)
 import Data.Set (Set)
-import Prelude hiding (all, any, id, lookup, map, mapM, reads, (.))
 
 -- | Dynamic query for components by ID.
 newtype DynamicQueryReader i o
