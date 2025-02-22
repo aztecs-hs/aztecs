@@ -37,7 +37,7 @@ data DynamicStorage = DynamicStorage
   }
 
 instance Show DynamicStorage where
-  show s = "AnyStorage " ++ show (storageDyn s)
+  show s = "DynamicStorage " ++ show (storageDyn s)
 
 instance NFData DynamicStorage where
   rnf s = storageRnf s (storageDyn s)
