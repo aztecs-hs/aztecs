@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [0.7.0](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.6.0..aztecs-v0.7.0) - 2025-2-22
+
+## Breaking changes
+
+- Aztecs is now split into several repos to avoid build conflicts
+- Make `Asset.load` generic over its query (c1eab71)
+- Make `Dynamic` system classes more generic (9cfe5e4)
+- `ArrowQueueSystem` class (63b8135, ed9775a, 0753684)
+- Generic schedule classes (e47a205, b45f8b6)
+- Make `Transform` generic over its content, create `Transform2D` alias (687e7da)
+- `MonoidBundle` class (03ab028)
+- `ArrowChoice` and `ArrowLoop` instances for `Query` types (a6da1d9)
+- `ArrowChoice` and `ArrowLoop` instances for `Schedule` types (88a0484)
+- `ArrowChoice` and `ArrowLoop` instances for `System` types (8f6b356)
+- Prune `World` and `Query` modules (c54d664)
+- Split up `World` into new `Entities` type (a28f311)
+
+## Features
+
+- Propagate transforms (0f37b04)
+
+## Fixes
+
+- Remove `Parent` components from removed children (8370d71)
+
 ## [0.6.0](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.5.0.1..aztecs-v0.6.0) - 2025-2-19
 
 ## [0.5.0.1](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.5.0.0..aztecs-v0.5.0.1) - 2025-2-17
@@ -14,7 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [0.5.0.0](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.4.0.1..aztecs-v0.5.0.0) - 2025-2-16
 
-# Breaking changes
+## Breaking changes
 
 - New fully-parallel `System` and `Schedule` design (d51f8b0)
   - Still based on arrows, but `Schedule` now exists to explicitly apply any deferred `Access` in order.
