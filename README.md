@@ -42,10 +42,6 @@ For more information, please see the documentation on [Hackage](https://hackage.
 
   SDL text rendering support.
 
-## Running examples
-
-Examples can be run from the root folder of this repo with `cabal run {example}` (such as `cabal run ECS`).
-
 ## Benchmarks
 
 Aztecs is currently faster than [bevy-ecs](https://github.com/bevyengine/bevy/), a popular and high-performance ECS written in Rust, for simple mutating queries.
