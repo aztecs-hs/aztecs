@@ -19,12 +19,12 @@ where
 
 import Aztecs.ECS.Query.Dynamic (DynamicQuery (..))
 import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..))
-import Aztecs.ECS.World (World)
-import qualified Aztecs.ECS.World as W
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (ArchetypeID, Archetypes, Node (..))
 import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Components (ComponentID)
+import Aztecs.ECS.World.Entities (Entities)
+import qualified Aztecs.ECS.World.Entities as E
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
@@ -55,13 +55,13 @@ filterView ::
 filterView cIds f as = View $ Map.filter f (AS.find cIds as)
 
 -- | "Un-view" a `View` back into a `World`.
-unview :: View -> World -> World
-unview v w =
-  w
-    { W.archetypes =
+unview :: View -> Entities -> Entities
+unview v es =
+  es
+    { E.archetypes =
         foldl'
           (\as (aId, n) -> as {AS.nodes = Map.insert aId n (AS.nodes as)})
-          (W.archetypes w)
+          (E.archetypes es)
           (Map.toList $ viewArchetypes v)
     }
 

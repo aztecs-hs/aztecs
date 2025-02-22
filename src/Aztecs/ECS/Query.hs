@@ -34,12 +34,12 @@ import Aztecs.ECS.Query.Dynamic.Class (ArrowDynamicQuery (..))
 import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Aztecs.ECS.Query.Reader (QueryFilter (..), QueryReader (..), with, without)
 import Aztecs.ECS.Query.Reader.Class (ArrowQueryReader (..))
-import Aztecs.ECS.World (World (..))
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
 import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Components (Components)
 import qualified Aztecs.ECS.World.Components as CS
+import Aztecs.ECS.World.Entities (Entities (..))
 import Control.Arrow (Arrow (..), ArrowChoice (..))
 import Control.Category (Category (..))
 import Data.Set (Set)
@@ -129,7 +129,7 @@ disjoint a b =
     || Set.disjoint (writes b) (writes a)
 
 -- | Match all entities.
-all :: Query () a -> World -> ([a], World)
+all :: Query () a -> Entities -> ([a], Entities)
 all q w =
   let (rws, cs', dynQ) = runQuery q (components w)
       as =

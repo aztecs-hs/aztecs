@@ -31,6 +31,7 @@ import Aztecs.ECS.World (World (..))
 import qualified Aztecs.ECS.World as W
 import Aztecs.ECS.World.Bundle (Bundle)
 import Aztecs.ECS.World.Components (Components)
+import Aztecs.ECS.World.Entities (Entities (..))
 import Control.Arrow (Arrow (..), ArrowLoop (..))
 import Control.Category (Category (..))
 import Control.DeepSeq
@@ -78,7 +79,7 @@ instance (Monad m) => ArrowReaderSchedule ReaderSystem (Schedule m) where
     let (dynS, _, cs') = runReaderSystem s cs
         go dynSAcc i = AccessT $ do
           w <- get
-          let (o, a, dynSAcc') = runReaderSystemDyn dynSAcc w i
+          let (o, a, dynSAcc') = runReaderSystemDyn dynSAcc (W.entities w) i
               ((), w') = runIdentity $ runAccessT a w
           put w'
           return (o, DynamicSchedule $ go dynSAcc')
@@ -89,8 +90,8 @@ instance (Monad m) => ArrowSchedule System (Schedule m) where
     let (dynS, _, cs') = runSystem s cs
         go dynSAcc i = AccessT $ do
           w <- get
-          let (o, v, a, dynSAcc') = runSystemDyn dynSAcc w i
-              ((), w') = runIdentity $ runAccessT a $ V.unview v w
+          let (o, v, a, dynSAcc') = runSystemDyn dynSAcc (W.entities w) i
+              ((), w') = runIdentity $ runAccessT a w {W.entities = V.unview v (W.entities w)}
           put w'
           return (o, DynamicSchedule $ go dynSAcc')
      in (DynamicSchedule $ go dynS, cs')
@@ -100,8 +101,8 @@ delay d = Schedule $ \cs -> (delayDyn d, cs)
 
 runSchedule :: (Monad m) => Schedule m i o -> World -> i -> m (o, DynamicSchedule m i o, World)
 runSchedule s w i = do
-  let (f, cs) = runSchedule' s (components w)
-  ((o, f'), w') <- runAccessT (runScheduleDyn f i) w {components = cs}
+  let (f, cs) = runSchedule' s (components $ W.entities w)
+  ((o, f'), w') <- runAccessT (runScheduleDyn f i) w {W.entities = (W.entities w) {components = cs}}
   return (o, f', w')
 
 runSchedule_ :: (Monad m) => Schedule m () () -> m ()

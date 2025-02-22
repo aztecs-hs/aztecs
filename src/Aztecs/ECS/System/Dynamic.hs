@@ -22,8 +22,8 @@ import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
 import Aztecs.ECS.System.Queue (ArrowQueueSystem (..))
 import Aztecs.ECS.View (View)
 import qualified Aztecs.ECS.View as V
-import Aztecs.ECS.World (World (..))
 import Aztecs.ECS.World.Bundle (Bundle)
+import Aztecs.ECS.World.Entities (Entities (..))
 import Control.Arrow
 import Control.Category
 import Control.Parallel (par)
@@ -33,7 +33,7 @@ import Prelude hiding (id, (.))
 newtype DynamicSystem i o = DynamicSystem
   { -- | Run a dynamic system,
     -- producing some output, an updated `View` into the `World`, and any queued `Access`.
-    runSystemDyn :: World -> i -> (o, View, Access (), DynamicSystem i o)
+    runSystemDyn :: Entities -> i -> (o, View, Access (), DynamicSystem i o)
   }
   deriving (Functor)
 

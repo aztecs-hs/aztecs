@@ -12,6 +12,7 @@ import Aztecs.ECS.Schedule.Dynamic.Reader (DynamicReaderScheduleT (..))
 import Aztecs.ECS.Schedule.Reader.Class
 import Aztecs.ECS.System.Dynamic.Reader (DynamicReaderSystem (..))
 import Aztecs.ECS.System.Reader (ReaderSystem (..))
+import Aztecs.ECS.World (World (..))
 import Aztecs.ECS.World.Components (Components)
 import Control.Arrow
 import Control.Category
@@ -48,7 +49,7 @@ instance (Monad m) => ArrowReaderSchedule ReaderSystem (ReaderSchedule m) where
     let (dynS, _, cs') = runReaderSystem s cs
         go dynSAcc i = AccessT $ do
           w <- get
-          let (o, a, dynSAcc') = runReaderSystemDyn dynSAcc w i
+          let (o, a, dynSAcc') = runReaderSystemDyn dynSAcc (entities w) i
               ((), w') = runIdentity $ runAccessT a w
           put w'
           return (o, DynamicReaderSchedule $ go dynSAcc')

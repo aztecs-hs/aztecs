@@ -17,8 +17,8 @@ import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader)
 import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
 import Aztecs.ECS.System.Queue (ArrowQueueSystem (..))
 import qualified Aztecs.ECS.View as V
-import Aztecs.ECS.World (World (..))
 import Aztecs.ECS.World.Bundle (Bundle)
+import Aztecs.ECS.World.Entities (Entities (..))
 import Control.Arrow
 import Control.Category
 import Control.Parallel (par)
@@ -26,7 +26,7 @@ import Prelude hiding (id, (.))
 
 newtype DynamicReaderSystem i o = DynamicReaderSystem
   { -- | Run a dynamic system producing some output
-    runReaderSystemDyn :: World -> i -> (o, Access (), DynamicReaderSystem i o)
+    runReaderSystemDyn :: Entities -> i -> (o, Access (), DynamicReaderSystem i o)
   }
   deriving (Functor)
 
