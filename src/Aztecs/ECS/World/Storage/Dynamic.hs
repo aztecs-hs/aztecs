@@ -58,7 +58,7 @@ dynStorage s =
         Just s' -> let !(a, b) = S.remove i s' in (fmap (dynStorage . S.singleton @s i) a, toDyn b)
         Nothing -> (Nothing, dyn),
       entitiesDyn' = \dyn -> case fromDynamic @(s a) dyn of
-        Just s' -> map fst $ S.all s'
+        Just s' -> map fst $ S.toList s'
         Nothing -> [],
       storageRnf = \dyn -> case fromDynamic @(s a) dyn of
         Just s' -> rnf s'

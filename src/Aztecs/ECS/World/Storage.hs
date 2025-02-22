@@ -14,8 +14,8 @@ class (Typeable (s a), NFData (s a), Typeable a) => Storage s a where
   -- | Storage with a single component.
   singleton :: Int -> a -> s a
 
-  -- | All components in the storage.
-  all :: s a -> [(Int, a)]
+  -- | List of all components in the storage.
+  toList :: s a -> [(Int, a)]
 
   -- | Insert a component into the storage.
   insert :: Int -> a -> s a -> s a
@@ -31,7 +31,7 @@ class (Typeable (s a), NFData (s a), Typeable a) => Storage s a where
 
 instance (Typeable a, NFData a) => Storage IntMap a where
   singleton = IntMap.singleton
-  all = IntMap.toList
+  toList = IntMap.toList
   insert = IntMap.insert
   lookup = IntMap.lookup
   fromAscList = IntMap.fromAscList

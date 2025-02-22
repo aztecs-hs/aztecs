@@ -76,7 +76,7 @@ spawn b w =
       (cIds, components', dynB) = unBundle b (components w')
    in case AS.lookupArchetypeId cIds (archetypes w') of
         Just aId -> fromMaybe (eId, w') $ do
-          node <- AS.lookupNode aId (archetypes w')
+          node <- AS.lookup aId $ archetypes w'
           let arch' = runDynamicBundle dynB eId (nodeArchetype node)
           return
             ( eId,
@@ -206,10 +206,10 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
 
 lookup :: forall a. (Component a) => EntityID -> World -> Maybe a
 lookup e w = do
-  !cId <- CS.lookup @a (components w)
-  !aId <- Map.lookup e (entities w)
-  !node <- AS.lookupNode aId (archetypes w)
-  A.lookupComponent e cId (nodeArchetype node)
+  !cId <- CS.lookup @a $ components w
+  !aId <- Map.lookup e $ entities w
+  !node <- AS.lookup aId $ archetypes w
+  A.lookupComponent e cId $ nodeArchetype node
 
 -- | Insert a component into an entity.
 remove :: forall a. (Component a) => EntityID -> World -> (Maybe a, World)
@@ -231,8 +231,8 @@ removeWithId e cId w = case Map.lookup e (entities w) of
 despawn :: EntityID -> World -> (Map ComponentID Dynamic, World)
 despawn e w =
   let res = do
-        !aId <- Map.lookup e (entities w)
-        !node <- AS.lookupNode aId (archetypes w)
+        !aId <- Map.lookup e $ entities w
+        !node <- AS.lookup aId $ archetypes w
         return (aId, node)
    in case res of
         Just (aId, node) ->

@@ -39,10 +39,10 @@ newtype View = View {viewArchetypes :: Map ArchetypeID Node}
 
 -- | View into all archetypes containing the provided component IDs.
 view :: Set ComponentID -> Archetypes -> View
-view cIds as = View $ AS.lookup cIds as
+view cIds as = View $ AS.find cIds as
 
 viewSingle :: Set ComponentID -> Archetypes -> Maybe View
-viewSingle cIds as = case Map.toList $ AS.lookup cIds as of
+viewSingle cIds as = case Map.toList $ AS.find cIds as of
   [a] -> Just . View $ Map.singleton (fst a) (snd a)
   _ -> Nothing
 
@@ -52,7 +52,7 @@ filterView ::
   (Node -> Bool) ->
   Archetypes ->
   View
-filterView cIds f as = View $ Map.filter f (AS.lookup cIds as)
+filterView cIds f as = View $ Map.filter f (AS.find cIds as)
 
 -- | "Un-view" a `View` back into a `World`.
 unview :: View -> World -> World

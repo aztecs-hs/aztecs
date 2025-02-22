@@ -20,8 +20,8 @@ module Aztecs.ECS.World.Archetypes
     insertArchetype,
     lookupArchetypeId,
     findArchetypeIds,
-    lookupNode,
     lookup,
+    find,
     map,
     adjustArchetype,
     insert,
@@ -115,8 +115,8 @@ findArchetypeIds cIds arches = case mapMaybe (\cId -> Map.lookup cId (componentI
   [] -> Set.empty
 
 -- | Lookup `Archetype`s containing a set of `ComponentID`s.
-lookup :: Set ComponentID -> Archetypes -> Map ArchetypeID Node
-lookup cIds arches = Map.fromSet (\aId -> nodes arches Map.! aId) (findArchetypeIds cIds arches)
+find :: Set ComponentID -> Archetypes -> Map ArchetypeID Node
+find cIds arches = Map.fromSet (\aId -> nodes arches Map.! aId) (findArchetypeIds cIds arches)
 
 -- | Map over `Archetype`s containing a set of `ComponentID`s.
 map :: Set ComponentID -> (Archetype -> (a, Archetype)) -> Archetypes -> ([a], Archetypes)
@@ -131,8 +131,8 @@ map cIds f arches =
 lookupArchetypeId :: Set ComponentID -> Archetypes -> Maybe ArchetypeID
 lookupArchetypeId cIds arches = Map.lookup cIds (archetypeIds arches)
 
-lookupNode :: ArchetypeID -> Archetypes -> Maybe Node
-lookupNode aId arches = Map.lookup aId (nodes arches)
+lookup :: ArchetypeID -> Archetypes -> Maybe Node
+lookup aId arches = Map.lookup aId (nodes arches)
 
 -- | Insert a component into an entity with its `ComponentID`.
 insert ::
@@ -143,7 +143,7 @@ insert ::
   a ->
   Archetypes ->
   (Maybe ArchetypeID, Archetypes)
-insert e aId cId c arches = case lookupNode aId arches of
+insert e aId cId c arches = case lookup aId arches of
   Just node ->
     if Set.member cId (nodeComponentIds node)
       then
@@ -186,7 +186,7 @@ remove ::
   ComponentID ->
   Archetypes ->
   (Maybe (a, ArchetypeID), Archetypes)
-remove e aId cId arches = case lookupNode aId arches of
+remove e aId cId arches = case lookup aId arches of
   Just node -> case lookupArchetypeId (Set.delete cId (nodeComponentIds node)) arches of
     Just nextAId ->
       let !(cs, arch') = A.remove e (nodeArchetype node)

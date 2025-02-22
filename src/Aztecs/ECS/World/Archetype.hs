@@ -15,8 +15,6 @@
 module Aztecs.ECS.World.Archetype
   ( Archetype (..),
     empty,
-    all,
-    allMaybe,
     entities,
     lookupComponent,
     lookupStorage,
@@ -24,22 +22,19 @@ module Aztecs.ECS.World.Archetype
     remove,
     removeStorages,
     insertComponent,
-    withAscList,
+    insertAscList,
   )
 where
 
-import Aztecs.ECS.Component (Component (..), ComponentID)
-import Aztecs.ECS.Entity (EntityID (..))
+import Aztecs.ECS.Component
+import Aztecs.ECS.Entity
 import qualified Aztecs.ECS.World.Storage as S
 import Aztecs.ECS.World.Storage.Dynamic
 import Control.DeepSeq
-import Data.Bifunctor (Bifunctor (..))
-import Data.Dynamic (Dynamic, fromDynamic)
+import Data.Dynamic
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (fromMaybe)
-import GHC.Generics (Generic)
-import Prelude hiding (all, lookup)
+import GHC.Generics
 
 #if !MIN_VERSION_base(4,20,0)
 import Data.Foldable (foldl')
@@ -63,20 +58,8 @@ insertComponent e cId c arch =
         Nothing -> S.singleton @(StorageT a) @a (unEntityId e) c
    in arch {storages = Map.insert cId (dynStorage storage) (storages arch)}
 
-all :: (Component a) => ComponentID -> Archetype -> [(EntityID, a)]
-all cId arch = fromMaybe [] $ do
-  s <- lookupStorage cId arch
-  return . map (first EntityID) $ S.all s
-
 member :: ComponentID -> Archetype -> Bool
 member cId arch = Map.member cId (storages arch)
-
-allMaybe :: (Component a) => ComponentID -> Archetype -> [(EntityID, Maybe a)]
-allMaybe cId arch = case lookupStorage cId arch of
-  Just s -> map (\(i, a) -> (EntityID i, Just a)) $ S.all s
-  Nothing -> case Map.toList $ storages arch of
-    [] -> []
-    (_, s) : _ -> map (\i -> (EntityID i, Nothing)) $ entitiesDyn s
 
 entities :: Archetype -> [EntityID]
 entities arch = case Map.toList $ storages arch of
@@ -86,16 +69,11 @@ entities arch = case Map.toList $ storages arch of
 lookupComponent :: forall a. (Component a) => EntityID -> ComponentID -> Archetype -> Maybe a
 lookupComponent e cId w = lookupStorage cId w >>= S.lookup (unEntityId e)
 
-withAscList :: forall a. (Component a) => ComponentID -> [a] -> Archetype -> Archetype
-withAscList cId as arch =
-  let !storages' =
-        Map.adjust
-          ( \s ->
-              (dynStorage $ S.fromAscList @(StorageT a) (zip (entitiesDyn s) as))
-          )
-          cId
-          (storages arch)
-   in arch {storages = storages'}
+-- | Insert a list of components into the archetype, sorted in ascending order by their `EntityID`.
+insertAscList :: forall a. (Component a) => ComponentID -> [(EntityID, a)] -> Archetype -> Archetype
+insertAscList cId as arch =
+  let !storage = dynStorage $ S.fromAscList @(StorageT a) (map (\(e, a) -> (unEntityId e, a)) as)
+   in arch {storages = Map.insert cId storage (storages arch)}
 
 remove :: EntityID -> Archetype -> (Map ComponentID Dynamic, Archetype)
 remove e arch =
@@ -105,9 +83,7 @@ remove e arch =
             !dynAcc' = case dynA of
               Just d -> Map.insert cId d dynAcc
               Nothing -> dynAcc
-         in ( dynAcc',
-              archAcc {storages = Map.insert cId dynS $ storages archAcc}
-            )
+         in (dynAcc', archAcc {storages = Map.insert cId dynS $ storages archAcc})
     )
     (Map.empty, arch)
     (Map.toList $ storages arch)
@@ -120,9 +96,7 @@ removeStorages e arch =
             dynAcc' = case dynA of
               Just d -> Map.insert cId d dynAcc
               Nothing -> dynAcc
-         in ( dynAcc',
-              archAcc {storages = Map.insert cId dynS $ storages archAcc}
-            )
+         in (dynAcc', archAcc {storages = Map.insert cId dynS $ storages archAcc})
     )
     (Map.empty, arch)
     (Map.toList $ storages arch)

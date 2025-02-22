@@ -135,5 +135,5 @@ all q w =
       as =
         fmap
           (\n -> fst $ dynQueryAll dynQ (repeat ()) (A.entities $ nodeArchetype n) (nodeArchetype n))
-          (AS.lookup (reads rws <> writes rws) (archetypes w))
+          (AS.find (reads rws <> writes rws) (archetypes w))
    in (concat as, w {components = cs'})
