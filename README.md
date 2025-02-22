@@ -7,48 +7,13 @@
 A modular game engine and [ECS](https://en.wikipedia.org/wiki/Entity_component_system) for Haskell.
 An ECS is a modern approach to organizing your application state as a database,
 providing patterns for data-oriented design and parallel processing.
+
 Aztecs provides side-effect free components and systems, as well as backends for rendering and input (such as `aztecs-sdl`), allowing you to structure your game as simple function of `Input -> World -> World`.
 For more information, please see the documentation on [Hackage](https://hackage.haskell.org/package/aztecs/).
 
 [Aztecs: An Empirical Entity Component System (ECS) for Haskell](https://github.com/aztecs-hs/paper) [Draft]
 
-[Examples](https://github.com/aztecs-hs/aztecs/tree/main/examples)
-
-```hs
-import Aztecs
-import qualified Aztecs.ECS.Access as A
-import qualified Aztecs.ECS.Query as Q
-import qualified Aztecs.ECS.System as S
-import Control.Arrow ((>>>))
-import Control.DeepSeq
-import GHC.Generics (Generic)
-
-newtype Position = Position Int deriving (Show, Generic, NFData)
-
-instance Component Position
-
-newtype Velocity = Velocity Int deriving (Show, Generic, NFData)
-
-instance Component Velocity
-
-setup :: (ArrowQueueSystem b m arr) => arr () ()
-setup = S.queue . const . A.spawn_ $ bundle (Position 0) <> bundle (Velocity 1)
-
-move :: (ArrowQuery q, ArrowSystem q arr) => arr () [Position]
-move =
-  S.map
-    ( proc () -> do
-        Velocity v <- Q.fetch -< ()
-        Position p <- Q.fetch -< ()
-        Q.set -< Position $ p + v
-    )
-
-app :: Schedule IO () ()
-app = system setup >>> forever (system move) print
-
-main :: IO ()
-main = runSchedule_ app
-```
+[Examples](https://github.com/aztecs-hs/examples)
 
 ## Features
 
