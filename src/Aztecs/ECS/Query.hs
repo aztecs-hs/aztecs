@@ -135,7 +135,7 @@ all :: Query () a -> Entities -> ([a], Entities)
 all q w =
   let (rws, cs', dynQ) = runQuery q (components w)
       cIds = reads rws <> writes rws
-      go es arch = fst $ dynQueryAll dynQ (replicate (length es) ()) es arch
+      go es arch = fst $ runDynQuery dynQ (replicate (length es) ()) es arch
       as =
         if Set.null cIds
           then go (Map.keys $ E.entities w) A.empty

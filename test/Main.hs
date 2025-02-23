@@ -3,7 +3,10 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Main (main) where
 
@@ -36,24 +39,29 @@ instance Component Z
 main :: IO ()
 main = hspec $ do
   describe "Aztecs.ECS.Query.all" $ do
-    it "queries entities" $ property prop_queryEntity
-    it "queries a single component" $ property prop_queryOneComponent
-    it "queries two components" $ property prop_queryTwoComponents
-    it "queries three components" $ property prop_queryThreeComponents
-    it "queries a dynamic component" $ property prop_queryDyn
+    it "queries dynamic components" $ property prop_queryDyn
+    it "queries a typed component" $ property prop_queryTypedComponent
+    it "queries 2 typed components" $ property prop_queryTwoTypedComponents
+    it "queries 3 typed components" $ property prop_queryThreeTypedComponents
   describe "Aztecs.ECS.Hierarchy.update" $ do
     it "adds Parent components to children" $ property prop_addParents
     it "removes Parent components from removed children" $ property prop_removeParents
   describe "Aztecs.ECS.Schedule" $ do
     it "queries entities" $ property prop_scheduleQueryEntity
-    it "increments components" prop_quit
+    it "updates components" prop_scheduleUpdate
 
-prop_queryEntity :: [X] -> Expectation
-prop_queryEntity xs = do
-  let go x (eAcc, wAcc) = let (e, wAcc') = W.spawn (bundle x) wAcc in (e : eAcc, wAcc')
-      (es, w) = foldr go ([], W.empty) xs
-      (res, _) = Q.all Q.entity $ W.entities w
-  res `shouldMatchList` es
+-- | Query all components from a list of `ComponentID`s.
+queryComponentIds ::
+  forall q a.
+  (ArrowDynamicQueryReader q, Component a) =>
+  [ComponentID] ->
+  q () (EntityID, [a])
+queryComponentIds =
+  let go cId qAcc = proc () -> do
+        x' <- Q.fetchDyn @_ @a cId -< ()
+        (e, xs) <- qAcc -< ()
+        returnA -< (e, x' : xs)
+   in foldr go (Q.entity &&& arr (const []))
 
 prop_queryDyn :: [[X]] -> Expectation
 prop_queryDyn xs =
@@ -67,30 +75,26 @@ prop_queryDyn xs =
             (e, wAcc') = W.spawn b wAcc
          in ((e, cs) : acc, wAcc')
       (es, w) = foldr spawn ([], W.empty) xs
-      buildQuery (_, cId) qAcc = proc () -> do
-        x' <- Q.fetchDyn cId -< ()
-        (e, xs'') <- qAcc -< ()
-        returnA -< (e, x' : xs'')
       go (e, cs) =
-        let q = foldr buildQuery (Q.entity &&& arr (const [])) cs
+        let q = queryComponentIds $ map snd cs
             (res, _) = Q.all q $ W.entities w
          in res `shouldContain` [(e, map fst cs)]
    in mapM_ go es
 
-prop_queryOneComponent :: [X] -> Expectation
-prop_queryOneComponent xs =
+prop_queryTypedComponent :: [X] -> Expectation
+prop_queryTypedComponent xs =
   let w = foldr (\x -> snd . W.spawn (bundle x)) W.empty xs
       (res, _) = Q.all Q.fetch $ W.entities w
    in res `shouldMatchList` xs
 
-prop_queryTwoComponents :: [(X, Y)] -> Expectation
-prop_queryTwoComponents xys =
+prop_queryTwoTypedComponents :: [(X, Y)] -> Expectation
+prop_queryTwoTypedComponents xys =
   let w = foldr (\(x, y) -> snd . W.spawn (bundle x <> bundle y)) W.empty xys
       (res, _) = Q.all (Q.fetch &&& Q.fetch) $ W.entities w
    in res `shouldMatchList` xys
 
-prop_queryThreeComponents :: [(X, Y, Z)] -> Expectation
-prop_queryThreeComponents xyzs =
+prop_queryThreeTypedComponents :: [(X, Y, Z)] -> Expectation
+prop_queryThreeTypedComponents xyzs =
   let w = foldr (\(x, y, z) -> snd . W.spawn (bundle x <> bundle y <> bundle z)) W.empty xyzs
       q = do
         x <- Q.fetch
@@ -125,15 +129,15 @@ prop_scheduleQueryEntity xs = do
   (res, _, _) <- runSchedule (reader $ S.all Q.entity) w ()
   res `shouldMatchList` es
 
-prop_quit :: Expectation
-prop_quit = do
+prop_scheduleUpdate :: Expectation
+prop_scheduleUpdate = do
   let (_, w) = W.spawn (bundle $ X 1) W.empty
-  (_, _, w') <- runSchedule quit w ()
-  (x, _, _) <- runSchedule quit w' ()
+  (_, _, w') <- runSchedule update w ()
+  (x, _, _) <- runSchedule update w' ()
   x `shouldBe` True
 
-quit :: Schedule IO () Bool
-quit = proc () -> do
+update :: Schedule IO () Bool
+update = proc () -> do
   rec lastShouldQuit <- delay False -< shouldQuit
       x <-
         system $

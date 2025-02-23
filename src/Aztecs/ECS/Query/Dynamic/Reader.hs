@@ -25,7 +25,7 @@ import Data.Set (Set)
 
 -- | Dynamic query for components by ID.
 newtype DynamicQueryReader i o
-  = DynamicQueryReader {dynQueryReaderAll :: [i] -> [EntityID] -> Archetype -> [o]}
+  = DynamicQueryReader {runDynQueryReader :: [i] -> [EntityID] -> Archetype -> [o]}
   deriving (Functor)
 
 instance Applicative (DynamicQueryReader i) where
@@ -33,26 +33,26 @@ instance Applicative (DynamicQueryReader i) where
 
   f <*> g =
     DynamicQueryReader $ \i es arch ->
-      let as = dynQueryReaderAll g i es arch
-          fs = dynQueryReaderAll f i es arch
+      let as = runDynQueryReader g i es arch
+          fs = runDynQueryReader f i es arch
        in zipWith ($) fs as
 
 instance Category DynamicQueryReader where
   id = DynamicQueryReader $ \as _ _ -> as
   f . g = DynamicQueryReader $ \i es arch ->
-    let as = dynQueryReaderAll g i es arch in dynQueryReaderAll f as es arch
+    let as = runDynQueryReader g i es arch in runDynQueryReader f as es arch
 
 instance Arrow DynamicQueryReader where
   arr f = DynamicQueryReader $ \bs _ _ -> fmap f bs
   first f = DynamicQueryReader $ \bds es arch ->
     let (bs, ds) = unzip bds
-        cs = dynQueryReaderAll f bs es arch
+        cs = runDynQueryReader f bs es arch
      in zip cs ds
 
 instance ArrowChoice DynamicQueryReader where
   left f = DynamicQueryReader $ \eds es arch ->
     let (es', ds) = partitionEithers eds
-        cs = dynQueryReaderAll f es' es arch
+        cs = runDynQueryReader f es' es arch
      in fmap Left cs ++ fmap Right ds
 
 instance ArrowDynamicQueryReader DynamicQueryReader where

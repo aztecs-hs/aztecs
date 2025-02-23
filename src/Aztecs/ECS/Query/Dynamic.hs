@@ -27,34 +27,34 @@ import Prelude hiding ((.))
 
 -- | Dynamic query for components by ID.
 newtype DynamicQuery i o
-  = DynamicQuery {dynQueryAll :: [i] -> [EntityID] -> Archetype -> ([o], Archetype)}
+  = DynamicQuery {runDynQuery :: [i] -> [EntityID] -> Archetype -> ([o], Archetype)}
   deriving (Functor)
 
 instance Applicative (DynamicQuery i) where
   pure a = DynamicQuery $ \_ es arch -> (replicate (length es) a, arch)
 
   f <*> g = DynamicQuery $ \i es arch ->
-    let (as, arch') = dynQueryAll g i es arch
-        (fs, arch'') = dynQueryAll f i es arch'
+    let (as, arch') = runDynQuery g i es arch
+        (fs, arch'') = runDynQuery f i es arch'
      in (zipWith ($) fs as, arch'')
 
 instance Category DynamicQuery where
   id = DynamicQuery $ \as _ arch -> (as, arch)
 
   f . g = DynamicQuery $ \i es arch ->
-    let (as, arch') = dynQueryAll g i es arch in dynQueryAll f as es arch'
+    let (as, arch') = runDynQuery g i es arch in runDynQuery f as es arch'
 
 instance Arrow DynamicQuery where
   arr f = DynamicQuery $ \bs _ arch -> (fmap f bs, arch)
   first f = DynamicQuery $ \bds es arch ->
     let (bs, ds) = unzip bds
-        (cs, arch') = dynQueryAll f bs es arch
+        (cs, arch') = runDynQuery f bs es arch
      in (zip cs ds, arch')
 
 instance ArrowChoice DynamicQuery where
   left f = DynamicQuery $ \eds es arch ->
     let (es', ds) = partitionEithers eds
-        (cs, arch') = dynQueryAll f es' es arch
+        (cs, arch') = runDynQuery f es' es arch
      in (fmap Left cs ++ fmap Right ds, arch')
 
 instance ArrowDynamicQueryReader DynamicQuery where
@@ -68,4 +68,4 @@ instance ArrowDynamicQuery DynamicQuery where
 
 fromDynReader :: DynamicQueryReader i o -> DynamicQuery i o
 fromDynReader q = DynamicQuery $ \is es arch ->
-  let os = dynQueryReaderAll q is es arch in (os, arch)
+  let os = runDynQueryReader q is es arch in (os, arch)

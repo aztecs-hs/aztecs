@@ -60,7 +60,7 @@ instance (Monad m) => ArrowDynamicReaderSystem DynamicQueryReader (DynamicReader
   allDyn cIds q = DynamicReaderSystem $ \w i ->
     let !v = V.view cIds $ archetypes w
      in if V.null v
-          then (dynQueryReaderAll q (repeat i) (Map.keys $ entities w) A.empty, pure (), allDyn cIds q)
+          then (runDynQueryReader q (repeat i) (Map.keys $ entities w) A.empty, pure (), allDyn cIds q)
           else (V.readAllDyn i q v, pure (), allDyn cIds q)
   filterDyn cIds q f = DynamicReaderSystem $ \w i ->
     let !v = V.filterView cIds f $ archetypes w
