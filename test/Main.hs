@@ -8,12 +8,13 @@
 module Main (main) where
 
 import Aztecs
+import Aztecs.ECS.Component (ComponentID (ComponentID))
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
 import qualified Aztecs.ECS.World as W
 import Aztecs.Hierarchy (Children (..), Parent (..))
 import qualified Aztecs.Hierarchy as Hierarchy
-import Control.Arrow (returnA, (&&&))
+import Control.Arrow (Arrow (..), returnA, (&&&))
 import Control.DeepSeq
 import qualified Data.Set as Set
 import GHC.Generics
@@ -39,6 +40,7 @@ main = hspec $ do
     it "queries a single component" $ property prop_queryOneComponent
     it "queries two components" $ property prop_queryTwoComponents
     it "queries three components" $ property prop_queryThreeComponents
+    it "queries a dynamic component" $ property prop_queryDyn
   describe "Aztecs.ECS.Hierarchy.update" $ do
     it "adds Parent components to children" $ property prop_addParents
     it "removes Parent components from removed children" $ property prop_removeParents
@@ -52,6 +54,28 @@ prop_queryEntity xs = do
       (es, w) = foldr go ([], W.empty) xs
       (res, _) = Q.all Q.entity $ W.entities w
   res `shouldMatchList` es
+
+prop_queryDyn :: [[X]] -> Expectation
+prop_queryDyn xs =
+  let spawn xs' (acc, wAcc) =
+        let spawn' x (bAcc, cAcc, idAcc) =
+              ( dynBundle (ComponentID idAcc) x <> bAcc,
+                (x, ComponentID idAcc) : cAcc,
+                idAcc + 1
+              )
+            (b, cs, _) = foldr spawn' (mempty, [], 0) xs'
+            (e, wAcc') = W.spawn b wAcc
+         in ((e, cs) : acc, wAcc')
+      (es, w) = foldr spawn ([], W.empty) xs
+      buildQuery (_, cId) qAcc = proc () -> do
+        x' <- Q.fetchDyn cId -< ()
+        (e, xs'') <- qAcc -< ()
+        returnA -< (e, x' : xs'')
+      go (e, cs) =
+        let q = foldr buildQuery (Q.entity &&& arr (const [])) cs
+            (res, _) = Q.all q $ W.entities w
+         in res `shouldContain` [(e, map fst cs)]
+   in mapM_ go es
 
 prop_queryOneComponent :: [X] -> Expectation
 prop_queryOneComponent xs =
