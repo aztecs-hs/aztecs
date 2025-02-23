@@ -12,15 +12,17 @@ module Aztecs.ECS.System.Dynamic.Reader
 where
 
 import Aztecs.ECS.Access (Access)
-import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader)
+import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (dynQueryReaderAll))
 import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
 import Aztecs.ECS.System.Queue (ArrowQueueSystem (..))
 import qualified Aztecs.ECS.View as V
+import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Bundle (Bundle)
 import Aztecs.ECS.World.Entities (Entities (..))
 import Control.Arrow
 import Control.Category
 import Control.Parallel (par)
+import qualified Data.Map as Map
 import Prelude hiding (id, (.))
 
 newtype DynamicReaderSystem i o = DynamicReaderSystem
@@ -52,7 +54,10 @@ instance ArrowLoop DynamicReaderSystem where
 
 instance ArrowDynamicReaderSystem DynamicQueryReader DynamicReaderSystem where
   allDyn cIds q = DynamicReaderSystem $ \w i ->
-    let !v = V.view cIds $ archetypes w in (V.readAllDyn i q v, pure (), allDyn cIds q)
+    let !v = V.view cIds $ archetypes w
+     in if V.null v
+          then (dynQueryReaderAll q (repeat i) (Map.keys $ entities w) A.empty, pure (), allDyn cIds q)
+          else (V.readAllDyn i q v, pure (), allDyn cIds q)
   filterDyn cIds q f = DynamicReaderSystem $ \w i ->
     let !v = V.filterView cIds f $ archetypes w
      in (V.readAllDyn i q v, pure (), filterDyn cIds q f)

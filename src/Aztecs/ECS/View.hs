@@ -10,6 +10,7 @@ module Aztecs.ECS.View
     view,
     viewSingle,
     filterView,
+    null,
     unview,
     allDyn,
     singleDyn,
@@ -28,6 +29,7 @@ import qualified Aztecs.ECS.World.Entities as E
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
+import Prelude hiding (null)
 
 #if !MIN_VERSION_base(4,20,0)
 import Data.Foldable (foldl')
@@ -53,6 +55,9 @@ filterView ::
   Archetypes ->
   View
 filterView cIds f as = View $ Map.filter f (AS.find cIds as)
+
+null :: View -> Bool
+null = Map.null . viewArchetypes
 
 -- | "Un-view" a `View` back into a `World`.
 unview :: View -> Entities -> Entities

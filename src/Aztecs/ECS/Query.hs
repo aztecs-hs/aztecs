@@ -40,8 +40,10 @@ import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Components (Components)
 import qualified Aztecs.ECS.World.Components as CS
 import Aztecs.ECS.World.Entities (Entities (..))
+import qualified Aztecs.ECS.World.Entities as E
 import Control.Arrow (Arrow (..), ArrowChoice (..))
 import Control.Category (Category (..))
+import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Prelude hiding (all, id, reads, (.))
@@ -132,8 +134,14 @@ disjoint a b =
 all :: Query () a -> Entities -> ([a], Entities)
 all q w =
   let (rws, cs', dynQ) = runQuery q (components w)
+      cIds = reads rws <> writes rws
+      go es arch = fst $ dynQueryAll dynQ (repeat ()) es arch
       as =
-        fmap
-          (\n -> fst $ dynQueryAll dynQ (repeat ()) (A.entities $ nodeArchetype n) (nodeArchetype n))
-          (AS.find (reads rws <> writes rws) (archetypes w))
-   in (concat as, w {components = cs'})
+        if Set.null cIds
+          then go (Map.keys $ E.entities w) A.empty
+          else
+            concat $
+              fmap
+                (\n -> go (A.entities $ nodeArchetype n) (nodeArchetype n))
+                (AS.find cIds (archetypes w))
+   in (as, w {components = cs'})

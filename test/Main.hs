@@ -1,6 +1,7 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE Arrows #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -34,6 +35,7 @@ instance Component Z
 main :: IO ()
 main = hspec $ do
   describe "Aztecs.ECS.Query.all" $ do
+    it "queries entities" $ property prop_queryEntity
     it "queries a single component" $ property prop_queryOneComponent
     it "queries two components" $ property prop_queryTwoComponents
     it "queries three components" $ property prop_queryThreeComponents
@@ -41,7 +43,15 @@ main = hspec $ do
     it "adds Parent components to children" $ property prop_addParents
     it "removes Parent components from removed children" $ property prop_removeParents
   describe "Aztecs.ECS.Schedule" $ do
+    it "queries entities" $ property prop_scheduleQueryEntity
     it "increments components" prop_quit
+
+prop_queryEntity :: [X] -> Expectation
+prop_queryEntity xs = do
+  let go x (eAcc, wAcc) = let (e, wAcc') = W.spawn (bundle x) wAcc in (e : eAcc, wAcc')
+      (es, w) = foldr go ([], W.empty) xs
+      (res, _) = Q.all Q.entity $ W.entities w
+  res `shouldMatchList` es
 
 prop_queryOneComponent :: [X] -> Expectation
 prop_queryOneComponent xs =
@@ -83,6 +93,13 @@ prop_removeParents = do
   (_, _, w'''') <- runSchedule (system Hierarchy.update) w''' ()
   let (res, _) = Q.all (Q.fetch @_ @Parent) $ W.entities w''''
   res `shouldMatchList` []
+
+prop_scheduleQueryEntity :: [X] -> Expectation
+prop_scheduleQueryEntity xs = do
+  let go x (eAcc, wAcc) = let (e, wAcc') = W.spawn (bundle x) wAcc in (e : eAcc, wAcc')
+      (es, w) = foldr go ([], W.empty) xs
+  (res, _, _) <- runSchedule (reader $ S.all Q.entity) w ()
+  res `shouldMatchList` es
 
 prop_quit :: Expectation
 prop_quit = do
