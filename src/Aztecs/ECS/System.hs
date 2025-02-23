@@ -13,18 +13,16 @@ module Aztecs.ECS.System
   )
 where
 
-import Aztecs.ECS.Access (AccessT)
-import Aztecs.ECS.Query (Query (..), QueryFilter (..), ReadsWrites (..))
+import Aztecs.ECS.Access
+import Aztecs.ECS.Query (Query (..), ReadsWrites (..))
 import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.Query.Reader (QueryReader (..), filterWith, filterWithout)
-import Aztecs.ECS.System.Class (ArrowSystem (..))
-import Aztecs.ECS.System.Dynamic (DynamicSystemT (..), fromDynReaderSystem, raceDyn)
-import Aztecs.ECS.System.Dynamic.Class (ArrowDynamicSystem (..))
-import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
+import Aztecs.ECS.Query.Reader
+import Aztecs.ECS.System.Class
+import Aztecs.ECS.System.Dynamic
 import Aztecs.ECS.System.Reader
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
-import Aztecs.ECS.World.Bundle (Bundle)
+import Aztecs.ECS.World.Bundle
 import Aztecs.ECS.World.Components (Components)
 import Control.Arrow
 import Control.Category
@@ -66,15 +64,8 @@ instance (Monad m) => ArrowLoop (SystemT m) where
   loop (System f) = System $ \cs -> let (f', rwsF, cs') = f cs in (loop f', rwsF, cs')
 
 instance (Monad m) => ArrowReaderSystem QueryReader (SystemT m) where
-  all q = System $ \cs ->
-    let !(rs, cs', dynQ) = runQueryReader q cs in (allDyn rs dynQ, ReadsWrites rs mempty, cs')
-  filter q qf = System $ \cs ->
-    let !(rs, cs', dynQ) = runQueryReader q cs
-        !(dynQf, cs'') = runQueryFilter qf cs'
-        qf' n =
-          F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynQf)
-            && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynQf)
-     in (filterDyn rs dynQ qf', ReadsWrites rs mempty, cs'')
+  all = fromReader . all
+  filter q = fromReader . filter q
 
 instance (Monad m) => ArrowSystem Query (SystemT m) where
   map q = System $ \cs ->

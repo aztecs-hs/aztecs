@@ -1,5 +1,4 @@
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
@@ -47,10 +46,6 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Generics (Generic)
 import Prelude hiding (all, lookup, map)
-
-#if !MIN_VERSION_base(4,20,0)
-import Data.Foldable (foldl')
-#endif
 
 -- | `Archetype` ID.
 newtype ArchetypeID = ArchetypeID {unArchetypeId :: Int}
@@ -155,13 +150,13 @@ insert e aId cId c arches = case lookup aId arches of
               node' = node {nodeArchetype = arch'}
               !arches' = arches {nodes = Map.insert aId node' (nodes arches)}
               f archAcc (itemCId, dyn) =
-                let go s = insertDyn (unEntityId e) dyn s
-                    storages' = Map.adjust go itemCId (storages archAcc)
+                let storages' = Map.adjust go itemCId (storages archAcc)
+                    go = insertDyn (unEntityId e) dyn
                  in archAcc {storages = storages'}
               adjustNode nextNode =
                 let nextArch = foldl' f (nodeArchetype nextNode) (Map.toList cs)
                  in nextNode {nodeArchetype = insertComponent e cId c nextArch}
-           in (Just nextAId, arches' {nodes = Map.adjust adjustNode nextAId (nodes $ arches')})
+           in (Just nextAId, arches' {nodes = Map.adjust adjustNode nextAId (nodes arches')})
         Nothing ->
           let !(s, arch') = removeStorages e (nodeArchetype node)
               !n =
@@ -193,12 +188,12 @@ remove e aId cId arches = case lookup aId arches of
           !arches' = arches {nodes = Map.insert aId node {nodeArchetype = arch'} (nodes arches)}
           (a, cs') = Map.updateLookupWithKey (\_ _ -> Nothing) cId cs
           go' archAcc (itemCId, dyn) =
-            let adjustStorage s = insertDyn (unEntityId e) dyn s
+            let adjustStorage = insertDyn (unEntityId e) dyn
              in archAcc {storages = Map.adjust adjustStorage itemCId (storages archAcc)}
           go nextNode =
             nextNode {nodeArchetype = foldl' go' (nodeArchetype nextNode) (Map.toList cs')}
        in ( (,nextAId) <$> (a >>= fromDynamic),
-            arches' {nodes = Map.adjust go nextAId (nodes $ arches')}
+            arches' {nodes = Map.adjust go nextAId (nodes arches')}
           )
     Nothing ->
       let !(cs, arch') = removeStorages e (nodeArchetype node)
@@ -212,7 +207,7 @@ remove e aId cId arches = case lookup aId arches of
               }
           !(nextAId, arches') = insertArchetype (Set.insert cId (nodeComponentIds node)) n arches
           node' = node {nodeArchetype = arch', nodeAdd = Map.insert cId nextAId (nodeAdd node)}
-       in ( (,nextAId) <$> (a >>= (\a' -> (fst $ removeDyn (unEntityId e) a') >>= fromDynamic)),
+       in ( (,nextAId) <$> (a >>= (\a' -> fst (removeDyn (unEntityId e) a') >>= fromDynamic)),
             arches' {nodes = Map.insert aId node' (nodes arches')}
           )
   Nothing -> (Nothing, arches)

@@ -1,5 +1,4 @@
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -40,10 +39,6 @@ import qualified Data.Set as Set
 import Data.Typeable
 import GHC.Generics
 import Prelude hiding (lookup)
-
-#if !MIN_VERSION_base(4,20,0)
-import Data.Foldable (foldl')
-#endif
 
 -- | World of entities and their components.
 data Entities = Entities

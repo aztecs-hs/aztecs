@@ -140,8 +140,5 @@ all q w =
         if Set.null cIds
           then go (Map.keys $ E.entities w) A.empty
           else
-            concat $
-              fmap
-                (\n -> go (A.entities $ nodeArchetype n) (nodeArchetype n))
-                (AS.find cIds (archetypes w))
+            concatMap (\n -> go (A.entities $ nodeArchetype n) (nodeArchetype n)) (AS.find cIds (archetypes w))
    in (as, w {components = cs'})

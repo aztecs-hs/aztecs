@@ -1,5 +1,4 @@
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -57,7 +56,7 @@ dynStorage s =
       entitiesDyn' = \dyn -> case fromDynamic @(s a) dyn of
         Just s' -> map fst $ S.toList s'
         Nothing -> [],
-      storageRnf = \dyn -> maybe () rnf (fromDynamic @(s a) dyn)
+      storageRnf = maybe () rnf . fromDynamic @(s a)
     }
 
 insertDyn :: Int -> Dynamic -> DynamicStorage -> DynamicStorage

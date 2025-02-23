@@ -1,9 +1,7 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Aztecs.ECS.View
   ( View (..),
@@ -31,10 +29,6 @@ import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 import Prelude hiding (null)
 
-#if !MIN_VERSION_base(4,20,0)
-import Data.Foldable (foldl')
-#endif
-
 -- | View into a `World`, containing a subset of archetypes.
 newtype View = View {viewArchetypes :: Map ArchetypeID Node}
   deriving (Show, Semigroup, Monoid)
@@ -45,7 +39,7 @@ view cIds as = View $ AS.find cIds as
 
 viewSingle :: Set ComponentID -> Archetypes -> Maybe View
 viewSingle cIds as = case Map.toList $ AS.find cIds as of
-  [a] -> Just . View $ Map.singleton (fst a) (snd a)
+  [a] -> Just . View $ uncurry Map.singleton a
   _ -> Nothing
 
 -- | View into all archetypes containing the provided component IDs and matching the provided predicate.
@@ -87,7 +81,7 @@ allDyn i q v =
 singleDyn :: i -> DynamicQuery i a -> View -> (Maybe a, View)
 singleDyn i q v = case allDyn i q v of
   -- TODO [a], removing this errors for now
-  ((a : _), v') -> (Just a, v')
+  (a : _, v') -> (Just a, v')
   _ -> (Nothing, v)
 
 -- | Query all matching entities in a `View`.
