@@ -4,7 +4,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Aztecs.ECS.System
-  ( System (..),
+  ( System,
+    SystemT (..),
     ArrowReaderSystem (..),
     ArrowSystem (..),
     ArrowQueueSystem (..),
@@ -12,42 +13,43 @@ module Aztecs.ECS.System
   )
 where
 
-import Aztecs.ECS.Access (Access)
+import Aztecs.ECS.Access (AccessT)
 import Aztecs.ECS.Query (Query (..), QueryFilter (..), ReadsWrites (..))
 import qualified Aztecs.ECS.Query as Q
 import Aztecs.ECS.Query.Reader (QueryReader (..), filterWith, filterWithout)
 import Aztecs.ECS.System.Class (ArrowSystem (..))
-import Aztecs.ECS.System.Dynamic (DynamicSystem (..), fromDynReaderSystem, raceDyn)
+import Aztecs.ECS.System.Dynamic (DynamicSystemT (..), fromDynReaderSystem, raceDyn)
 import Aztecs.ECS.System.Dynamic.Class (ArrowDynamicSystem (..))
 import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
-import Aztecs.ECS.System.Queue (ArrowQueueSystem (..))
-import Aztecs.ECS.System.Reader (ReaderSystem (..))
-import Aztecs.ECS.System.Reader.Class (ArrowReaderSystem (..), all, filter, single)
+import Aztecs.ECS.System.Reader
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
 import Aztecs.ECS.World.Bundle (Bundle)
 import Aztecs.ECS.World.Components (Components)
 import Control.Arrow
 import Control.Category
+import Control.Monad.Identity
 import qualified Data.Foldable as F
 import Prelude hiding (all, filter, id, map, (.))
 import qualified Prelude hiding (filter, id, map)
 
+type System = SystemT Identity
+
 -- | System to process entities.
-newtype System i o = System
+newtype SystemT m i o = System
   { -- | Run a system, producing a `DynamicSystem` that can be repeatedly run.
-    runSystem :: Components -> (DynamicSystem i o, ReadsWrites, Components)
+    runSystem :: Components -> (DynamicSystemT m i o, ReadsWrites, Components)
   }
   deriving (Functor)
 
-instance Category System where
+instance (Monad m) => Category (SystemT m) where
   id = System $ \cs -> (DynamicSystem $ \_ i -> (i, mempty, pure (), id), mempty, cs)
   System f . System g = System $ \cs ->
     let (f', rwsF, cs') = f cs
         (g', rwsG, cs'') = g cs'
      in (f' . g', rwsF <> rwsG, cs'')
 
-instance Arrow System where
+instance (Monad m) => Arrow (SystemT m) where
   arr f = System $ \cs -> (DynamicSystem $ \_ i -> (f i, mempty, pure (), arr f), mempty, cs)
   first (System f) = System $ \cs ->
     let (f', rwsF, cs') = f cs in (first f', rwsF, cs')
@@ -57,13 +59,13 @@ instance Arrow System where
         dynS = if Q.disjoint rwsA rwsB then dynF &&& dynG else raceDyn dynF dynG
      in (dynS, rwsA <> rwsB, cs'')
 
-instance ArrowChoice System where
+instance (Monad m) => ArrowChoice (SystemT m) where
   left (System f) = System $ \cs -> let (f', rwsF, cs') = f cs in (left f', rwsF, cs')
 
-instance ArrowLoop System where
+instance (Monad m) => ArrowLoop (SystemT m) where
   loop (System f) = System $ \cs -> let (f', rwsF, cs') = f cs in (loop f', rwsF, cs')
 
-instance ArrowReaderSystem QueryReader System where
+instance (Monad m) => ArrowReaderSystem QueryReader (SystemT m) where
   all q = System $ \cs ->
     let !(rs, cs', dynQ) = runQueryReader q cs in (allDyn rs dynQ, ReadsWrites rs mempty, cs')
   filter q qf = System $ \cs ->
@@ -74,7 +76,7 @@ instance ArrowReaderSystem QueryReader System where
             && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynQf)
      in (filterDyn rs dynQ qf', ReadsWrites rs mempty, cs'')
 
-instance ArrowSystem Query System where
+instance (Monad m) => ArrowSystem Query (SystemT m) where
   map q = System $ \cs ->
     let !(rws, cs', dynQ) = runQuery q cs
      in (mapDyn (Q.reads rws <> Q.writes rws) dynQ, rws, cs')
@@ -92,9 +94,9 @@ instance ArrowSystem Query System where
     let !(rws, cs', dynQ) = runQuery q cs
      in (mapSingleMaybeDyn (Q.reads rws <> Q.writes rws) dynQ, rws, cs')
 
-instance ArrowQueueSystem Bundle Access System where
+instance (Monad m) => ArrowQueueSystem Bundle (AccessT m) (SystemT m) where
   queue f = System $ \cs -> (queue f, mempty, cs)
 
-fromReader :: ReaderSystem i o -> System i o
+fromReader :: (Monad m) => ReaderSystemT m i o -> SystemT m i o
 fromReader (ReaderSystem f) = System $ \cs ->
   let (f', rs, cs') = f cs in (fromDynReaderSystem f', ReadsWrites rs mempty, cs')

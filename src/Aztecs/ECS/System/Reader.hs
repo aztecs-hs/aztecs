@@ -4,17 +4,16 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Aztecs.ECS.System.Reader
-  ( ReaderSystem (..),
+  ( ReaderSystem,
+    ReaderSystemT (..),
     ArrowReaderSystem (..),
     ArrowQueueSystem (..),
   )
 where
 
-import Aztecs.ECS.Access (Access)
+import Aztecs.ECS.Access (AccessT)
 import Aztecs.ECS.Query.Reader
-import Aztecs.ECS.System.Dynamic.Reader (DynamicReaderSystem, raceDyn)
-import Aztecs.ECS.System.Dynamic.Reader.Class (ArrowDynamicReaderSystem (..))
-import Aztecs.ECS.System.Queue (ArrowQueueSystem (..))
+import Aztecs.ECS.System.Dynamic.Reader
 import Aztecs.ECS.System.Reader.Class (ArrowReaderSystem (..))
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
@@ -22,25 +21,28 @@ import Aztecs.ECS.World.Bundle (Bundle)
 import Aztecs.ECS.World.Components (ComponentID, Components)
 import Control.Arrow
 import Control.Category
+import Control.Monad.Identity
 import qualified Data.Foldable as F
 import Data.Set (Set)
 import Prelude hiding (id, (.))
 
+type ReaderSystem = ReaderSystemT Identity
+
 -- | System to process entities.
-newtype ReaderSystem i o = ReaderSystem
+newtype ReaderSystemT m i o = ReaderSystem
   { -- | Run a system, producing a `DynamicSystem` that can be repeatedly run.
-    runReaderSystem :: Components -> (DynamicReaderSystem i o, Set ComponentID, Components)
+    runReaderSystem :: Components -> (DynamicReaderSystemT m i o, Set ComponentID, Components)
   }
   deriving (Functor)
 
-instance Category ReaderSystem where
+instance (Monad m) => Category (ReaderSystemT m) where
   id = ReaderSystem $ \cs -> (id, mempty, cs)
   ReaderSystem f . ReaderSystem g = ReaderSystem $ \cs ->
     let (f', rwsF, cs') = f cs
         (g', rwsG, cs'') = g cs'
      in (f' . g', rwsF <> rwsG, cs'')
 
-instance Arrow ReaderSystem where
+instance (Monad m) => Arrow (ReaderSystemT m) where
   arr f = ReaderSystem $ \cs -> (arr f, mempty, cs)
   first (ReaderSystem f) = ReaderSystem $ \cs ->
     let (f', rwsF, cs') = f cs in (first f', rwsF, cs')
@@ -49,13 +51,13 @@ instance Arrow ReaderSystem where
         (dynG, rwsB, cs'') = runReaderSystem g cs'
      in (raceDyn dynF dynG, rwsA <> rwsB, cs'')
 
-instance ArrowChoice ReaderSystem where
+instance (Monad m) => ArrowChoice (ReaderSystemT m) where
   left (ReaderSystem f) = ReaderSystem $ \cs -> let (f', rwsF, cs') = f cs in (left f', rwsF, cs')
 
-instance ArrowLoop ReaderSystem where
+instance (Monad m) => ArrowLoop (ReaderSystemT m) where
   loop (ReaderSystem f) = ReaderSystem $ \cs -> let (f', rwsF, cs') = f cs in (loop f', rwsF, cs')
 
-instance ArrowReaderSystem QueryReader ReaderSystem where
+instance (Monad m) => ArrowReaderSystem QueryReader (ReaderSystemT m) where
   all q = ReaderSystem $ \cs ->
     let !(rs, cs', dynQ) = runQueryReader q cs in (allDyn rs dynQ, rs, cs')
   filter q qf = ReaderSystem $ \cs ->
@@ -66,5 +68,5 @@ instance ArrowReaderSystem QueryReader ReaderSystem where
             && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynQf)
      in (filterDyn rs dynQ qf', rs, cs'')
 
-instance ArrowQueueSystem Bundle Access ReaderSystem where
+instance (Monad m) => ArrowQueueSystem Bundle (AccessT m) (ReaderSystemT m) where
   queue f = ReaderSystem $ \cs -> (queue f, mempty, cs)

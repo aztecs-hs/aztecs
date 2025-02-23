@@ -7,18 +7,18 @@ module Aztecs.ECS.Schedule.Reader
   )
 where
 
-import Aztecs.ECS.Access (AccessT (..), runAccessT)
-import Aztecs.ECS.Schedule.Dynamic.Reader (DynamicReaderScheduleT (..))
+import Aztecs.ECS.Access
+import Aztecs.ECS.Schedule.Dynamic.Reader
 import Aztecs.ECS.Schedule.Reader.Class
-import Aztecs.ECS.System.Dynamic.Reader (DynamicReaderSystem (..))
-import Aztecs.ECS.System.Reader (ReaderSystem (..))
+import Aztecs.ECS.System.Dynamic.Reader
+import Aztecs.ECS.System.Reader
 import Aztecs.ECS.World (World (..))
 import Aztecs.ECS.World.Components (Components)
 import Control.Arrow
 import Control.Category
 import Control.Monad.Fix
-import Control.Monad.Identity (Identity (runIdentity))
 import Control.Monad.State (MonadState (..))
+import Control.Monad.Trans
 import Prelude hiding (id, (.))
 
 type ReaderSchedule m = ReaderScheduleT (AccessT m)
@@ -44,13 +44,13 @@ instance (Monad m) => ArrowChoice (ReaderScheduleT m) where
 instance (MonadFix m) => ArrowLoop (ReaderScheduleT m) where
   loop (ReaderSchedule f) = ReaderSchedule $ \cs -> let (f', cs') = f cs in (loop f', cs')
 
-instance (Monad m) => ArrowReaderSchedule ReaderSystem (ReaderSchedule m) where
+instance (Monad m) => ArrowReaderSchedule (ReaderSystemT m) (ReaderSchedule m) where
   reader s = ReaderSchedule $ \cs ->
     let (dynS, _, cs') = runReaderSystem s cs
         go dynSAcc i = AccessT $ do
           w <- get
           let (o, a, dynSAcc') = runReaderSystemDyn dynSAcc (entities w) i
-              ((), w') = runIdentity $ runAccessT a w
+          ((), w') <- lift $ runAccessT a w
           put w'
           return (o, DynamicReaderSchedule $ go dynSAcc')
      in (DynamicReaderSchedule $ go dynS, cs')

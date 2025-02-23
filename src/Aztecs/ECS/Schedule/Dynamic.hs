@@ -4,10 +4,12 @@
 module Aztecs.ECS.Schedule.Dynamic
   ( DynamicSchedule,
     DynamicScheduleT (..),
+    fromDynReaderSchedule,
   )
 where
 
 import Aztecs.ECS.Access
+import Aztecs.ECS.Schedule.Dynamic.Reader (DynamicReaderScheduleT (..))
 import Control.Arrow
 import Control.Category
 import Control.Monad.Fix
@@ -42,3 +44,8 @@ instance (MonadFix m) => ArrowLoop (DynamicScheduleT m) where
   loop (DynamicSchedule f) = DynamicSchedule $ \b -> do
     rec ((c, d), f') <- f (b, d)
     return (c, loop f')
+
+fromDynReaderSchedule :: (Monad m) => DynamicReaderScheduleT m i o -> DynamicScheduleT m i o
+fromDynReaderSchedule (DynamicReaderSchedule f) = DynamicSchedule $ \i -> do
+  (o, f') <- f i
+  return (o, fromDynReaderSchedule f')

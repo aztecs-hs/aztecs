@@ -9,6 +9,7 @@ module Aztecs.ECS.Schedule
     ArrowReaderSchedule (..),
     ArrowSchedule (..),
     ArrowAccessSchedule (..),
+    fromReaderSchedule,
     delay,
     forever,
     forever_,
@@ -18,29 +19,28 @@ module Aztecs.ECS.Schedule
 where
 
 import Aztecs.ECS.Access (AccessT (..), runAccessT)
-import Aztecs.ECS.Schedule.Access.Class (ArrowAccessSchedule (..))
-import Aztecs.ECS.Schedule.Class (ArrowSchedule (..))
-import Aztecs.ECS.Schedule.Dynamic (DynamicSchedule, DynamicScheduleT (..))
-import Aztecs.ECS.Schedule.Reader.Class (ArrowReaderSchedule (..))
-import Aztecs.ECS.System (System (..))
-import Aztecs.ECS.System.Dynamic (DynamicSystem (..))
-import Aztecs.ECS.System.Dynamic.Reader (DynamicReaderSystem (..))
-import Aztecs.ECS.System.Reader (ReaderSystem (..))
+import Aztecs.ECS.Schedule.Access.Class
+import Aztecs.ECS.Schedule.Class
+import Aztecs.ECS.Schedule.Dynamic
+import Aztecs.ECS.Schedule.Reader (ReaderScheduleT (..))
+import Aztecs.ECS.Schedule.Reader.Class
+import Aztecs.ECS.System
+import Aztecs.ECS.System.Dynamic
+import Aztecs.ECS.System.Reader (ReaderSystemT (..))
 import qualified Aztecs.ECS.View as V
 import Aztecs.ECS.World (World (..))
 import qualified Aztecs.ECS.World as W
 import Aztecs.ECS.World.Bundle (Bundle)
 import Aztecs.ECS.World.Components (Components)
 import Aztecs.ECS.World.Entities (Entities (..))
-import Control.Arrow (Arrow (..), ArrowLoop (..))
-import Control.Category (Category (..))
+import Control.Arrow
+import Control.Category
 import Control.DeepSeq
-import Control.Exception (evaluate)
+import Control.Exception
 import Control.Monad.Fix
-import Control.Monad.Identity (Identity (runIdentity))
 import Control.Monad.State (MonadState (..))
 import Control.Monad.Trans (MonadTrans (..))
-import Data.Functor (void)
+import Data.Functor
 import Prelude hiding (id, (.))
 
 type Schedule m = ScheduleT (AccessT m)
@@ -74,27 +74,23 @@ instance (MonadFix m) => ArrowLoop (ScheduleT m) where
 instance (Monad m) => ArrowAccessSchedule Bundle (AccessT m) (Schedule m) where
   access f = Schedule $ \cs -> (accessDyn f, cs)
 
-instance (Monad m) => ArrowReaderSchedule ReaderSystem (Schedule m) where
-  reader s = Schedule $ \cs ->
-    let (dynS, _, cs') = runReaderSystem s cs
-        go dynSAcc i = AccessT $ do
-          w <- get
-          let (o, a, dynSAcc') = runReaderSystemDyn dynSAcc (W.entities w) i
-              ((), w') = runIdentity $ runAccessT a w
-          put w'
-          return (o, DynamicSchedule $ go dynSAcc')
-     in (DynamicSchedule $ go dynS, cs')
+instance (Monad m) => ArrowReaderSchedule (ReaderSystemT m) (Schedule m) where
+  reader = fromReaderSchedule . reader
 
-instance (Monad m) => ArrowSchedule System (Schedule m) where
+instance (Monad m) => ArrowSchedule (SystemT m) (Schedule m) where
   system s = Schedule $ \cs ->
     let (dynS, _, cs') = runSystem s cs
         go dynSAcc i = AccessT $ do
           w <- get
           let (o, v, a, dynSAcc') = runSystemDyn dynSAcc (W.entities w) i
-              ((), w') = runIdentity $ runAccessT a w {W.entities = V.unview v (W.entities w)}
+          ((), w') <- lift $ runAccessT a w {W.entities = V.unview v (W.entities w)}
           put w'
           return (o, DynamicSchedule $ go dynSAcc')
      in (DynamicSchedule $ go dynS, cs')
+
+fromReaderSchedule :: (Monad m) => ReaderScheduleT m i o -> ScheduleT m i o
+fromReaderSchedule s = Schedule $ \cs ->
+  let (dynS, cs') = runReaderSchedule s cs in (fromDynReaderSchedule dynS, cs')
 
 delay :: (Monad m) => a -> Schedule m a a
 delay d = Schedule $ \cs -> (delayDyn d, cs)
