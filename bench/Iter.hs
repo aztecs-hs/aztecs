@@ -20,7 +20,7 @@ newtype Velocity = Velocity Int deriving (Show, Generic, NFData)
 
 instance Component Velocity
 
-run :: World -> IO ()
+run :: World -> IO World
 run w = do
   let s =
         void
@@ -31,8 +31,8 @@ run w = do
                   Q.set -< Position $ p + v
               )
           )
-  !_ <- runSchedule (system s) w ()
-  return ()
+  !(_, _, w') <- runSchedule (system s) w ()
+  return w'
 
 main :: IO ()
 main = do
@@ -43,5 +43,5 @@ main = do
                in W.insert e (Velocity 1) wAcc'
           )
           W.empty
-          [0 :: Int .. 10000]
-  defaultMain [bench "iter" $ nfIO (run w)]
+          [0 :: Int .. 100000]
+  defaultMain [bench "iter" . nfIO $ run w]

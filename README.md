@@ -42,12 +42,6 @@ For more information, please see the documentation on [Hackage](https://hackage.
 
   SDL text rendering support.
 
-## Benchmarks
-
-Aztecs is currently faster than [bevy-ecs](https://github.com/bevyengine/bevy/), a popular and high-performance ECS written in Rust, for simple mutating queries.
-
-<img alt="benchmark results: Aztecs 932us vs Bevy 6,966us" width=300 src="https://github.com/user-attachments/assets/d4b52548-0d68-428b-85d6-019428ecc0d0" />
-
 ## Inspiration
 
 Aztecs' approach to type-safety is inspired by [Bevy](https://github.com/bevyengine/bevy/),
