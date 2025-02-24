@@ -27,7 +27,8 @@ query = proc () -> do
   Q.set -< Position $ p + v
 
 run :: World -> World
-run w = let !(as, es) = Q.map query $ entities w in as `seq` w {entities = es}
+run w = let !(_, es) = Q.map query $ entities w in w {entities = es} 
+   
 
 runSystem :: World -> IO World
 runSystem w = do
@@ -36,7 +37,6 @@ runSystem w = do
 
 main :: IO ()
 main = do
-  let go wAcc =
-        let (e, wAcc') = W.spawn (bundle $ Position 0) wAcc in W.insert e (Velocity 1) wAcc'
+  let go wAcc = snd $ W.spawn (bundle (Position 0) <> bundle (Velocity 1)) wAcc
       !w = foldr (const go) W.empty [0 :: Int .. 10000]
-  defaultMain [bench "iter" $ whnf run w, bench "iter system" . nfIO $ runSystem w]
+  defaultMain [bench "iter" $ nf run w, bench "iter system" . nfIO $ runSystem w]
