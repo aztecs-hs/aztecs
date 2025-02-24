@@ -15,6 +15,7 @@ module Aztecs.ECS.Query
 
     -- ** Running
     all,
+    map,
 
     -- * Filters
     QueryFilter (..),
@@ -46,7 +47,7 @@ import Control.Category (Category (..))
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Prelude hiding (all, id, reads, (.))
+import Prelude hiding (all, id, map, reads, (.))
 
 -- | Query for matching entities.
 --
@@ -142,3 +143,23 @@ all q w =
           else
             concatMap (\n -> go (A.entities $ nodeArchetype n) (nodeArchetype n)) (AS.find cIds (archetypes w))
    in (as, w {components = cs'})
+
+-- | Map all matched entities.
+map :: Query () a -> Entities -> ([a], Entities)
+map q es =
+  let (rws, cs', dynQ) = runQuery q (components es)
+      cIds = reads rws <> writes rws
+      go esAcc arch = runDynQuery dynQ (replicate (length esAcc) ()) esAcc arch
+      (as, es') =
+        if Set.null cIds
+          then (fst $ go (Map.keys $ E.entities es) A.empty, es)
+          else
+            foldl'
+              ( \(acc, esAcc) (aId, n) ->
+                  let (as', arch') = go (A.entities $ nodeArchetype n) (nodeArchetype n)
+                      nodes = Map.insert aId n {nodeArchetype = arch'} (AS.nodes $ E.archetypes esAcc)
+                   in (as' ++ acc, esAcc {E.archetypes = (E.archetypes esAcc) {AS.nodes = nodes}})
+              )
+              ([], es)
+              (Map.toList $ AS.find cIds (archetypes es))
+   in (as, es' {components = cs'})

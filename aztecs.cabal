@@ -108,7 +108,7 @@ test-suite aztecs-test
 
 benchmark aztecs-bench
     type:             exitcode-stdio-1.0
-    main-is:          Iter.hs
+    main-is:          Bench.hs
     hs-source-dirs:   bench
     default-language: Haskell2010
     ghc-options:      -Wall
