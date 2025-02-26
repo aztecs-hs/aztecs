@@ -77,20 +77,20 @@ prop_queryDyn xs =
       (es, w) = foldr spawn ([], W.empty) xs
       go (e, cs) =
         let q = queryComponentIds $ map snd cs
-            (res, _) = Q.all q $ W.entities w
+            (res, _) = Q.all () q $ W.entities w
          in res `shouldContain` [(e, map fst cs)]
    in mapM_ go es
 
 prop_queryTypedComponent :: [X] -> Expectation
 prop_queryTypedComponent xs =
   let w = foldr (\x -> snd . W.spawn (bundle x)) W.empty xs
-      (res, _) = Q.all Q.fetch $ W.entities w
+      (res, _) = Q.all () Q.fetch $ W.entities w
    in res `shouldMatchList` xs
 
 prop_queryTwoTypedComponents :: [(X, Y)] -> Expectation
 prop_queryTwoTypedComponents xys =
   let w = foldr (\(x, y) -> snd . W.spawn (bundle x <> bundle y)) W.empty xys
-      (res, _) = Q.all (Q.fetch &&& Q.fetch) $ W.entities w
+      (res, _) = Q.all () (Q.fetch &&& Q.fetch) $ W.entities w
    in res `shouldMatchList` xys
 
 prop_queryThreeTypedComponents :: [(X, Y, Z)] -> Expectation
@@ -101,7 +101,7 @@ prop_queryThreeTypedComponents xyzs =
         y <- Q.fetch
         z <- Q.fetch
         pure (x, y, z)
-      (res, _) = Q.all q $ W.entities w
+      (res, _) = Q.all () q $ W.entities w
    in res `shouldMatchList` xyzs
 
 prop_addParents :: Expectation
@@ -109,7 +109,7 @@ prop_addParents = do
   let (_, w) = W.spawnEmpty W.empty
       (e, w') = W.spawn (bundle . Children $ Set.singleton e) w
   (_, _, w'') <- runSchedule (system Hierarchy.update) w' ()
-  let (res, _) = Q.all Q.fetch $ W.entities w''
+  let (res, _) = Q.all () Q.fetch $ W.entities w''
   res `shouldMatchList` [Parent e]
 
 prop_removeParents :: Expectation
@@ -119,7 +119,7 @@ prop_removeParents = do
   (_, _, w'') <- runSchedule (system Hierarchy.update) w' ()
   let w''' = W.insert e (Children Set.empty) w''
   (_, _, w'''') <- runSchedule (system Hierarchy.update) w''' ()
-  let (res, _) = Q.all (Q.fetch @_ @Parent) $ W.entities w''''
+  let (res, _) = Q.all () (Q.fetch @_ @Parent) $ W.entities w''''
   res `shouldMatchList` []
 
 prop_scheduleQueryEntity :: [X] -> Expectation

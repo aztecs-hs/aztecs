@@ -17,7 +17,7 @@ module Aztecs.ECS.View
 where
 
 import Aztecs.ECS.Query.Dynamic (DynamicQuery (..))
-import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..))
+import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..), runDynQueryReader)
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (ArchetypeID, Archetypes, Node (..))
 import qualified Aztecs.ECS.World.Archetypes as AS
@@ -90,7 +90,7 @@ readAllDyn :: i -> DynamicQueryReader i a -> View -> [a]
 readAllDyn i q v =
   foldl'
     ( \acc n ->
-        runDynQueryReader q (repeat i) (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n) ++ acc
+        runDynQueryReader i q (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n) ++ acc
     )
     []
     (viewArchetypes v)

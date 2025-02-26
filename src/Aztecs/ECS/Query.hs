@@ -136,8 +136,8 @@ disjoint a b =
     || Set.disjoint (writes b) (writes a)
 
 -- | Match all entities.
-all :: Query () a -> Entities -> ([a], Entities)
-all q = QR.all (toReader q)
+all :: i -> Query i a -> Entities -> ([a], Entities)
+all i = QR.all i . toReader
 
 -- | Map all matched entities.
 map :: Query () a -> Entities -> ([a], Entities)

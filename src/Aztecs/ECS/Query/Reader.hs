@@ -103,9 +103,9 @@ without :: forall a. (Component a) => QueryFilter
 without = QueryFilter $ \cs ->
   let (cId, cs') = CS.insert @a cs in (mempty {filterWithout = Set.singleton cId}, cs')
 
-all :: QueryReader () a -> Entities -> ([a], Entities)
-all q es = let (as, cs) = all' q es in (as, es {E.components = cs})
+all :: i -> QueryReader i a -> Entities -> ([a], Entities)
+all i q es = let (as, cs) = all' i q es in (as, es {E.components = cs})
 
 -- | Match all entities.
-all' :: QueryReader () a -> Entities -> ([a], Components)
-all' q es = let (rs, cs', dynQ) = runQueryReader q (E.components es) in (allDyn rs dynQ es, cs')
+all' :: i -> QueryReader i a -> Entities -> ([a], Components)
+all' i q es = let (rs, cs', dynQ) = runQueryReader q (E.components es) in (allDyn rs i dynQ es, cs')

@@ -13,6 +13,7 @@ module Aztecs.ECS.Query.Dynamic.Reader
 
     -- ** Running
     allDyn,
+    runDynQueryReader,
 
     -- * Dynamic query filters
     DynamicQueryFilter (..),
@@ -36,7 +37,7 @@ import qualified Data.Set as Set
 
 -- | Dynamic query for components by ID.
 newtype DynamicQueryReader i o
-  = DynamicQueryReader {runDynQueryReader :: [i] -> [EntityID] -> Archetype -> [o]}
+  = DynamicQueryReader {runDynQueryReader' :: [i] -> [EntityID] -> Archetype -> [o]}
   deriving (Functor)
 
 instance Applicative (DynamicQueryReader i) where
@@ -44,26 +45,26 @@ instance Applicative (DynamicQueryReader i) where
 
   f <*> g =
     DynamicQueryReader $ \i es arch ->
-      let as = runDynQueryReader g i es arch
-          fs = runDynQueryReader f i es arch
+      let as = runDynQueryReader' g i es arch
+          fs = runDynQueryReader' f i es arch
        in zipWith ($) fs as
 
 instance Category DynamicQueryReader where
   id = DynamicQueryReader $ \as _ _ -> as
   f . g = DynamicQueryReader $ \i es arch ->
-    let as = runDynQueryReader g i es arch in runDynQueryReader f as es arch
+    let as = runDynQueryReader' g i es arch in runDynQueryReader' f as es arch
 
 instance Arrow DynamicQueryReader where
   arr f = DynamicQueryReader $ \bs _ _ -> fmap f bs
   first f = DynamicQueryReader $ \bds es arch ->
     let (bs, ds) = unzip bds
-        cs = runDynQueryReader f bs es arch
+        cs = runDynQueryReader' f bs es arch
      in zip cs ds
 
 instance ArrowChoice DynamicQueryReader where
   left f = DynamicQueryReader $ \eds es arch ->
     let (es', ds) = partitionEithers eds
-        cs = runDynQueryReader f es' es arch
+        cs = runDynQueryReader' f es' es arch
      in fmap Left cs ++ fmap Right ds
 
 instance ArrowDynamicQueryReader DynamicQueryReader where
@@ -88,12 +89,16 @@ instance Semigroup DynamicQueryFilter where
 instance Monoid DynamicQueryFilter where
   mempty = DynamicQueryFilter mempty mempty
 
+runDynQueryReader :: i -> DynamicQueryReader i o -> [EntityID] -> Archetype -> [o]
+runDynQueryReader i q = runDynQueryReader' q (repeat i)
+
 -- | Match all entities.
-allDyn :: Set ComponentID -> DynamicQueryReader () a -> Entities -> [a]
-allDyn cIds q es =
-  let go = runDynQueryReader q (repeat ())
-   in if Set.null cIds
-        then go (Map.keys $ entities es) A.empty
-        else
-          let goNode n = go (Set.toList $ A.entities $ AS.nodeArchetype n) (AS.nodeArchetype n)
-           in concatMap goNode (AS.find cIds $ archetypes es)
+allDyn :: Set ComponentID -> i -> DynamicQueryReader i a -> Entities -> [a]
+allDyn cIds i q es =
+  if Set.null cIds
+    then runDynQueryReader i q (Map.keys $ entities es) A.empty
+    else
+      let go n =
+            let eIds = Set.toList $ A.entities $ AS.nodeArchetype n
+             in runDynQueryReader i q eIds (AS.nodeArchetype n)
+       in concatMap go (AS.find cIds $ archetypes es)
