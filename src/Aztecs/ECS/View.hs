@@ -27,6 +27,7 @@ import qualified Aztecs.ECS.World.Entities as E
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
+import qualified Data.Set as Set
 import Prelude hiding (null)
 
 -- | View into a `World`, containing a subset of archetypes.
@@ -70,7 +71,7 @@ allDyn i q v =
   let (as, arches) =
         foldl'
           ( \(acc, archAcc) (aId, n) ->
-              let (as', arch') = runDynQuery q (repeat i) (A.entities (nodeArchetype n)) (nodeArchetype n)
+              let (as', arch') = runDynQuery q (repeat i) (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n)
                in (as' ++ acc, Map.insert aId (n {nodeArchetype = arch'}) archAcc)
           )
           ([], Map.empty)
@@ -89,7 +90,7 @@ readAllDyn :: i -> DynamicQueryReader i a -> View -> [a]
 readAllDyn i q v =
   foldl'
     ( \acc n ->
-        runDynQueryReader q (repeat i) (A.entities (nodeArchetype n)) (nodeArchetype n) ++ acc
+        runDynQueryReader q (repeat i) (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n) ++ acc
     )
     []
     (viewArchetypes v)

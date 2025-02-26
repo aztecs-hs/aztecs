@@ -63,8 +63,8 @@ instance ArrowDynamicQueryReader DynamicQuery where
   fetchMaybeDyn = fromDynReader . fetchMaybeDyn
 
 instance ArrowDynamicQuery DynamicQuery where
-  setDyn cId = DynamicQuery $ \is es arch ->
-    let !arch' = A.insertAscList cId (zip es is) arch in (is, arch')
+  setDyn cId = DynamicQuery $ \is _ arch ->
+    let !arch' = A.insertAscList cId is arch in (is, arch')
 
 fromDynReader :: DynamicQueryReader i o -> DynamicQuery i o
 fromDynReader q = DynamicQuery $ \is es arch ->

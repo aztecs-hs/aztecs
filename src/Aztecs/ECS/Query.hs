@@ -141,7 +141,7 @@ all q w =
         if Set.null cIds
           then go (Map.keys $ E.entities w) A.empty
           else
-            concatMap (\n -> go (A.entities $ nodeArchetype n) (nodeArchetype n)) (AS.find cIds (archetypes w))
+            concatMap (\n -> go (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n)) (AS.find cIds (archetypes w))
    in (as, w {components = cs'})
 
 -- | Map all matched entities.
@@ -156,7 +156,7 @@ map q es =
           else
             foldl'
               ( \(acc, esAcc) (aId, n) ->
-                  let (as', arch') = go (A.entities $ nodeArchetype n) (nodeArchetype n)
+                  let (as', arch') = go (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n)
                       nodes = Map.insert aId n {nodeArchetype = arch'} (AS.nodes $ E.archetypes esAcc)
                    in (as' ++ acc, esAcc {E.archetypes = (E.archetypes esAcc) {AS.nodes = nodes}})
               )
