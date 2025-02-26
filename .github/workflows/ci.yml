@@ -25,6 +25,9 @@ jobs:
 
       - uses: actions/checkout@v4
       - uses: haskell-actions/setup@v2
+        with:
+          ghc-version: "9.0"
+          cabal-version: "3.12"
 
       - name: Update the package index
         run: cabal update
@@ -46,6 +49,9 @@ jobs:
 
       - uses: actions/checkout@v4
       - uses: haskell-actions/setup@v2
+        with:
+          ghc-version: "9.0"
+          cabal-version: "3.12"
 
       - name: Update the package index
         run: cabal update
@@ -66,6 +72,9 @@ jobs:
 
       - uses: actions/checkout@v4
       - uses: haskell-actions/setup@v2
+        with:
+          ghc-version: "9.0"
+          cabal-version: "3.12"
 
       - name: Install dependencies
         run: |
