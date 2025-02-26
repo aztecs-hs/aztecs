@@ -11,6 +11,9 @@ module Aztecs.ECS.Query.Dynamic.Reader
     DynamicQueryReader (..),
     ArrowDynamicQueryReader (..),
 
+    -- ** Running
+    allDyn,
+
     -- * Dynamic query filters
     DynamicQueryFilter (..),
   )
@@ -21,11 +24,15 @@ import Aztecs.ECS.Entity (EntityID)
 import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Aztecs.ECS.World.Archetype (Archetype)
 import qualified Aztecs.ECS.World.Archetype as A
+import qualified Aztecs.ECS.World.Archetypes as AS
+import Aztecs.ECS.World.Entities (Entities (..))
 import qualified Aztecs.ECS.World.Storage as S
 import Control.Arrow
 import Control.Category
 import Data.Either (partitionEithers)
+import qualified Data.Map as Map
 import Data.Set (Set)
+import qualified Data.Set as Set
 
 -- | Dynamic query for components by ID.
 newtype DynamicQueryReader i o
@@ -80,3 +87,13 @@ instance Semigroup DynamicQueryFilter where
 
 instance Monoid DynamicQueryFilter where
   mempty = DynamicQueryFilter mempty mempty
+
+-- | Match all entities.
+allDyn :: Set ComponentID -> DynamicQueryReader () a -> Entities -> [a]
+allDyn cIds q es =
+  let go = runDynQueryReader q (repeat ())
+   in if Set.null cIds
+        then go (Map.keys $ entities es) A.empty
+        else
+          let goNode n = go (Set.toList $ A.entities $ AS.nodeArchetype n) (AS.nodeArchetype n)
+           in concatMap goNode (AS.find cIds $ archetypes es)

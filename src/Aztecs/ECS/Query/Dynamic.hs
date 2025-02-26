@@ -7,23 +7,35 @@ module Aztecs.ECS.Query.Dynamic
     DynamicQuery (..),
     ArrowDynamicQueryReader (..),
     ArrowDynamicQuery (..),
+
+    -- ** Conversion
     fromDynReader,
     toDynReader,
+
+    -- ** Running
+    mapDyn,
 
     -- * Dynamic query filters
     DynamicQueryFilter (..),
   )
 where
 
+import Aztecs.ECS.Component (ComponentID)
 import Aztecs.ECS.Entity (EntityID)
 import Aztecs.ECS.Query.Dynamic.Class (ArrowDynamicQuery (..))
 import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryFilter (..), DynamicQueryReader (..))
 import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Aztecs.ECS.World.Archetype (Archetype)
 import qualified Aztecs.ECS.World.Archetype as A
+import Aztecs.ECS.World.Archetypes (Node (..))
+import qualified Aztecs.ECS.World.Archetypes as AS
+import Aztecs.ECS.World.Entities (Entities (..))
 import Control.Arrow (Arrow (..), ArrowChoice (..))
 import Control.Category (Category (..))
 import Data.Either (partitionEithers)
+import qualified Data.Map as Map
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Prelude hiding ((.))
 
 -- | Dynamic query for components by ID.
@@ -73,3 +85,21 @@ fromDynReader q = DynamicQuery $ \is es arch ->
 
 toDynReader :: DynamicQuery i o -> DynamicQueryReader i o
 toDynReader q = DynamicQueryReader $ \is es arch -> fst $ runDynQuery q is es arch
+
+-- | Map all matched entities.
+mapDyn :: Set ComponentID -> DynamicQuery () a -> Entities -> ([a], Entities)
+mapDyn cIds q es =
+  let (as, es') =
+        if Set.null cIds
+          then (fst $ go (Map.keys $ entities es) A.empty, es)
+          else
+            foldl'
+              ( \(acc, esAcc) (aId, n) ->
+                  let (as', arch') = go (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n)
+                      nodes = Map.insert aId n {nodeArchetype = arch'} (AS.nodes $ archetypes esAcc)
+                   in (as' ++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}})
+              )
+              ([], es)
+              (Map.toList $ AS.find cIds (archetypes es))
+      go = runDynQuery q (repeat ())
+   in (as, es')

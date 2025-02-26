@@ -15,8 +15,8 @@ module Aztecs.ECS.System.Dynamic
 where
 
 import Aztecs.ECS.Access
-import Aztecs.ECS.Query.Dynamic
-import Aztecs.ECS.Query.Dynamic.Reader
+import Aztecs.ECS.Query.Dynamic (DynamicQuery (..))
+import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..))
 import Aztecs.ECS.System.Dynamic.Class
 import Aztecs.ECS.System.Dynamic.Reader (DynamicReaderSystemT (..))
 import Aztecs.ECS.System.Dynamic.Reader.Class

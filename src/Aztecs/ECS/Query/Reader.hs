@@ -26,19 +26,15 @@ where
 
 import Aztecs.ECS.Component
 import Aztecs.ECS.Query.Dynamic (DynamicQueryFilter (..))
-import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..))
+import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..), allDyn)
 import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Aztecs.ECS.Query.Reader.Class (ArrowQueryReader (..))
-import qualified Aztecs.ECS.World.Archetype as A
-import Aztecs.ECS.World.Archetypes (Node (..))
-import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Components (Components)
 import qualified Aztecs.ECS.World.Components as CS
 import Aztecs.ECS.World.Entities (Entities (..))
 import qualified Aztecs.ECS.World.Entities as E
 import Control.Arrow (Arrow (..), ArrowChoice (..))
 import Control.Category (Category (..))
-import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Prelude hiding (all, id, (.))
@@ -112,13 +108,4 @@ all q es = let (as, cs) = all' q es in (as, es {E.components = cs})
 
 -- | Match all entities.
 all' :: QueryReader () a -> Entities -> ([a], Components)
-all' q es =
-  let (rs, cs', dynQ) = runQueryReader q (E.components es)
-      as =
-        if Set.null rs
-          then go (Map.keys $ E.entities es) A.empty
-          else
-            let goNode n = go (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n)
-             in concatMap goNode (AS.find rs (archetypes es))
-      go = runDynQueryReader dynQ (repeat ())
-   in (as, cs')
+all' q es = let (rs, cs', dynQ) = runQueryReader q (E.components es) in (allDyn rs dynQ es, cs')

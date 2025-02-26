@@ -34,22 +34,17 @@ where
 
 import Aztecs.ECS.Component
 import Aztecs.ECS.Query.Class (ArrowQuery (..))
-import Aztecs.ECS.Query.Dynamic (DynamicQuery (..), fromDynReader, toDynReader)
+import Aztecs.ECS.Query.Dynamic (DynamicQuery (..), fromDynReader, mapDyn, toDynReader)
 import Aztecs.ECS.Query.Dynamic.Class (ArrowDynamicQuery (..))
 import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Aztecs.ECS.Query.Reader (QueryFilter (..), QueryReader (..), with, without)
 import qualified Aztecs.ECS.Query.Reader as QR
 import Aztecs.ECS.Query.Reader.Class (ArrowQueryReader (..))
-import qualified Aztecs.ECS.World.Archetype as A
-import Aztecs.ECS.World.Archetypes (Node (..))
-import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Components (Components)
 import qualified Aztecs.ECS.World.Components as CS
 import Aztecs.ECS.World.Entities (Entities (..))
-import qualified Aztecs.ECS.World.Entities as E
 import Control.Arrow (Arrow (..), ArrowChoice (..))
 import Control.Category (Category (..))
-import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Prelude hiding (all, id, map, reads, (.))
@@ -149,17 +144,5 @@ map :: Query () a -> Entities -> ([a], Entities)
 map q es =
   let (rws, cs', dynQ) = runQuery q (components es)
       cIds = reads rws <> writes rws
-      (as, es') =
-        if Set.null cIds
-          then (fst $ go (Map.keys $ E.entities es) A.empty, es)
-          else
-            foldl'
-              ( \(acc, esAcc) (aId, n) ->
-                  let (as', arch') = go (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n)
-                      nodes = Map.insert aId n {nodeArchetype = arch'} (AS.nodes $ E.archetypes esAcc)
-                   in (as' ++ acc, esAcc {E.archetypes = (E.archetypes esAcc) {AS.nodes = nodes}})
-              )
-              ([], es)
-              (Map.toList $ AS.find cIds (archetypes es))
-      go = runDynQuery dynQ (repeat ())
+      (as, es') = mapDyn cIds dynQ es
    in (as, es' {components = cs'})

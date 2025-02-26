@@ -13,7 +13,7 @@ module Aztecs.ECS.System.Dynamic.Reader
 where
 
 import Aztecs.ECS.Access
-import Aztecs.ECS.Query.Dynamic.Reader
+import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..))
 import Aztecs.ECS.System.Dynamic.Reader.Class
 import Aztecs.ECS.System.Queue (ArrowQueueSystem (..))
 import qualified Aztecs.ECS.View as V
