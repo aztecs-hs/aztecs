@@ -70,48 +70,64 @@ newtype Query i o = Query {runQuery :: Components -> (ReadsWrites, Components, D
   deriving (Functor)
 
 instance Applicative (Query i) where
+  {-# INLINE pure #-}
   pure a = Query (mempty,,pure a)
+  {-# INLINE (<*>) #-}
   (Query f) <*> (Query g) = Query $ \cs ->
     let !(cIdsG, cs', aQS) = g cs
         !(cIdsF, cs'', bQS) = f cs'
      in (cIdsG <> cIdsF, cs'', bQS <*> aQS)
 
 instance Category Query where
+  {-# INLINE id #-}
   id = Query (mempty,,id)
+  {-# INLINE (.) #-}
   (Query f) . (Query g) = Query $ \cs ->
     let !(cIdsG, cs', aQS) = g cs
         !(cIdsF, cs'', bQS) = f cs'
      in (cIdsG <> cIdsF, cs'', bQS . aQS)
 
 instance Arrow Query where
+  {-# INLINE arr #-}
   arr f = Query (mempty,,arr f)
+  {-# INLINE first #-}
   first (Query f) = Query $ \comps -> let !(cIds, comps', qS) = f comps in (cIds, comps', first qS)
 
 instance ArrowChoice Query where
+  {-# INLINE left #-}
   left (Query f) = Query $ \comps -> let !(cIds, comps', qS) = f comps in (cIds, comps', left qS)
 
 instance ArrowQueryReader Query where
+  {-# INLINE fetch #-}
   fetch = fromReader fetch
+  {-# INLINE fetchMaybe #-}
   fetchMaybe = fromReader fetchMaybe
 
 instance ArrowDynamicQueryReader Query where
+  {-# INLINE entity #-}
   entity = fromReader entity
+  {-# INLINE fetchDyn #-}
   fetchDyn = fromReader . fetchDyn
+  {-# INLINE fetchMaybeDyn #-}
   fetchMaybeDyn = fromReader . fetchMaybeDyn
 
 instance ArrowDynamicQuery Query where
+  {-# INLINE setDyn #-}
   setDyn cId = Query (ReadsWrites Set.empty (Set.singleton cId),,setDyn cId)
 
 instance ArrowQuery Query where
+  {-# INLINE set #-}
   set :: forall a. (Component a) => Query a a
   set = Query $ \cs ->
     let !(cId, cs') = CS.insert @a cs
      in (ReadsWrites Set.empty (Set.singleton cId), cs', setDyn cId)
 
+{-# INLINE fromReader #-}
 fromReader :: QueryReader i o -> Query i o
 fromReader (QueryReader f) = Query $ \cs ->
   let !(cIds, cs', dynQ) = f cs in (ReadsWrites cIds Set.empty, cs', fromDynReader dynQ)
 
+{-# INLINE toReader #-}
 toReader :: Query i o -> QueryReader i o
 toReader (Query f) = QueryReader $ \cs ->
   let !(rws, cs', dynQ) = f cs in (reads rws, cs', toDynReader dynQ)

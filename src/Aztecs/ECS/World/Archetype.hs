@@ -47,6 +47,7 @@ data Archetype = Archetype
 empty :: Archetype
 empty = Archetype {storages = Map.empty, entities = Set.empty}
 
+{-# INLINE lookupStorage #-}
 lookupStorage :: (Component a) => ComponentID -> Archetype -> Maybe (StorageT a)
 lookupStorage cId w = do
   dynS <- Map.lookup cId (storages w)
@@ -70,6 +71,7 @@ lookupComponent :: forall a. (Component a) => EntityID -> ComponentID -> Archety
 lookupComponent e cId w = lookupComponents cId w Map.!? e
 
 -- | Insert a list of components into the archetype, sorted in ascending order by their `EntityID`.
+{-# INLINE insertAscList #-}
 insertAscList :: forall a. (Component a) => ComponentID -> [a] -> Archetype -> Archetype
 insertAscList cId as arch =
   let !storage = dynStorage @a $ S.fromAscList @a @(StorageT a) as

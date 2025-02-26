@@ -36,6 +36,7 @@ instance Show DynamicStorage where
 instance NFData DynamicStorage where
   rnf s = storageRnf s (storageDyn s)
 
+{-# INLINE dynStorage #-}
 dynStorage :: forall a s. (S.Storage a s) => s -> DynamicStorage
 dynStorage s =
   DynamicStorage

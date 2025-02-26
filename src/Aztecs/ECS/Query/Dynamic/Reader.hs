@@ -41,7 +41,9 @@ newtype DynamicQueryReader i o
   deriving (Functor)
 
 instance Applicative (DynamicQueryReader i) where
+  {-# INLINE pure #-}
   pure a = DynamicQueryReader $ \_ es _ -> replicate (length es) a
+  {-# INLINE (<*>) #-}
   f <*> g =
     DynamicQueryReader $ \i es arch ->
       let !as = runDynQueryReader' g i es arch
@@ -49,28 +51,38 @@ instance Applicative (DynamicQueryReader i) where
        in zipWith ($) fs as
 
 instance Category DynamicQueryReader where
+  {-# INLINE id #-}
   id = DynamicQueryReader $ \as _ _ -> as
+  {-# INLINE (.) #-}
   f . g = DynamicQueryReader $ \i es arch ->
     let !as = runDynQueryReader' g i es arch in runDynQueryReader' f as es arch
 
 instance Arrow DynamicQueryReader where
+  {-# INLINE arr #-}
   arr f = DynamicQueryReader $ \bs _ _ -> fmap f bs
+  {-# INLINE first #-}
   first f = DynamicQueryReader $ \bds es arch ->
     let !(bs, ds) = unzip bds
         !cs = runDynQueryReader' f bs es arch
      in zip cs ds
 
 instance ArrowChoice DynamicQueryReader where
+  {-# INLINE left #-}
   left f = DynamicQueryReader $ \eds es arch ->
     let !(es', ds) = partitionEithers eds
         !cs = runDynQueryReader' f es' es arch
      in fmap Left cs ++ fmap Right ds
 
 instance ArrowDynamicQueryReader DynamicQueryReader where
+  {-# INLINE entity #-}
   entity = DynamicQueryReader $ \_ es _ -> es
+
+  {-# INLINE fetchDyn #-}
   fetchDyn :: forall a. (Component a) => ComponentID -> DynamicQueryReader () a
   fetchDyn cId = DynamicQueryReader $ \_ _ arch ->
     maybe [] (S.toAscList @a @(StorageT a)) (A.lookupStorage @a cId arch)
+ 
+  {-# INLINE fetchMaybeDyn #-}
   fetchMaybeDyn :: forall a. (Component a) => ComponentID -> DynamicQueryReader () (Maybe a)
   fetchMaybeDyn cId = DynamicQueryReader $ \_ es arch -> case A.lookupStorage @a cId arch of
     Just s -> let !as = S.toAscList @a @(StorageT a) s in fmap Just as
@@ -88,6 +100,7 @@ instance Semigroup DynamicQueryFilter where
 instance Monoid DynamicQueryFilter where
   mempty = DynamicQueryFilter mempty mempty
 
+{-# INLINE runDynQueryReader #-}
 runDynQueryReader :: i -> DynamicQueryReader i o -> [EntityID] -> Archetype -> [o]
 runDynQueryReader i q = runDynQueryReader' q (repeat i)
 

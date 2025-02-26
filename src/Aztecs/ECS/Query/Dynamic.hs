@@ -45,43 +45,56 @@ newtype DynamicQuery i o
   deriving (Functor)
 
 instance Applicative (DynamicQuery i) where
+  {-# INLINE pure #-}
   pure a = DynamicQuery $ \_ es arch -> (replicate (length es) a, arch)
+  {-# INLINE (<*>) #-}
   f <*> g = DynamicQuery $ \i es arch ->
     let !(as, arch') = runDynQuery g i es arch
         !(fs, arch'') = runDynQuery f i es arch'
      in (zipWith ($) fs as, arch'')
 
 instance Category DynamicQuery where
+  {-# INLINE id #-}
   id = DynamicQuery $ \as _ arch -> (as, arch)
+  {-# INLINE (.) #-}
   f . g = DynamicQuery $ \i es arch ->
     let !(as, arch') = runDynQuery g i es arch in runDynQuery f as es arch'
 
 instance Arrow DynamicQuery where
+  {-# INLINE arr #-}
   arr f = DynamicQuery $ \bs _ arch -> (fmap f bs, arch)
+  {-# INLINE first #-}
   first f = DynamicQuery $ \bds es arch ->
     let !(bs, ds) = unzip bds
         !(cs, arch') = runDynQuery f bs es arch
      in (zip cs ds, arch')
 
 instance ArrowChoice DynamicQuery where
+  {-# INLINE left #-}
   left f = DynamicQuery $ \eds es arch ->
     let !(es', ds) = partitionEithers eds
         !(cs, arch') = runDynQuery f es' es arch
      in (fmap Left cs ++ fmap Right ds, arch')
 
 instance ArrowDynamicQueryReader DynamicQuery where
+  {-# INLINE entity #-}
   entity = fromDynReader entity
+  {-# INLINE fetchDyn #-}
   fetchDyn = fromDynReader . fetchDyn
+  {-# INLINE fetchMaybeDyn #-}
   fetchMaybeDyn = fromDynReader . fetchMaybeDyn
 
 instance ArrowDynamicQuery DynamicQuery where
+  {-# INLINE setDyn #-}
   setDyn cId = DynamicQuery $ \is _ arch ->
     let !arch' = A.insertAscList cId is arch in (is, arch')
 
+{-# INLINE fromDynReader #-}
 fromDynReader :: DynamicQueryReader i o -> DynamicQuery i o
 fromDynReader q = DynamicQuery $ \is es arch ->
   let !os = runDynQueryReader' q is es arch in (os, arch)
 
+{-# INLINE toDynReader #-}
 toDynReader :: DynamicQuery i o -> DynamicQueryReader i o
 toDynReader q = DynamicQueryReader $ \is es arch -> fst $ runDynQuery q is es arch
 

@@ -18,6 +18,9 @@ class (Typeable s, NFData s, Typeable a) => Storage a s where
   fromAscList :: [a] -> s
 
 instance (Typeable a, NFData a) => Storage a [a] where
+  {-# INLINE singleton #-}
   singleton a = [a]
+  {-# INLINE toAscList #-}
   toAscList = id
+  {-# INLINE fromAscList #-}
   fromAscList = id
