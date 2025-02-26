@@ -24,6 +24,7 @@ import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Components (ComponentID)
 import Aztecs.ECS.World.Entities (Entities)
 import qualified Aztecs.ECS.World.Entities as E
+import Data.Foldable (foldl')
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)

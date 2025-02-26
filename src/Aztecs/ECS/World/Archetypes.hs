@@ -39,6 +39,7 @@ import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Storage.Dynamic (fromAscListDyn, toAscListDyn)
 import Control.DeepSeq (NFData (..))
 import Data.Dynamic (fromDynamic)
+import Data.Foldable (foldl')
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (mapMaybe)

@@ -33,6 +33,7 @@ import Aztecs.ECS.World.Entities (Entities (..))
 import Control.Arrow (Arrow (..), ArrowChoice (..))
 import Control.Category (Category (..))
 import Data.Either (partitionEithers)
+import Data.Foldable
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set

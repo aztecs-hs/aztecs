@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [0.8.0](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.7.0..aztecs-v0.8.0) - 2025-2-26
+
+## Breaking changes
+
+- Queue monadic tasks from systems (8e667f2)
+
+## Fixes
+
+- Special case for entity-only queries (35bccb0)
+
+## Tests
+
+- Property-based test for queries (e89c482)
+
+
 ## [0.7.0](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.6.0..aztecs-v0.7.0) - 2025-2-22
 
 ## Breaking changes
