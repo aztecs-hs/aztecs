@@ -142,14 +142,13 @@ disjoint a b =
 
 -- | Match all entities.
 all :: Query () a -> Entities -> ([a], Entities)
-all q w = QR.all (toReader q) w
+all q = QR.all (toReader q)
 
 -- | Map all matched entities.
 map :: Query () a -> Entities -> ([a], Entities)
 map q es =
   let (rws, cs', dynQ) = runQuery q (components es)
       cIds = reads rws <> writes rws
-      go esAcc arch = runDynQuery dynQ (repeat ()) esAcc arch
       (as, es') =
         if Set.null cIds
           then (fst $ go (Map.keys $ E.entities es) A.empty, es)
@@ -162,4 +161,5 @@ map q es =
               )
               ([], es)
               (Map.toList $ AS.find cIds (archetypes es))
+      go = runDynQuery dynQ (repeat ())
    in (as, es' {components = cs'})

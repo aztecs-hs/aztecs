@@ -31,7 +31,7 @@ run w = let !(_, es) = Q.map query $ entities w in w {entities = es}
 
 runSystem :: World -> IO World
 runSystem w = do
-  !(_, _, w') <- runSchedule (system $ S.map query) w ()
+  (_, _, w') <- runSchedule (system $ S.map query) w ()
   return w'
 
 main :: IO ()

@@ -3,8 +3,8 @@
 
 module Aztecs.ECS.World.Storage (Storage (..)) where
 
-import Control.DeepSeq (NFData)
-import Data.Data (Typeable)
+import Control.DeepSeq
+import Data.Data
 
 -- | Component storage, containing zero or many components of the same type.
 class (Typeable s, NFData s, Typeable a) => Storage a s where

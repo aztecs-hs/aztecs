@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -43,7 +42,7 @@ dynStorage s =
     { storageDyn = toDyn s,
       singletonDyn' = toDyn . S.singleton @a @s . fromMaybe (error "TODO") . fromDynamic,
       toAscListDyn' = \d -> map toDyn (S.toAscList @a @s (fromMaybe (error "TODO") $ fromDynamic d)),
-      fromAscListDyn' = \ds -> toDyn (S.fromAscList @a @s (map (\d -> (fromMaybe (error "TODO") $ fromDynamic d)) ds)),
+      fromAscListDyn' = toDyn . S.fromAscList @a @s . map (fromMaybe (error "TODO") . fromDynamic),
       storageRnf = maybe () rnf . fromDynamic @s
     }
 

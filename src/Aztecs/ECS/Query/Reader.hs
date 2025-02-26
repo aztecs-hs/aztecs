@@ -114,11 +114,11 @@ all q es = let (as, cs) = all' q es in (as, es {E.components = cs})
 all' :: QueryReader () a -> Entities -> ([a], Components)
 all' q es =
   let (rs, cs', dynQ) = runQueryReader q (E.components es)
-      go eIds arch = runDynQueryReader dynQ (repeat ()) eIds arch
       as =
         if Set.null rs
           then go (Map.keys $ E.entities es) A.empty
           else
             let goNode n = go (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n)
              in concatMap goNode (AS.find rs (archetypes es))
+      go = runDynQueryReader dynQ (repeat ())
    in (as, cs')
