@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -13,7 +14,6 @@
 module Aztecs.ECS.World.Archetype
   ( Archetype (..),
     empty,
-    entities,
     lookupComponent,
     lookupStorage,
     member,
@@ -33,13 +33,18 @@ import Data.Bifunctor
 import Data.Dynamic
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import Data.Set (Set)
+import qualified Data.Set as Set
 import GHC.Generics
 
-newtype Archetype = Archetype {storages :: Map ComponentID DynamicStorage}
+data Archetype = Archetype
+  { storages :: Map ComponentID DynamicStorage,
+    entities :: Set EntityID
+  }
   deriving (Show, Generic, NFData)
 
 empty :: Archetype
-empty = Archetype {storages = Map.empty}
+empty = Archetype {storages = Map.empty, entities = Set.empty}
 
 lookupStorage :: (Component a) => ComponentID -> Archetype -> Maybe (StorageT a a)
 lookupStorage cId w = do
@@ -55,11 +60,6 @@ insertComponent e cId c arch =
 
 member :: ComponentID -> Archetype -> Bool
 member cId arch = Map.member cId (storages arch)
-
-entities :: Archetype -> [EntityID]
-entities arch = case Map.toList $ storages arch of
-  [] -> []
-  (_, s) : _ -> map EntityID $ entitiesDyn s
 
 lookupComponent :: forall a. (Component a) => EntityID -> ComponentID -> Archetype -> Maybe a
 lookupComponent e cId w = lookupStorage cId w >>= S.lookup (unEntityId e)

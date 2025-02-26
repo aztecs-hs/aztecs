@@ -63,7 +63,14 @@ spawn eId b w =
    in case AS.lookupArchetypeId cIds (archetypes w) of
         Just aId -> fromMaybe w $ do
           node <- AS.lookup aId $ archetypes w
-          let arch' = runDynamicBundle dynB eId (nodeArchetype node)
+          let arch' =
+                runDynamicBundle
+                  dynB
+                  eId
+                  ( (nodeArchetype node)
+                      { A.entities = Set.insert eId . A.entities $ nodeArchetype node
+                      }
+                  )
           return
             w
               { archetypes = (archetypes w) {AS.nodes = Map.insert aId node {nodeArchetype = arch'} (AS.nodes $ archetypes w)},
@@ -71,7 +78,7 @@ spawn eId b w =
                 entities = Map.insert eId aId (entities w)
               }
         Nothing ->
-          let arch' = runDynamicBundle dynB eId A.empty
+          let arch' = runDynamicBundle dynB eId A.empty {A.entities = Set.singleton eId}
               (aId, arches) =
                 AS.insertArchetype
                   cIds

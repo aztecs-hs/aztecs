@@ -162,7 +162,7 @@ insert e aId cId c arches = case lookup aId arches of
               !n =
                 Node
                   { nodeComponentIds = Set.insert cId (nodeComponentIds node),
-                    nodeArchetype = insertComponent e cId c (Archetype {storages = s}),
+                    nodeArchetype = insertComponent e cId c (Archetype {storages = s, entities = Set.singleton e}),
                     nodeAdd = Map.empty,
                     nodeRemove = Map.singleton cId aId
                   }
@@ -201,7 +201,7 @@ remove e aId cId arches = case lookup aId arches of
           !n =
             Node
               { nodeComponentIds = Set.insert cId (nodeComponentIds node),
-                nodeArchetype = Archetype {storages = cs'},
+                nodeArchetype = Archetype {storages = cs', entities = Set.singleton e},
                 nodeAdd = Map.empty,
                 nodeRemove = Map.singleton cId aId
               }
