@@ -39,8 +39,8 @@ import qualified Data.Set as Set
 import GHC.Generics
 
 data Archetype = Archetype
-  { storages :: Map ComponentID DynamicStorage,
-    entities :: Set EntityID
+  { storages :: !(Map ComponentID DynamicStorage),
+    entities :: !(Set EntityID)
   }
   deriving (Show, Generic, NFData)
 
@@ -54,7 +54,7 @@ lookupStorage cId w = do
 
 lookupComponents :: forall a. (Component a) => ComponentID -> Archetype -> Map EntityID a
 lookupComponents cId arch = case lookupStorage @a cId arch of
-  Just s -> Map.fromList . zip (Set.toList $ entities arch) $ S.toAscList s
+  Just s -> Map.fromAscList . zip (Set.toList $ entities arch) $ S.toAscList s
   Nothing -> Map.empty
 
 insertComponent :: forall a. (Component a) => EntityID -> ComponentID -> a -> Archetype -> Archetype
@@ -79,7 +79,7 @@ remove :: EntityID -> Archetype -> (Map ComponentID Dynamic, Archetype)
 remove e arch =
   foldl'
     ( \(dynAcc, archAcc) (cId, dynS) ->
-        let cs = Map.fromList . zip (Set.toList $ entities arch) $ toAscListDyn dynS
+        let cs = Map.fromAscList . zip (Set.toList $ entities arch) $ toAscListDyn dynS
             !(dynA, cs') = Map.updateLookupWithKey (\_ _ -> Nothing) e cs
             dynS' = S.fromAscListDyn (Map.elems cs') dynS
             !dynAcc' = case dynA of
@@ -94,7 +94,7 @@ removeStorages :: EntityID -> Archetype -> (Map ComponentID DynamicStorage, Arch
 removeStorages e arch =
   foldl'
     ( \(dynAcc, archAcc) (cId, dynS) ->
-        let cs = Map.fromList . zip (Set.toList $ entities arch) $ toAscListDyn dynS
+        let cs = Map.fromAscList . zip (Set.toList $ entities arch) $ toAscListDyn dynS
             !(dynA, cs') = Map.updateLookupWithKey (\_ _ -> Nothing) e cs
             dynS' = S.fromAscListDyn (Map.elems cs') dynS
             !dynAcc' = case dynA of
