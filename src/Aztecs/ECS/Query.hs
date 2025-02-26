@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -71,23 +72,23 @@ newtype Query i o = Query {runQuery :: Components -> (ReadsWrites, Components, D
 instance Applicative (Query i) where
   pure a = Query (mempty,,pure a)
   (Query f) <*> (Query g) = Query $ \cs ->
-    let (cIdsG, cs', aQS) = g cs
-        (cIdsF, cs'', bQS) = f cs'
+    let !(cIdsG, cs', aQS) = g cs
+        !(cIdsF, cs'', bQS) = f cs'
      in (cIdsG <> cIdsF, cs'', bQS <*> aQS)
 
 instance Category Query where
   id = Query (mempty,,id)
   (Query f) . (Query g) = Query $ \cs ->
-    let (cIdsG, cs', aQS) = g cs
-        (cIdsF, cs'', bQS) = f cs'
+    let !(cIdsG, cs', aQS) = g cs
+        !(cIdsF, cs'', bQS) = f cs'
      in (cIdsG <> cIdsF, cs'', bQS . aQS)
 
 instance Arrow Query where
   arr f = Query (mempty,,arr f)
-  first (Query f) = Query $ \comps -> let (cIds, comps', qS) = f comps in (cIds, comps', first qS)
+  first (Query f) = Query $ \comps -> let !(cIds, comps', qS) = f comps in (cIds, comps', first qS)
 
 instance ArrowChoice Query where
-  left (Query f) = Query $ \comps -> let (cIds, comps', qS) = f comps in (cIds, comps', left qS)
+  left (Query f) = Query $ \comps -> let !(cIds, comps', qS) = f comps in (cIds, comps', left qS)
 
 instance ArrowQueryReader Query where
   fetch = fromReader fetch
@@ -104,16 +105,16 @@ instance ArrowDynamicQuery Query where
 instance ArrowQuery Query where
   set :: forall a. (Component a) => Query a a
   set = Query $ \cs ->
-    let (cId, cs') = CS.insert @a cs
+    let !(cId, cs') = CS.insert @a cs
      in (ReadsWrites Set.empty (Set.singleton cId), cs', setDyn cId)
 
 fromReader :: QueryReader i o -> Query i o
 fromReader (QueryReader f) = Query $ \cs ->
-  let (cIds, cs', dynQ) = f cs in (ReadsWrites cIds Set.empty, cs', fromDynReader dynQ)
+  let !(cIds, cs', dynQ) = f cs in (ReadsWrites cIds Set.empty, cs', fromDynReader dynQ)
 
 toReader :: Query i o -> QueryReader i o
 toReader (Query f) = QueryReader $ \cs ->
-  let (rws, cs', dynQ) = f cs in (reads rws, cs', toDynReader dynQ)
+  let !(rws, cs', dynQ) = f cs in (reads rws, cs', toDynReader dynQ)
 
 -- | Reads and writes of a `Query`.
 data ReadsWrites = ReadsWrites
@@ -142,7 +143,7 @@ all i = QR.all i . toReader
 -- | Map all matched entities.
 map :: i -> Query i a -> Entities -> ([a], Entities)
 map i q es =
-  let (rws, cs', dynQ) = runQuery q (components es)
-      cIds = reads rws <> writes rws
-      (as, es') = mapDyn cIds i dynQ es
+  let !(rws, cs', dynQ) = runQuery q (components es)
+      !cIds = reads rws <> writes rws
+      !(as, es') = mapDyn cIds i dynQ es
    in (as, es' {components = cs'})

@@ -46,29 +46,27 @@ newtype DynamicQuery i o
 
 instance Applicative (DynamicQuery i) where
   pure a = DynamicQuery $ \_ es arch -> (replicate (length es) a, arch)
-
   f <*> g = DynamicQuery $ \i es arch ->
-    let (as, arch') = runDynQuery g i es arch
-        (fs, arch'') = runDynQuery f i es arch'
+    let !(as, arch') = runDynQuery g i es arch
+        !(fs, arch'') = runDynQuery f i es arch'
      in (zipWith ($) fs as, arch'')
 
 instance Category DynamicQuery where
   id = DynamicQuery $ \as _ arch -> (as, arch)
-
   f . g = DynamicQuery $ \i es arch ->
-    let (as, arch') = runDynQuery g i es arch in runDynQuery f as es arch'
+    let !(as, arch') = runDynQuery g i es arch in runDynQuery f as es arch'
 
 instance Arrow DynamicQuery where
   arr f = DynamicQuery $ \bs _ arch -> (fmap f bs, arch)
   first f = DynamicQuery $ \bds es arch ->
-    let (bs, ds) = unzip bds
-        (cs, arch') = runDynQuery f bs es arch
+    let !(bs, ds) = unzip bds
+        !(cs, arch') = runDynQuery f bs es arch
      in (zip cs ds, arch')
 
 instance ArrowChoice DynamicQuery where
   left f = DynamicQuery $ \eds es arch ->
-    let (es', ds) = partitionEithers eds
-        (cs, arch') = runDynQuery f es' es arch
+    let !(es', ds) = partitionEithers eds
+        !(cs, arch') = runDynQuery f es' es arch
      in (fmap Left cs ++ fmap Right ds, arch')
 
 instance ArrowDynamicQueryReader DynamicQuery where
@@ -82,7 +80,7 @@ instance ArrowDynamicQuery DynamicQuery where
 
 fromDynReader :: DynamicQueryReader i o -> DynamicQuery i o
 fromDynReader q = DynamicQuery $ \is es arch ->
-  let os = runDynQueryReader' q is es arch in (os, arch)
+  let !os = runDynQueryReader' q is es arch in (os, arch)
 
 toDynReader :: DynamicQuery i o -> DynamicQueryReader i o
 toDynReader q = DynamicQueryReader $ \is es arch -> fst $ runDynQuery q is es arch
@@ -90,17 +88,17 @@ toDynReader q = DynamicQueryReader $ \is es arch -> fst $ runDynQuery q is es ar
 -- | Map all matched entities.
 mapDyn :: Set ComponentID -> i -> DynamicQuery i a -> Entities -> ([a], Entities)
 mapDyn cIds i q es =
-  let (as, es') =
+  let go = runDynQuery q (repeat i)
+      (as, es') =
         if Set.null cIds
           then (fst $ go (Map.keys $ entities es) A.empty, es)
           else
             foldl'
               ( \(acc, esAcc) (aId, n) ->
-                  let (as', arch') = go (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n)
-                      nodes = Map.insert aId n {nodeArchetype = arch'} (AS.nodes $ archetypes esAcc)
+                  let !(as', arch') = go (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n)
+                      !nodes = Map.insert aId n {nodeArchetype = arch'} (AS.nodes $ archetypes esAcc)
                    in (as' ++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}})
               )
               ([], es)
-              (Map.toList $ AS.find cIds (archetypes es))
-      go = runDynQuery q (repeat i)
+              (Map.toList . AS.find cIds $ archetypes es)
    in (as, es')

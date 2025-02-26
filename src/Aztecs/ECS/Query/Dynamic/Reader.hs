@@ -42,29 +42,28 @@ newtype DynamicQueryReader i o
 
 instance Applicative (DynamicQueryReader i) where
   pure a = DynamicQueryReader $ \_ es _ -> replicate (length es) a
-
   f <*> g =
     DynamicQueryReader $ \i es arch ->
-      let as = runDynQueryReader' g i es arch
-          fs = runDynQueryReader' f i es arch
+      let !as = runDynQueryReader' g i es arch
+          !fs = runDynQueryReader' f i es arch
        in zipWith ($) fs as
 
 instance Category DynamicQueryReader where
   id = DynamicQueryReader $ \as _ _ -> as
   f . g = DynamicQueryReader $ \i es arch ->
-    let as = runDynQueryReader' g i es arch in runDynQueryReader' f as es arch
+    let !as = runDynQueryReader' g i es arch in runDynQueryReader' f as es arch
 
 instance Arrow DynamicQueryReader where
   arr f = DynamicQueryReader $ \bs _ _ -> fmap f bs
   first f = DynamicQueryReader $ \bds es arch ->
-    let (bs, ds) = unzip bds
-        cs = runDynQueryReader' f bs es arch
+    let !(bs, ds) = unzip bds
+        !cs = runDynQueryReader' f bs es arch
      in zip cs ds
 
 instance ArrowChoice DynamicQueryReader where
   left f = DynamicQueryReader $ \eds es arch ->
-    let (es', ds) = partitionEithers eds
-        cs = runDynQueryReader' f es' es arch
+    let !(es', ds) = partitionEithers eds
+        !cs = runDynQueryReader' f es' es arch
      in fmap Left cs ++ fmap Right ds
 
 instance ArrowDynamicQueryReader DynamicQueryReader where
@@ -99,6 +98,6 @@ allDyn cIds i q es =
     then runDynQueryReader i q (Map.keys $ entities es) A.empty
     else
       let go n =
-            let eIds = Set.toList $ A.entities $ AS.nodeArchetype n
+            let !eIds = Set.toList $ A.entities $ AS.nodeArchetype n
              in runDynQueryReader i q eIds (AS.nodeArchetype n)
        in concatMap go (AS.find cIds $ archetypes es)

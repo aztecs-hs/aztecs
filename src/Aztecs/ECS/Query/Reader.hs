@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -47,31 +48,31 @@ newtype QueryReader i o
 instance Applicative (QueryReader i) where
   pure a = QueryReader $ \cs -> (mempty, cs, pure a)
   (QueryReader f) <*> (QueryReader g) = QueryReader $ \cs ->
-    let (cIdsG, cs', aQS) = g cs
-        (cIdsF, cs'', bQS) = f cs'
+    let !(cIdsG, cs', aQS) = g cs
+        !(cIdsF, cs'', bQS) = f cs'
      in (cIdsG <> cIdsF, cs'', bQS <*> aQS)
 
 instance Category QueryReader where
   id = QueryReader $ \cs -> (mempty, cs, id)
   (QueryReader f) . (QueryReader g) = QueryReader $ \cs ->
-    let (cIdsG, cs', aQS) = g cs
-        (cIdsF, cs'', bQS) = f cs'
+    let !(cIdsG, cs', aQS) = g cs
+        !(cIdsF, cs'', bQS) = f cs'
      in (cIdsG <> cIdsF, cs'', bQS . aQS)
 
 instance Arrow QueryReader where
   arr f = QueryReader $ \cs -> (mempty, cs, arr f)
-  first (QueryReader f) = QueryReader $ \comps -> let (cIds, comps', qS) = f comps in (cIds, comps', first qS)
+  first (QueryReader f) = QueryReader $ \comps -> let !(cIds, comps', qS) = f comps in (cIds, comps', first qS)
 
 instance ArrowChoice QueryReader where
-  left (QueryReader f) = QueryReader $ \comps -> let (cIds, comps', qS) = f comps in (cIds, comps', left qS)
+  left (QueryReader f) = QueryReader $ \comps -> let !(cIds, comps', qS) = f comps in (cIds, comps', left qS)
 
 instance ArrowQueryReader QueryReader where
   fetch :: forall a. (Component a) => QueryReader () a
   fetch = QueryReader $ \cs ->
-    let (cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', fetchDyn cId)
+    let !(cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', fetchDyn cId)
   fetchMaybe :: forall a. (Component a) => QueryReader () (Maybe a)
   fetchMaybe = QueryReader $ \cs ->
-    let (cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', fetchMaybeDyn cId)
+    let !(cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', fetchMaybeDyn cId)
 
 instance ArrowDynamicQueryReader QueryReader where
   entity = QueryReader $ \cs -> (mempty, cs, entity)
@@ -85,8 +86,8 @@ instance Semigroup QueryFilter where
   a <> b =
     QueryFilter
       ( \cs ->
-          let (withA', cs') = runQueryFilter a cs
-              (withB', cs'') = runQueryFilter b cs'
+          let !(withA', cs') = runQueryFilter a cs
+              !(withB', cs'') = runQueryFilter b cs'
            in (withA' <> withB', cs'')
       )
 
@@ -96,16 +97,16 @@ instance Monoid QueryFilter where
 -- | Filter for entities containing this component.
 with :: forall a. (Component a) => QueryFilter
 with = QueryFilter $ \cs ->
-  let (cId, cs') = CS.insert @a cs in (mempty {filterWith = Set.singleton cId}, cs')
+  let !(cId, cs') = CS.insert @a cs in (mempty {filterWith = Set.singleton cId}, cs')
 
 -- | Filter out entities containing this component.
 without :: forall a. (Component a) => QueryFilter
 without = QueryFilter $ \cs ->
-  let (cId, cs') = CS.insert @a cs in (mempty {filterWithout = Set.singleton cId}, cs')
+  let !(cId, cs') = CS.insert @a cs in (mempty {filterWithout = Set.singleton cId}, cs')
 
 all :: i -> QueryReader i a -> Entities -> ([a], Entities)
-all i q es = let (as, cs) = all' i q es in (as, es {E.components = cs})
+all i q es = let !(as, cs) = all' i q es in (as, es {E.components = cs})
 
 -- | Match all entities.
 all' :: i -> QueryReader i a -> Entities -> ([a], Components)
-all' i q es = let (rs, cs', dynQ) = runQueryReader q (E.components es) in (allDyn rs i dynQ es, cs')
+all' i q es = let !(rs, cs', dynQ) = runQueryReader q (E.components es) in (allDyn rs i dynQ es, cs')
