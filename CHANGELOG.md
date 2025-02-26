@@ -9,6 +9,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## Breaking changes
 
 - Queue monadic tasks from systems (8e667f2)
+- Rename query fields (403c7c3)
+- Optimize `Archetype` storage (7c35b25) (cf3983c)
+  - Entitiy IDs are now stored in each `Archetype`, with storages now only storing actual components
+
+## Features
+
+- Query conversion to-and-from readers (dfbc7a6)
+- `allDyn` and `mapDyn` for running queries (78a0199)
 
 ## Fixes
 
@@ -17,7 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## Tests
 
 - Property-based test for queries (e89c482)
-
+- Update benchmark and remove potentially-false results (a895f68)
 
 ## [0.7.0](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.6.0..aztecs-v0.7.0) - 2025-2-22
 
