@@ -140,9 +140,9 @@ all :: i -> Query i a -> Entities -> ([a], Entities)
 all i = QR.all i . toReader
 
 -- | Map all matched entities.
-map :: Query () a -> Entities -> ([a], Entities)
-map q es =
+map :: i -> Query i a -> Entities -> ([a], Entities)
+map i q es =
   let (rws, cs', dynQ) = runQuery q (components es)
       cIds = reads rws <> writes rws
-      (as, es') = mapDyn cIds dynQ es
+      (as, es') = mapDyn cIds i dynQ es
    in (as, es' {components = cs'})

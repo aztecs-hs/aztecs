@@ -87,8 +87,8 @@ toDynReader :: DynamicQuery i o -> DynamicQueryReader i o
 toDynReader q = DynamicQueryReader $ \is es arch -> fst $ runDynQuery q is es arch
 
 -- | Map all matched entities.
-mapDyn :: Set ComponentID -> DynamicQuery () a -> Entities -> ([a], Entities)
-mapDyn cIds q es =
+mapDyn :: Set ComponentID -> i -> DynamicQuery i a -> Entities -> ([a], Entities)
+mapDyn cIds i q es =
   let (as, es') =
         if Set.null cIds
           then (fst $ go (Map.keys $ entities es) A.empty, es)
@@ -101,5 +101,5 @@ mapDyn cIds q es =
               )
               ([], es)
               (Map.toList $ AS.find cIds (archetypes es))
-      go = runDynQuery q (repeat ())
+      go = runDynQuery q (repeat i)
    in (as, es')

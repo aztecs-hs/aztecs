@@ -13,7 +13,7 @@ module Aztecs.ECS.System.Dynamic.Reader
 where
 
 import Aztecs.ECS.Access
-import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..))
+import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..), runDynQueryReader)
 import Aztecs.ECS.System.Dynamic.Reader.Class
 import Aztecs.ECS.System.Queue (ArrowQueueSystem (..))
 import qualified Aztecs.ECS.View as V
@@ -60,7 +60,7 @@ instance (Monad m) => ArrowDynamicReaderSystem DynamicQueryReader (DynamicReader
   allDyn cIds q = DynamicReaderSystem $ \w i ->
     let !v = V.view cIds $ archetypes w
      in if V.null v
-          then (runDynQueryReader' q (repeat i) (Map.keys $ entities w) A.empty, pure (), allDyn cIds q)
+          then (runDynQueryReader i q (Map.keys $ entities w) A.empty, pure (), allDyn cIds q)
           else (V.readAllDyn i q v, pure (), allDyn cIds q)
   filterDyn cIds q f = DynamicReaderSystem $ \w i ->
     let !v = V.filterView cIds f $ archetypes w
