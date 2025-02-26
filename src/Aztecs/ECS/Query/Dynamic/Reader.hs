@@ -1,5 +1,9 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Aztecs.ECS.Query.Dynamic.Reader
@@ -57,10 +61,12 @@ instance ArrowChoice DynamicQueryReader where
 
 instance ArrowDynamicQueryReader DynamicQueryReader where
   entity = DynamicQueryReader $ \_ es _ -> es
+  fetchDyn :: forall a. (Component a) => ComponentID -> DynamicQueryReader () a
   fetchDyn cId = DynamicQueryReader $ \_ _ arch ->
-    let !as = maybe [] S.toList (A.lookupStorage cId arch) in fmap snd as
-  fetchMaybeDyn cId = DynamicQueryReader $ \_ es arch -> case A.lookupStorage cId arch of
-    Just s -> let !as = S.toList s in fmap Just $ snd <$> as
+    maybe [] (S.toAscList @a @(StorageT a)) (A.lookupStorage @a cId arch)
+  fetchMaybeDyn :: forall a. (Component a) => ComponentID -> DynamicQueryReader () (Maybe a)
+  fetchMaybeDyn cId = DynamicQueryReader $ \_ es arch -> case A.lookupStorage @a cId arch of
+    Just s -> let !as = S.toAscList @a @(StorageT a) s in fmap Just as
     Nothing -> map (const Nothing) es
 
 data DynamicQueryFilter = DynamicQueryFilter

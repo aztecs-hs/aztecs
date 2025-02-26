@@ -27,8 +27,8 @@ import qualified Aztecs.ECS.World.Entities as E
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
-import Prelude hiding (null)
 import qualified Data.Set as Set
+import Prelude hiding (null)
 
 -- | View into a `World`, containing a subset of archetypes.
 newtype View = View {viewArchetypes :: Map ArchetypeID Node}

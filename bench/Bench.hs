@@ -27,8 +27,7 @@ query = proc () -> do
   Q.set -< Position $ p + v
 
 run :: World -> World
-run w = let !(_, es) = Q.map query $ entities w in w {entities = es} 
-   
+run w = let !(_, es) = Q.map query $ entities w in w {entities = es}
 
 runSystem :: World -> IO World
 runSystem w = do
