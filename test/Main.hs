@@ -39,6 +39,7 @@ instance Component Z
 main :: IO ()
 main = hspec $ do
   describe "Aztecs.ECS.Query.all" $ do
+    it "queries an empty world" $ prop_queryEmpty
     it "queries dynamic components" $ property prop_queryDyn
     it "queries a typed component" $ property prop_queryTypedComponent
     it "queries 2 typed components" $ property prop_queryTwoTypedComponents
@@ -49,6 +50,10 @@ main = hspec $ do
   describe "Aztecs.ECS.Schedule" $ do
     it "queries entities" $ property prop_scheduleQueryEntity
     it "updates components" prop_scheduleUpdate
+
+prop_queryEmpty :: Expectation
+prop_queryEmpty =
+  let (res, _) = Q.all () (Q.fetch @_ @X) $ W.entities W.empty in res `shouldMatchList` []
 
 -- | Query all components from a list of `ComponentID`s.
 queryComponentIds ::
