@@ -17,6 +17,10 @@ module Aztecs.ECS.Query
     all,
     map,
 
+    -- ** Conversion
+    fromReader,
+    toReader,
+
     -- * Filters
     QueryFilter (..),
     with,
@@ -30,10 +34,11 @@ where
 
 import Aztecs.ECS.Component
 import Aztecs.ECS.Query.Class (ArrowQuery (..))
-import Aztecs.ECS.Query.Dynamic (DynamicQuery (..), fromDynReader)
+import Aztecs.ECS.Query.Dynamic (DynamicQuery (..), fromDynReader, toDynReader)
 import Aztecs.ECS.Query.Dynamic.Class (ArrowDynamicQuery (..))
 import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Aztecs.ECS.Query.Reader (QueryFilter (..), QueryReader (..), with, without)
+import qualified Aztecs.ECS.Query.Reader as QR
 import Aztecs.ECS.Query.Reader.Class (ArrowQueryReader (..))
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
@@ -111,6 +116,10 @@ fromReader :: QueryReader i o -> Query i o
 fromReader (QueryReader f) = Query $ \cs ->
   let (cIds, cs', dynQ) = f cs in (ReadsWrites cIds Set.empty, cs', fromDynReader dynQ)
 
+toReader :: Query i o -> QueryReader i o
+toReader (Query f) = QueryReader $ \cs ->
+  let (rws, cs', dynQ) = f cs in (reads rws, cs', toDynReader dynQ)
+
 -- | Reads and writes of a `Query`.
 data ReadsWrites = ReadsWrites
   { reads :: !(Set ComponentID),
@@ -133,23 +142,14 @@ disjoint a b =
 
 -- | Match all entities.
 all :: Query () a -> Entities -> ([a], Entities)
-all q w =
-  let (rws, cs', dynQ) = runQuery q (components w)
-      cIds = reads rws <> writes rws
-      go es arch = fst $ runDynQuery dynQ (replicate (length es) ()) es arch
-      as =
-        if Set.null cIds
-          then go (Map.keys $ E.entities w) A.empty
-          else
-            concatMap (\n -> go (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n)) (AS.find cIds (archetypes w))
-   in (as, w {components = cs'})
+all q w = QR.all (toReader q) w
 
 -- | Map all matched entities.
 map :: Query () a -> Entities -> ([a], Entities)
 map q es =
   let (rws, cs', dynQ) = runQuery q (components es)
       cIds = reads rws <> writes rws
-      go esAcc arch = runDynQuery dynQ (replicate (length esAcc) ()) esAcc arch
+      go esAcc arch = runDynQuery dynQ (repeat ()) esAcc arch
       (as, es') =
         if Set.null cIds
           then (fst $ go (Map.keys $ E.entities es) A.empty, es)

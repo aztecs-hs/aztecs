@@ -8,6 +8,7 @@ module Aztecs.ECS.Query.Dynamic
     ArrowDynamicQueryReader (..),
     ArrowDynamicQuery (..),
     fromDynReader,
+    toDynReader,
 
     -- * Dynamic query filters
     DynamicQueryFilter (..),
@@ -69,3 +70,6 @@ instance ArrowDynamicQuery DynamicQuery where
 fromDynReader :: DynamicQueryReader i o -> DynamicQuery i o
 fromDynReader q = DynamicQuery $ \is es arch ->
   let os = runDynQueryReader q is es arch in (os, arch)
+
+toDynReader :: DynamicQuery i o -> DynamicQueryReader i o
+toDynReader q = DynamicQueryReader $ \is es arch -> fst $ runDynQuery q is es arch

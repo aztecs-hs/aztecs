@@ -14,9 +14,9 @@ module Aztecs.ECS.System
 where
 
 import Aztecs.ECS.Access
-import Aztecs.ECS.Query (Query (..), ReadsWrites (..))
+import Aztecs.ECS.Query (Query (..), QueryFilter (..), ReadsWrites (..))
 import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.Query.Reader
+import Aztecs.ECS.Query.Reader (DynamicQueryFilter (..), QueryReader (..))
 import Aztecs.ECS.System.Class
 import Aztecs.ECS.System.Dynamic
 import Aztecs.ECS.System.Reader

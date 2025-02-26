@@ -12,6 +12,10 @@ module Aztecs.ECS.Query.Reader
     ArrowQueryReader (..),
     ArrowDynamicQueryReader (..),
 
+    -- ** Running
+    all,
+    all',
+
     -- * Filters
     QueryFilter (..),
     with,
@@ -25,13 +29,19 @@ import Aztecs.ECS.Query.Dynamic (DynamicQueryFilter (..))
 import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..))
 import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Aztecs.ECS.Query.Reader.Class (ArrowQueryReader (..))
+import qualified Aztecs.ECS.World.Archetype as A
+import Aztecs.ECS.World.Archetypes (Node (..))
+import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Components (Components)
 import qualified Aztecs.ECS.World.Components as CS
+import Aztecs.ECS.World.Entities (Entities (..))
+import qualified Aztecs.ECS.World.Entities as E
 import Control.Arrow (Arrow (..), ArrowChoice (..))
 import Control.Category (Category (..))
+import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Prelude hiding (id, (.))
+import Prelude hiding (all, id, (.))
 
 -- | Query to read from entities.
 newtype QueryReader i o
@@ -96,3 +106,19 @@ with = QueryFilter $ \cs ->
 without :: forall a. (Component a) => QueryFilter
 without = QueryFilter $ \cs ->
   let (cId, cs') = CS.insert @a cs in (mempty {filterWithout = Set.singleton cId}, cs')
+
+all :: QueryReader () a -> Entities -> ([a], Entities)
+all q es = let (as, cs) = all' q es in (as, es {E.components = cs})
+
+-- | Match all entities.
+all' :: QueryReader () a -> Entities -> ([a], Components)
+all' q es =
+  let (rs, cs', dynQ) = runQueryReader q (E.components es)
+      go eIds arch = runDynQueryReader dynQ (repeat ()) eIds arch
+      as =
+        if Set.null rs
+          then go (Map.keys $ E.entities es) A.empty
+          else
+            let goNode n = go (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n)
+             in concatMap goNode (AS.find rs (archetypes es))
+   in (as, cs')
