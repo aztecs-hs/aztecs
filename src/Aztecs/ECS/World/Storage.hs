@@ -17,6 +17,8 @@ class (Typeable s, NFData s, Typeable a) => Storage a s where
   -- | Convert a sorted list of components (in ascending order) into a storage.
   fromAscList :: [a] -> s
 
+  map :: (a -> a) -> s -> s
+
 instance (Typeable a, NFData a) => Storage a [a] where
   {-# INLINE singleton #-}
   singleton a = [a]
@@ -24,3 +26,5 @@ instance (Typeable a, NFData a) => Storage a [a] where
   toAscList = id
   {-# INLINE fromAscList #-}
   fromAscList = id
+  {-# INLINE map #-}
+  map = fmap

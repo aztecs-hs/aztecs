@@ -84,6 +84,10 @@ instance ArrowDynamicQueryReader DynamicQuery where
   fetchMaybeDyn = fromDynReader . fetchMaybeDyn
 
 instance ArrowDynamicQuery DynamicQuery where
+  {-# INLINE adjustDyn #-}
+  adjustDyn f cId = DynamicQuery $ \is _ arch ->
+    let !(as, arch') = A.zipMap is f cId arch in (as, arch')
+
   {-# INLINE setDyn #-}
   setDyn cId = DynamicQuery $ \is _ arch ->
     let !arch' = A.insertAscList cId is arch in (is, arch')

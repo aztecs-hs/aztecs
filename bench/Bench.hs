@@ -24,8 +24,7 @@ instance Component Velocity
 query :: Query () Position
 query = proc () -> do
   Velocity v <- Q.fetch -< ()
-  Position p <- Q.fetch -< ()
-  Q.set -< Position $ p + v
+  Q.adjust (\v (Position p) -> Position $ p + v) -< v
 
 run :: QueryState () Position -> World -> World
 run q w = let !(_, es) = Q.queryStateMap () q $ entities w in w {entities = es}

@@ -25,6 +25,7 @@ module Aztecs.ECS.World.Archetype
     insertComponent,
     insertComponents,
     insertAscList,
+    zipMap,
   )
 where
 
@@ -34,6 +35,7 @@ import qualified Aztecs.ECS.World.Storage as S
 import Aztecs.ECS.World.Storage.Dynamic
 import qualified Aztecs.ECS.World.Storage.Dynamic as S
 import Control.DeepSeq
+import Control.Monad.Writer (MonadWriter (..), runWriter)
 import Data.Dynamic
 import Data.Foldable
 import Data.IntMap (IntMap)
@@ -44,6 +46,7 @@ import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Generics
+import Prelude hiding (map)
 
 data Archetype = Archetype
   { storages :: !(IntMap DynamicStorage),
@@ -86,6 +89,21 @@ insertComponent e cId c arch =
 
 member :: ComponentID -> Archetype -> Bool
 member cId = IntMap.member (unComponentId cId) . storages
+
+{-# INLINE zipMap #-}
+zipMap :: forall a c. (Component c) => [a] -> (a -> c -> c) -> ComponentID -> Archetype -> ([c], Archetype)
+zipMap as f cId arch =
+  let go maybeDyn = case maybeDyn of
+        Just dyn -> case fromDynamic $ storageDyn dyn of
+          Just s -> do
+            let !cAcc = S.toAscList @c @(StorageT c) s
+                !cAcc' = zipWith f as cAcc
+            tell cAcc'
+            return $ Just $ dyn {storageDyn = toDyn $ S.fromAscList @c @(StorageT c) cAcc'}
+          Nothing -> return maybeDyn
+        Nothing -> return Nothing
+      !(storages', cs) = runWriter $ IntMap.alterF go (unComponentId cId) $ storages arch
+   in (cs, arch {storages = storages'})
 
 -- | Insert a list of components into the archetype, sorted in ascending order by their `EntityID`.
 {-# INLINE insertAscList #-}

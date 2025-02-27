@@ -122,10 +122,18 @@ instance ArrowDynamicQueryReader Query where
   fetchMaybeDyn = fromReader . fetchMaybeDyn
 
 instance ArrowDynamicQuery Query where
+  {-# INLINE adjustDyn #-}
+  adjustDyn f cId = Query (QueryState (ReadsWrites Set.empty (Set.singleton cId)) (adjustDyn f cId),)
   {-# INLINE setDyn #-}
   setDyn cId = Query (QueryState (ReadsWrites Set.empty (Set.singleton cId)) (setDyn cId),)
 
 instance ArrowQuery Query where
+  {-# INLINE adjust #-}
+  adjust :: forall i a. (Component a) => (i -> a -> a) -> Query i a
+  adjust f = Query $ \cs ->
+    let !(cId, cs') = CS.insert @a cs
+     in (QueryState (ReadsWrites Set.empty (Set.singleton cId)) (adjustDyn f cId), cs')
+
   {-# INLINE set #-}
   set :: forall a. (Component a) => Query a a
   set = Query $ \cs ->
