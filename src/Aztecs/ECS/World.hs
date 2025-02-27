@@ -30,13 +30,12 @@ import qualified Aztecs.ECS.World.Entities as E
 import Control.DeepSeq
 import Data.Dynamic
 import Data.IntMap (IntMap)
-import Data.Map (Map)
 import GHC.Generics
 import Prelude hiding (lookup)
 
 -- | World of entities and their components.
 data World = World
-  { entities :: Entities,
+  { entities :: !Entities,
     nextEntityId :: !EntityID
   }
   deriving (Show, Generic, NFData)

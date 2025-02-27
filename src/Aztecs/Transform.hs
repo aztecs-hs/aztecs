@@ -37,8 +37,8 @@ import qualified Aztecs.ECS.System as S
 import Aztecs.Hierarchy (Hierarchy, hierarchies, mapWithAccum, toList)
 import Control.Arrow (Arrow (..), (>>>))
 import Control.DeepSeq
-import GHC.Generics (Generic)
-import Linear (V2 (..))
+import GHC.Generics
+import Linear
 
 -- | Transform component.
 data Transform v r = Transform

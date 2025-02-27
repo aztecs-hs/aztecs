@@ -5,6 +5,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 
+-- | Hierarchical relationships.
+-- A `Children` component forms a one-to-many relationship with `Parent` components.
 module Aztecs.Hierarchy
   ( Parent (..),
     Children (..),
@@ -35,6 +37,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Generics (Generic)
 
+-- | Parent component.
 newtype Parent = Parent {unParent :: EntityID}
   deriving (Eq, Ord, Show, Generic, NFData)
 
@@ -45,6 +48,7 @@ newtype ParentState = ParentState {unParentState :: EntityID}
 
 instance Component ParentState
 
+-- | Children component.
 newtype Children = Children {unChildren :: Set EntityID}
   deriving (Eq, Ord, Show, Semigroup, Monoid, Generic, NFData)
 
@@ -55,6 +59,7 @@ newtype ChildState = ChildState {unChildState :: Set EntityID}
 
 instance Component ChildState
 
+-- | Update the parent-child relationships.
 update ::
   ( ArrowQueryReader qr,
     ArrowDynamicQueryReader qr,
@@ -126,6 +131,7 @@ update = proc () -> do
     -<
       (parents, children)
 
+-- | Hierarchy of entities.
 data Hierarchy a = Node
   { nodeEntityId :: EntityID,
     nodeEntity :: a,
@@ -137,7 +143,8 @@ instance Foldable Hierarchy where
   foldMap f n = f (nodeEntity n) <> foldMap (foldMap f) (nodeChildren n)
 
 instance Traversable Hierarchy where
-  traverse f n = Node (nodeEntityId n) <$> f (nodeEntity n) <*> traverse (traverse f) (nodeChildren n)
+  traverse f n =
+    Node (nodeEntityId n) <$> f (nodeEntity n) <*> traverse (traverse f) (nodeChildren n)
 
 toList :: Hierarchy a -> [(EntityID, a)]
 toList n = (nodeEntityId n, nodeEntity n) : concatMap toList (nodeChildren n)
@@ -146,12 +153,14 @@ foldWithKey :: (EntityID -> a -> b -> b) -> Hierarchy a -> b -> b
 foldWithKey f n b = f (nodeEntityId n) (nodeEntity n) (foldr (foldWithKey f) b (nodeChildren n))
 
 mapWithKey :: (EntityID -> a -> b) -> Hierarchy a -> Hierarchy b
-mapWithKey f n = Node (nodeEntityId n) (f (nodeEntityId n) (nodeEntity n)) (map (mapWithKey f) (nodeChildren n))
+mapWithKey f n =
+  Node (nodeEntityId n) (f (nodeEntityId n) (nodeEntity n)) (map (mapWithKey f) (nodeChildren n))
 
 mapWithAccum :: (EntityID -> a -> b -> (c, b)) -> b -> Hierarchy a -> Hierarchy c
 mapWithAccum f b n = case f (nodeEntityId n) (nodeEntity n) b of
   (c, b') -> Node (nodeEntityId n) c (map (mapWithAccum f b') (nodeChildren n))
 
+-- | System to read a hierarchy of parents to children with the given query.
 hierarchy ::
   (ArrowQueryReader q, ArrowDynamicQueryReader q, ArrowReaderSystem q arr) =>
   EntityID ->
@@ -171,7 +180,7 @@ hierarchy e q = proc i -> do
   let childMap = Map.fromList children
   returnA -< hierarchy' e childMap
 
--- | Build all hierarchies of parents to children with the given query.
+-- | Build all hierarchies of parents to children, joined with the given query.
 hierarchies ::
   (ArrowQueryReader q, ArrowDynamicQueryReader q, ArrowReaderSystem q arr) =>
   q i a ->
