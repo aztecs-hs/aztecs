@@ -110,5 +110,5 @@ loadAssets = proc () -> do
   system $ S.mapSingle Q.set -< server'
   returnA -< ()
 
-setup :: forall a. (Typeable a) => System () ()
+setup :: forall arr m b a. (Typeable a, ArrowQueueSystem m b arr) => arr () ()
 setup = S.queue . const . A.spawn_ . bundle $ assetServer @a
