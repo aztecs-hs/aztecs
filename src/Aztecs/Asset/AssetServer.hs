@@ -2,12 +2,8 @@
 {-# LANGUAGE Arrows #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
 
 module Aztecs.Asset.AssetServer
   ( AssetId (..),
@@ -25,19 +21,21 @@ import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
-import Control.Arrow (returnA)
+import Control.Arrow
 import Control.DeepSeq
-import Control.Monad.IO.Class (MonadIO (..))
-import Data.Data (Typeable)
-import Data.Foldable (foldrM)
-import Data.IORef (IORef, readIORef)
+import Control.Monad.IO.Class
+import Data.Data
+import Data.Foldable
+import Data.IORef
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import GHC.Generics (Generic)
+import GHC.Generics
 
+-- | Unique identifier for an asset.
 newtype AssetId = AssetId {unAssetId :: Int}
   deriving (Eq, Ord, Show)
 
+-- | Asset server.
 data AssetServer a = AssetServer
   { assetServerAssets :: !(Map AssetId a),
     loadingAssets :: !(Map AssetId (Either (IO (IORef (Maybe a))) (IORef (Maybe a)))),
@@ -67,9 +65,11 @@ instance NFData (Handle a) where
 lookupAsset :: Handle a -> AssetServer a -> Maybe a
 lookupAsset h server = Map.lookup (handleId h) (assetServerAssets server)
 
+-- | Setup the asset server.
 setup :: forall arr m b a. (Typeable a, ArrowQueueSystem m b arr) => arr () ()
 setup = S.queue . const . A.spawn_ . bundle $ assetServer @a
 
+-- | Load any pending assets.
 loadAssets ::
   forall a qr rs q s b m arr.
   ( Typeable a,
@@ -89,6 +89,7 @@ loadAssets = proc () -> do
   system $ S.mapSingle Q.set -< server'
   returnA -< ()
 
+-- | Load any pending assets in an `AssetServer`.
 loadAssetServer :: (MonadIO m) => AssetServer a -> m (AssetServer a)
 loadAssetServer server =
   let go (aId, v) acc = do

@@ -1,12 +1,10 @@
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FunctionalDependencies #-}
 
 module Aztecs.ECS.Access.Class (MonadAccess (..)) where
 
-import Aztecs.ECS.Component (Component (..))
-import Aztecs.ECS.Entity (EntityID (..))
-import Aztecs.ECS.World.Bundle (MonoidBundle (..))
-import Prelude hiding (all, lookup, map)
+import Aztecs.ECS.Component
+import Aztecs.ECS.Entity
+import Aztecs.ECS.World.Bundle.Class
 
 -- | Monadic access to a `World`.
 class (MonoidBundle b, Monad m) => MonadAccess b m | m -> b where

@@ -116,6 +116,7 @@ all' :: i -> QueryReader i a -> Entities -> ([a], Components)
 all' i q es =
   let !(qs, cs') = runQueryReader q (E.components es) in (queryStateAll i qs es, cs')
 
+-- | State produced by a `QueryReader`.
 data QueryReaderState i o = QueryReaderState
   { queryReaderStateReads :: !(Set ComponentID),
     queryReaderStateDyn :: !(DynamicQueryReader i o)

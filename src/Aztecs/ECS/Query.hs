@@ -175,6 +175,7 @@ map i q es =
       !(as, es') = queryStateMap i qS es
    in (as, es' {components = cs'})
 
+-- | State produced by a `Query`.
 data QueryState i o = QueryState
   { queryStateReadsWrites :: {-# UNPACK #-} !ReadsWrites,
     queryStateDyn :: !(DynamicQuery i o)

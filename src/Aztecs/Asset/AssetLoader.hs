@@ -5,29 +5,30 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Aztecs.Asset.AssetLoader
-  ( MonadAssetLoader (..),
-    AssetLoader,
+  ( AssetLoader,
     AssetLoaderT (..),
+    MonadAssetLoader (..),
     load,
     loadQuery,
   )
 where
 
 import Aztecs.Asset.AssetLoader.Class
-import Aztecs.Asset.AssetServer (AssetId (..), AssetServer (..), Handle (..))
+import Aztecs.Asset.AssetServer
 import Aztecs.Asset.Class
 import Aztecs.ECS
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
-import Control.Arrow (returnA)
-import Control.Concurrent (forkIO)
-import Control.Monad.Identity (Identity)
-import Control.Monad.State.Strict (MonadState (..), StateT, runState)
-import Data.IORef (newIORef, writeIORef)
+import Control.Arrow
+import Control.Concurrent
+import Control.Monad.Identity
+import Control.Monad.State.Strict
+import Data.IORef
 import qualified Data.Map.Strict as Map
 
 type AssetLoader a o = AssetLoaderT a Identity o
 
+-- | Asset loader monad.
 newtype AssetLoaderT a m o = AssetLoaderT {unAssetLoader :: StateT (AssetServer a) m o}
   deriving newtype (Functor, Applicative, Monad)
 
@@ -48,12 +49,14 @@ instance (Monad m, Asset a) => MonadAssetLoader a (AssetLoaderT a m) where
         }
     return $ Handle assetId
 
+-- | Query to load assets.
 loadQuery :: (Asset a, ArrowQuery arr) => AssetLoader a o -> arr () o
 loadQuery a = proc () -> do
-  assetServer <- Q.fetch -< ()
-  let (o, assetServer') = runState (unAssetLoader a) assetServer
-  Q.set -< assetServer'
+  server <- Q.fetch -< ()
+  let (o, server') = runState (unAssetLoader a) server
+  Q.set -< server'
   returnA -< o
 
+-- | System to load assets.
 load :: (ArrowQuery q, ArrowSystem q arr, Asset a) => AssetLoader a o -> arr () o
 load a = S.mapSingle $ loadQuery a
