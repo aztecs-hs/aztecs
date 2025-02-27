@@ -39,7 +39,7 @@ instance Component Z
 main :: IO ()
 main = hspec $ do
   describe "Aztecs.ECS.Query.all" $ do
-    it "queries an empty world" $ prop_queryEmpty
+    it "queries an empty world" prop_queryEmpty
     it "queries dynamic components" $ property prop_queryDyn
     it "queries a typed component" $ property prop_queryTypedComponent
     it "queries 2 typed components" $ property prop_queryTwoTypedComponents
