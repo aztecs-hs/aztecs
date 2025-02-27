@@ -29,6 +29,7 @@ import Aztecs.ECS.World.Entities (Entities)
 import qualified Aztecs.ECS.World.Entities as E
 import Control.DeepSeq
 import Data.Dynamic
+import Data.IntMap (IntMap)
 import Data.Map (Map)
 import GHC.Generics
 import Prelude hiding (lookup)
@@ -89,5 +90,5 @@ removeWithId :: forall a. (Component a) => EntityID -> ComponentID -> World -> (
 removeWithId e cId w = let (a, es) = E.removeWithId e cId (entities w) in (a, w {entities = es})
 
 -- | Despawn an entity, returning its components.
-despawn :: EntityID -> World -> (Map ComponentID Dynamic, World)
+despawn :: EntityID -> World -> (IntMap Dynamic, World)
 despawn e w = let (a, es) = E.despawn e (entities w) in (a, w {entities = es})

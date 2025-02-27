@@ -32,6 +32,8 @@ import Aztecs.ECS.World.Components (Components (..))
 import qualified Aztecs.ECS.World.Components as CS
 import Control.DeepSeq
 import Data.Dynamic
+import Data.IntMap (IntMap)
+import qualified Data.IntMap as IntMap
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
@@ -199,7 +201,7 @@ removeWithId e cId w = case Map.lookup e (entities w) of
   Nothing -> (Nothing, w)
 
 -- | Despawn an entity, returning its components.
-despawn :: EntityID -> Entities -> (Map ComponentID Dynamic, Entities)
+despawn :: EntityID -> Entities -> (IntMap Dynamic, Entities)
 despawn e w =
   let res = do
         !aId <- Map.lookup e $ entities w
@@ -214,4 +216,4 @@ despawn e w =
                     entities = Map.delete e (entities w)
                   }
               )
-        Nothing -> (Map.empty, w)
+        Nothing -> (IntMap.empty, w)

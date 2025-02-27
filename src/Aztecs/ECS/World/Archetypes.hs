@@ -36,6 +36,7 @@ import Aztecs.ECS.World.Storage.Dynamic (fromAscListDyn, toAscListDyn)
 import Control.DeepSeq (NFData (..))
 import Data.Dynamic
 import Data.Foldable (foldl')
+import qualified Data.IntMap.Strict as IntMap
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe
@@ -179,18 +180,18 @@ remove e aId cId arches = case lookup aId arches of
     Just nextAId ->
       let !(cs, arch') = A.remove e (nodeArchetype node)
           !arches' = arches {nodes = Map.insert aId node {nodeArchetype = arch'} (nodes arches)}
-          (a, cs') = Map.updateLookupWithKey (\_ _ -> Nothing) cId cs
+          (a, cs') = IntMap.updateLookupWithKey (\_ _ -> Nothing) (unComponentId cId) cs
           go' archAcc (itemCId, dyn) =
             let adjustStorage s = fromAscListDyn (Map.elems . Map.insert e dyn . Map.fromAscList . zip (Set.toList $ entities archAcc) $ toAscListDyn s) s
-             in archAcc {storages = Map.adjust adjustStorage itemCId (storages archAcc)}
+             in archAcc {storages = IntMap.adjust adjustStorage itemCId (storages archAcc)}
           go nextNode =
-            nextNode {nodeArchetype = foldl' go' (nodeArchetype nextNode) (Map.toList cs')}
+            nextNode {nodeArchetype = foldl' go' (nodeArchetype nextNode) (IntMap.toList cs')}
        in ( (,nextAId) <$> (a >>= fromDynamic),
             arches' {nodes = Map.adjust go nextAId (nodes arches')}
           )
     Nothing ->
       let !(cs, arch') = A.removeStorages e (nodeArchetype node)
-          (a, cs') = Map.updateLookupWithKey (\_ _ -> Nothing) cId cs
+          (a, cs') = IntMap.updateLookupWithKey (\_ _ -> Nothing) (unComponentId cId) cs
           !n =
             Node
               { nodeComponentIds = Set.insert cId (nodeComponentIds node),
