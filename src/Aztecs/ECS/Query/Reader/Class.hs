@@ -1,7 +1,7 @@
 module Aztecs.ECS.Query.Reader.Class (ArrowQueryReader (..)) where
 
 import Aztecs.ECS.Component
-import Control.Arrow (Arrow (..), (>>>))
+import Control.Arrow
 
 -- | Arrow for queries that can read from entities.
 class (Arrow arr) => ArrowQueryReader arr where

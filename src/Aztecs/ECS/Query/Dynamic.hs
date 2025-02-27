@@ -20,18 +20,17 @@ module Aztecs.ECS.Query.Dynamic
   )
 where
 
-import Aztecs.ECS.Component (ComponentID)
-import Aztecs.ECS.Entity (EntityID)
-import Aztecs.ECS.Query.Dynamic.Class (ArrowDynamicQuery (..))
-import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryFilter (..), DynamicQueryReader (..))
-import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
+import Aztecs.ECS.Component
+import Aztecs.ECS.Entity
+import Aztecs.ECS.Query.Dynamic.Class
+import Aztecs.ECS.Query.Dynamic.Reader
 import Aztecs.ECS.World.Archetype (Archetype)
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
 import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Entities (Entities (..))
-import Control.Arrow (Arrow (..), ArrowChoice (..))
-import Control.Category (Category (..))
+import Control.Arrow
+import Control.Category
 import Data.Either (partitionEithers)
 import Data.Foldable
 import qualified Data.Map as Map

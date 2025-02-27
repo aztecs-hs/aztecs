@@ -14,7 +14,7 @@ module Aztecs.ECS.System
 where
 
 import Aztecs.ECS.Access
-import Aztecs.ECS.Query (Query (..), QueryFilter (..), ReadsWrites (..))
+import Aztecs.ECS.Query (Query (..), QueryFilter (..), QueryState (..), ReadsWrites (..))
 import qualified Aztecs.ECS.Query as Q
 import Aztecs.ECS.Query.Reader (DynamicQueryFilter (..), QueryReader (..))
 import Aztecs.ECS.System.Class
@@ -69,20 +69,20 @@ instance (Monad m) => ArrowReaderSystem QueryReader (SystemT m) where
 
 instance (Monad m) => ArrowSystem Query (SystemT m) where
   map q = System $ \cs ->
-    let !(rws, cs', dynQ) = runQuery q cs
+    let !(QueryState rws dynQ, cs') = runQuery q cs
      in (mapDyn (Q.reads rws <> Q.writes rws) dynQ, rws, cs')
   filterMap q qf = System $ \cs ->
-    let !(rws, cs', dynQ) = runQuery q cs
+    let !(QueryState rws dynQ, cs') = runQuery q cs
         !(dynQf, cs'') = runQueryFilter qf cs'
         f' n =
           F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynQf)
             && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynQf)
      in (filterMapDyn (Q.reads rws <> Q.writes rws) dynQ f', rws, cs'')
   mapSingle q = System $ \cs ->
-    let !(rws, cs', dynQ) = runQuery q cs
+    let !(QueryState rws dynQ, cs') = runQuery q cs
      in (mapSingleDyn (Q.reads rws <> Q.writes rws) dynQ, rws, cs')
   mapSingleMaybe q = System $ \cs ->
-    let !(rws, cs', dynQ) = runQuery q cs
+    let !(QueryState rws dynQ, cs') = runQuery q cs
      in (mapSingleMaybeDyn (Q.reads rws <> Q.writes rws) dynQ, rws, cs')
 
 instance (Monad m) => ArrowQueueSystem Bundle (AccessT m) (SystemT m) where

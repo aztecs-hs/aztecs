@@ -20,13 +20,12 @@ module Aztecs.ECS.Query.Dynamic.Reader
 where
 
 import Aztecs.ECS.Component
-import Aztecs.ECS.Entity (EntityID)
-import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
+import Aztecs.ECS.Entity
+import Aztecs.ECS.Query.Dynamic.Reader.Class
 import Aztecs.ECS.World.Archetype (Archetype)
 import qualified Aztecs.ECS.World.Archetype as A
 import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Entities (Entities (..))
-import qualified Aztecs.ECS.World.Storage as S
 import Control.Arrow
 import Control.Category
 import Data.Either (partitionEithers)

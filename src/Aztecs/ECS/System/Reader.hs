@@ -59,14 +59,15 @@ instance (Monad m) => ArrowLoop (ReaderSystemT m) where
 
 instance (Monad m) => ArrowReaderSystem QueryReader (ReaderSystemT m) where
   all q = ReaderSystem $ \cs ->
-    let !(rs, cs', dynQ) = runQueryReader q cs in (allDyn rs dynQ, rs, cs')
+    let !(qs, cs') = runQueryReader q cs
+     in (allDyn (queryReaderStateReads qs) $ queryReaderStateDyn qs, queryReaderStateReads qs, cs')
   filter q qf = ReaderSystem $ \cs ->
-    let !(rs, cs', dynQ) = runQueryReader q cs
+    let !(qs, cs') = runQueryReader q cs
         !(dynQf, cs'') = runQueryFilter qf cs'
         qf' n =
           F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynQf)
             && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynQf)
-     in (filterDyn rs dynQ qf', rs, cs'')
+     in (filterDyn (queryReaderStateReads qs) (queryReaderStateDyn qs) qf', queryReaderStateReads qs, cs'')
 
 instance (Monad m) => ArrowQueueSystem Bundle (AccessT m) (ReaderSystemT m) where
   queue f = ReaderSystem $ \cs -> (queue f, mempty, cs)

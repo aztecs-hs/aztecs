@@ -59,6 +59,7 @@ module Aztecs.ECS
     Component (..),
     EntityID,
     Query,
+    QueryState,
     ArrowQueryReader,
     ArrowQuery,
     ArrowDynamicQueryReader,
@@ -96,6 +97,7 @@ import Aztecs.ECS.Query
     ArrowQueryReader,
     Query,
     QueryFilter,
+    QueryState,
     with,
     without,
   )

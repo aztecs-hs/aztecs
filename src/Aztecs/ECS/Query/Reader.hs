@@ -17,6 +17,10 @@ module Aztecs.ECS.Query.Reader
     all,
     all',
 
+    -- * Query state
+    QueryReaderState (..),
+    queryStateAll,
+
     -- * Filters
     QueryFilter (..),
     with,
@@ -29,55 +33,55 @@ import Aztecs.ECS.Component
 import Aztecs.ECS.Query.Dynamic (DynamicQueryFilter (..))
 import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..), allDyn)
 import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
-import Aztecs.ECS.Query.Reader.Class (ArrowQueryReader (..))
+import Aztecs.ECS.Query.Reader.Class
 import Aztecs.ECS.World.Components (Components)
 import qualified Aztecs.ECS.World.Components as CS
 import Aztecs.ECS.World.Entities (Entities (..))
 import qualified Aztecs.ECS.World.Entities as E
-import Control.Arrow (Arrow (..), ArrowChoice (..))
-import Control.Category (Category (..))
+import Control.Arrow
+import Control.Category
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Prelude hiding (all, id, (.))
 
 -- | Query to read from entities.
 newtype QueryReader i o
-  = QueryReader {runQueryReader :: Components -> (Set ComponentID, Components, DynamicQueryReader i o)}
+  = QueryReader {runQueryReader :: Components -> (QueryReaderState i o, Components)}
   deriving (Functor)
 
 instance Applicative (QueryReader i) where
-  pure a = QueryReader $ \cs -> (mempty, cs, pure a)
-  (QueryReader f) <*> (QueryReader g) = QueryReader $ \cs ->
-    let !(cIdsG, cs', aQS) = g cs
-        !(cIdsF, cs'', bQS) = f cs'
-     in (cIdsG <> cIdsF, cs'', bQS <*> aQS)
+  pure a = QueryReader $ \cs -> (pure a, cs)
+  QueryReader f <*> QueryReader g = QueryReader $ \cs ->
+    let !(aQS, cs') = g cs
+        !(bQS, cs'') = f cs'
+     in (bQS <*> aQS, cs'')
 
 instance Category QueryReader where
-  id = QueryReader $ \cs -> (mempty, cs, id)
+  id = QueryReader $ \cs -> (id, cs)
   (QueryReader f) . (QueryReader g) = QueryReader $ \cs ->
-    let !(cIdsG, cs', aQS) = g cs
-        !(cIdsF, cs'', bQS) = f cs'
-     in (cIdsG <> cIdsF, cs'', bQS . aQS)
+    let !(aQS, cs') = g cs
+        !(bQS, cs'') = f cs'
+     in (bQS . aQS, cs'')
 
 instance Arrow QueryReader where
-  arr f = QueryReader $ \cs -> (mempty, cs, arr f)
-  first (QueryReader f) = QueryReader $ \comps -> let !(cIds, comps', qS) = f comps in (cIds, comps', first qS)
+  arr f = QueryReader $ \cs -> (QueryReaderState mempty (arr f), cs)
+  first (QueryReader f) = QueryReader $ \cs -> let !(qS, cs') = f cs in (first qS, cs')
 
 instance ArrowChoice QueryReader where
-  left (QueryReader f) = QueryReader $ \comps -> let !(cIds, comps', qS) = f comps in (cIds, comps', left qS)
+  left (QueryReader f) = QueryReader $ \comps -> let !(qS, comps') = f comps in (left qS, comps')
 
 instance ArrowQueryReader QueryReader where
   fetch :: forall a. (Component a) => QueryReader () a
   fetch = QueryReader $ \cs ->
-    let !(cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', fetchDyn cId)
+    let !(cId, cs') = CS.insert @a cs in (QueryReaderState (Set.singleton cId) (fetchDyn cId), cs')
   fetchMaybe :: forall a. (Component a) => QueryReader () (Maybe a)
   fetchMaybe = QueryReader $ \cs ->
-    let !(cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', fetchMaybeDyn cId)
+    let !(cId, cs') = CS.insert @a cs in (QueryReaderState (Set.singleton cId) (fetchMaybeDyn cId), cs')
 
 instance ArrowDynamicQueryReader QueryReader where
-  entity = QueryReader $ \cs -> (mempty, cs, entity)
-  fetchDyn cId = QueryReader $ \cs -> (Set.singleton cId, cs, fetchDyn cId)
-  fetchMaybeDyn cId = QueryReader $ \cs -> (Set.singleton cId, cs, fetchMaybeDyn cId)
+  entity = QueryReader $ \cs -> (QueryReaderState mempty entity, cs)
+  fetchDyn cId = QueryReader $ \cs -> (QueryReaderState (Set.singleton cId) (fetchDyn cId), cs)
+  fetchMaybeDyn cId = QueryReader $ \cs -> (QueryReaderState (Set.singleton cId) (fetchMaybeDyn cId), cs)
 
 -- | Filter for a `Query`.
 newtype QueryFilter = QueryFilter {runQueryFilter :: Components -> (DynamicQueryFilter, Components)}
@@ -109,4 +113,38 @@ all i q es = let !(as, cs) = all' i q es in (as, es {E.components = cs})
 
 -- | Match all entities.
 all' :: i -> QueryReader i a -> Entities -> ([a], Components)
-all' i q es = let !(rs, cs', dynQ) = runQueryReader q (E.components es) in (allDyn rs i dynQ es, cs')
+all' i q es =
+  let !(qs, cs') = runQueryReader q (E.components es) in (queryStateAll i qs es, cs')
+
+data QueryReaderState i o = QueryReaderState
+  { queryReaderStateReads :: !(Set ComponentID),
+    queryReaderStateDyn :: !(DynamicQueryReader i o)
+  }
+  deriving (Functor)
+
+instance Applicative (QueryReaderState i) where
+  {-# INLINE pure #-}
+  pure a = QueryReaderState mempty (pure a)
+  {-# INLINE (<*>) #-}
+  QueryReaderState aRWs aQ <*> QueryReaderState bRWs bQ = QueryReaderState (aRWs <> bRWs) (aQ <*> bQ)
+
+instance Category QueryReaderState where
+  {-# INLINE id #-}
+  id = QueryReaderState mempty id
+  {-# INLINE (.) #-}
+  QueryReaderState aRWs aQ . QueryReaderState bRWs bQ = QueryReaderState (aRWs <> bRWs) (aQ . bQ)
+
+instance Arrow QueryReaderState where
+  {-# INLINE arr #-}
+  arr f = QueryReaderState mempty (arr f)
+  {-# INLINE first #-}
+  first (QueryReaderState rw q) = QueryReaderState rw (first q)
+
+instance ArrowChoice QueryReaderState where
+  {-# INLINE left #-}
+  left (QueryReaderState rw q) = QueryReaderState rw (left q)
+
+-- | Match all entities.
+{-# INLINE queryStateAll #-}
+queryStateAll :: i -> QueryReaderState i a -> Entities -> [a]
+queryStateAll i q = allDyn (queryReaderStateReads q) i (queryReaderStateDyn q)
