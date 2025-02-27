@@ -91,13 +91,29 @@ update ::
 update = propagate @_ @_ @a >>> S.queue (mapM_ $ mapM_ (uncurry A.insert) . toList)
 
 -- | Propagate and update all hierarchies of transform components.
-update2d :: (ArrowQueryReader q, ArrowDynamicQueryReader q, ArrowReaderSystem q arr, ArrowQueueSystem b m arr) => arr () ()
+update2d ::
+  ( ArrowQueryReader q,
+    ArrowDynamicQueryReader q,
+    ArrowReaderSystem q arr,
+    ArrowQueueSystem b m arr
+  ) =>
+  arr () ()
 update2d = propagate @_ @_ @Transform2D >>> S.queue (mapM_ $ mapM_ (uncurry A.insert) . toList)
 
 propagate ::
-  (ArrowQueryReader q, ArrowDynamicQueryReader q, ArrowReaderSystem q arr, Component a, Monoid a) =>
+  ( ArrowQueryReader q,
+    ArrowDynamicQueryReader q,
+    ArrowReaderSystem q arr,
+    Component a,
+    Monoid a
+  ) =>
   arr () [Hierarchy a]
 propagate = hierarchies Q.fetch >>> arr (map propagateHierarchy)
 
-propagate2d :: (ArrowQueryReader q, ArrowDynamicQueryReader q, ArrowReaderSystem q arr) => arr () [Hierarchy Transform2D]
+propagate2d ::
+  ( ArrowQueryReader q,
+    ArrowDynamicQueryReader q,
+    ArrowReaderSystem q arr
+  ) =>
+  arr () [Hierarchy Transform2D]
 propagate2d = propagate

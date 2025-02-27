@@ -3,8 +3,8 @@
 
 module Aztecs.ECS.Entity (EntityID (..)) where
 
-import Control.DeepSeq (NFData)
-import GHC.Generics (Generic)
+import Control.DeepSeq
+import GHC.Generics
 
 -- | Entity ID.
 newtype EntityID = EntityID {unEntityId :: Int}

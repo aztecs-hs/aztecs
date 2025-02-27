@@ -55,8 +55,8 @@ empty = Archetype {storages = Map.empty, entities = Set.empty}
 {-# INLINE lookupStorage #-}
 lookupStorage :: (Component a) => ComponentID -> Archetype -> Maybe (StorageT a)
 lookupStorage cId w = do
-  dynS <- Map.lookup cId (storages w)
-  fromDynamic (storageDyn dynS)
+  dynS <- Map.lookup cId $ storages w
+  fromDynamic $ storageDyn dynS
 
 {-# INLINE lookupComponent #-}
 lookupComponent :: (Component a) => EntityID -> ComponentID -> Archetype -> Maybe a

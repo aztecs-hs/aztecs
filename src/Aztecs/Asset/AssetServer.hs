@@ -11,12 +11,13 @@
 
 module Aztecs.Asset.AssetServer
   ( AssetId (..),
+    Handle (..),
     AssetServer (..),
     assetServer,
-    Handle (..),
+    lookupAsset,
     setup,
     loadAssets,
-    lookupAsset,
+    loadAssetServer,
   )
 where
 
@@ -66,6 +67,9 @@ instance NFData (Handle a) where
 lookupAsset :: Handle a -> AssetServer a -> Maybe a
 lookupAsset h server = Map.lookup (handleId h) (assetServerAssets server)
 
+setup :: forall arr m b a. (Typeable a, ArrowQueueSystem m b arr) => arr () ()
+setup = S.queue . const . A.spawn_ . bundle $ assetServer @a
+
 loadAssets ::
   forall a qr rs q s b m arr.
   ( Typeable a,
@@ -81,34 +85,25 @@ loadAssets ::
   arr () ()
 loadAssets = proc () -> do
   server <- reader $ S.single (Q.fetch @_ @(AssetServer a)) -< ()
-  server' <-
-    access
-      ( \server ->
-          liftIO $
-            foldrM
-              ( \(aId, v) acc -> do
-                  case v of
-                    Right r -> do
-                      maybeSurface <- readIORef r
-                      case maybeSurface of
-                        Just surface ->
-                          return
-                            acc
-                              { assetServerAssets = Map.insert aId surface (assetServerAssets acc),
-                                loadingAssets = Map.delete aId (loadingAssets acc)
-                              }
-                        Nothing -> return acc
-                    Left f -> do
-                      v' <- f
-                      return $ acc {loadingAssets = Map.insert aId (Right v') (loadingAssets server)}
-              )
-              server
-              (Map.toList $ loadingAssets server)
-      )
-      -<
-        server
+  server' <- access loadAssetServer -< server
   system $ S.mapSingle Q.set -< server'
   returnA -< ()
 
-setup :: forall arr m b a. (Typeable a, ArrowQueueSystem m b arr) => arr () ()
-setup = S.queue . const . A.spawn_ . bundle $ assetServer @a
+loadAssetServer :: (MonadIO m) => AssetServer a -> m (AssetServer a)
+loadAssetServer server =
+  let go (aId, v) acc = do
+        case v of
+          Right r -> do
+            maybeSurface <- readIORef r
+            case maybeSurface of
+              Just surface ->
+                return
+                  acc
+                    { assetServerAssets = Map.insert aId surface (assetServerAssets acc),
+                      loadingAssets = Map.delete aId (loadingAssets acc)
+                    }
+              Nothing -> return acc
+          Left f -> do
+            v' <- f
+            return $ acc {loadingAssets = Map.insert aId (Right v') (loadingAssets server)}
+   in liftIO . foldrM go server . Map.toList $ loadingAssets server
