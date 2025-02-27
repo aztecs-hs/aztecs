@@ -45,19 +45,17 @@ module Aztecs.ECS.Query
 where
 
 import Aztecs.ECS.Component
-import Aztecs.ECS.Query.Class (ArrowQuery (..))
-import Aztecs.ECS.Query.Dynamic (DynamicQuery (..), fromDynReader, mapDyn, toDynReader)
-import Aztecs.ECS.Query.Dynamic.Class (ArrowDynamicQuery (..))
+import Aztecs.ECS.Query.Class
+import Aztecs.ECS.Query.Dynamic
 import Aztecs.ECS.Query.Dynamic.Reader (allDyn)
-import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Aztecs.ECS.Query.Reader (QueryFilter (..), QueryReader (..), QueryReaderState (..), with, without)
 import qualified Aztecs.ECS.Query.Reader as QR
-import Aztecs.ECS.Query.Reader.Class (ArrowQueryReader (..))
+import Aztecs.ECS.Query.Reader.Class
 import Aztecs.ECS.World.Components (Components)
 import qualified Aztecs.ECS.World.Components as CS
 import Aztecs.ECS.World.Entities (Entities (..))
-import Control.Arrow (Arrow (..), ArrowChoice (..))
-import Control.Category (Category (..))
+import Control.Arrow
+import Control.Category
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Prelude hiding (all, id, map, reads, (.))
@@ -146,15 +144,17 @@ toReader (Query f) = QueryReader $ \cs -> let !(qS, cs') = f cs in (queryStateTo
 
 -- | Reads and writes of a `Query`.
 data ReadsWrites = ReadsWrites
-  { reads :: !(Set ComponentID),
+  { reads :: {-# UNPACK #-} !(Set ComponentID),
     writes :: !(Set ComponentID)
   }
   deriving (Show)
 
 instance Semigroup ReadsWrites where
+  {-# INLINE (<>) #-}
   ReadsWrites r1 w1 <> ReadsWrites r2 w2 = ReadsWrites (r1 <> r2) (w1 <> w2)
 
 instance Monoid ReadsWrites where
+  {-# INLINE mempty #-}
   mempty = ReadsWrites mempty mempty
 
 -- | `True` if the reads and writes of two `Query`s overlap.
