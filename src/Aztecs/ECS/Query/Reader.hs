@@ -50,37 +50,49 @@ newtype QueryReader i o
   deriving (Functor)
 
 instance Applicative (QueryReader i) where
+  {-# INLINE pure #-}
   pure a = QueryReader $ \cs -> (pure a, cs)
+  {-# INLINE (<*>) #-}
   QueryReader f <*> QueryReader g = QueryReader $ \cs ->
     let !(aQS, cs') = g cs
         !(bQS, cs'') = f cs'
      in (bQS <*> aQS, cs'')
 
 instance Category QueryReader where
+  {-# INLINE id #-}
   id = QueryReader $ \cs -> (id, cs)
+  {-# INLINE (.) #-}
   (QueryReader f) . (QueryReader g) = QueryReader $ \cs ->
     let !(aQS, cs') = g cs
         !(bQS, cs'') = f cs'
      in (bQS . aQS, cs'')
 
 instance Arrow QueryReader where
+  {-# INLINE arr #-}
   arr f = QueryReader $ \cs -> (QueryReaderState mempty (arr f), cs)
+  {-# INLINE first #-}
   first (QueryReader f) = QueryReader $ \cs -> let !(qS, cs') = f cs in (first qS, cs')
 
 instance ArrowChoice QueryReader where
+  {-# INLINE left #-}
   left (QueryReader f) = QueryReader $ \comps -> let !(qS, comps') = f comps in (left qS, comps')
 
 instance ArrowQueryReader QueryReader where
+  {-# INLINE fetch #-}
   fetch :: forall a. (Component a) => QueryReader () a
   fetch = QueryReader $ \cs ->
     let !(cId, cs') = CS.insert @a cs in (QueryReaderState (Set.singleton cId) (fetchDyn cId), cs')
+  {-# INLINE fetchMaybe #-}
   fetchMaybe :: forall a. (Component a) => QueryReader () (Maybe a)
   fetchMaybe = QueryReader $ \cs ->
     let !(cId, cs') = CS.insert @a cs in (QueryReaderState (Set.singleton cId) (fetchMaybeDyn cId), cs')
 
 instance ArrowDynamicQueryReader QueryReader where
+  {-# INLINE entity #-}
   entity = QueryReader $ \cs -> (QueryReaderState mempty entity, cs)
+  {-# INLINE fetchDyn #-}
   fetchDyn cId = QueryReader $ \cs -> (QueryReaderState (Set.singleton cId) (fetchDyn cId), cs)
+  {-# INLINE fetchMaybeDyn #-}
   fetchMaybeDyn cId = QueryReader $ \cs -> (QueryReaderState (Set.singleton cId) (fetchMaybeDyn cId), cs)
 
 -- | Filter for a `Query`.
@@ -118,7 +130,7 @@ all' i q es =
 
 -- | State produced by a `QueryReader`.
 data QueryReaderState i o = QueryReaderState
-  { queryReaderStateReads :: !(Set ComponentID),
+  { queryReaderStateReads :: {-# UNPACK #-} !(Set ComponentID),
     queryReaderStateDyn :: !(DynamicQueryReader i o)
   }
   deriving (Functor)
