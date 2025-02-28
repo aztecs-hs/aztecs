@@ -69,7 +69,7 @@ instance (Monad m) => ArrowDynamicReaderSystem DynamicQueryReader (DynamicSystem
 instance (Monad m) => ArrowDynamicSystem DynamicQuery (DynamicSystemT m) where
   mapDyn cIds q = DynamicSystem $ \w i ->
     let !v = V.view cIds $ archetypes w
-        (o, v') = V.allDyn i q v
+        (o, v') = V.mapDyn i q v
      in (o, v', pure (), mapDyn cIds q)
   mapSingleDyn cIds q = DynamicSystem $ \w i ->
     let s =
@@ -79,12 +79,12 @@ instance (Monad m) => ArrowDynamicSystem DynamicQuery (DynamicSystemT m) where
   mapSingleMaybeDyn cIds q = DynamicSystem $ \w i ->
     let !res = V.viewSingle cIds $ archetypes w
         (res', v'') = case res of
-          Just v -> let (o, v') = V.singleDyn i q v in (o, v')
+          Just v -> let (o, v') = V.mapSingleDyn i q v in (o, v')
           Nothing -> (Nothing, mempty)
      in (res', v'', pure (), mapSingleMaybeDyn cIds q)
   filterMapDyn cIds q f = DynamicSystem $ \w i ->
     let !v = V.filterView cIds f $ archetypes w
-        (o, v') = V.allDyn i q v
+        (o, v') = V.mapDyn i q v
      in (o, v', pure (), filterMapDyn cIds q f)
 
 instance (Monad m) => ArrowQueueSystem Bundle (AccessT m) (DynamicSystemT m) where

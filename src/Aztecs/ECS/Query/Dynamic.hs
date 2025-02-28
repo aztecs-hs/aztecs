@@ -14,6 +14,8 @@ module Aztecs.ECS.Query.Dynamic
 
     -- ** Running
     mapDyn,
+    mapSingleDyn,
+    mapSingleMaybeDyn,
 
     -- * Dynamic query filters
     DynamicQueryFilter (..),
@@ -36,6 +38,7 @@ import Data.Foldable
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
+import GHC.Stack (HasCallStack)
 import Prelude hiding ((.))
 
 -- | Dynamic query for components by ID.
@@ -118,3 +121,28 @@ mapDyn cIds i q es =
                    in (as' ++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}})
              in foldl' go' ([], es) $ Map.toList . AS.find cIds $ archetypes es
    in (as, es')
+
+mapSingleDyn :: (HasCallStack) => Set ComponentID -> i -> DynamicQuery i a -> Entities -> (a, Entities)
+mapSingleDyn cIds i q es = case mapDyn cIds i q es of
+  ([a], es') -> (a, es')
+  _ -> error "mapSingleDyn: expected single matching entity"
+
+-- | Map a single matched entity.
+{-# INLINE mapSingleMaybeDyn #-}
+mapSingleMaybeDyn :: Set ComponentID -> i -> DynamicQuery i a -> Entities -> (Maybe a, Entities)
+mapSingleMaybeDyn cIds i q es =
+  if Set.null cIds
+    then case Map.keys $ entities es of
+      [eId] -> case runDynQuery q [i] [eId] A.empty of
+        ([a], _) -> (Just a, es)
+        _ -> (Nothing, es)
+      _ -> (Nothing, es)
+    else case Map.toList $ AS.find cIds $ archetypes es of
+      [(aId, n)] ->
+        let !eIds = Set.toList $ A.entities $ AS.nodeArchetype n
+         in case runDynQuery q [i] eIds (AS.nodeArchetype n) of
+              ([a], arch') ->
+                let nodes = Map.insert aId n {nodeArchetype = arch'} . AS.nodes $ archetypes es
+                 in (Just a, es {archetypes = (archetypes es) {AS.nodes = nodes}})
+              _ -> (Nothing, es)
+      _ -> (Nothing, es)

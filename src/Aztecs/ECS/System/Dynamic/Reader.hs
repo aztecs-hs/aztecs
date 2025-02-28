@@ -61,10 +61,10 @@ instance (Monad m) => ArrowDynamicReaderSystem DynamicQueryReader (DynamicReader
     let !v = V.view cIds $ archetypes w
      in if V.null v
           then (runDynQueryReader i q (Map.keys $ entities w) A.empty, pure (), allDyn cIds q)
-          else (V.readAllDyn i q v, pure (), allDyn cIds q)
+          else (V.allDyn i q v, pure (), allDyn cIds q)
   filterDyn cIds q f = DynamicReaderSystem $ \w i ->
     let !v = V.filterView cIds f $ archetypes w
-     in (V.readAllDyn i q v, pure (), filterDyn cIds q f)
+     in (V.allDyn i q v, pure (), filterDyn cIds q f)
 
 instance (Monad m) => ArrowQueueSystem Bundle (AccessT m) (DynamicReaderSystemT m) where
   queue f = DynamicReaderSystem $ \_ i -> let !a = f i in ((), a, queue f)

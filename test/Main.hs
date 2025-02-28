@@ -17,9 +17,10 @@ import qualified Aztecs.ECS.System as S
 import qualified Aztecs.ECS.World as W
 import Aztecs.Hierarchy (Children (..), Parent (..))
 import qualified Aztecs.Hierarchy as Hierarchy
-import Control.Arrow (Arrow (..), returnA, (&&&))
+import Control.Arrow
 import Control.DeepSeq
 import qualified Data.Set as Set
+import Data.Word
 import GHC.Generics
 import Test.Hspec
 import Test.QuickCheck
@@ -40,6 +41,8 @@ main :: IO ()
 main = hspec $ do
   describe "Aztecs.ECS.Query.single" $ do
     it "queries a single entity" prop_querySingle
+  describe "Aztecs.ECS.Query.mapSingle" $ do
+    it "maps a single entity" $ property prop_queryMapSingle
   describe "Aztecs.ECS.Query.all" $ do
     it "queries an empty world" prop_queryEmpty
     it "queries dynamic components" $ property prop_queryDyn
@@ -116,6 +119,14 @@ prop_querySingle =
   let (_, w) = W.spawn (bundle $ X 1) W.empty
       (res, _) = Q.single () Q.fetch $ W.entities w
    in res `shouldBe` X 1
+
+prop_queryMapSingle :: Word8 -> Expectation
+prop_queryMapSingle n =
+  let (_, w) = W.spawn (bundle $ X 0) W.empty
+      q = Q.fetch >>> arr (\(X x) -> X $ x + 1) >>> Q.set
+      w' = foldr (\_ es -> snd $ Q.mapSingle () q es) (W.entities w) [1 .. n]
+      (res, _) = Q.single () Q.fetch w'
+   in res `shouldBe` X (fromIntegral n)
 
 prop_addParents :: Expectation
 prop_addParents = do

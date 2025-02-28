@@ -18,11 +18,13 @@ module Aztecs.ECS.Query
     -- ** Running
     all,
     all',
-    map,
     single,
     single',
     singleMaybe,
     singleMaybe',
+    map,
+    mapSingle,
+    mapSingleMaybe,
 
     -- ** Conversion
     fromReader,
@@ -41,7 +43,7 @@ where
 
 import Aztecs.ECS.Component
 import Aztecs.ECS.Query.Class (ArrowQuery (..))
-import Aztecs.ECS.Query.Dynamic (DynamicQuery (..), fromDynReader, mapDyn, toDynReader)
+import Aztecs.ECS.Query.Dynamic (DynamicQuery (..), fromDynReader, mapDyn, mapSingleDyn, mapSingleMaybeDyn, toDynReader)
 import Aztecs.ECS.Query.Dynamic.Class (ArrowDynamicQuery (..))
 import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Aztecs.ECS.Query.Reader (QueryFilter (..), QueryReader (..), with, without)
@@ -184,15 +186,6 @@ all i = QR.all i . toReader
 all' :: i -> Query i a -> Entities -> ([a], Components)
 all' i = QR.all' i . toReader
 
--- | Map all matched entities.
-{-# INLINE map #-}
-map :: i -> Query i a -> Entities -> ([a], Entities)
-map i q es =
-  let !(rws, cs', dynQ) = runQuery q $ components es
-      !cIds = reads rws <> writes rws
-      !(as, es') = mapDyn cIds i dynQ es
-   in (as, es' {components = cs'})
-
 -- | Match a single entity.
 {-# INLINE single #-}
 single :: (HasCallStack) => i -> Query i a -> Entities -> (a, Entities)
@@ -212,3 +205,28 @@ singleMaybe i = QR.singleMaybe i . toReader
 {-# INLINE singleMaybe' #-}
 singleMaybe' :: i -> Query i a -> Entities -> (Maybe a, Components)
 singleMaybe' i = QR.singleMaybe' i . toReader
+
+-- | Map all matched entities.
+{-# INLINE map #-}
+map :: i -> Query i a -> Entities -> ([a], Entities)
+map i q es =
+  let !(rws, cs', dynQ) = runQuery q $ components es
+      !cIds = reads rws <> writes rws
+      !(as, es') = mapDyn cIds i dynQ es
+   in (as, es' {components = cs'})
+
+{-# INLINE mapSingle #-}
+mapSingle :: (HasCallStack) => i -> Query i a -> Entities -> (a, Entities)
+mapSingle i q es =
+  let !(rws, cs', dynQ) = runQuery q $ components es
+      !cIds = reads rws <> writes rws
+      !(as, es') = mapSingleDyn cIds i dynQ es
+   in (as, es' {components = cs'})
+
+{-# INLINE mapSingleMaybe #-}
+mapSingleMaybe :: i -> Query i a -> Entities -> (Maybe a, Entities)
+mapSingleMaybe i q es =
+  let !(rws, cs', dynQ) = runQuery q $ components es
+      !cIds = reads rws <> writes rws
+      !(as, es') = mapSingleMaybeDyn cIds i dynQ es
+   in (as, es' {components = cs'})

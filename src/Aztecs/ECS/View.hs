@@ -12,7 +12,8 @@ module Aztecs.ECS.View
     unview,
     allDyn,
     singleDyn,
-    readAllDyn,
+    mapDyn,
+    mapSingleDyn,
   )
 where
 
@@ -67,8 +68,24 @@ unview v es =
     }
 
 -- | Query all matching entities in a `View`.
-allDyn :: i -> DynamicQuery i a -> View -> ([a], View)
+allDyn :: i -> DynamicQueryReader i a -> View -> [a]
 allDyn i q v =
+  foldl'
+    ( \acc n ->
+        runDynQueryReader i q (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n) ++ acc
+    )
+    []
+    (viewArchetypes v)
+
+-- | Query all matching entities in a `View`.
+singleDyn :: i -> DynamicQueryReader i a -> View -> Maybe a
+singleDyn i q v = case allDyn i q v of
+  [a] -> Just a
+  _ -> Nothing
+
+-- | Map all matching entities in a `View`.
+mapDyn :: i -> DynamicQuery i a -> View -> ([a], View)
+mapDyn i q v =
   let (as, arches) =
         foldl'
           ( \(acc, archAcc) (aId, n) ->
@@ -79,19 +96,9 @@ allDyn i q v =
           (Map.toList $ viewArchetypes v)
    in (as, View arches)
 
--- | Query all matching entities in a `View`.
-singleDyn :: i -> DynamicQuery i a -> View -> (Maybe a, View)
-singleDyn i q v = case allDyn i q v of
-  -- TODO [a], removing this errors for now
-  (a : _, v') -> (Just a, v')
-  _ -> (Nothing, v)
-
--- | Query all matching entities in a `View`.
-readAllDyn :: i -> DynamicQueryReader i a -> View -> [a]
-readAllDyn i q v =
-  foldl'
-    ( \acc n ->
-        runDynQueryReader i q (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n) ++ acc
-    )
-    []
-    (viewArchetypes v)
+mapSingleDyn :: i -> DynamicQuery i a -> View -> (Maybe a, View)
+mapSingleDyn i q v =
+  let (as, arches) = mapDyn i q v
+   in case as of
+        [a] -> (Just a, arches)
+        _ -> (Nothing, arches)
