@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TupleSections #-}
 
 module Aztecs.ECS.System.Reader
   ( ReaderSystem,
@@ -36,14 +37,14 @@ newtype ReaderSystemT m i o = ReaderSystem
   deriving (Functor)
 
 instance (Monad m) => Category (ReaderSystemT m) where
-  id = ReaderSystem $ \cs -> (id, mempty, cs)
+  id = ReaderSystem (id,mempty,)
   ReaderSystem f . ReaderSystem g = ReaderSystem $ \cs ->
     let (f', rwsF, cs') = f cs
         (g', rwsG, cs'') = g cs'
      in (f' . g', rwsF <> rwsG, cs'')
 
 instance (Monad m) => Arrow (ReaderSystemT m) where
-  arr f = ReaderSystem $ \cs -> (arr f, mempty, cs)
+  arr f = ReaderSystem (arr f,mempty,)
   first (ReaderSystem f) = ReaderSystem $ \cs ->
     let (f', rwsF, cs') = f cs in (first f', rwsF, cs')
   f &&& g = ReaderSystem $ \cs ->
@@ -60,6 +61,10 @@ instance (Monad m) => ArrowLoop (ReaderSystemT m) where
 instance (Monad m) => ArrowReaderSystem QueryReader (ReaderSystemT m) where
   all q = ReaderSystem $ \cs ->
     let !(rs, cs', dynQ) = runQueryReader q cs in (allDyn rs dynQ, rs, cs')
+  single q = ReaderSystem $ \cs ->
+    let !(rs, cs', dynQ) = runQueryReader q cs in (singleDyn rs dynQ, rs, cs')
+  singleMaybe q = ReaderSystem $ \cs ->
+    let !(rs, cs', dynQ) = runQueryReader q cs in (singleMaybeDyn rs dynQ, rs, cs')
   filter q qf = ReaderSystem $ \cs ->
     let !(rs, cs', dynQ) = runQueryReader q cs
         !(dynQf, cs'') = runQueryFilter qf cs'
@@ -69,4 +74,4 @@ instance (Monad m) => ArrowReaderSystem QueryReader (ReaderSystemT m) where
      in (filterDyn rs dynQ qf', rs, cs'')
 
 instance (Monad m) => ArrowQueueSystem Bundle (AccessT m) (ReaderSystemT m) where
-  queue f = ReaderSystem $ \cs -> (queue f, mempty, cs)
+  queue f = ReaderSystem (queue f,mempty,)
