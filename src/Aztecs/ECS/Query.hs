@@ -91,11 +91,11 @@ instance Arrow Query where
   {-# INLINE arr #-}
   arr f = Query (mempty,,arr f)
   {-# INLINE first #-}
-  first (Query f) = Query $ \comps -> let !(cIds, comps', qS) = f comps in (cIds, comps', first qS)
+  first (Query f) = Query $ \cs -> let !(cIds, cs', qS) = f cs in (cIds, cs', first qS)
 
 instance ArrowChoice Query where
   {-# INLINE left #-}
-  left (Query f) = Query $ \comps -> let !(cIds, comps', qS) = f comps in (cIds, comps', left qS)
+  left (Query f) = Query $ \cs -> let !(cIds, cs', qS) = f cs in (cIds, cs', left qS)
 
 instance ArrowQueryReader Query where
   {-# INLINE fetch #-}

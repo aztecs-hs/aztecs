@@ -67,11 +67,11 @@ instance Arrow QueryReader where
   {-# INLINE arr #-}
   arr f = QueryReader $ \cs -> (mempty, cs, arr f)
   {-# INLINE first #-}
-  first (QueryReader f) = QueryReader $ \comps -> let !(cIds, comps', qS) = f comps in (cIds, comps', first qS)
+  first (QueryReader f) = QueryReader $ \cs -> let !(cIds, comps', qS) = f cs in (cIds, comps', first qS)
 
 instance ArrowChoice QueryReader where
   {-# INLINE left #-}
-  left (QueryReader f) = QueryReader $ \comps -> let !(cIds, comps', qS) = f comps in (cIds, comps', left qS)
+  left (QueryReader f) = QueryReader $ \cs -> let !(cIds, comps', qS) = f cs in (cIds, comps', left qS)
 
 instance ArrowQueryReader QueryReader where
   {-# INLINE fetch #-}

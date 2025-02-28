@@ -109,12 +109,9 @@ mapDyn cIds i q es =
         if Set.null cIds
           then (fst $ go (Map.keys $ entities es) A.empty, es)
           else
-            foldl'
-              ( \(acc, esAcc) (aId, n) ->
-                  let !(as', arch') = go (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n)
-                      !nodes = Map.insert aId n {nodeArchetype = arch'} (AS.nodes $ archetypes esAcc)
+            let go' (acc, esAcc) (aId, n) =
+                  let !(as', arch') = go (Set.toList . A.entities $ nodeArchetype n) $ nodeArchetype n
+                      !nodes = Map.insert aId n {nodeArchetype = arch'} . AS.nodes $ archetypes esAcc
                    in (as' ++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}})
-              )
-              ([], es)
-              (Map.toList . AS.find cIds $ archetypes es)
+             in foldl' go' ([], es) $ Map.toList . AS.find cIds $ archetypes es
    in (as, es')
