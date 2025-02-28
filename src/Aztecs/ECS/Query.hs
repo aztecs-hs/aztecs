@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE InstanceSigs #-}
@@ -114,20 +115,28 @@ instance ArrowDynamicQueryReader Query where
 instance ArrowDynamicQuery Query where
   {-# INLINE adjustDyn #-}
   adjustDyn f cId = Query (ReadsWrites Set.empty (Set.singleton cId),,adjustDyn f cId)
+  {-# INLINE adjustDyn_ #-}
+  adjustDyn_ f cId = Query (ReadsWrites Set.empty (Set.singleton cId),,adjustDyn_ f cId)
   {-# INLINE setDyn #-}
   setDyn cId = Query (ReadsWrites Set.empty (Set.singleton cId),,setDyn cId)
 
 instance ArrowQuery Query where
   {-# INLINE adjust #-}
   adjust :: forall i a. (Component a) => (i -> a -> a) -> Query i a
-  adjust f = Query $ \cs ->
-    let !(cId, cs') = CS.insert @a cs
-     in (ReadsWrites Set.empty (Set.singleton cId), cs', adjustDyn f cId)
+  adjust f = fromDyn @a $ adjustDyn f
+
+  {-# INLINE adjust_ #-}
+  adjust_ :: forall i a. (Component a) => (i -> a -> a) -> Query i ()
+  adjust_ f = fromDyn @a $ adjustDyn_ f
+
   {-# INLINE set #-}
   set :: forall a. (Component a) => Query a a
-  set = Query $ \cs ->
-    let !(cId, cs') = CS.insert @a cs
-     in (ReadsWrites Set.empty (Set.singleton cId), cs', setDyn cId)
+  set = fromDyn @a $ setDyn
+
+{-# INLINE fromDyn #-}
+fromDyn :: forall a i o. (Component a) => (ComponentID -> DynamicQuery i o) -> Query i o
+fromDyn f = Query $ \cs ->
+  let !(cId, cs') = CS.insert @a cs in (ReadsWrites Set.empty (Set.singleton cId), cs', f cId)
 
 {-# INLINE fromReader #-}
 fromReader :: QueryReader i o -> Query i o

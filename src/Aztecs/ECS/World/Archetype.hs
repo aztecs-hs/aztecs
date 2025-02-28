@@ -26,6 +26,7 @@ module Aztecs.ECS.World.Archetype
     insertComponents,
     insertAscList,
     zipWith,
+    zipWith_,
   )
 where
 
@@ -118,6 +119,19 @@ zipWith as f cId arch =
         Nothing -> return Nothing
       !(storages', cs) = runWriter $ IntMap.alterF go (unComponentId cId) $ storages arch
    in (cs, arch {storages = storages'})
+
+{-# INLINE zipWith_ #-}
+zipWith_ ::
+  forall a c. (Component c) => [a] -> (a -> c -> c) -> ComponentID -> Archetype -> Archetype
+zipWith_ as f cId arch =
+  let go maybeDyn = case maybeDyn of
+        Just dyn -> case fromDynamic $ storageDyn dyn of
+          Just s ->
+            let !s' = S.zipWith_ @c @(StorageT c) f as s in Just $ dyn {storageDyn = toDyn s'}
+          Nothing -> maybeDyn
+        Nothing -> Nothing
+      !storages' = IntMap.alter go (unComponentId cId) $ storages arch
+   in (arch {storages = storages'})
 
 -- | Insert a list of components into the archetype, sorted in ascending order by their `EntityID`.
 {-# INLINE insertAscList #-}

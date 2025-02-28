@@ -23,6 +23,9 @@ class (Typeable s, NFData s, Typeable a) => Storage a s where
 
   zipWith :: (i -> a -> a) -> [i] -> s -> ([a], s)
 
+  zipWith_ :: (i -> a -> a) -> [i] -> s -> s
+  zipWith_ f is as = snd $ zipWith f is as
+
 instance (Typeable a, NFData a) => Storage a [a] where
   {-# INLINE singleton #-}
   singleton a = [a]
@@ -34,3 +37,5 @@ instance (Typeable a, NFData a) => Storage a [a] where
   map = fmap
   {-# INLINE zipWith #-}
   zipWith f is as = let as' = Prelude.zipWith f is as in (as', as')
+  {-# INLINE zipWith_ #-}
+  zipWith_ = Prelude.zipWith

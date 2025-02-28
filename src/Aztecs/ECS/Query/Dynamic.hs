@@ -87,9 +87,12 @@ instance ArrowDynamicQuery DynamicQuery where
   {-# INLINE adjustDyn #-}
   adjustDyn f cId = DynamicQuery $ \is _ arch ->
     let !(as, arch') = A.zipWith is f cId arch in (as, arch')
+
+  {-# INLINE adjustDyn_ #-}
+  adjustDyn_ f cId = DynamicQuery $ \is _ arch -> (repeat (), A.zipWith_ is f cId arch)
+
   {-# INLINE setDyn #-}
-  setDyn cId = DynamicQuery $ \is _ arch ->
-    let !arch' = A.insertAscList cId is arch in (is, arch')
+  setDyn cId = DynamicQuery $ \is _ arch -> (is, A.insertAscList cId is arch)
 
 {-# INLINE fromDynReader #-}
 fromDynReader :: DynamicQueryReader i o -> DynamicQuery i o
