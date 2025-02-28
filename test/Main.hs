@@ -38,6 +38,8 @@ instance Component Z
 
 main :: IO ()
 main = hspec $ do
+  describe "Aztecs.ECS.Query.single" $ do
+    it "queries a single entity" prop_querySingle
   describe "Aztecs.ECS.Query.all" $ do
     it "queries an empty world" prop_queryEmpty
     it "queries dynamic components" $ property prop_queryDyn
@@ -108,6 +110,12 @@ prop_queryThreeTypedComponents xyzs =
         pure (x, y, z)
       (res, _) = Q.all () q $ W.entities w
    in res `shouldMatchList` xyzs
+
+prop_querySingle :: Expectation
+prop_querySingle =
+  let (_, w) = W.spawn (bundle $ X 1) W.empty
+      (res, _) = Q.single () Q.fetch $ W.entities w
+   in res `shouldBe` X 1
 
 prop_addParents :: Expectation
 prop_addParents = do

@@ -16,6 +16,10 @@ module Aztecs.ECS.Query.Reader
     -- ** Running
     all,
     all',
+    single,
+    single',
+    singleMaybe,
+    singleMaybe',
 
     -- * Filters
     QueryFilter (..),
@@ -27,7 +31,7 @@ where
 
 import Aztecs.ECS.Component
 import Aztecs.ECS.Query.Dynamic (DynamicQueryFilter (..))
-import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..), allDyn)
+import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..), allDyn, singleDyn, singleMaybeDyn)
 import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Aztecs.ECS.Query.Reader.Class (ArrowQueryReader (..))
 import Aztecs.ECS.World.Components (Components)
@@ -38,6 +42,7 @@ import Control.Arrow (Arrow (..), ArrowChoice (..))
 import Control.Category (Category (..))
 import Data.Set (Set)
 import qualified Data.Set as Set
+import GHC.Stack
 import Prelude hiding (all, id, (.))
 
 -- | Query to read from entities.
@@ -126,3 +131,23 @@ all i q es = let !(as, cs) = all' i q es in (as, es {E.components = cs})
 {-# INLINE all' #-}
 all' :: i -> QueryReader i a -> Entities -> ([a], Components)
 all' i q es = let !(rs, cs', dynQ) = runQueryReader q (E.components es) in (allDyn rs i dynQ es, cs')
+
+-- | Match a single entity.
+{-# INLINE single #-}
+single :: (HasCallStack) => i -> QueryReader i a -> Entities -> (a, Entities)
+single i q es = let !(a, cs) = single' i q es in (a, es {E.components = cs})
+
+-- | Match a single entity.
+{-# INLINE single' #-}
+single' :: (HasCallStack) => i -> QueryReader i a -> Entities -> (a, Components)
+single' i q es = let !(rs, cs', dynQ) = runQueryReader q (E.components es) in (singleDyn rs i dynQ es, cs')
+
+-- | Match a single entity.
+{-# INLINE singleMaybe #-}
+singleMaybe :: i -> QueryReader i a -> Entities -> (Maybe a, Entities)
+singleMaybe i q es = let !(a, cs) = singleMaybe' i q es in (a, es {E.components = cs})
+
+-- | Match a single entity.
+{-# INLINE singleMaybe' #-}
+singleMaybe' :: i -> QueryReader i a -> Entities -> (Maybe a, Components)
+singleMaybe' i q es = let !(rs, cs', dynQ) = runQueryReader q (E.components es) in (singleMaybeDyn rs i dynQ es, cs')

@@ -67,6 +67,7 @@ module Aztecs.ECS
     with,
     without,
     System,
+    SystemT,
     ArrowReaderSystem,
     ArrowSystem,
     ArrowQueueSystem,
@@ -113,7 +114,13 @@ import Aztecs.ECS.Schedule
     runSchedule_,
     system,
   )
-import Aztecs.ECS.System (ArrowQueueSystem, ArrowReaderSystem, ArrowSystem, System)
+import Aztecs.ECS.System
+  ( ArrowQueueSystem,
+    ArrowReaderSystem,
+    ArrowSystem,
+    System,
+    SystemT,
+  )
 import Aztecs.ECS.World (World)
 import Aztecs.ECS.World.Bundle (Bundle, MonoidBundle (..))
 import Aztecs.ECS.World.Bundle.Dynamic (DynamicBundle, MonoidDynamicBundle (..))

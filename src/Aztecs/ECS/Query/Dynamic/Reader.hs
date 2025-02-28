@@ -8,6 +8,8 @@ module Aztecs.ECS.Query.Dynamic.Reader
 
     -- ** Running
     allDyn,
+    singleDyn,
+    singleMaybeDyn,
     runDynQueryReader,
 
     -- * Dynamic query filters
@@ -28,6 +30,7 @@ import Data.Either (partitionEithers)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
+import GHC.Stack (HasCallStack)
 
 -- | Dynamic query for components by ID.
 newtype DynamicQueryReader i o
@@ -103,3 +106,24 @@ allDyn cIds i q es =
             let !eIds = Set.toList $ A.entities $ AS.nodeArchetype n
              in runDynQueryReader i q eIds (AS.nodeArchetype n)
        in concatMap go (AS.find cIds $ archetypes es)
+
+singleDyn :: (HasCallStack) => Set ComponentID -> i -> DynamicQueryReader i a -> Entities -> a
+singleDyn cIds i q es = case singleMaybeDyn cIds i q es of
+  Just a -> a
+  _ -> error "singleDyn: expected a single entity"
+
+singleMaybeDyn :: Set ComponentID -> i -> DynamicQueryReader i a -> Entities -> Maybe a
+singleMaybeDyn cIds i q es =
+  if Set.null cIds
+    then case Map.keys $ entities es of
+      [eId] -> case runDynQueryReader i q [eId] A.empty of
+        [a] -> Just a
+        _ -> Nothing
+      _ -> Nothing
+    else case Map.elems $ AS.find cIds $ archetypes es of
+      [n] ->
+        let !eIds = Set.toList $ A.entities $ AS.nodeArchetype n
+         in case runDynQueryReader i q eIds (AS.nodeArchetype n) of
+              [a] -> Just a
+              _ -> Nothing
+      _ -> Nothing

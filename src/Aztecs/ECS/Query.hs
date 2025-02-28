@@ -17,7 +17,12 @@ module Aztecs.ECS.Query
 
     -- ** Running
     all,
+    all',
     map,
+    single,
+    single',
+    singleMaybe,
+    singleMaybe',
 
     -- ** Conversion
     fromReader,
@@ -49,6 +54,7 @@ import Control.Arrow (Arrow (..), ArrowChoice (..))
 import Control.Category (Category (..))
 import Data.Set (Set)
 import qualified Data.Set as Set
+import GHC.Stack
 import Prelude hiding (all, id, map, reads, (.))
 
 -- | Query for matching entities.
@@ -173,6 +179,11 @@ disjoint a b =
 all :: i -> Query i a -> Entities -> ([a], Entities)
 all i = QR.all i . toReader
 
+-- | Match all entities.
+{-# INLINE all' #-}
+all' :: i -> Query i a -> Entities -> ([a], Components)
+all' i = QR.all' i . toReader
+
 -- | Map all matched entities.
 {-# INLINE map #-}
 map :: i -> Query i a -> Entities -> ([a], Entities)
@@ -181,3 +192,23 @@ map i q es =
       !cIds = reads rws <> writes rws
       !(as, es') = mapDyn cIds i dynQ es
    in (as, es' {components = cs'})
+
+-- | Match a single entity.
+{-# INLINE single #-}
+single :: (HasCallStack) => i -> Query i a -> Entities -> (a, Entities)
+single i = QR.single i . toReader
+
+-- | Match a single entity.
+{-# INLINE single' #-}
+single' :: (HasCallStack) => i -> Query i a -> Entities -> (a, Components)
+single' i = QR.single' i . toReader
+
+-- | Match a single entity, or `Nothing`.
+{-# INLINE singleMaybe #-}
+singleMaybe :: i -> Query i a -> Entities -> (Maybe a, Entities)
+singleMaybe i = QR.singleMaybe i . toReader
+
+-- | Match a single entity, or `Nothing`.
+{-# INLINE singleMaybe' #-}
+singleMaybe' :: i -> Query i a -> Entities -> (Maybe a, Components)
+singleMaybe' i = QR.singleMaybe' i . toReader
