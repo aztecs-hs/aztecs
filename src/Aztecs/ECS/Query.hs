@@ -141,7 +141,7 @@ toReader (Query f) = QueryReader $ \cs ->
 
 -- | Reads and writes of a `Query`.
 data ReadsWrites = ReadsWrites
-  { reads :: {-# UNPACK #-} !(Set ComponentID),
+  { reads :: !(Set ComponentID),
     writes :: !(Set ComponentID)
   }
   deriving (Show)

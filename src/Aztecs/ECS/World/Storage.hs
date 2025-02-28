@@ -5,6 +5,8 @@ module Aztecs.ECS.World.Storage (Storage (..)) where
 
 import Control.DeepSeq
 import Data.Data
+import Prelude hiding (zipWith)
+import qualified Prelude
 
 -- | Component storage, containing zero or many components of the same type.
 class (Typeable s, NFData s, Typeable a) => Storage a s where
@@ -19,6 +21,8 @@ class (Typeable s, NFData s, Typeable a) => Storage a s where
 
   map :: (a -> a) -> s -> s
 
+  zipWith :: (i -> a -> a) -> [i] -> s -> ([a], s)
+
 instance (Typeable a, NFData a) => Storage a [a] where
   {-# INLINE singleton #-}
   singleton a = [a]
@@ -28,3 +32,5 @@ instance (Typeable a, NFData a) => Storage a [a] where
   fromAscList = id
   {-# INLINE map #-}
   map = fmap
+  {-# INLINE zipWith #-}
+  zipWith f is as = let as' = Prelude.zipWith f is as in (as', as')
