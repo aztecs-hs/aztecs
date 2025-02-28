@@ -141,7 +141,7 @@ toReader (Query f) = QueryReader $ \cs ->
 
 -- | Reads and writes of a `Query`.
 data ReadsWrites = ReadsWrites
-  { reads :: !(Set ComponentID),
+  { reads :: {-# UNPACK #-} !(Set ComponentID),
     writes :: !(Set ComponentID)
   }
   deriving (Show)
@@ -160,13 +160,15 @@ disjoint a b =
     || Set.disjoint (writes b) (writes a)
 
 -- | Match all entities.
+{-# INLINE all #-}
 all :: i -> Query i a -> Entities -> ([a], Entities)
 all i = QR.all i . toReader
 
 -- | Map all matched entities.
+{-# INLINE map #-}
 map :: i -> Query i a -> Entities -> ([a], Entities)
 map i q es =
-  let !(rws, cs', dynQ) = runQuery q (components es)
+  let !(rws, cs', dynQ) = runQuery q $ components es
       !cIds = reads rws <> writes rws
       !(as, es') = mapDyn cIds i dynQ es
    in (as, es' {components = cs'})

@@ -102,6 +102,7 @@ toDynReader :: DynamicQuery i o -> DynamicQueryReader i o
 toDynReader q = DynamicQueryReader $ \is es arch -> fst $ runDynQuery q is es arch
 
 -- | Map all matched entities.
+{-# INLINE mapDyn #-}
 mapDyn :: Set ComponentID -> i -> DynamicQuery i a -> Entities -> ([a], Entities)
 mapDyn cIds i q es =
   let go = runDynQuery q (repeat i)

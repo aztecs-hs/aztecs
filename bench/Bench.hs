@@ -8,6 +8,7 @@ import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
 import Aztecs.ECS.World (World (..))
 import qualified Aztecs.ECS.World as W
+import Control.Arrow
 import Control.DeepSeq
 import Criterion.Main
 import GHC.Generics (Generic)
@@ -21,12 +22,15 @@ newtype Velocity = Velocity Int deriving (Show, Generic, NFData)
 instance Component Velocity
 
 query :: Query () Position
-query = proc () -> do
+query = Q.fetch >>> Q.adjust (\(Velocity v) (Position p) -> Position $ p + v)
+
+queryDo :: Query () Position
+queryDo = proc () -> do
   Velocity v <- Q.fetch -< ()
   Q.adjust (\v (Position p) -> Position $ p + v) -< v
 
-run :: World -> World
-run w = let !(_, es) = Q.map () query $ entities w in w {entities = es}
+run :: Query () Position -> World -> World
+run q w = let !(_, es) = Q.map () q $ entities w in w {entities = es}
 
 runSystem :: World -> IO World
 runSystem w = do
@@ -38,4 +42,8 @@ main = do
   let go wAcc = snd $ W.spawn (bundle (Position 0) <> bundle (Velocity 1)) wAcc
       !w = foldr (const go) W.empty [0 :: Int .. 10000]
 
-  defaultMain [bench "iter" $ nf run w, bench "iter system" . nfIO $ runSystem w]
+  defaultMain
+    [ bench "iter" $ nf (run query) w,
+      bench "iter do-notation" $ nf (run queryDo) w,
+      bench "iter system" . nfIO $ runSystem w
+    ]
