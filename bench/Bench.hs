@@ -8,7 +8,6 @@ import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
 import Aztecs.ECS.World (World (..))
 import qualified Aztecs.ECS.World as W
-import qualified Aztecs.ECS.World.Entities as E
 import Control.DeepSeq
 import Criterion.Main
 import GHC.Generics (Generic)
@@ -26,8 +25,8 @@ query = proc () -> do
   Velocity v <- Q.fetch -< ()
   Q.adjust (\v (Position p) -> Position $ p + v) -< v
 
-run :: QueryState () Position -> World -> World
-run q w = let !(_, es) = Q.queryStateMap () q $ entities w in w {entities = es}
+run :: World -> World
+run w = let !(_, es) = Q.map () query $ entities w in w {entities = es}
 
 runSystem :: World -> IO World
 runSystem w = do
@@ -38,5 +37,5 @@ main :: IO ()
 main = do
   let go wAcc = snd $ W.spawn (bundle (Position 0) <> bundle (Velocity 1)) wAcc
       !w = foldr (const go) W.empty [0 :: Int .. 10000]
-      !(q, _) = Q.runQuery query (E.components $ W.entities w)
-  defaultMain [bench "iter" $ nf (run q) w, bench "iter system" . nfIO $ runSystem w]
+
+  defaultMain [bench "iter" $ nf run w, bench "iter system" . nfIO $ runSystem w]
