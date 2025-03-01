@@ -19,6 +19,7 @@ import Aztecs.Hierarchy (Children (..), Parent (..))
 import qualified Aztecs.Hierarchy as Hierarchy
 import Control.Arrow
 import Control.DeepSeq
+import Data.Functor.Identity (Identity (runIdentity))
 import qualified Data.Set as Set
 import Data.Word
 import GHC.Generics
@@ -49,6 +50,8 @@ main = hspec $ do
     it "queries a typed component" $ property prop_queryTypedComponent
     it "queries 2 typed components" $ property prop_queryTwoTypedComponents
     it "queries 3 typed components" $ property prop_queryThreeTypedComponents
+  describe "Aztecs.ECS.System.mapSingle" $ do
+    it "maps a single entity" $ property prop_systemMapSingle
   describe "Aztecs.ECS.Hierarchy.update" $ do
     it "adds Parent components to children" $ property prop_addParents
     it "removes Parent components from removed children" $ property prop_removeParents
@@ -126,6 +129,16 @@ prop_queryMapSingle n =
       q = Q.fetch >>> arr (\(X x) -> X $ x + 1) >>> Q.set
       w' = foldr (\_ es -> snd $ Q.mapSingle () q es) (W.entities w) [1 .. n]
       (res, _) = Q.single () Q.fetch w'
+   in res `shouldBe` X (fromIntegral n)
+
+prop_systemMapSingle :: Word8 -> Expectation
+prop_systemMapSingle n =
+  let (_, w) = W.spawn (bundle $ X 0) W.empty
+      q = Q.fetch >>> arr (\(X x) -> X $ x + 1) >>> Q.set
+      s = system $ S.mapSingle q
+      go _ wAcc = let (_, _, wAcc') = runIdentity $ runSchedule s wAcc () in wAcc'
+      w' = foldr go w [1 .. n]
+      (res, _) = Q.single () Q.fetch (W.entities w')
    in res `shouldBe` X (fromIntegral n)
 
 prop_addParents :: Expectation

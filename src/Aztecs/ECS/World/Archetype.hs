@@ -151,7 +151,8 @@ remove e arch =
               Just d -> IntMap.insert cId d dynAcc
               Nothing -> dynAcc
          in (dynAcc', archAcc {storages = IntMap.insert cId dynS' $ storages archAcc})
-   in foldl' go (IntMap.empty, arch) . IntMap.toList $ storages arch
+      arch' = arch {entities = Set.delete e $ entities arch}
+   in foldl' go (IntMap.empty, arch') . IntMap.toList $ storages arch'
 
 -- | Remove an entity from an archetype, returning its component storages.
 removeStorages :: EntityID -> Archetype -> (IntMap DynamicStorage, Archetype)
@@ -164,7 +165,8 @@ removeStorages e arch =
               Just d -> IntMap.insert cId (S.singletonDyn d dynS') dynAcc
               Nothing -> dynAcc
          in (dynAcc', archAcc {storages = IntMap.insert cId dynS' $ storages archAcc})
-   in foldl' go (IntMap.empty, arch) . IntMap.toList $ storages arch
+      arch' = arch {entities = Set.delete e $ entities arch}
+   in foldl' go (IntMap.empty, arch') . IntMap.toList $ storages arch'
 
 -- | Insert a map of component storages into the archetype.
 insertComponents :: EntityID -> IntMap Dynamic -> Archetype -> Archetype
