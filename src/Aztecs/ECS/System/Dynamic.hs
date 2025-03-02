@@ -19,6 +19,7 @@ import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReaderT)
 import Aztecs.ECS.System.Dynamic.Class
 import Aztecs.ECS.System.Dynamic.Reader (DynamicReaderSystemT (..))
 import Aztecs.ECS.System.Dynamic.Reader.Class
+import Aztecs.ECS.Task
 import Aztecs.ECS.View (View)
 import qualified Aztecs.ECS.View as V
 import Aztecs.ECS.World.Entities (Entities (..))
@@ -87,6 +88,11 @@ instance (Monad m) => ArrowDynamicSystem (DynamicQueryT m) (DynamicSystemT m) wh
     let !v = V.filterView cIds f $ archetypes w
     (o, v') <- V.mapDyn i q v
     return (o, v', filterMapDyn cIds q f)
+
+instance (Monad m) => ArrowTask m (DynamicSystemT m) where
+  task f = DynamicSystem $ \_ i -> do
+    o <- f i
+    return (o, mempty, task f)
 
 raceDyn :: DynamicSystem i a -> DynamicSystem i b -> DynamicSystem i (a, b)
 raceDyn (DynamicSystem f) (DynamicSystem g) = DynamicSystem $ \w i ->

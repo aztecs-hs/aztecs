@@ -1,7 +1,9 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
@@ -35,6 +37,7 @@ import Aztecs.ECS.Query.Dynamic (DynamicQueryFilter (..))
 import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReaderT (..), allDyn, singleDyn, singleMaybeDyn)
 import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Aztecs.ECS.Query.Reader.Class (ArrowQueryReader (..))
+import Aztecs.ECS.Task
 import Aztecs.ECS.World.Components (Components)
 import qualified Aztecs.ECS.World.Components as CS
 import Aztecs.ECS.World.Entities (Entities (..))
@@ -100,6 +103,9 @@ instance (Monad m) => ArrowDynamicQueryReader (QueryReaderT m) where
   fetchDyn cId = QueryReader (Set.singleton cId,,fetchDyn cId)
   {-# INLINE fetchMaybeDyn #-}
   fetchMaybeDyn cId = QueryReader (Set.singleton cId,,fetchMaybeDyn cId)
+
+instance (Monad m) => ArrowTask m (QueryReaderT m) where
+  task f = QueryReader (mempty,,task f)
 
 -- | Filter for a `Query`.
 newtype QueryFilter = QueryFilter {runQueryFilter :: Components -> (DynamicQueryFilter, Components)}

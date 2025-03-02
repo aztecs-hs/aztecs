@@ -15,6 +15,7 @@ where
 
 import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReaderT, runDynQueryReaderT)
 import Aztecs.ECS.System.Dynamic.Reader.Class
+import Aztecs.ECS.Task
 import qualified Aztecs.ECS.View as V
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Entities (Entities (..))
@@ -70,6 +71,11 @@ instance (Monad m) => ArrowDynamicReaderSystem (DynamicQueryReaderT m) (DynamicR
     let !v = V.filterView cIds f $ archetypes w
     as <- V.allDyn i q v
     return (as, filterDyn cIds q f)
+
+instance (Monad m) => ArrowTask m (DynamicReaderSystemT m) where
+  task f = DynamicReaderSystem $ \_ i -> do
+    o <- f i
+    return (o, task f)
 
 runDynReaderSystem :: DynamicReaderSystem i o -> Entities -> i -> (o, DynamicReaderSystem i o)
 runDynReaderSystem s es i = runIdentity $ runDynReaderSystemT s es i

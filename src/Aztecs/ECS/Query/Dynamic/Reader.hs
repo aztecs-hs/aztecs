@@ -1,5 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Aztecs.ECS.Query.Dynamic.Reader
   ( -- * Dynamic queries
@@ -22,6 +24,7 @@ where
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
 import Aztecs.ECS.Query.Dynamic.Reader.Class
+import Aztecs.ECS.Task
 import Aztecs.ECS.World.Archetype (Archetype)
 import qualified Aztecs.ECS.World.Archetype as A
 import qualified Aztecs.ECS.World.Archetypes as AS
@@ -85,6 +88,9 @@ instance (Monad m) => ArrowDynamicQueryReader (DynamicQueryReaderT m) where
   fetchMaybeDyn cId = DynamicQueryReader $ \_ es arch -> pure $ case A.lookupComponentsAscMaybe cId arch of
     Just as -> fmap Just as
     Nothing -> map (const Nothing) es
+
+instance (Monad m) => ArrowTask m (DynamicQueryReaderT m) where
+  task f = DynamicQueryReader $ \is _ _ -> mapM f is
 
 data DynamicQueryFilter = DynamicQueryFilter
   { filterWith :: !(Set ComponentID),

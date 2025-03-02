@@ -19,6 +19,7 @@ import Aztecs.ECS.Query.Reader (DynamicQueryFilter (..), QueryReaderT)
 import Aztecs.ECS.System.Class
 import Aztecs.ECS.System.Dynamic
 import Aztecs.ECS.System.Reader
+import Aztecs.ECS.Task
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
 import Aztecs.ECS.World.Components (Components)
@@ -77,6 +78,9 @@ instance (Monad m) => ArrowSystem (QueryT m) (SystemT m) where
   mapSingleMaybe q = System $ \cs ->
     let !(rws, cs', dynQ) = runQuery q cs
      in (mapSingleMaybeDyn (Q.reads rws <> Q.writes rws) dynQ, rws, cs')
+
+instance (Monad m) => ArrowTask m (SystemT m) where
+  task f = System (task f,mempty,)
 
 fromReader :: (Monad m) => ReaderSystemT m i o -> SystemT m i o
 fromReader (ReaderSystem f) = System $ \cs ->

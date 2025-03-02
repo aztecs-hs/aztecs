@@ -51,6 +51,7 @@
 -- > main = runSystem_ $ setup >>> S.forever move
 module Aztecs.ECS
   ( Access,
+    AccessT,
     MonadAccess,
     runAccessT,
     Bundle,
@@ -74,11 +75,12 @@ module Aztecs.ECS
     SystemT,
     ArrowReaderSystem,
     ArrowSystem,
+    ArrowTask (..),
     World,
   )
 where
 
-import Aztecs.ECS.Access (Access, MonadAccess, runAccessT)
+import Aztecs.ECS.Access (Access, AccessT, MonadAccess, runAccessT)
 import Aztecs.ECS.Component (Component (..))
 import Aztecs.ECS.Entity (EntityID)
 import Aztecs.ECS.Query
@@ -99,6 +101,7 @@ import Aztecs.ECS.System
     System,
     SystemT,
   )
+import Aztecs.ECS.Task
 import Aztecs.ECS.World (World)
 import Aztecs.ECS.World.Bundle (Bundle, MonoidBundle (..))
 import Aztecs.ECS.World.Bundle.Dynamic (DynamicBundle, MonoidDynamicBundle (..))

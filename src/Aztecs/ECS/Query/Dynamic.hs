@@ -29,6 +29,7 @@ import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
 import Aztecs.ECS.Query.Dynamic.Class
 import Aztecs.ECS.Query.Dynamic.Reader
+import Aztecs.ECS.Task
 import Aztecs.ECS.World.Archetype (Archetype)
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
@@ -105,6 +106,11 @@ instance (Monad m) => ArrowDynamicQuery m (DynamicQueryT m) where
 
   {-# INLINE setDyn #-}
   setDyn cId = DynamicQuery $ \is _ arch -> pure (is, A.insertAscList cId is arch)
+
+instance (Monad m) => ArrowTask m (DynamicQueryT m) where
+  task f = DynamicQuery $ \is _ arch -> do
+    o <- mapM f is
+    return (o, arch)
 
 {-# INLINE fromDynReader #-}
 fromDynReader :: (Monad m) => DynamicQueryReaderT m i o -> DynamicQueryT m i o
