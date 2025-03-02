@@ -8,17 +8,14 @@ module Aztecs.ECS.System.Reader
   ( ReaderSystem,
     ReaderSystemT (..),
     ArrowReaderSystem (..),
-    ArrowQueueSystem (..),
   )
 where
 
-import Aztecs.ECS.Access (AccessT)
 import Aztecs.ECS.Query.Reader
 import Aztecs.ECS.System.Dynamic.Reader
 import Aztecs.ECS.System.Reader.Class (ArrowReaderSystem (..))
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
-import Aztecs.ECS.World.Bundle (Bundle)
 import Aztecs.ECS.World.Components (ComponentID, Components)
 import Control.Arrow
 import Control.Category
@@ -47,18 +44,14 @@ instance (Monad m) => Arrow (ReaderSystemT m) where
   arr f = ReaderSystem (arr f,mempty,)
   first (ReaderSystem f) = ReaderSystem $ \cs ->
     let (f', rwsF, cs') = f cs in (first f', rwsF, cs')
-  f &&& g = ReaderSystem $ \cs ->
-    let (dynF, rwsA, cs') = runReaderSystem f cs
-        (dynG, rwsB, cs'') = runReaderSystem g cs'
-     in (raceDyn dynF dynG, rwsA <> rwsB, cs'')
 
 instance (Monad m) => ArrowChoice (ReaderSystemT m) where
   left (ReaderSystem f) = ReaderSystem $ \cs -> let (f', rwsF, cs') = f cs in (left f', rwsF, cs')
 
-instance (Monad m) => ArrowLoop (ReaderSystemT m) where
+instance (MonadFix m) => ArrowLoop (ReaderSystemT m) where
   loop (ReaderSystem f) = ReaderSystem $ \cs -> let (f', rwsF, cs') = f cs in (loop f', rwsF, cs')
 
-instance (Monad m) => ArrowReaderSystem QueryReader (ReaderSystemT m) where
+instance (Monad m) => ArrowReaderSystem (QueryReaderT m) (ReaderSystemT m) where
   all q = ReaderSystem $ \cs ->
     let !(rs, cs', dynQ) = runQueryReader q cs in (allDyn rs dynQ, rs, cs')
   single q = ReaderSystem $ \cs ->
@@ -72,6 +65,3 @@ instance (Monad m) => ArrowReaderSystem QueryReader (ReaderSystemT m) where
           F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynQf)
             && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynQf)
      in (filterDyn rs dynQ qf', rs, cs'')
-
-instance (Monad m) => ArrowQueueSystem Bundle (AccessT m) (ReaderSystemT m) where
-  queue f = ReaderSystem (queue f,mempty,)

@@ -2,27 +2,25 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TupleSections #-}
 
 module Aztecs.ECS.System
   ( System,
     SystemT (..),
     ArrowReaderSystem (..),
     ArrowSystem (..),
-    ArrowQueueSystem (..),
     fromReader,
   )
 where
 
-import Aztecs.ECS.Access
-import Aztecs.ECS.Query (Query (..), QueryFilter (..), ReadsWrites (..))
+import Aztecs.ECS.Query (QueryFilter (..), QueryT (..), ReadsWrites (..))
 import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.Query.Reader (DynamicQueryFilter (..), QueryReader (..))
+import Aztecs.ECS.Query.Reader (DynamicQueryFilter (..), QueryReaderT)
 import Aztecs.ECS.System.Class
 import Aztecs.ECS.System.Dynamic
 import Aztecs.ECS.System.Reader
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
-import Aztecs.ECS.World.Bundle
 import Aztecs.ECS.World.Components (Components)
 import Control.Arrow
 import Control.Category
@@ -41,33 +39,28 @@ newtype SystemT m i o = System
   deriving (Functor)
 
 instance (Monad m) => Category (SystemT m) where
-  id = System $ \cs -> (DynamicSystem $ \_ i -> (i, mempty, pure (), id), mempty, cs)
+  id = System (id,mempty,)
   System f . System g = System $ \cs ->
     let (f', rwsF, cs') = f cs
         (g', rwsG, cs'') = g cs'
      in (f' . g', rwsF <> rwsG, cs'')
 
 instance (Monad m) => Arrow (SystemT m) where
-  arr f = System $ \cs -> (DynamicSystem $ \_ i -> (f i, mempty, pure (), arr f), mempty, cs)
+  arr f = System (arr f,mempty,)
   first (System f) = System $ \cs ->
     let (f', rwsF, cs') = f cs in (first f', rwsF, cs')
-  f &&& g = System $ \cs ->
-    let (dynF, rwsA, cs') = runSystem f cs
-        (dynG, rwsB, cs'') = runSystem g cs'
-        dynS = if Q.disjoint rwsA rwsB then dynF &&& dynG else raceDyn dynF dynG
-     in (dynS, rwsA <> rwsB, cs'')
 
 instance (Monad m) => ArrowChoice (SystemT m) where
   left (System f) = System $ \cs -> let (f', rwsF, cs') = f cs in (left f', rwsF, cs')
 
-instance (Monad m) => ArrowLoop (SystemT m) where
+instance (MonadFix m) => ArrowLoop (SystemT m) where
   loop (System f) = System $ \cs -> let (f', rwsF, cs') = f cs in (loop f', rwsF, cs')
 
-instance (Monad m) => ArrowReaderSystem QueryReader (SystemT m) where
+instance (Monad m) => ArrowReaderSystem (QueryReaderT m) (SystemT m) where
   all = fromReader . all
   filter q = fromReader . filter q
 
-instance (Monad m) => ArrowSystem Query (SystemT m) where
+instance (Monad m) => ArrowSystem (QueryT m) (SystemT m) where
   map q = System $ \cs ->
     let !(rws, cs', dynQ) = runQuery q cs
      in (mapDyn (Q.reads rws <> Q.writes rws) dynQ, rws, cs')
@@ -84,9 +77,6 @@ instance (Monad m) => ArrowSystem Query (SystemT m) where
   mapSingleMaybe q = System $ \cs ->
     let !(rws, cs', dynQ) = runQuery q cs
      in (mapSingleMaybeDyn (Q.reads rws <> Q.writes rws) dynQ, rws, cs')
-
-instance (Monad m) => ArrowQueueSystem Bundle (AccessT m) (SystemT m) where
-  queue f = System $ \cs -> (queue f, mempty, cs)
 
 fromReader :: (Monad m) => ReaderSystemT m i o -> SystemT m i o
 fromReader (ReaderSystem f) = System $ \cs ->

@@ -3,7 +3,8 @@
 
 module Aztecs.ECS.Query.Dynamic.Reader
   ( -- * Dynamic queries
-    DynamicQueryReader (..),
+    DynamicQueryReader,
+    DynamicQueryReaderT (..),
     ArrowDynamicQueryReader (..),
 
     -- ** Running
@@ -11,6 +12,7 @@ module Aztecs.ECS.Query.Dynamic.Reader
     singleDyn,
     singleMaybeDyn,
     runDynQueryReader,
+    runDynQueryReaderT,
 
     -- * Dynamic query filters
     DynamicQueryFilter (..),
@@ -26,57 +28,61 @@ import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Entities (Entities (..))
 import Control.Arrow
 import Control.Category
+import Control.Monad.Identity (Identity (runIdentity))
 import Data.Either (partitionEithers)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Stack (HasCallStack)
 
+type DynamicQueryReader = DynamicQueryReaderT Identity
+
 -- | Dynamic query for components by ID.
-newtype DynamicQueryReader i o
-  = DynamicQueryReader {runDynQueryReader' :: [i] -> [EntityID] -> Archetype -> [o]}
+newtype DynamicQueryReaderT m i o
+  = DynamicQueryReader {runDynQueryReader' :: [i] -> [EntityID] -> Archetype -> m [o]}
   deriving (Functor)
 
-instance Applicative (DynamicQueryReader i) where
+instance (Monad m) => Applicative (DynamicQueryReaderT m i) where
   {-# INLINE pure #-}
-  pure a = DynamicQueryReader $ \_ es _ -> replicate (length es) a
+  pure a = DynamicQueryReader $ \_ es _ -> pure $ replicate (length es) a
   {-# INLINE (<*>) #-}
   f <*> g =
-    DynamicQueryReader $ \i es arch ->
-      let !as = runDynQueryReader' g i es arch
-          !fs = runDynQueryReader' f i es arch
-       in zipWith ($) fs as
+    DynamicQueryReader $ \i es arch -> do
+      !as <- runDynQueryReader' g i es arch
+      !fs <- runDynQueryReader' f i es arch
+      return $ zipWith ($) fs as
 
-instance Category DynamicQueryReader where
+instance (Monad m) => Category (DynamicQueryReaderT m) where
   {-# INLINE id #-}
-  id = DynamicQueryReader $ \as _ _ -> as
+  id = DynamicQueryReader $ \as _ _ -> pure as
   {-# INLINE (.) #-}
-  f . g = DynamicQueryReader $ \i es arch ->
-    let !as = runDynQueryReader' g i es arch in runDynQueryReader' f as es arch
+  f . g = DynamicQueryReader $ \i es arch -> do
+    !as <- runDynQueryReader' g i es arch
+    runDynQueryReader' f as es arch
 
-instance Arrow DynamicQueryReader where
+instance (Monad m) => Arrow (DynamicQueryReaderT m) where
   {-# INLINE arr #-}
-  arr f = DynamicQueryReader $ \bs _ _ -> fmap f bs
+  arr f = DynamicQueryReader $ \bs _ _ -> pure $ fmap f bs
   {-# INLINE first #-}
-  first f = DynamicQueryReader $ \bds es arch ->
+  first f = DynamicQueryReader $ \bds es arch -> do
     let !(bs, ds) = unzip bds
-        !cs = runDynQueryReader' f bs es arch
-     in zip cs ds
+    !cs <- runDynQueryReader' f bs es arch
+    return $ zip cs ds
 
-instance ArrowChoice DynamicQueryReader where
+instance (Monad m) => ArrowChoice (DynamicQueryReaderT m) where
   {-# INLINE left #-}
-  left f = DynamicQueryReader $ \eds es arch ->
+  left f = DynamicQueryReader $ \eds es arch -> do
     let !(es', ds) = partitionEithers eds
-        !cs = runDynQueryReader' f es' es arch
-     in fmap Left cs ++ fmap Right ds
+    !cs <- runDynQueryReader' f es' es arch
+    return $ fmap Left cs ++ fmap Right ds
 
-instance ArrowDynamicQueryReader DynamicQueryReader where
+instance (Monad m) => ArrowDynamicQueryReader (DynamicQueryReaderT m) where
   {-# INLINE entity #-}
-  entity = DynamicQueryReader $ \_ es _ -> es
+  entity = DynamicQueryReader $ \_ es _ -> pure es
   {-# INLINE fetchDyn #-}
-  fetchDyn cId = DynamicQueryReader $ \_ _ arch -> A.lookupComponentsAsc cId arch
+  fetchDyn cId = DynamicQueryReader $ \_ _ arch -> pure $ A.lookupComponentsAsc cId arch
   {-# INLINE fetchMaybeDyn #-}
-  fetchMaybeDyn cId = DynamicQueryReader $ \_ es arch -> case A.lookupComponentsAscMaybe cId arch of
+  fetchMaybeDyn cId = DynamicQueryReader $ \_ es arch -> pure $ case A.lookupComponentsAscMaybe cId arch of
     Just as -> fmap Just as
     Nothing -> map (const Nothing) es
 
@@ -92,9 +98,13 @@ instance Semigroup DynamicQueryFilter where
 instance Monoid DynamicQueryFilter where
   mempty = DynamicQueryFilter mempty mempty
 
+{-# INLINE runDynQueryReaderT #-}
+runDynQueryReaderT :: i -> DynamicQueryReaderT m i o -> [EntityID] -> Archetype -> m [o]
+runDynQueryReaderT i q = runDynQueryReader' q (repeat i)
+
 {-# INLINE runDynQueryReader #-}
 runDynQueryReader :: i -> DynamicQueryReader i o -> [EntityID] -> Archetype -> [o]
-runDynQueryReader i q = runDynQueryReader' q (repeat i)
+runDynQueryReader i q es arch = runIdentity $ runDynQueryReaderT i q es arch
 
 -- | Match all entities.
 allDyn :: Set ComponentID -> i -> DynamicQueryReader i a -> Entities -> [a]

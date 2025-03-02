@@ -51,6 +51,7 @@
 -- > main = runSystem_ $ setup >>> S.forever move
 module Aztecs.ECS
   ( Access,
+    MonadAccess,
     runAccessT,
     Bundle,
     MonoidBundle (..),
@@ -59,6 +60,9 @@ module Aztecs.ECS
     Component (..),
     EntityID,
     Query,
+    QueryT,
+    QueryReader,
+    QueryReaderT,
     ArrowQueryReader,
     ArrowQuery,
     ArrowDynamicQueryReader,
@@ -70,24 +74,11 @@ module Aztecs.ECS
     SystemT,
     ArrowReaderSystem,
     ArrowSystem,
-    ArrowQueueSystem,
-    Schedule,
-    ArrowReaderSchedule,
-    ArrowSchedule,
-    ArrowAccessSchedule,
-    reader,
-    system,
-    delay,
-    forever,
-    forever_,
-    access,
-    runSchedule,
-    runSchedule_,
     World,
   )
 where
 
-import Aztecs.ECS.Access (Access, runAccessT)
+import Aztecs.ECS.Access (Access, MonadAccess, runAccessT)
 import Aztecs.ECS.Component (Component (..))
 import Aztecs.ECS.Entity (EntityID)
 import Aztecs.ECS.Query
@@ -97,26 +88,13 @@ import Aztecs.ECS.Query
     ArrowQueryReader,
     Query,
     QueryFilter,
+    QueryT,
     with,
     without,
   )
-import Aztecs.ECS.Schedule
-  ( ArrowAccessSchedule,
-    ArrowReaderSchedule,
-    ArrowSchedule,
-    Schedule,
-    access,
-    delay,
-    forever,
-    forever_,
-    reader,
-    runSchedule,
-    runSchedule_,
-    system,
-  )
+import Aztecs.ECS.Query.Reader (QueryReader, QueryReaderT)
 import Aztecs.ECS.System
-  ( ArrowQueueSystem,
-    ArrowReaderSystem,
+  ( ArrowReaderSystem,
     ArrowSystem,
     System,
     SystemT,

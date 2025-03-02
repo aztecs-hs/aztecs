@@ -33,7 +33,6 @@ where
 import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
-import qualified Aztecs.ECS.System as S
 import Aztecs.Hierarchy (Hierarchy, hierarchies, mapWithAccum, toList)
 import Control.Arrow (Arrow (..), (>>>))
 import Control.DeepSeq
@@ -83,22 +82,22 @@ update ::
   ( ArrowQueryReader q,
     ArrowDynamicQueryReader q,
     ArrowReaderSystem q arr,
-    ArrowQueueSystem b m arr,
     Component a,
-    Monoid a
+    Monoid a,
+    MonadAccess b m
   ) =>
-  arr () ()
-update = propagate @_ @_ @a >>> S.queue (mapM_ $ mapM_ (uncurry A.insert) . toList)
+  arr () (m ())
+update = propagate @_ @_ @a >>> arr (mapM_ $ mapM_ (uncurry A.insert) . toList)
 
 -- | Propagate and update all hierarchies of transform components.
 update2d ::
   ( ArrowQueryReader q,
     ArrowDynamicQueryReader q,
     ArrowReaderSystem q arr,
-    ArrowQueueSystem b m arr
+    MonadAccess b m
   ) =>
-  arr () ()
-update2d = propagate @_ @_ @Transform2D >>> S.queue (mapM_ $ mapM_ (uncurry A.insert) . toList)
+  arr () (m ())
+update2d = propagate @_ @_ @Transform2D >>> arr (mapM_ $ mapM_ (uncurry A.insert) . toList)
 
 propagate ::
   ( ArrowQueryReader q,

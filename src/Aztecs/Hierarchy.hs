@@ -64,9 +64,9 @@ update ::
   ( ArrowQueryReader qr,
     ArrowDynamicQueryReader qr,
     ArrowReaderSystem qr arr,
-    ArrowQueueSystem b m arr
+    MonadAccess b m
   ) =>
-  arr () ()
+  arr () (m ())
 update = proc () -> do
   parents <-
     S.all
@@ -88,8 +88,7 @@ update = proc () -> do
       )
       -<
         ()
-  S.queue
-    ( \(parents, childRes) -> do
+  let go = do
         mapM_
           ( \(entity, parent, maybeParentState) -> case maybeParentState of
               Just (ParentState parentState) -> do
@@ -114,22 +113,20 @@ update = proc () -> do
           )
           parents
         mapM_
-          ( \(entity, children, maybeChildState) -> case maybeChildState of
+          ( \(entity, children', maybeChildState) -> case maybeChildState of
               Just (ChildState childState) -> do
-                when (children /= childState) $ do
-                  A.insert entity $ ChildState children
-                  let added = Set.difference children childState
-                      removed = Set.difference childState children
+                when (children' /= childState) $ do
+                  A.insert entity $ ChildState children'
+                  let added = Set.difference children' childState
+                      removed = Set.difference childState children'
                   mapM_ (\e -> A.insert e . Parent $ entity) added
                   mapM_ (A.remove @_ @_ @Parent) removed
               Nothing -> do
-                A.insert entity $ ChildState children
-                mapM_ (\e -> A.insert e . Parent $ entity) children
+                A.insert entity $ ChildState children'
+                mapM_ (\e -> A.insert e . Parent $ entity) children'
           )
-          childRes
-    )
-    -<
-      (parents, children)
+          children
+  returnA -< go
 
 -- | Hierarchy of entities.
 data Hierarchy a = Node

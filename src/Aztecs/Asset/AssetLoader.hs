@@ -50,7 +50,7 @@ instance (Monad m, Asset a) => MonadAssetLoader a (AssetLoaderT a m) where
     return $ Handle assetId
 
 -- | Query to load assets.
-loadQuery :: (Asset a, ArrowQuery arr) => AssetLoader a o -> arr () o
+loadQuery :: (Asset a, ArrowQuery m arr) => AssetLoader a o -> arr () o
 loadQuery a = proc () -> do
   server <- Q.fetch -< ()
   let (o, server') = runState (unAssetLoader a) server
@@ -58,5 +58,5 @@ loadQuery a = proc () -> do
   returnA -< o
 
 -- | System to load assets.
-load :: (ArrowQuery q, ArrowSystem q arr, Asset a) => AssetLoader a o -> arr () o
+load :: (ArrowQuery m q, ArrowSystem q arr, Asset a) => AssetLoader a o -> arr () o
 load a = S.mapSingle $ loadQuery a

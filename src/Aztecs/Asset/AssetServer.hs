@@ -66,27 +66,22 @@ lookupAsset :: Handle a -> AssetServer a -> Maybe a
 lookupAsset h server = Map.lookup (handleId h) (assetServerAssets server)
 
 -- | Setup the asset server.
-setup :: forall arr m b a. (Typeable a, ArrowQueueSystem m b arr) => arr () ()
-setup = S.queue . const . A.spawn_ . bundle $ assetServer @a
+setup :: forall m b a. (Typeable a, MonadAccess b m) => m ()
+setup = A.spawn_ . bundle $ assetServer @a
 
 -- | Load any pending assets.
 loadAssets ::
-  forall a qr rs q s b m arr.
+  forall a qr rs q arr m.
   ( Typeable a,
     ArrowQueryReader qr,
     ArrowReaderSystem qr rs,
-    ArrowReaderSchedule rs arr,
-    ArrowQuery q,
-    ArrowSystem q s,
-    ArrowSchedule s arr,
-    MonadIO m,
-    ArrowAccessSchedule b m arr
+    ArrowQuery m q,
+    ArrowSystem q arr,
+    MonadIO m
   ) =>
   arr () ()
 loadAssets = proc () -> do
-  server <- reader $ S.single (Q.fetch @_ @(AssetServer a)) -< ()
-  server' <- access loadAssetServer -< server
-  system $ S.mapSingle Q.set -< server'
+  S.mapSingle $ Q.adjustM (\_ s -> loadAssetServer @m @a s) -< ()
   returnA -< ()
 
 -- | Load any pending assets in an `AssetServer`.

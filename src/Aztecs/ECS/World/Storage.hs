@@ -4,6 +4,7 @@
 module Aztecs.ECS.World.Storage (Storage (..)) where
 
 import Control.DeepSeq
+import qualified Control.Monad
 import Data.Data
 import Prelude hiding (zipWith)
 import qualified Prelude
@@ -23,6 +24,8 @@ class (Typeable s, NFData s, Typeable a) => Storage a s where
 
   zipWith :: (i -> a -> a) -> [i] -> s -> ([a], s)
 
+  zipWithM :: (Monad m) => (i -> a -> m a) -> [i] -> s -> m ([a], s)
+
   zipWith_ :: (i -> a -> a) -> [i] -> s -> s
   zipWith_ f is as = snd $ zipWith f is as
 
@@ -39,3 +42,7 @@ instance (Typeable a, NFData a) => Storage a [a] where
   zipWith f is as = let as' = Prelude.zipWith f is as in (as', as')
   {-# INLINE zipWith_ #-}
   zipWith_ = Prelude.zipWith
+  {-# INLINE zipWithM #-}
+  zipWithM f is as = do
+    as' <- Control.Monad.zipWithM f is as
+    return (as', as)

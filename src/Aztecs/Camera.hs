@@ -15,7 +15,7 @@ import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query.Reader as Q
 import qualified Aztecs.ECS.System as S
 import Aztecs.Window (Window)
-import Control.Arrow (Arrow (..))
+import Control.Arrow (Arrow (..), returnA)
 import Control.DeepSeq
 import GHC.Generics (Generic)
 import Linear (V2 (..))
@@ -45,16 +45,13 @@ addCameraTargets ::
   ( ArrowQueryReader qr,
     ArrowDynamicQueryReader qr,
     ArrowReaderSystem qr arr,
-    ArrowQueueSystem b m arr
+    MonadAccess b m
   ) =>
-  arr () ()
+  arr () (m ())
 addCameraTargets = proc () -> do
   windows <- S.all (Q.entity &&& Q.fetch @_ @Window) -< ()
   newCameras <- S.filter (Q.entity &&& Q.fetch @_ @Camera) (without @CameraTarget) -< ()
-  S.queue
-    ( \(newCameras, windows) -> case windows of
+  let go = case windows of
         (windowEId, _) : _ -> mapM_ (\(eId, _) -> A.insert eId $ CameraTarget windowEId) newCameras
         _ -> return ()
-    )
-    -<
-      (newCameras, windows)
+  returnA -< go

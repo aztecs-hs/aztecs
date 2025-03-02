@@ -39,22 +39,12 @@ library
         Aztecs.ECS.Query.Dynamic.Reader.Class
         Aztecs.ECS.Query.Reader
         Aztecs.ECS.Query.Reader.Class
-        Aztecs.ECS.Schedule
-        Aztecs.ECS.Schedule.Access
-        Aztecs.ECS.Schedule.Access.Class
-        Aztecs.ECS.Schedule.Class
-        Aztecs.ECS.Schedule.Dynamic
-        Aztecs.ECS.Schedule.Dynamic.Reader
-        Aztecs.ECS.Schedule.Reader
-        Aztecs.ECS.Schedule.Reader.Class
         Aztecs.ECS.System
         Aztecs.ECS.System.Class
         Aztecs.ECS.System.Dynamic
         Aztecs.ECS.System.Dynamic.Class
         Aztecs.ECS.System.Dynamic.Reader
         Aztecs.ECS.System.Dynamic.Reader.Class
-        Aztecs.ECS.System.Queue
-        Aztecs.ECS.System.Queue.Class
         Aztecs.ECS.System.Reader
         Aztecs.ECS.System.Reader.Class
         Aztecs.ECS.View

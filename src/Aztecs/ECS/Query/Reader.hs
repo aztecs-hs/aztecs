@@ -9,7 +9,8 @@
 
 module Aztecs.ECS.Query.Reader
   ( -- * Queries
-    QueryReader (..),
+    QueryReader,
+    QueryReaderT (..),
     ArrowQueryReader (..),
     ArrowDynamicQueryReader (..),
 
@@ -31,7 +32,7 @@ where
 
 import Aztecs.ECS.Component
 import Aztecs.ECS.Query.Dynamic (DynamicQueryFilter (..))
-import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..), allDyn, singleDyn, singleMaybeDyn)
+import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReaderT (..), allDyn, singleDyn, singleMaybeDyn)
 import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Aztecs.ECS.Query.Reader.Class (ArrowQueryReader (..))
 import Aztecs.ECS.World.Components (Components)
@@ -40,62 +41,65 @@ import Aztecs.ECS.World.Entities (Entities (..))
 import qualified Aztecs.ECS.World.Entities as E
 import Control.Arrow (Arrow (..), ArrowChoice (..))
 import Control.Category (Category (..))
+import Control.Monad.Identity
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Stack
 import Prelude hiding (all, id, (.))
 
+type QueryReader = QueryReaderT Identity
+
 -- | Query to read from entities.
-newtype QueryReader i o
-  = QueryReader {runQueryReader :: Components -> (Set ComponentID, Components, DynamicQueryReader i o)}
+newtype QueryReaderT m i o
+  = QueryReader {runQueryReader :: Components -> (Set ComponentID, Components, DynamicQueryReaderT m i o)}
   deriving (Functor)
 
-instance Applicative (QueryReader i) where
+instance (Monad m) => Applicative (QueryReaderT m i) where
   {-# INLINE pure #-}
-  pure a = QueryReader $ \cs -> (mempty, cs, pure a)
+  pure a = QueryReader (mempty,,pure a)
   {-# INLINE (<*>) #-}
   (QueryReader f) <*> (QueryReader g) = QueryReader $ \cs ->
     let !(cIdsG, cs', aQS) = g cs
         !(cIdsF, cs'', bQS) = f cs'
      in (cIdsG <> cIdsF, cs'', bQS <*> aQS)
 
-instance Category QueryReader where
+instance (Monad m) => Category (QueryReaderT m) where
   {-# INLINE id #-}
-  id = QueryReader $ \cs -> (mempty, cs, id)
+  id = QueryReader (mempty,,id)
   {-# INLINE (.) #-}
   (QueryReader f) . (QueryReader g) = QueryReader $ \cs ->
     let !(cIdsG, cs', aQS) = g cs
         !(cIdsF, cs'', bQS) = f cs'
      in (cIdsG <> cIdsF, cs'', bQS . aQS)
 
-instance Arrow QueryReader where
+instance (Monad m) => Arrow (QueryReaderT m) where
   {-# INLINE arr #-}
-  arr f = QueryReader $ \cs -> (mempty, cs, arr f)
+  arr f = QueryReader (mempty,,arr f)
   {-# INLINE first #-}
   first (QueryReader f) = QueryReader $ \cs -> let !(cIds, comps', qS) = f cs in (cIds, comps', first qS)
 
-instance ArrowChoice QueryReader where
+instance (Monad m) => ArrowChoice (QueryReaderT m) where
   {-# INLINE left #-}
   left (QueryReader f) = QueryReader $ \cs -> let !(cIds, comps', qS) = f cs in (cIds, comps', left qS)
 
-instance ArrowQueryReader QueryReader where
+instance (Monad m) => ArrowQueryReader (QueryReaderT m) where
   {-# INLINE fetch #-}
-  fetch :: forall a. (Component a) => QueryReader () a
+  fetch :: forall a. (Component a) => QueryReaderT m () a
   fetch = QueryReader $ \cs ->
     let !(cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', fetchDyn cId)
 
   {-# INLINE fetchMaybe #-}
-  fetchMaybe :: forall a. (Component a) => QueryReader () (Maybe a)
+  fetchMaybe :: forall a. (Component a) => QueryReaderT m () (Maybe a)
   fetchMaybe = QueryReader $ \cs ->
     let !(cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', fetchMaybeDyn cId)
 
-instance ArrowDynamicQueryReader QueryReader where
+instance (Monad m) => ArrowDynamicQueryReader (QueryReaderT m) where
   {-# INLINE entity #-}
-  entity = QueryReader $ \cs -> (mempty, cs, entity)
+  entity = QueryReader (mempty,,entity)
   {-# INLINE fetchDyn #-}
-  fetchDyn cId = QueryReader $ \cs -> (Set.singleton cId, cs, fetchDyn cId)
+  fetchDyn cId = QueryReader (Set.singleton cId,,fetchDyn cId)
   {-# INLINE fetchMaybeDyn #-}
-  fetchMaybeDyn cId = QueryReader $ \cs -> (Set.singleton cId, cs, fetchMaybeDyn cId)
+  fetchMaybeDyn cId = QueryReader (Set.singleton cId,,fetchMaybeDyn cId)
 
 -- | Filter for a `Query`.
 newtype QueryFilter = QueryFilter {runQueryFilter :: Components -> (DynamicQueryFilter, Components)}

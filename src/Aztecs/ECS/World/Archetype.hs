@@ -28,6 +28,7 @@ module Aztecs.ECS.World.Archetype
     insertAscList,
     zipWith,
     zipWith_,
+    zipWithM,
   )
 where
 
@@ -37,7 +38,7 @@ import qualified Aztecs.ECS.World.Storage as S
 import Aztecs.ECS.World.Storage.Dynamic
 import qualified Aztecs.ECS.World.Storage.Dynamic as S
 import Control.DeepSeq
-import Control.Monad.Writer
+import Control.Monad.Writer hiding (zipWithM)
 import Data.Dynamic
 import Data.Foldable
 import Data.IntMap (IntMap)
@@ -123,6 +124,20 @@ zipWith as f cId arch =
         Nothing -> return Nothing
       !(storages', cs) = runWriter $ IntMap.alterF go (unComponentId cId) $ storages arch
    in (cs, arch {storages = storages'})
+
+zipWithM ::
+  forall m a c. (Monad m, Component c) => [a] -> (a -> c -> m c) -> ComponentID -> Archetype -> m ([c], Archetype)
+zipWithM as f cId arch = do
+  let go maybeDyn = case maybeDyn of
+        Just dyn -> case fromDynamic $ storageDyn dyn of
+          Just s -> do
+            (cs', s') <- lift $ S.zipWithM @c @(StorageT c) f as s
+            tell cs'
+            return $ Just $ dyn {storageDyn = toDyn s'}
+          Nothing -> return maybeDyn
+        Nothing -> return Nothing
+  (storages', cs) <- runWriterT $ IntMap.alterF go (unComponentId cId) $ storages arch
+  return (cs, arch {storages = storages'})
 
 {-# INLINE zipWith_ #-}
 zipWith_ ::

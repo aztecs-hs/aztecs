@@ -2,23 +2,21 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RecursiveDo #-}
 
 module Aztecs.ECS.System.Dynamic.Reader
   ( DynamicReaderSystem,
     DynamicReaderSystemT (..),
     ArrowDynamicReaderSystem (..),
-    ArrowQueueSystem (..),
     raceDyn,
+    runDynReaderSystem,
   )
 where
 
-import Aztecs.ECS.Access
-import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..), runDynQueryReader)
+import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReaderT, runDynQueryReaderT)
 import Aztecs.ECS.System.Dynamic.Reader.Class
-import Aztecs.ECS.System.Queue (ArrowQueueSystem (..))
 import qualified Aztecs.ECS.View as V
 import qualified Aztecs.ECS.World.Archetype as A
-import Aztecs.ECS.World.Bundle
 import Aztecs.ECS.World.Entities (Entities (..))
 import Control.Arrow
 import Control.Category
@@ -31,49 +29,56 @@ type DynamicReaderSystem = DynamicReaderSystemT Identity
 
 newtype DynamicReaderSystemT m i o = DynamicReaderSystem
   { -- | Run a dynamic system producing some output
-    runReaderSystemDyn :: Entities -> i -> (o, AccessT m (), DynamicReaderSystemT m i o)
+    runDynReaderSystemT :: Entities -> i -> m (o, DynamicReaderSystemT m i o)
   }
   deriving (Functor)
 
 instance (Monad m) => Category (DynamicReaderSystemT m) where
-  id = DynamicReaderSystem $ \_ i -> (i, pure (), id)
-  DynamicReaderSystem f . DynamicReaderSystem g = DynamicReaderSystem $ \w i ->
-    let (b, gAccess, g') = g w i
-        (c, fAccess, f') = f w b
-     in (c, gAccess >> fAccess, f' . g')
+  id = DynamicReaderSystem $ \_ i -> pure (i, id)
+  DynamicReaderSystem f . DynamicReaderSystem g = DynamicReaderSystem $ \w i -> do
+    (b, g') <- g w i
+    (c, f') <- f w b
+    return (c, f' . g')
 
 instance (Monad m) => Arrow (DynamicReaderSystemT m) where
-  arr f = DynamicReaderSystem $ \_ i -> (f i, pure (), arr f)
-  first (DynamicReaderSystem f) = DynamicReaderSystem $ \w (i, x) ->
-    let (a, access, f') = f w i in ((a, x), access, first f')
+  arr f = DynamicReaderSystem $ \_ i -> pure (f i, arr f)
+  first (DynamicReaderSystem f) = DynamicReaderSystem $ \w (i, x) -> do
+    (a, f') <- f w i
+    return ((a, x), first f')
 
 instance (Monad m) => ArrowChoice (DynamicReaderSystemT m) where
   left (DynamicReaderSystem f) = DynamicReaderSystem $ \w i -> case i of
-    Left b -> let (c, access, f') = f w b in (Left c, access, left f')
-    Right d -> (Right d, pure (), left (DynamicReaderSystem f))
+    Left b -> do
+      (c, f') <- f w b
+      return (Left c, left f')
+    Right d -> pure (Right d, left (DynamicReaderSystem f))
 
-instance (Monad m) => ArrowLoop (DynamicReaderSystemT m) where
-  loop (DynamicReaderSystem f) = DynamicReaderSystem $ \w b ->
-    let ((c, d), access, f') = f w (b, d) in (c, access, loop f')
+instance (MonadFix m) => ArrowLoop (DynamicReaderSystemT m) where
+  loop (DynamicReaderSystem f) = DynamicReaderSystem $ \w b -> do
+    rec ((c, d), f') <- f w (b, d)
+    return (c, loop f')
 
-instance (Monad m) => ArrowDynamicReaderSystem DynamicQueryReader (DynamicReaderSystemT m) where
-  allDyn cIds q = DynamicReaderSystem $ \w i ->
+instance (Monad m) => ArrowDynamicReaderSystem (DynamicQueryReaderT m) (DynamicReaderSystemT m) where
+  allDyn cIds q = DynamicReaderSystem $ \w i -> do
     let !v = V.view cIds $ archetypes w
-     in if V.null v
-          then (runDynQueryReader i q (Map.keys $ entities w) A.empty, pure (), allDyn cIds q)
-          else (V.allDyn i q v, pure (), allDyn cIds q)
-  filterDyn cIds q f = DynamicReaderSystem $ \w i ->
+    as <-
+      if V.null v
+        then runDynQueryReaderT i q (Map.keys $ entities w) A.empty
+        else V.allDyn i q v
+    return (as, allDyn cIds q)
+  filterDyn cIds q f = DynamicReaderSystem $ \w i -> do
     let !v = V.filterView cIds f $ archetypes w
-     in (V.allDyn i q v, pure (), filterDyn cIds q f)
+    as <- V.allDyn i q v
+    return (as, filterDyn cIds q f)
 
-instance (Monad m) => ArrowQueueSystem Bundle (AccessT m) (DynamicReaderSystemT m) where
-  queue f = DynamicReaderSystem $ \_ i -> let !a = f i in ((), a, queue f)
+runDynReaderSystem :: DynamicReaderSystem i o -> Entities -> i -> (o, DynamicReaderSystem i o)
+runDynReaderSystem s es i = runIdentity $ runDynReaderSystemT s es i
 
-raceDyn :: (Monad m) => DynamicReaderSystemT m i a -> DynamicReaderSystemT m i b -> DynamicReaderSystemT m i (a, b)
+raceDyn :: DynamicReaderSystem i a -> DynamicReaderSystem i b -> DynamicReaderSystem i (a, b)
 raceDyn (DynamicReaderSystem f) (DynamicReaderSystem g) = DynamicReaderSystem $ \w i ->
   let fa = f w i
       gb = g w i
       gbPar = fa `par` gb
-      (a, fAccess, f') = fa
-      (b, gAccess, g') = gbPar
-   in ((a, b), fAccess >> gAccess, raceDyn f' g')
+      (a, f') = runIdentity fa
+      (b, g') = runIdentity gbPar
+   in pure ((a, b), raceDyn f' g')

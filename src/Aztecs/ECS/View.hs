@@ -17,15 +17,15 @@ module Aztecs.ECS.View
   )
 where
 
-import Aztecs.ECS.Query.Dynamic (DynamicQuery (..))
-import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..), runDynQueryReader)
+import Aztecs.ECS.Query.Dynamic (DynamicQueryT (..))
+import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReaderT (..), runDynQueryReaderT)
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (ArchetypeID, Archetypes, Node (..))
 import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Components (ComponentID)
 import Aztecs.ECS.World.Entities (Entities)
 import qualified Aztecs.ECS.World.Entities as E
-import Data.Foldable (foldl')
+import Data.Foldable (foldl', foldlM)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
@@ -68,37 +68,40 @@ unview v es =
     }
 
 -- | Query all matching entities in a `View`.
-allDyn :: i -> DynamicQueryReader i a -> View -> [a]
+allDyn :: (Monad m) => i -> DynamicQueryReaderT m i a -> View -> m [a]
 allDyn i q v =
-  foldl'
-    ( \acc n ->
-        runDynQueryReader i q (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n) ++ acc
+  foldlM
+    ( \acc n -> do
+        as <- runDynQueryReaderT i q (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n)
+        return $ as ++ acc
     )
     []
     (viewArchetypes v)
 
 -- | Query all matching entities in a `View`.
-singleDyn :: i -> DynamicQueryReader i a -> View -> Maybe a
-singleDyn i q v = case allDyn i q v of
-  [a] -> Just a
-  _ -> Nothing
+singleDyn :: (Monad m) => i -> DynamicQueryReaderT m i a -> View -> m (Maybe a)
+singleDyn i q v = do
+  as <- allDyn i q v
+  return $ case as of
+    [a] -> Just a
+    _ -> Nothing
 
 -- | Map all matching entities in a `View`.
-mapDyn :: i -> DynamicQuery i a -> View -> ([a], View)
-mapDyn i q v =
-  let (as, arches) =
-        foldl'
-          ( \(acc, archAcc) (aId, n) ->
-              let (as', arch') = runDynQuery q (repeat i) (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n)
-               in (as' ++ acc, Map.insert aId (n {nodeArchetype = arch'}) archAcc)
-          )
-          ([], Map.empty)
-          (Map.toList $ viewArchetypes v)
-   in (as, View arches)
+mapDyn :: (Monad m) => i -> DynamicQueryT m i a -> View -> m ([a], View)
+mapDyn i q v = do
+  (as, arches) <-
+    foldlM
+      ( \(acc, archAcc) (aId, n) -> do
+          (as', arch') <- runDynQuery q (repeat i) (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n)
+          return (as' ++ acc, Map.insert aId (n {nodeArchetype = arch'}) archAcc)
+      )
+      ([], Map.empty)
+      (Map.toList $ viewArchetypes v)
+  return (as, View arches)
 
-mapSingleDyn :: i -> DynamicQuery i a -> View -> (Maybe a, View)
-mapSingleDyn i q v =
-  let (as, arches) = mapDyn i q v
-   in case as of
-        [a] -> (Just a, arches)
-        _ -> (Nothing, arches)
+mapSingleDyn :: (Monad m) => i -> DynamicQueryT m i a -> View -> m (Maybe a, View)
+mapSingleDyn i q v = do
+  (as, arches) <- mapDyn i q v
+  return $ case as of
+    [a] -> (Just a, arches)
+    _ -> (Nothing, arches)
