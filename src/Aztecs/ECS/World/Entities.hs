@@ -80,7 +80,7 @@ spawn eId b w =
                 entities = Map.insert eId aId (entities w)
               }
         Nothing ->
-          let arch' = runDynamicBundle dynB eId A.empty {A.entities = Set.singleton eId}
+          let arch' = runDynamicBundle dynB eId $ A.singleton eId
               (aId, arches) =
                 AS.insertArchetype
                   cIds
@@ -122,7 +122,7 @@ spawnWithId e cId c w = case AS.lookupArchetypeId (Set.singleton cId) (archetype
             (Set.singleton cId)
             ( Node
                 { nodeComponentIds = Set.singleton cId,
-                  nodeArchetype = A.insertComponent e cId c A.empty,
+                  nodeArchetype = A.insertComponent e cId c $ A.singleton e,
                   nodeAdd = Map.empty,
                   nodeRemove = Map.empty
                 }
@@ -140,7 +140,7 @@ spawnWithArchetypeId ::
   Entities ->
   Entities
 spawnWithArchetypeId e aId cId c w =
-  let f n = n {nodeArchetype = A.insertComponent e cId c (nodeArchetype n)}
+  let f n = n {nodeArchetype = A.insertComponent e cId c ((nodeArchetype n) {A.entities = Set.insert e . A.entities $ nodeArchetype n})}
    in w
         { archetypes = (archetypes w) {AS.nodes = Map.adjust f aId (AS.nodes $ archetypes w)},
           entities = Map.insert e aId (entities w)
@@ -169,7 +169,7 @@ insertWithId e cId c w = case Map.lookup e (entities w) of
               (Set.singleton cId)
               ( Node
                   { nodeComponentIds = Set.singleton cId,
-                    nodeArchetype = A.insertComponent e cId c A.empty,
+                    nodeArchetype = A.insertComponent e cId c $ A.singleton e,
                     nodeAdd = Map.empty,
                     nodeRemove = Map.empty
                   }

@@ -14,6 +14,7 @@
 module Aztecs.ECS.World.Archetype
   ( Archetype (..),
     empty,
+    singleton,
     lookupComponent,
     lookupComponents,
     lookupComponentsAsc,
@@ -62,6 +63,9 @@ data Archetype = Archetype
 -- | Empty archetype.
 empty :: Archetype
 empty = Archetype {storages = IntMap.empty, entities = Set.empty}
+
+singleton :: EntityID -> Archetype
+singleton e = Archetype {storages = IntMap.empty, entities = Set.singleton e}
 
 -- | Lookup a component `Storage` by its `ComponentID`.
 {-# INLINE lookupStorage #-}
@@ -168,7 +172,7 @@ removeStorages e arch =
       arch' = arch {entities = Set.delete e $ entities arch}
    in foldl' go (IntMap.empty, arch') . IntMap.toList $ storages arch'
 
--- | Insert a map of component storages into the archetype.
+-- | Insert a map of component storages and their `EntityID` into the archetype.
 insertComponents :: EntityID -> IntMap Dynamic -> Archetype -> Archetype
 insertComponents e cs arch =
   let f archAcc (itemCId, dyn) =
@@ -177,5 +181,5 @@ insertComponents e cs arch =
             go s =
               let ecs = Map.elems . Map.insert e dyn . Map.fromAscList . zip es $ toAscListDyn s
                in fromAscListDyn ecs s
-         in archAcc {storages = storages'}
+         in archAcc {storages = storages', entities = Set.insert e $ entities archAcc}
    in foldl' f arch (IntMap.toList cs)

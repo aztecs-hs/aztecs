@@ -141,11 +141,11 @@ insert e aId cId c arches = case lookup aId arches of
   Just node ->
     if Set.member cId (nodeComponentIds node)
       then
-        let go n = n {nodeArchetype = A.insertComponent e cId c (nodeArchetype n)}
+        let go n = n {nodeArchetype = A.insertComponent e cId c $ nodeArchetype n}
          in (Nothing, arches {nodes = Map.adjust go aId $ nodes arches})
       else case lookupArchetypeId (Set.insert cId (nodeComponentIds node)) arches of
         Just nextAId ->
-          let !(cs, arch') = A.remove e (nodeArchetype node)
+          let !(cs, arch') = A.remove e $ nodeArchetype node
               node' = node {nodeArchetype = arch'}
               !arches' = arches {nodes = Map.insert aId node' (nodes arches)}
               adjustNode nextNode =
@@ -153,10 +153,10 @@ insert e aId cId c arches = case lookup aId arches of
                  in nextNode {nodeArchetype = A.insertComponent e cId c nextArch}
            in (Just nextAId, arches' {nodes = Map.adjust adjustNode nextAId (nodes arches')})
         Nothing ->
-          let !(s, arch') = A.removeStorages e (nodeArchetype node)
+          let !(s, arch') = A.removeStorages e $ nodeArchetype node
               !n =
                 Node
-                  { nodeComponentIds = Set.insert cId (nodeComponentIds node),
+                  { nodeComponentIds = Set.insert cId $ nodeComponentIds node,
                     nodeArchetype = A.insertComponent e cId c (Archetype {storages = s, entities = Set.singleton e}),
                     nodeAdd = Map.empty,
                     nodeRemove = Map.singleton cId aId

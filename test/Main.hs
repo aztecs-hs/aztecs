@@ -134,7 +134,7 @@ prop_queryMapSingle n =
 prop_systemMapSingle :: Word8 -> Expectation
 prop_systemMapSingle n =
   let (_, w) = W.spawn (bundle $ X 0) W.empty
-      q = Q.fetch >>> arr (\(X x) -> X $ x + 1) >>> Q.set
+      q = Q.adjust (\_ (X x) -> X $ x + 1)
       s = system $ S.mapSingle q
       go _ wAcc = let (_, _, wAcc') = runIdentity $ runSchedule s wAcc () in wAcc'
       w' = foldr go w [1 .. n]
