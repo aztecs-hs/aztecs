@@ -27,6 +27,7 @@ import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
 import Aztecs.ECS.World.Bundle
 import qualified Aztecs.ECS.World.Entities as E
+import Control.DeepSeq
 import Control.Monad.Fix
 import Control.Monad.Identity
 import Control.Monad.State.Strict
@@ -36,7 +37,14 @@ type Access = AccessT Identity
 
 -- | Access into the `World`.
 newtype AccessT m a = AccessT {unAccessT :: StateT World m a}
-  deriving (Functor, Applicative, Monad, MonadFix, MonadIO)
+  deriving (Functor, Applicative, MonadFix, MonadIO)
+
+instance (Monad m) => Monad (AccessT m) where
+  a >>= f = AccessT $ do
+    !w <- get
+    (a', w') <- lift $ runAccessT a w
+    put (rnf w' `seq` w')
+    unAccessT $ f a'
 
 -- | Run an `Access` on a `World`, returning the output and updated `World`.
 runAccessT :: (Functor m) => AccessT m a -> World -> m (a, World)
