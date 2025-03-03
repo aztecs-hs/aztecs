@@ -56,8 +56,9 @@ describe "Aztecs.ECS.Hierarchy.update" $ do
 -}
 
 prop_queryEmpty :: Expectation
-prop_queryEmpty =
-  let (res, _) = Q.all () (Q.fetch @_ @X) $ W.entities W.empty in res `shouldMatchList` []
+prop_queryEmpty = do
+  res <- fst $ Q.all () (Q.fetch @_ @X) $ W.entities W.empty
+  res `shouldMatchList` []
 
 -- | Query all components from a list of `ComponentID`s.
 queryComponentIds ::
@@ -84,34 +85,34 @@ prop_queryDyn xs =
             (e, wAcc') = W.spawn b wAcc
          in ((e, cs) : acc, wAcc')
       (es, w) = foldr spawn ([], W.empty) xs
-      go (e, cs) =
+      go (e, cs) = do
         let q = queryComponentIds $ map snd cs
-            (res, _) = Q.all () q $ W.entities w
-         in res `shouldContain` [(e, map fst cs)]
+        res <- fst $ Q.all () q $ W.entities w
+        return $ res `shouldContain` [(e, map fst cs)]
    in mapM_ go es
 
 prop_queryTypedComponent :: [X] -> Expectation
-prop_queryTypedComponent xs =
+prop_queryTypedComponent xs = do
   let w = foldr (\x -> snd . W.spawn (bundle x)) W.empty xs
-      (res, _) = Q.all () Q.fetch $ W.entities w
-   in res `shouldMatchList` xs
+  res <- fst $ Q.all () Q.fetch $ W.entities w
+  res `shouldMatchList` xs
 
 prop_queryTwoTypedComponents :: [(X, Y)] -> Expectation
-prop_queryTwoTypedComponents xys =
+prop_queryTwoTypedComponents xys = do
   let w = foldr (\(x, y) -> snd . W.spawn (bundle x <> bundle y)) W.empty xys
-      (res, _) = Q.all () (Q.fetch &&& Q.fetch) $ W.entities w
-   in res `shouldMatchList` xys
+  res <- fst $ Q.all () (Q.fetch &&& Q.fetch) $ W.entities w
+  res `shouldMatchList` xys
 
 prop_queryThreeTypedComponents :: [(X, Y, Z)] -> Expectation
-prop_queryThreeTypedComponents xyzs =
+prop_queryThreeTypedComponents xyzs = do
   let w = foldr (\(x, y, z) -> snd . W.spawn (bundle x <> bundle y <> bundle z)) W.empty xyzs
       q = do
         x <- Q.fetch
         y <- Q.fetch
         z <- Q.fetch
         pure (x, y, z)
-      (res, _) = Q.all () q $ W.entities w
-   in res `shouldMatchList` xyzs
+  res <- fst $ Q.all () q $ W.entities w
+  res `shouldMatchList` xyzs
 
 prop_querySingle :: Expectation
 prop_querySingle =

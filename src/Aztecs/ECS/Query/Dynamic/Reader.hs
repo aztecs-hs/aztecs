@@ -11,6 +11,7 @@ module Aztecs.ECS.Query.Dynamic.Reader
 
     -- ** Running
     allDyn,
+    filterDyn,
     singleDyn,
     singleMaybeDyn,
     runDynQueryReader,
@@ -27,6 +28,7 @@ import Aztecs.ECS.Query.Dynamic.Reader.Class
 import Aztecs.ECS.Task
 import Aztecs.ECS.World.Archetype (Archetype)
 import qualified Aztecs.ECS.World.Archetype as A
+import Aztecs.ECS.World.Archetypes (Node)
 import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Entities (Entities (..))
 import Control.Arrow
@@ -113,15 +115,26 @@ runDynQueryReader :: i -> DynamicQueryReader i o -> [EntityID] -> Archetype -> [
 runDynQueryReader i q es arch = runIdentity $ runDynQueryReaderT i q es arch
 
 -- | Match all entities.
-allDyn :: Set ComponentID -> i -> DynamicQueryReader i a -> Entities -> [a]
+allDyn :: (Monad m) => Set ComponentID -> i -> DynamicQueryReaderT m i a -> Entities -> m [a]
 allDyn cIds i q es =
   if Set.null cIds
-    then runDynQueryReader i q (Map.keys $ entities es) A.empty
+    then runDynQueryReaderT i q (Map.keys $ entities es) A.empty
     else
       let go n =
             let !eIds = Set.toList $ A.entities $ AS.nodeArchetype n
-             in runDynQueryReader i q eIds (AS.nodeArchetype n)
-       in concatMap go (AS.find cIds $ archetypes es)
+             in runDynQueryReaderT i q eIds (AS.nodeArchetype n)
+       in concat <$> mapM go (AS.find cIds $ archetypes es)
+
+-- | Match all entities with a filter.
+filterDyn :: (Monad m) => Set ComponentID -> i -> (Node -> Bool) -> DynamicQueryReaderT m i a -> Entities -> m [a]
+filterDyn cIds i f q es =
+  if Set.null cIds
+    then runDynQueryReaderT i q (Map.keys $ entities es) A.empty
+    else
+      let go n =
+            let !eIds = Set.toList $ A.entities $ AS.nodeArchetype n
+             in runDynQueryReaderT i q eIds (AS.nodeArchetype n)
+       in concat <$> mapM go (Map.filter f $ AS.find cIds $ archetypes es)
 
 singleDyn :: (HasCallStack) => Set ComponentID -> i -> DynamicQueryReader i a -> Entities -> a
 singleDyn cIds i q es = case singleMaybeDyn cIds i q es of

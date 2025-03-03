@@ -134,12 +134,12 @@ without = QueryFilter $ \cs ->
 
 -- | Match all entities.
 {-# INLINE all #-}
-all :: i -> QueryReader i a -> Entities -> ([a], Entities)
+all :: (Monad m) => i -> QueryReaderT m i a -> Entities -> (m [a], Entities)
 all i q es = let !(as, cs) = all' i q es in (as, es {E.components = cs})
 
 -- | Match all entities.
 {-# INLINE all' #-}
-all' :: i -> QueryReader i a -> Entities -> ([a], Components)
+all' :: (Monad m) => i -> QueryReaderT m i a -> Entities -> (m [a], Components)
 all' i q es = let !(rs, cs', dynQ) = runQueryReader q (E.components es) in (allDyn rs i dynQ es, cs')
 
 -- | Match a single entity.

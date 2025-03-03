@@ -194,12 +194,12 @@ disjoint a b =
 
 -- | Match all entities.
 {-# INLINE all #-}
-all :: i -> Query i a -> Entities -> ([a], Entities)
+all :: (Monad m) => i -> QueryT m i a -> Entities -> (m [a], Entities)
 all i = QR.all i . toReader
 
 -- | Match all entities.
 {-# INLINE all' #-}
-all' :: i -> Query i a -> Entities -> ([a], Components)
+all' :: (Monad m) => i -> QueryT m i a -> Entities -> (m [a], Components)
 all' i = QR.all' i . toReader
 
 -- | Match a single entity.

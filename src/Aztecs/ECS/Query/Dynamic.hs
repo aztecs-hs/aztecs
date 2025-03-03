@@ -17,6 +17,7 @@ module Aztecs.ECS.Query.Dynamic
 
     -- ** Running
     mapDyn,
+    filterMapDyn,
     mapSingleDyn,
     mapSingleMaybeDyn,
 
@@ -137,6 +138,22 @@ mapDyn cIds i q es =
                 let !nodes = Map.insert aId n {nodeArchetype = arch'} . AS.nodes $ archetypes esAcc
                 return (as' ++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}})
            in foldlM go' ([], es) $ Map.toList . AS.find cIds $ archetypes es
+
+-- | Map all matched entities.
+{-# INLINE filterMapDyn #-}
+filterMapDyn :: (Monad m) => Set ComponentID -> i -> (Node -> Bool) -> DynamicQueryT m i a -> Entities -> m ([a], Entities)
+filterMapDyn cIds i f q es =
+  let go = runDynQuery q (repeat i)
+   in if Set.null cIds
+        then do
+          (as, _) <- go (Map.keys $ entities es) A.empty
+          return (as, es)
+        else
+          let go' (acc, esAcc) (aId, n) = do
+                (as', arch') <- go (Set.toList . A.entities $ nodeArchetype n) $ nodeArchetype n
+                let !nodes = Map.insert aId n {nodeArchetype = arch'} . AS.nodes $ archetypes esAcc
+                return (as' ++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}})
+           in foldlM go' ([], es) $ Map.toList . Map.filter f . AS.find cIds $ archetypes es
 
 mapSingleDyn :: (HasCallStack, Monad m) => Set ComponentID -> i -> DynamicQueryT m i a -> Entities -> m (a, Entities)
 mapSingleDyn cIds i q es = do
