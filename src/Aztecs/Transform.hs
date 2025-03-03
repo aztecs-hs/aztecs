@@ -78,41 +78,43 @@ propagateHierarchy = mapWithAccum (\_ t acc -> let t' = t <> acc in (t', t')) me
 
 -- | Propagate and update all hierarchies of transform components.
 update ::
-  forall q arr b m a.
+  forall q s b m a.
   ( ArrowQueryReader q,
     ArrowDynamicQueryReader q,
-    ArrowReaderSystem q arr,
+    MonadReaderSystem q s,
     Component a,
     Monoid a,
     MonadAccess b m
   ) =>
-  arr () (m ())
-update = propagate @_ @_ @a >>> arr (mapM_ $ mapM_ (uncurry A.insert) . toList)
+  s (m ())
+update = mapM_ (uncurry A.insert) . concatMap toList <$> propagate @_ @_ @a
 
 -- | Propagate and update all hierarchies of transform components.
 update2d ::
   ( ArrowQueryReader q,
     ArrowDynamicQueryReader q,
-    ArrowReaderSystem q arr,
+    MonadReaderSystem q s,
     MonadAccess b m
   ) =>
-  arr () (m ())
-update2d = propagate @_ @_ @Transform2D >>> arr (mapM_ $ mapM_ (uncurry A.insert) . toList)
+  s (m ())
+update2d = mapM_ (uncurry A.insert) . concatMap toList <$> propagate2d
 
 propagate ::
   ( ArrowQueryReader q,
     ArrowDynamicQueryReader q,
-    ArrowReaderSystem q arr,
+    MonadReaderSystem q s,
     Component a,
     Monoid a
   ) =>
-  arr () [Hierarchy a]
-propagate = hierarchies Q.fetch >>> arr (map propagateHierarchy)
+  s [Hierarchy a]
+propagate = do
+  hs <- hierarchies () Q.fetch
+  return $ map propagateHierarchy hs
 
 propagate2d ::
   ( ArrowQueryReader q,
     ArrowDynamicQueryReader q,
-    ArrowReaderSystem q arr
+    MonadReaderSystem q s
   ) =>
-  arr () [Hierarchy Transform2D]
+  s [Hierarchy Transform2D]
 propagate2d = propagate

@@ -73,8 +73,8 @@ module Aztecs.ECS
     without,
     System,
     SystemT,
-    ArrowReaderSystem,
-    ArrowSystem,
+    MonadReaderSystem,
+    MonadSystem,
     ArrowTask (..),
     World,
   )
@@ -96,11 +96,6 @@ import Aztecs.ECS.Query
   )
 import Aztecs.ECS.Query.Reader (QueryReader, QueryReaderT)
 import Aztecs.ECS.System
-  ( ArrowReaderSystem,
-    ArrowSystem,
-    System,
-    SystemT,
-  )
 import Aztecs.ECS.Task
 import Aztecs.ECS.World (World)
 import Aztecs.ECS.World.Bundle (Bundle, MonoidBundle (..))

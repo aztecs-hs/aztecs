@@ -63,31 +63,31 @@ instance Component ChildState
 update ::
   ( ArrowQueryReader qr,
     ArrowDynamicQueryReader qr,
-    ArrowReaderSystem qr arr,
+    MonadReaderSystem qr s,
     MonadAccess b m
   ) =>
-  arr () (m ())
-update = proc () -> do
+  s (m ())
+update = do
   parents <-
     S.all
+      ()
       ( proc () -> do
           entity <- Q.entity -< ()
           Parent parent <- Q.fetch -< ()
           maybeParentState <- Q.fetchMaybe @_ @ParentState -< ()
           returnA -< (entity, parent, maybeParentState)
       )
-      -<
-        ()
+
   children <-
     S.all
+      ()
       ( proc () -> do
           entity <- Q.entity -< ()
           Children cs <- Q.fetch -< ()
           maybeChildState <- Q.fetchMaybe @_ @ChildState -< ()
           returnA -< (entity, cs, maybeChildState)
       )
-      -<
-        ()
+
   let go = do
         mapM_
           ( \(entity, parent, maybeParentState) -> case maybeParentState of
@@ -126,7 +126,7 @@ update = proc () -> do
                 mapM_ (\e -> A.insert e . Parent $ entity) children'
           )
           children
-  returnA -< go
+  return go
 
 -- | Hierarchy of entities.
 data Hierarchy a = Node
@@ -159,43 +159,44 @@ mapWithAccum f b n = case f (nodeEntityId n) (nodeEntity n) b of
 
 -- | System to read a hierarchy of parents to children with the given query.
 hierarchy ::
-  (ArrowQueryReader q, ArrowDynamicQueryReader q, ArrowReaderSystem q arr) =>
+  (ArrowQueryReader q, ArrowDynamicQueryReader q, MonadReaderSystem q s) =>
   EntityID ->
+  i ->
   q i a ->
-  arr i (Maybe (Hierarchy a))
-hierarchy e q = proc i -> do
+  s (Maybe (Hierarchy a))
+hierarchy e i q = do
   children <-
     S.all
+      i
       ( proc i -> do
           entity <- Q.entity -< ()
           Children cs <- Q.fetch -< ()
           a <- q -< i
           returnA -< (entity, (cs, a))
       )
-      -<
-        i
   let childMap = Map.fromList children
-  returnA -< hierarchy' e childMap
+  return $ hierarchy' e childMap
 
 -- | Build all hierarchies of parents to children, joined with the given query.
 hierarchies ::
-  (ArrowQueryReader q, ArrowDynamicQueryReader q, ArrowReaderSystem q arr) =>
+  (ArrowQueryReader q, ArrowDynamicQueryReader q, MonadReaderSystem q s) =>
+  i ->
   q i a ->
-  arr i [Hierarchy a]
-hierarchies q = proc i -> do
+  s [Hierarchy a]
+hierarchies i q = do
   children <-
     S.all
-      ( proc i -> do
+      ()
+      ( proc () -> do
           entity <- Q.entity -< ()
           Children cs <- Q.fetch -< ()
           a <- q -< i
           returnA -< (entity, (cs, a))
       )
-      -<
-        i
+
   let childMap = Map.fromList children
-  roots <- S.filter Q.entity $ with @Children <> without @Parent -< ()
-  returnA -< mapMaybe (`hierarchy'` childMap) roots
+  roots <- S.filter () Q.entity $ with @Children <> without @Parent
+  return $ mapMaybe (`hierarchy'` childMap) roots
 
 hierarchy' :: EntityID -> Map EntityID (Set EntityID, a) -> Maybe (Hierarchy a)
 hierarchy' e childMap = case Map.lookup e childMap of

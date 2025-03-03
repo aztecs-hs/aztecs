@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE Arrows #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -21,8 +20,8 @@ import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
-import Control.Arrow
 import Control.DeepSeq
+import Control.Monad
 import Control.Monad.IO.Class
 import Data.Data
 import Data.Foldable
@@ -71,18 +70,14 @@ setup = A.spawn_ . bundle $ assetServer @a
 
 -- | Load any pending assets.
 loadAssets ::
-  forall a qr rs q arr m.
+  forall a q s m.
   ( Typeable a,
-    ArrowQueryReader qr,
-    ArrowReaderSystem qr rs,
     ArrowQuery m q,
-    ArrowSystem q arr,
+    MonadSystem q s,
     MonadIO m
   ) =>
-  arr () ()
-loadAssets = proc () -> do
-  S.mapSingle $ Q.adjustM (\_ s -> loadAssetServer @m @a s) -< ()
-  returnA -< ()
+  s ()
+loadAssets = void . S.mapSingle @q () $ Q.adjustM (\_ s -> loadAssetServer @m @a s)
 
 -- | Load any pending assets in an `AssetServer`.
 loadAssetServer :: (MonadIO m) => AssetServer a -> m (AssetServer a)

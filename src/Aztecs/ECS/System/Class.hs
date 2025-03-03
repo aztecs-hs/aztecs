@@ -1,24 +1,20 @@
 {-# LANGUAGE FunctionalDependencies #-}
 
-module Aztecs.ECS.System.Class (ArrowSystem (..)) where
+module Aztecs.ECS.System.Class (MonadSystem (..)) where
 
 import Aztecs.ECS.Query.Reader (QueryFilter (..))
-import Control.Arrow (Arrow (..), (>>>))
+import GHC.Stack
 import Prelude hiding (map)
 
-class (Arrow arr) => ArrowSystem q arr | arr -> q where
-  -- | Query and update all matching entities.
-  map :: q i a -> arr i [a]
+class (Monad m) => MonadSystem q m | m -> q where
+  map :: i -> q i o -> m [o]
 
-  -- | Query and update all matching entities, ignoring the results.
-  map_ :: q i o -> arr i ()
-  map_ q = map q >>> arr (const ())
+  mapSingleMaybe :: i -> q i o -> m (Maybe o)
 
-  -- | Map all matching entities with a `QueryFilter`, storing the updated entities.
-  filterMap :: q i a -> QueryFilter -> arr i [a]
-
-  -- | Map a single matching entity, storing the updated components.
-  -- If there are zero or multiple matching entities, an error will be thrown.
-  mapSingle :: q i a -> arr i a
-
-  mapSingleMaybe :: q i a -> arr i (Maybe a)
+  mapSingle :: (HasCallStack) => i -> q i o -> m o
+  mapSingle i q = do
+    res <- mapSingleMaybe i q
+    case res of
+      Just a -> return a
+      Nothing -> error "Expected a single matching entity."
+  filterMap :: i -> q i o -> QueryFilter -> m [o]

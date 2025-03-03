@@ -1,8 +1,12 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE Arrows #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Aztecs.Asset.AssetLoader
   ( AssetLoader,
@@ -58,5 +62,5 @@ loadQuery a = proc () -> do
   returnA -< o
 
 -- | System to load assets.
-load :: (ArrowQuery m q, ArrowSystem q arr, Asset a) => AssetLoader a o -> arr () o
-load a = S.mapSingle $ loadQuery a
+load :: forall m q s a o. (ArrowQuery m q, MonadSystem q s, Asset a) => AssetLoader a o -> s o
+load a = S.mapSingle @q () $ loadQuery a

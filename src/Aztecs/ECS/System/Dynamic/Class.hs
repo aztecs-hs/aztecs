@@ -1,21 +1,22 @@
 {-# LANGUAGE FunctionalDependencies #-}
 
-module Aztecs.ECS.System.Dynamic.Class (ArrowDynamicSystem (..)) where
+module Aztecs.ECS.System.Dynamic.Class (MonadDynamicSystem (..)) where
 
 import Aztecs.ECS.Component (ComponentID)
 import Aztecs.ECS.World.Archetypes (Node (..))
 import Data.Set (Set)
+import GHC.Stack
 
-class ArrowDynamicSystem q arr | arr -> q where
-  -- | Map all matching entities, storing the updated entities.
-  mapDyn :: Set ComponentID -> q i o -> arr i [o]
+class (Monad m) => MonadDynamicSystem q m | m -> q where
+  mapDyn :: i -> Set ComponentID -> q i o -> m [o]
 
-  mapSingleDyn :: Set ComponentID -> q i o -> arr i o
+  mapSingleMaybeDyn :: i -> Set ComponentID -> q i a -> m (Maybe a)
 
-  mapSingleMaybeDyn :: Set ComponentID -> q i o -> arr i (Maybe o)
+  mapSingleDyn :: (HasCallStack) => i -> Set ComponentID -> q i o -> m o
+  mapSingleDyn i cIds q = do
+    res <- mapSingleMaybeDyn i cIds q
+    case res of
+      Just a -> return a
+      Nothing -> error "Expected a single matching entity."
 
-  filterMapDyn ::
-    Set ComponentID ->
-    q i o ->
-    (Node -> Bool) ->
-    arr i [o]
+  filterMapDyn :: i -> Set ComponentID -> (Node -> Bool) -> q i a -> m [a]

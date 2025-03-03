@@ -1,4 +1,3 @@
-{-# LANGUAGE Arrows #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeApplications #-}
@@ -15,7 +14,7 @@ import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query.Reader as Q
 import qualified Aztecs.ECS.System as S
 import Aztecs.Window (Window)
-import Control.Arrow (Arrow (..), returnA)
+import Control.Arrow (Arrow (..))
 import Control.DeepSeq
 import GHC.Generics (Generic)
 import Linear (V2 (..))
@@ -44,14 +43,14 @@ instance Component CameraTarget
 addCameraTargets ::
   ( ArrowQueryReader qr,
     ArrowDynamicQueryReader qr,
-    ArrowReaderSystem qr arr,
+    MonadReaderSystem qr s,
     MonadAccess b m
   ) =>
-  arr () (m ())
-addCameraTargets = proc () -> do
-  windows <- S.all (Q.entity &&& Q.fetch @_ @Window) -< ()
-  newCameras <- S.filter (Q.entity &&& Q.fetch @_ @Camera) (without @CameraTarget) -< ()
+  s (m ())
+addCameraTargets = do
+  windows <- S.all () (Q.entity &&& Q.fetch @_ @Window)
+  newCameras <- S.filter () (Q.entity &&& Q.fetch @_ @Camera) (without @CameraTarget)
   let go = case windows of
         (windowEId, _) : _ -> mapM_ (\(eId, _) -> A.insert eId $ CameraTarget windowEId) newCameras
         _ -> return ()
-  returnA -< go
+  return go

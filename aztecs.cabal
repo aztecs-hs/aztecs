@@ -41,11 +41,8 @@ library
         Aztecs.ECS.Query.Reader.Class
         Aztecs.ECS.System
         Aztecs.ECS.System.Class
-        Aztecs.ECS.System.Dynamic
         Aztecs.ECS.System.Dynamic.Class
-        Aztecs.ECS.System.Dynamic.Reader
         Aztecs.ECS.System.Dynamic.Reader.Class
-        Aztecs.ECS.System.Reader
         Aztecs.ECS.System.Reader.Class
         Aztecs.ECS.Task
         Aztecs.ECS.View
@@ -81,7 +78,8 @@ library
         deepseq >=1,
         linear >=1,
         mtl >=2,
-        parallel >=3
+        parallel >=3,
+        stm >=2
 
 test-suite aztecs-test
     type:             exitcode-stdio-1.0
