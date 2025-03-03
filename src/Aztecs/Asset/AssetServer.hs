@@ -77,7 +77,7 @@ loadAssets ::
     MonadIO m
   ) =>
   s ()
-loadAssets = void . S.mapSingle @q () $ Q.adjustM (\_ s -> loadAssetServer @m @a s)
+loadAssets = void . S.map @q () $ Q.adjustM (\_ s -> loadAssetServer @m @a s)
 
 -- | Load any pending assets in an `AssetServer`.
 loadAssetServer :: (MonadIO m) => AssetServer a -> m (AssetServer a)

@@ -157,9 +157,9 @@ filterMapDyn cIds i f q es =
 
 mapSingleDyn :: (HasCallStack, Monad m) => Set ComponentID -> i -> DynamicQueryT m i a -> Entities -> m (a, Entities)
 mapSingleDyn cIds i q es = do
-  res <- mapDyn cIds i q es
+  res <- mapSingleMaybeDyn cIds i q es
   return $ case res of
-    ([a], es') -> (a, es')
+    (Just a, es') -> (a, es')
     _ -> error "mapSingleDyn: expected single matching entity"
 
 -- | Map a single matched entity.

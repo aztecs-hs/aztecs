@@ -45,4 +45,4 @@ instance (Typeable a, NFData a) => Storage a [a] where
   {-# INLINE zipWithM #-}
   zipWithM f is as = do
     as' <- Control.Monad.zipWithM f is as
-    return (as', as)
+    return (as', as')
