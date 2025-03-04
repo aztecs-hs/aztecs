@@ -32,6 +32,7 @@ import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
 import Aztecs.ECS.World.Archetype (Archetype (..))
 import qualified Aztecs.ECS.World.Archetype as A
+import Aztecs.ECS.World.Bundle.Dynamic
 import Aztecs.ECS.World.Storage.Dynamic (fromAscListDyn, toAscListDyn)
 import Control.DeepSeq (NFData (..))
 import Data.Dynamic
@@ -54,17 +55,13 @@ data Node = Node
   { -- | Unique set of `ComponentID`s of this `Node`.
     nodeComponentIds :: !(Set ComponentID),
     -- | `Archetype` of this `Node`.
-    nodeArchetype :: !Archetype,
-    -- | Edges to other `Archetype`s by adding a `ComponentID`.
-    nodeAdd :: !(Map ComponentID ArchetypeID),
-    -- | Edges to other `Archetype`s by removing a `ComponentID`.
-    nodeRemove :: !(Map ComponentID ArchetypeID)
+    nodeArchetype :: !Archetype
   }
   deriving (Show, Generic, NFData)
 
--- | `Archetype` graph.
+-- | `Archetype` map.
 data Archetypes = Archetypes
-  { -- | Archetype nodes in the graph.
+  { -- | Archetype nodes in the map.
     nodes :: !(Map ArchetypeID Node),
     -- | Mapping of unique `ComponentID` sets to `ArchetypeID`s.
     archetypeIds :: !(Map (Set ComponentID) ArchetypeID),
@@ -130,42 +127,36 @@ lookup aId arches = Map.lookup aId (nodes arches)
 
 -- | Insert a component into an entity with its `ComponentID`.
 insert ::
-  (Component a) =>
   EntityID ->
   ArchetypeID ->
-  ComponentID ->
-  a ->
+  Set ComponentID ->
+  DynamicBundle ->
   Archetypes ->
   (Maybe ArchetypeID, Archetypes)
-insert e aId cId c arches = case lookup aId arches of
+insert e aId cIds b arches = case lookup aId arches of
   Just node ->
-    if Set.member cId (nodeComponentIds node)
+    if cIds == nodeComponentIds node
       then
-        let go n = n {nodeArchetype = A.insertComponent e cId c $ nodeArchetype n}
+        let go n = n {nodeArchetype = runDynamicBundle b e $ nodeArchetype n}
          in (Nothing, arches {nodes = Map.adjust go aId $ nodes arches})
-      else case lookupArchetypeId (Set.insert cId (nodeComponentIds node)) arches of
+      else case lookupArchetypeId cIds arches of
         Just nextAId ->
           let !(cs, arch') = A.remove e $ nodeArchetype node
               node' = node {nodeArchetype = arch'}
               !arches' = arches {nodes = Map.insert aId node' (nodes arches)}
               adjustNode nextNode =
                 let !nextArch = A.insertComponents e cs $ nodeArchetype nextNode
-                 in nextNode {nodeArchetype = A.insertComponent e cId c nextArch}
+                 in nextNode {nodeArchetype = runDynamicBundle b e nextArch}
            in (Just nextAId, arches' {nodes = Map.adjust adjustNode nextAId (nodes arches')})
         Nothing ->
           let !(s, arch') = A.removeStorages e $ nodeArchetype node
               !n =
                 Node
-                  { nodeComponentIds = Set.insert cId $ nodeComponentIds node,
-                    nodeArchetype = A.insertComponent e cId c (Archetype {storages = s, entities = Set.singleton e}),
-                    nodeAdd = Map.empty,
-                    nodeRemove = Map.singleton cId aId
+                  { nodeComponentIds = cIds,
+                    nodeArchetype = runDynamicBundle b e (Archetype {storages = s, entities = Set.singleton e})
                   }
-              cIds = Set.insert cId (nodeComponentIds node)
               !(nextAId, arches') = insertArchetype cIds n arches
-           in let node' =
-                    node {nodeArchetype = arch', nodeAdd = Map.insert cId nextAId (nodeAdd node)}
-                  nodes' = Map.insert aId node' (nodes arches')
+           in let nodes' = Map.insert aId (node {nodeArchetype = arch'}) (nodes arches')
                in (Just nextAId, arches' {nodes = nodes'})
   Nothing -> (Nothing, arches)
 
@@ -196,12 +187,10 @@ remove e aId cId arches = case lookup aId arches of
           !n =
             Node
               { nodeComponentIds = Set.insert cId (nodeComponentIds node),
-                nodeArchetype = Archetype {storages = cs', entities = Set.singleton e},
-                nodeAdd = Map.empty,
-                nodeRemove = Map.singleton cId aId
+                nodeArchetype = Archetype {storages = cs', entities = Set.singleton e}
               }
           !(nextAId, arches') = insertArchetype (Set.insert cId (nodeComponentIds node)) n arches
-          node' = node {nodeArchetype = arch', nodeAdd = Map.insert cId nextAId (nodeAdd node)}
+          node' = node {nodeArchetype = arch'}
           removeDyn s =
             let (res, dyns) = Map.updateLookupWithKey (\_ _ -> Nothing) e . Map.fromAscList . zip (Set.toList $ entities arch') $ toAscListDyn s
              in (res, fromAscListDyn $ Map.elems dyns)

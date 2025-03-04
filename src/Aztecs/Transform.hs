@@ -86,7 +86,7 @@ update ::
     MonadAccess b m
   ) =>
   s (m ())
-update = mapM_ (uncurry A.insert) . concatMap toList <$> propagate @_ @_ @a
+update = mapM_ (\(e, a) -> A.insert e $ bundle a) . concatMap toList <$> propagate @_ @_ @a
 
 -- | Propagate and update all hierarchies of transform components.
 update2d ::
@@ -96,7 +96,7 @@ update2d ::
     MonadAccess b m
   ) =>
   s (m ())
-update2d = mapM_ (uncurry A.insert) . concatMap toList <$> propagate2d
+update2d = update @_ @_ @_ @_ @Transform2D
 
 propagate ::
   ( ArrowQueryReader q,

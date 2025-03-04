@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -10,10 +9,8 @@ module Aztecs.ECS.World
   ( World (..),
     empty,
     spawn,
-    spawnWithArchetypeId,
     spawnEmpty,
     insert,
-    insertWithId,
     lookup,
     remove,
     removeWithId,
@@ -23,7 +20,6 @@ where
 
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
-import Aztecs.ECS.World.Archetypes (ArchetypeID)
 import Aztecs.ECS.World.Bundle
 import Aztecs.ECS.World.Entities (Entities)
 import qualified Aztecs.ECS.World.Entities as E
@@ -57,26 +53,9 @@ spawn b w =
 spawnEmpty :: World -> (EntityID, World)
 spawnEmpty w = let e = nextEntityId w in (e, w {nextEntityId = EntityID $ unEntityId e + 1})
 
--- | Spawn an entity with a component and its `ComponentID` directly into an archetype.
-spawnWithArchetypeId ::
-  forall a.
-  (Component a) =>
-  ArchetypeID ->
-  ComponentID ->
-  a ->
-  World ->
-  (EntityID, World)
-spawnWithArchetypeId aId cId c w =
-  let !(e, w') = spawnEmpty w
-   in (e, w' {entities = E.spawnWithArchetypeId e aId cId c (entities w')})
-
--- | Insert a component into an entity.
-insert :: forall a. (Component a) => EntityID -> a -> World -> World
+-- | Insert a `Bundle` into an entity.
+insert :: EntityID -> Bundle -> World -> World
 insert e c w = w {entities = E.insert e c (entities w)}
-
--- | Insert a component into an entity with its `ComponentID`.
-insertWithId :: (Component a) => EntityID -> ComponentID -> a -> World -> World
-insertWithId e cId c w = w {entities = E.insertWithId e cId c (entities w)}
 
 lookup :: forall a. (Component a) => EntityID -> World -> Maybe a
 lookup e w = E.lookup e $ entities w

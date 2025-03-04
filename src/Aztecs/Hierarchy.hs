@@ -93,37 +93,37 @@ update = do
           ( \(entity, parent, maybeParentState) -> case maybeParentState of
               Just (ParentState parentState) -> do
                 when (parent /= parentState) $ do
-                  A.insert parent $ ParentState parent
+                  A.insert parent . bundle $ ParentState parent
 
                   -- Remove this entity from the previous parent's children.
                   maybeLastChildren <- A.lookup parentState
                   let lastChildren = maybe mempty unChildren maybeLastChildren
                   let lastChildren' = Set.filter (/= entity) lastChildren
-                  A.insert parentState . Children $ lastChildren'
+                  A.insert parentState . bundle . Children $ lastChildren'
 
                   -- Add this entity to the new parent's children.
                   maybeChildren <- A.lookup parent
                   let parentChildren = maybe mempty unChildren maybeChildren
-                  A.insert parent . Children $ Set.insert entity parentChildren
+                  A.insert parent . bundle . Children $ Set.insert entity parentChildren
               Nothing -> do
                 A.spawn_ . bundle $ ParentState parent
                 maybeChildren <- A.lookup parent
                 let parentChildren = maybe mempty unChildren maybeChildren
-                A.insert parent . Children $ Set.insert entity parentChildren
+                A.insert parent . bundle . Children $ Set.insert entity parentChildren
           )
           parents
         mapM_
           ( \(entity, children', maybeChildState) -> case maybeChildState of
               Just (ChildState childState) -> do
                 when (children' /= childState) $ do
-                  A.insert entity $ ChildState children'
+                  A.insert entity . bundle $ ChildState children'
                   let added = Set.difference children' childState
                       removed = Set.difference childState children'
-                  mapM_ (\e -> A.insert e . Parent $ entity) added
+                  mapM_ (\e -> A.insert e . bundle . Parent $ entity) added
                   mapM_ (A.remove @_ @_ @Parent) removed
               Nothing -> do
-                A.insert entity $ ChildState children'
-                mapM_ (\e -> A.insert e . Parent $ entity) children'
+                A.insert entity . bundle $ ChildState children'
+                mapM_ (\e -> A.insert e . bundle . Parent $ entity) children'
           )
           children
   return go

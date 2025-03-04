@@ -18,7 +18,7 @@ class (MonoidBundle b, Monad m) => MonadAccess b m | m -> b where
     return ()
 
   -- | Insert a component into an entity.
-  insert :: (Component a) => EntityID -> a -> m ()
+  insert :: EntityID -> b -> m ()
 
   -- | Lookup a component on an entity.
   lookup :: (Component a) => EntityID -> m (Maybe a)

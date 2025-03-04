@@ -9,11 +9,9 @@ module Aztecs.ECS.World.Entities
   ( Entities (..),
     empty,
     spawn,
-    spawnComponent,
-    spawnWithId,
     spawnWithArchetypeId,
     insert,
-    insertWithId,
+    insertDyn,
     lookup,
     remove,
     removeWithId,
@@ -37,8 +35,8 @@ import qualified Data.IntMap as IntMap
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
+import Data.Set (Set)
 import qualified Data.Set as Set
-import Data.Typeable
 import GHC.Generics
 import Prelude hiding (lookup)
 
@@ -81,97 +79,51 @@ spawn eId b w =
               }
         Nothing ->
           let arch' = runDynamicBundle dynB eId $ A.singleton eId
-              (aId, arches) =
-                AS.insertArchetype
-                  cIds
-                  ( Node
-                      { nodeComponentIds = cIds,
-                        nodeArchetype = arch',
-                        nodeAdd = Map.empty,
-                        nodeRemove = Map.empty
-                      }
-                  )
-                  (archetypes w)
+              node' = Node {nodeComponentIds = cIds, nodeArchetype = arch'}
+              (aId, arches) = AS.insertArchetype cIds node' $ archetypes w
            in w
                 { archetypes = arches,
                   entities = Map.insert eId aId (entities w),
                   components = components'
                 }
 
--- | Spawn an entity with a component.
-spawnComponent :: forall a. (Component a) => EntityID -> a -> Entities -> Entities
-spawnComponent e c w = case Map.lookup (typeOf (Proxy @a)) (componentIds (components w)) of
-  Just cId -> spawnWithId e cId c w
-  Nothing ->
-    let (cId, cs) = CS.insert @a (components w) in spawnWithId e cId c w {components = cs}
-
--- | Spawn an entity with a component and its `ComponentID`.
-spawnWithId ::
-  forall a.
-  (Component a) =>
-  EntityID ->
-  ComponentID ->
-  a ->
-  Entities ->
-  Entities
-spawnWithId e cId c w = case AS.lookupArchetypeId (Set.singleton cId) (archetypes w) of
-  Just aId -> spawnWithArchetypeId e aId cId c w
-  Nothing ->
-    let !(aId, arches) =
-          AS.insertArchetype
-            (Set.singleton cId)
-            ( Node
-                { nodeComponentIds = Set.singleton cId,
-                  nodeArchetype = A.insertComponent e cId c $ A.singleton e,
-                  nodeAdd = Map.empty,
-                  nodeRemove = Map.empty
-                }
-            )
-            (archetypes w)
-     in w {archetypes = arches, entities = Map.insert e aId (entities w)}
-
 spawnWithArchetypeId ::
-  forall a.
-  (Component a) =>
   EntityID ->
   ArchetypeID ->
-  ComponentID ->
-  a ->
+  DynamicBundle ->
   Entities ->
   Entities
-spawnWithArchetypeId e aId cId c w =
-  let f n = n {nodeArchetype = A.insertComponent e cId c ((nodeArchetype n) {A.entities = Set.insert e . A.entities $ nodeArchetype n})}
+spawnWithArchetypeId e aId b w =
+  let f n = n {nodeArchetype = runDynamicBundle b e ((nodeArchetype n) {A.entities = Set.insert e . A.entities $ nodeArchetype n})}
    in w
         { archetypes = (archetypes w) {AS.nodes = Map.adjust f aId (AS.nodes $ archetypes w)},
           entities = Map.insert e aId (entities w)
         }
 
 -- | Insert a component into an entity.
-insert :: forall a. (Component a) => EntityID -> a -> Entities -> Entities
-insert e c w =
-  let !(cId, components') = CS.insert @a (components w)
-   in insertWithId e cId c w {components = components'}
+insert :: EntityID -> Bundle -> Entities -> Entities
+insert e b w =
+  let !(cIds, components', dynB) = unBundle b (components w)
+   in insertDyn e cIds dynB w {components = components'}
 
 -- | Insert a component into an entity with its `ComponentID`.
-insertWithId :: (Component a) => EntityID -> ComponentID -> a -> Entities -> Entities
-insertWithId e cId c w = case Map.lookup e (entities w) of
+insertDyn :: EntityID -> Set ComponentID -> DynamicBundle -> Entities -> Entities
+insertDyn e cIds b w = case Map.lookup e (entities w) of
   Just aId ->
-    let (maybeNextAId, arches) = AS.insert e aId cId c $ archetypes w
+    let (maybeNextAId, arches) = AS.insert e aId cIds b $ archetypes w
         es = case maybeNextAId of
           Just nextAId -> Map.insert e nextAId (entities w)
           Nothing -> entities w
      in w {archetypes = arches, entities = es}
-  Nothing -> case AS.lookupArchetypeId (Set.singleton cId) (archetypes w) of
-    Just aId -> spawnWithArchetypeId e aId cId c w
+  Nothing -> case AS.lookupArchetypeId cIds (archetypes w) of
+    Just aId -> spawnWithArchetypeId e aId b w
     Nothing ->
       let (aId, arches) =
             AS.insertArchetype
-              (Set.singleton cId)
+              cIds
               ( Node
-                  { nodeComponentIds = Set.singleton cId,
-                    nodeArchetype = A.insertComponent e cId c $ A.singleton e,
-                    nodeAdd = Map.empty,
-                    nodeRemove = Map.empty
+                  { nodeComponentIds = cIds,
+                    nodeArchetype = runDynamicBundle b e $ A.singleton e
                   }
               )
               (archetypes w)

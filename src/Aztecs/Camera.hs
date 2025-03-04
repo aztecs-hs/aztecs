@@ -51,6 +51,6 @@ addCameraTargets = do
   windows <- S.all () (Q.entity &&& Q.fetch @_ @Window)
   newCameras <- S.filter () (Q.entity &&& Q.fetch @_ @Camera) (without @CameraTarget)
   let go = case windows of
-        (windowEId, _) : _ -> mapM_ (\(eId, _) -> A.insert eId $ CameraTarget windowEId) newCameras
+        (windowEId, _) : _ -> mapM_ (\(eId, _) -> A.insert eId . bundle $ CameraTarget windowEId) newCameras
         _ -> return ()
   return go
