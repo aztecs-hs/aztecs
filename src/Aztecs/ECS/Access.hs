@@ -8,6 +8,7 @@ module Aztecs.ECS.Access
     AccessT (..),
     MonadAccess (..),
     runAccessT,
+    runAccessT_,
     system,
   )
 where
@@ -51,6 +52,9 @@ instance (Monad m) => Monad (AccessT m) where
 -- | Run an `Access` on a `World`, returning the output and updated `World`.
 runAccessT :: (Functor m) => AccessT m a -> World -> m (a, World)
 runAccessT a = runStateT $ unAccessT a
+
+runAccessT_ :: (Functor m) => AccessT m a -> m a
+runAccessT_ a = fmap fst . runAccessT a $ W.empty
 
 instance (Monad m) => MonadAccess Bundle (AccessT m) where
   spawn b = AccessT $ do

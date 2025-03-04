@@ -54,6 +54,7 @@ module Aztecs.ECS
     AccessT,
     MonadAccess,
     runAccessT,
+    runAccessT_,
     Bundle,
     MonoidBundle (..),
     DynamicBundle,
@@ -79,7 +80,7 @@ module Aztecs.ECS
   )
 where
 
-import Aztecs.ECS.Access (Access, AccessT, MonadAccess, runAccessT)
+import Aztecs.ECS.Access
 import Aztecs.ECS.Component (Component (..))
 import Aztecs.ECS.Entity (EntityID)
 import Aztecs.ECS.Query
