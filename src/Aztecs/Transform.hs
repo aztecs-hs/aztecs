@@ -34,7 +34,6 @@ import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import Aztecs.Hierarchy (Hierarchy, hierarchies, mapWithAccum, toList)
-import Control.Arrow (Arrow (..), (>>>))
 import Control.DeepSeq
 import GHC.Generics
 import Linear

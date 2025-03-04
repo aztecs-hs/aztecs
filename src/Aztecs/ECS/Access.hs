@@ -8,6 +8,7 @@ module Aztecs.ECS.Access
     AccessT (..),
     MonadAccess (..),
     runAccessT,
+    system,
   )
 where
 
@@ -18,18 +19,19 @@ import Aztecs.ECS.Query.Dynamic (DynamicQueryT)
 import qualified Aztecs.ECS.Query.Dynamic as Q
 import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReaderT)
 import qualified Aztecs.ECS.Query.Dynamic.Reader as Q
-import Aztecs.ECS.Query.Reader (DynamicQueryFilter (..), QueryFilter (runQueryFilter), QueryReaderT (runQueryReader))
-import Aztecs.ECS.System (MonadDynamicSystem (..), MonadReaderSystem (..), MonadSystem (..))
-import Aztecs.ECS.System.Dynamic.Reader.Class (MonadDynamicReaderSystem (..))
+import Aztecs.ECS.Query.Reader
+import Aztecs.ECS.System
 import Aztecs.ECS.World (World (..))
 import qualified Aztecs.ECS.World as W
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
 import Aztecs.ECS.World.Bundle
 import qualified Aztecs.ECS.World.Entities as E
+import Control.Concurrent.STM
 import Control.DeepSeq
 import Control.Monad.Fix
 import Control.Monad.Identity
+import Control.Monad.Reader
 import Control.Monad.State.Strict
 import qualified Data.Foldable as F
 
@@ -134,3 +136,12 @@ instance (Monad m) => MonadDynamicSystem (DynamicQueryT m) (AccessT m) where
     (as, es) <- lift . Q.filterMapDyn cIds i f q $ entities w
     put w {entities = es}
     return as
+
+system :: System a -> AccessT IO a
+system s = AccessT $ do
+  !w <- get
+  esVar <- lift . newTVarIO $ entities w
+  a <- lift . atomically $ runReaderT (runSystemT s) esVar
+  es <- lift $ readTVarIO esVar
+  put w {entities = es}
+  return a

@@ -167,8 +167,8 @@ hierarchy ::
 hierarchy e i q = do
   children <-
     S.all
-      i
-      ( proc i -> do
+      ()
+      ( proc () -> do
           entity <- Q.entity -< ()
           Children cs <- Q.fetch -< ()
           a <- q -< i
