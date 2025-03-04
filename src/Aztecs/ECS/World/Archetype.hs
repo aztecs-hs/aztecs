@@ -46,7 +46,12 @@ import qualified Aztecs.ECS.World.Storage as S
 import Aztecs.ECS.World.Storage.Dynamic
 import qualified Aztecs.ECS.World.Storage.Dynamic as S
 import Control.DeepSeq
-import Control.Monad.Writer hiding (zipWithM)
+import Control.Monad.Writer
+  ( MonadTrans (..),
+    MonadWriter (..),
+    WriterT (..),
+    runWriter,
+  )
 import Data.Dynamic
 import Data.Foldable
 import Data.IntMap (IntMap)
