@@ -8,6 +8,14 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
+-- |
+-- Module      : Aztecs.Asset.AssetLoader
+-- Copyright   : (c) Matt Hunzinger, 2025
+-- License     : BSD-style (see the LICENSE file in the distribution)
+--
+-- Maintainer  : matt@hunzinger.me
+-- Stability   : provisional
+-- Portability : non-portable (GHC extensions)
 module Aztecs.Asset.AssetLoader
   ( AssetLoader,
     AssetLoaderT (..),
@@ -30,12 +38,21 @@ import Control.Monad.State.Strict
 import Data.IORef
 import qualified Data.Map.Strict as Map
 
+-- | @since 9.0
 type AssetLoader a o = AssetLoaderT a Identity o
 
 -- | Asset loader monad.
-newtype AssetLoaderT a m o = AssetLoaderT {unAssetLoader :: StateT (AssetServer a) m o}
+--
+-- @since 9.0
+newtype AssetLoaderT a m o = AssetLoaderT
+  { -- | State of the asset loader.
+    --
+    -- @since 9.0
+    unAssetLoader :: StateT (AssetServer a) m o
+  }
   deriving newtype (Functor, Applicative, Monad)
 
+-- | @since 9.0
 instance (Monad m, Asset a) => MonadAssetLoader a (AssetLoaderT a m) where
   asset path cfg = AssetLoaderT $ do
     server <- get
@@ -54,6 +71,8 @@ instance (Monad m, Asset a) => MonadAssetLoader a (AssetLoaderT a m) where
     return $ Handle assetId
 
 -- | Query to load assets.
+--
+-- @since 9.0
 loadQuery :: (Asset a, ArrowQuery m arr) => AssetLoader a o -> arr () o
 loadQuery a = proc () -> do
   server <- Q.fetch -< ()
@@ -62,5 +81,7 @@ loadQuery a = proc () -> do
   returnA -< o
 
 -- | System to load assets.
+--
+-- @since 9.0
 load :: forall m q s a o. (ArrowQuery m q, MonadSystem q s, Asset a) => AssetLoader a o -> s o
 load a = S.mapSingle @q () $ loadQuery a

@@ -5,7 +5,16 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 
--- | Hierarchical relationships.
+-- |
+-- Module      : Aztecs.Asset.AssetServer
+-- Copyright   : (c) Matt Hunzinger, 2025
+-- License     : BSD-style (see the LICENSE file in the distribution)
+--
+-- Maintainer  : matt@hunzinger.me
+-- Stability   : provisional
+-- Portability : non-portable (GHC extensions)
+--
+-- Hierarchical relationships.
 -- A `Children` component forms a one-to-many relationship with `Parent` components.
 module Aztecs.Hierarchy
   ( Parent (..),
@@ -27,39 +36,58 @@ import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
-import Control.Arrow (returnA)
+import Control.Arrow
 import Control.DeepSeq
-import Control.Monad (when)
+import Control.Monad
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (mapMaybe)
+import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as Set
-import GHC.Generics (Generic)
+import GHC.Generics
 
 -- | Parent component.
-newtype Parent = Parent {unParent :: EntityID}
+--
+-- @since 9.0
+newtype Parent = Parent
+  { -- | Parent entity ID.
+    --
+    -- @since 9.0
+    unParent :: EntityID
+  }
   deriving (Eq, Ord, Show, Generic, NFData)
 
+-- | @since 9.0
 instance Component Parent
 
+-- | Parent internal state component.
+--
+-- @since 9.0
 newtype ParentState = ParentState {unParentState :: EntityID}
   deriving (Show, Generic, NFData)
 
+-- | @since 9.0
 instance Component ParentState
 
 -- | Children component.
+--
+-- @since 9.0
 newtype Children = Children {unChildren :: Set EntityID}
   deriving (Eq, Ord, Show, Semigroup, Monoid, Generic, NFData)
 
+-- | @since 9.0
 instance Component Children
 
+-- | Child internal state component.
 newtype ChildState = ChildState {unChildState :: Set EntityID}
   deriving (Show, Generic, NFData)
 
+-- | @since 9.0
 instance Component ChildState
 
 -- | Update the parent-child relationships.
+--
+-- @since 9.0
 update ::
   ( ArrowQueryReader qr,
     ArrowDynamicQueryReader qr,
@@ -129,35 +157,60 @@ update = do
   return go
 
 -- | Hierarchy of entities.
+--
+-- @since 9.0
 data Hierarchy a = Node
-  { nodeEntityId :: EntityID,
+  { -- | Entity ID.
+    --
+    -- @since 9.0
+    nodeEntityId :: EntityID,
+    -- | Entity components.
     nodeEntity :: a,
+    -- | Child nodes.
+    --
+    -- @since 9.0
     nodeChildren :: [Hierarchy a]
   }
   deriving (Functor)
 
+-- | @since 9.0
 instance Foldable Hierarchy where
   foldMap f n = f (nodeEntity n) <> foldMap (foldMap f) (nodeChildren n)
 
+-- | @since 9.0
 instance Traversable Hierarchy where
   traverse f n =
     Node (nodeEntityId n) <$> f (nodeEntity n) <*> traverse (traverse f) (nodeChildren n)
 
+-- | Convert a hierarchy to a list of entity IDs and components.
+--
+-- @since 9.0
 toList :: Hierarchy a -> [(EntityID, a)]
 toList n = (nodeEntityId n, nodeEntity n) : concatMap toList (nodeChildren n)
 
+-- | Fold a hierarchy with a function that takes the entity ID, entity, and accumulator.
+--
+-- @since 9.0
 foldWithKey :: (EntityID -> a -> b -> b) -> Hierarchy a -> b -> b
 foldWithKey f n b = f (nodeEntityId n) (nodeEntity n) (foldr (foldWithKey f) b (nodeChildren n))
 
+-- | Map a hierarchy with a function that takes the entity ID and entity.
+--
+-- @since 9.0
 mapWithKey :: (EntityID -> a -> b) -> Hierarchy a -> Hierarchy b
 mapWithKey f n =
   Node (nodeEntityId n) (f (nodeEntityId n) (nodeEntity n)) (map (mapWithKey f) (nodeChildren n))
 
+-- | Map a hierarchy with a function that takes the entity ID, entity, and accumulator.
+--
+-- @since 9.0
 mapWithAccum :: (EntityID -> a -> b -> (c, b)) -> b -> Hierarchy a -> Hierarchy c
 mapWithAccum f b n = case f (nodeEntityId n) (nodeEntity n) b of
   (c, b') -> Node (nodeEntityId n) c (map (mapWithAccum f b') (nodeChildren n))
 
 -- | System to read a hierarchy of parents to children with the given query.
+--
+-- @since 9.0
 hierarchy ::
   (ArrowQueryReader q, ArrowDynamicQueryReader q, MonadReaderSystem q s) =>
   EntityID ->
@@ -178,6 +231,8 @@ hierarchy e i q = do
   return $ hierarchy' e childMap
 
 -- | Build all hierarchies of parents to children, joined with the given query.
+--
+-- @since 9.0
 hierarchies ::
   (ArrowQueryReader q, ArrowDynamicQueryReader q, MonadReaderSystem q s) =>
   i ->
@@ -198,6 +253,9 @@ hierarchies i q = do
   roots <- S.filter () Q.entity $ with @Children <> without @Parent
   return $ mapMaybe (`hierarchy'` childMap) roots
 
+-- | Build a hierarchy of parents to children.
+--
+-- @since 9.0
 hierarchy' :: EntityID -> Map EntityID (Set EntityID, a) -> Maybe (Hierarchy a)
 hierarchy' e childMap = case Map.lookup e childMap of
   Just (cs, a) ->

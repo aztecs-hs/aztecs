@@ -1,6 +1,14 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 
+-- |
+-- Module      : Aztecs.Input
+-- Copyright   : (c) Matt Hunzinger, 2025
+-- License     : BSD-style (see the LICENSE file in the distribution)
+--
+-- Maintainer  : matt@hunzinger.me
+-- Stability   : provisional
+-- Portability : non-portable (GHC extensions)
 module Aztecs.Input
   ( Key (..),
     InputMotion (..),
@@ -27,6 +35,9 @@ import GHC.Generics (Generic)
 import Linear (V2 (..))
 import Linear.Affine (Point (..))
 
+-- | Keyboard key.
+--
+-- @since 9.0
 data Key
   = KeyA
   | KeyB
@@ -126,42 +137,66 @@ data Key
   deriving (Show, Eq, Ord, Enum, Bounded, Generic, NFData)
 
 -- | Keyboard input component.
+--
+-- @since 9.0
 data KeyboardInput = KeyboardInput
   { -- | Keyboard events that occured this frame.
+    --
+    -- @since 9.0
     keyboardEvents :: !(Map Key InputMotion),
     -- | Keys that are currently pressed.
+    --
+    -- @since 9.0
     keyboardPressed :: !(Set Key)
   }
   deriving (Show, Generic, NFData)
 
+-- | @since 9.0
 instance Component KeyboardInput
 
+-- | Empty keyboard input.
+--
+-- @since 9.0
 keyboardInput :: KeyboardInput
 keyboardInput = KeyboardInput Map.empty Set.empty
 
+-- | Input motion kind.
+--
+-- @since 9.0
 data InputMotion = Pressed | Released
   deriving (Show, Eq, Generic, NFData)
 
 -- | @True@ if this key is currently pressed.
+--
+-- @since 9.0
 isKeyPressed :: Key -> KeyboardInput -> Bool
 isKeyPressed key kb = Set.member key $ keyboardPressed kb
 
 -- | Check for a key event that occured this frame.
+--
+-- @since 9.0
 keyEvent :: Key -> KeyboardInput -> Maybe InputMotion
 keyEvent key kb = Map.lookup key $ keyboardEvents kb
 
 -- | @True@ if this key was pressed this frame.
+--
+-- @since 9.0
 wasKeyPressed :: Key -> KeyboardInput -> Bool
 wasKeyPressed key kb = case keyEvent key kb of
   Just Pressed -> True
   _ -> False
 
 -- | @True@ if this key was released this frame.
+--
+-- @since 9.0
 wasKeyReleased :: Key -> KeyboardInput -> Bool
 wasKeyReleased key kb = case keyEvent key kb of
   Just Released -> True
   _ -> False
 
+-- | Handle a keyboard event.
+--
+-- @since 9.0
 handleKeyboardEvent :: Key -> InputMotion -> KeyboardInput -> KeyboardInput
 handleKeyboardEvent key motion kb =
   KeyboardInput
@@ -171,6 +206,9 @@ handleKeyboardEvent key motion kb =
         Released -> Set.delete key $ keyboardPressed kb
     }
 
+-- | Mouse button kind.
+--
+-- @since 9.0
 data MouseButton
   = ButtonLeft
   | ButtonMiddle
@@ -182,21 +220,36 @@ data MouseButton
   deriving (Eq, Ord, Show, Generic, NFData)
 
 -- | Mouse input component.
+--
+-- @since 9.0
 data MouseInput = MouseInput
   { -- | Mouse position in screen-space.
+    --
+    -- @since 9.0
     mousePosition :: !(Point V2 Int),
     -- | Mouse offset since last frame.
+    --
+    -- @since 9.0
     mouseOffset :: !(V2 Int),
     -- | Mouse button states.
+    --
+    -- @since 9.0
     mouseButtons :: !(Map MouseButton InputMotion)
   }
   deriving (Show, Generic, NFData)
 
+-- | @since 9.0
 instance Component MouseInput
 
+-- | Empty mouse input.
+--
+-- @since 9.0
 mouseInput :: MouseInput
 mouseInput = MouseInput (P 0) (V2 0 0) Map.empty
 
+-- | Handle a mouse motion event.
+--
+-- @since 9.0
 handleMouseMotion :: V2 Int -> MouseInput -> MouseInput
 handleMouseMotion delta mouse =
   mouse

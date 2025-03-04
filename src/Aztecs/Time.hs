@@ -1,15 +1,30 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
+-- |
+-- Module      : Aztecs.Time
+-- Copyright   : (c) Matt Hunzinger, 2025
+-- License     : BSD-style (see the LICENSE file in the distribution)
+--
+-- Maintainer  : matt@hunzinger.me
+-- Stability   : provisional
+-- Portability : non-portable (GHC extensions)
 module Aztecs.Time (Time (..)) where
 
 import Aztecs.ECS
 import Control.DeepSeq
-import Data.Word (Word32)
+import Data.Word
 import GHC.Generics
 
 -- | Time component.
-newtype Time = Time {elapsedMS :: Word32}
+--
+-- @since 9.0
+newtype Time = Time
+  { -- | Elapsed time (in milliseconds).
+    --
+    -- @since 9.0
+    elapsedMS :: Word32
+  }
   deriving (Eq, Ord, Num, Show, Generic, NFData)
 
 instance Component Time

@@ -2,6 +2,14 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeApplications #-}
 
+-- |
+-- Module      : Aztecs.Camera
+-- Copyright   : (c) Matt Hunzinger, 2025
+-- License     : BSD-style (see the LICENSE file in the distribution)
+--
+-- Maintainer  : matt@hunzinger.me
+-- Stability   : provisional
+-- Portability : non-portable (GHC extensions)
 module Aztecs.Camera
   ( Camera (..),
     CameraTarget (..),
@@ -13,33 +21,47 @@ import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query.Reader as Q
 import qualified Aztecs.ECS.System as S
-import Aztecs.Window (Window)
-import Control.Arrow (Arrow (..))
+import Aztecs.Window
+import Control.Arrow
 import Control.DeepSeq
-import GHC.Generics (Generic)
-import Linear (V2 (..))
+import GHC.Generics
+import Linear
 
 -- | Camera component.
+--
+-- @since 9.0
 data Camera = Camera
   { -- | Camera viewport size.
+    --
+    -- @since 9.0
     cameraViewport :: !(V2 Int),
     -- | Camera scale factor.
+    --
+    -- @since 9.0
     cameraScale :: !(V2 Float)
   }
   deriving (Show, Generic, NFData)
 
+-- | @since 9.0
 instance Component Camera
 
 -- | Camera target component.
+--
+-- @since 9.0
 newtype CameraTarget = CameraTarget
   { -- | This camera's target window.
+    --
+    -- @since 9.0
     cameraTargetWindow :: EntityID
   }
   deriving (Eq, Show, Generic, NFData)
 
+-- | @since 9.0
 instance Component CameraTarget
 
 -- | Add `CameraTarget` components to entities with a new `Draw` component.
+--
+-- @since 9.0
 addCameraTargets ::
   ( ArrowQueryReader qr,
     ArrowDynamicQueryReader qr,
