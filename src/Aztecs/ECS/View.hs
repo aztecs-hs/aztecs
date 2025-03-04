@@ -19,7 +19,6 @@ where
 
 import Aztecs.ECS.Query.Dynamic (DynamicQueryT (..))
 import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReaderT (..), runDynQueryReaderT)
-import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (ArchetypeID, Archetypes, Node (..))
 import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Components (ComponentID)
@@ -29,7 +28,6 @@ import Data.Foldable (foldl', foldlM)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
-import qualified Data.Set as Set
 import Prelude hiding (null)
 
 -- | View into a `World`, containing a subset of archetypes.
@@ -72,7 +70,7 @@ allDyn :: (Monad m) => i -> DynamicQueryReaderT m i a -> View -> m [a]
 allDyn i q v =
   foldlM
     ( \acc n -> do
-        as <- runDynQueryReaderT i q (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n)
+        as <- runDynQueryReaderT i q $ nodeArchetype n
         return $ as ++ acc
     )
     []
@@ -92,7 +90,7 @@ mapDyn i q v = do
   (as, arches) <-
     foldlM
       ( \(acc, archAcc) (aId, n) -> do
-          (as', arch') <- runDynQuery q (repeat i) (Set.toList . A.entities $ nodeArchetype n) (nodeArchetype n)
+          (as', arch') <- runDynQuery q (repeat i) $ nodeArchetype n
           return (as' ++ acc, Map.insert aId (n {nodeArchetype = arch'}) archAcc)
       )
       ([], Map.empty)

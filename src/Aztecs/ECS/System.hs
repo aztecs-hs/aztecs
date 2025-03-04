@@ -132,7 +132,7 @@ instance MonadDynamicReaderSystem (DynamicQueryReaderT STM) System where
     let !v = V.view cIds $ archetypes w
     lift $
       if V.null v
-        then runDynQueryReaderT i q (Map.keys $ entities w) A.empty
+        then runDynQueryReaderT i q A.empty {A.entities = Map.keysSet $ entities w}
         else V.allDyn i q v
   filterDyn i cIds q f = SystemT $ do
     wVar <- ask
