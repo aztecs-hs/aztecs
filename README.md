@@ -43,9 +43,8 @@ instance Component Velocity
 
 move :: (ArrowQuery m q) => q () Position
 move = proc () -> do
-  Velocity v <- Q.fetch -< ()
-  Position p <- Q.fetch -< ()
-  Q.set -< Position $ p + v
+  v <- Q.fetch -< ()
+  Q.adjust (\(Velocity v) (Position p) -> Position $ p + v) -< v
 
 run :: (ArrowQuery m q, MonadSystem q s, MonadIO s) => s ()
 run = do

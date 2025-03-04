@@ -5,13 +5,13 @@
 
 import Aztecs.ECS
 import qualified Aztecs.ECS.Query as Q
-import qualified Aztecs.ECS.System as S
-import Aztecs.ECS.World (World (..))
+import Aztecs.ECS.World
 import qualified Aztecs.ECS.World as W
 import Control.Arrow
 import Control.DeepSeq
 import Criterion.Main
-import GHC.Generics (Generic)
+import Data.Functor.Identity
+import GHC.Generics
 
 newtype Position = Position Int deriving (Show, Generic, NFData)
 
@@ -30,12 +30,7 @@ queryDo = proc () -> do
   Q.adjust_ (\v (Position p) -> Position $ p + v) -< v
 
 run :: Query () () -> World -> World
-run q w = let !(_, es) = Q.map () q $ entities w in w {entities = es}
-
-runSystem :: World -> IO World
-runSystem w = do
-  (_, _, w') <- runSchedule (system $ S.map query) w ()
-  return w'
+run q w = let !(_, es) = runIdentity $ Q.map () q $ entities w in w {entities = es}
 
 main :: IO ()
 main = do
@@ -43,6 +38,5 @@ main = do
       !w = foldr (const go) W.empty [0 :: Int .. 10000]
   defaultMain
     [ bench "iter" $ nf (run query) w,
-      bench "iter do-notation" $ nf (run queryDo) w,
-      bench "iter system" . nfIO $ runSystem w
+      bench "iter do-notation" $ nf (run queryDo) w
     ]
