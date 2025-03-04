@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [0.9.1](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.9.0..aztecs-v0.9.1) - 2025-3-4
+
+## Fixes
+
+- Fix inserting bundles (40a13f6)
+
+## Documentation
+
+- Fix `since` version number (dbd71d2)
+
 ## [0.9.0](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.8.0..aztecs-v0.9.0) - 2025-3-4
 
 ## [0.8.0](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.7.0..aztecs-v0.8.0) - 2025-2-26
