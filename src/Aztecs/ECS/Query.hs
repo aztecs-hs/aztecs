@@ -68,7 +68,6 @@ import Aztecs.ECS.Query.Dynamic.Reader.Class (ArrowDynamicQueryReader (..))
 import Aztecs.ECS.Query.Reader (QueryFilter (..), QueryReaderT (..), with, without)
 import qualified Aztecs.ECS.Query.Reader as QR
 import Aztecs.ECS.Query.Reader.Class (ArrowQueryReader (..))
-import Aztecs.ECS.Task
 import Aztecs.ECS.World.Components (Components)
 import qualified Aztecs.ECS.World.Components as CS
 import Aztecs.ECS.World.Entities (Entities (..))
@@ -153,9 +152,6 @@ instance (Monad m) => ArrowQuery m (QueryT m) where
   {-# INLINE set #-}
   set :: forall a. (Component a) => QueryT m a a
   set = fromDyn @a $ setDyn
-
-instance (Monad m) => ArrowTask m (QueryT m) where
-  task = fromReader . task
 
 {-# INLINE fromDyn #-}
 fromDyn :: forall a m i o. (Component a) => (ComponentID -> DynamicQueryT m i o) -> QueryT m i o

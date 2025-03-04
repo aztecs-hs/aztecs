@@ -44,7 +44,6 @@ library
         Aztecs.ECS.System.Dynamic.Class
         Aztecs.ECS.System.Dynamic.Reader.Class
         Aztecs.ECS.System.Reader.Class
-        Aztecs.ECS.Task
         Aztecs.ECS.View
         Aztecs.ECS.World
         Aztecs.ECS.World.Archetype

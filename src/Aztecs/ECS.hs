@@ -75,7 +75,6 @@ module Aztecs.ECS
     SystemT,
     MonadReaderSystem,
     MonadSystem,
-    ArrowTask (..),
     World,
   )
 where
@@ -96,7 +95,6 @@ import Aztecs.ECS.Query
   )
 import Aztecs.ECS.Query.Reader (QueryReader, QueryReaderT)
 import Aztecs.ECS.System
-import Aztecs.ECS.Task
 import Aztecs.ECS.World (World)
 import Aztecs.ECS.World.Bundle (Bundle, MonoidBundle (..))
 import Aztecs.ECS.World.Bundle.Dynamic (DynamicBundle, MonoidDynamicBundle (..))
