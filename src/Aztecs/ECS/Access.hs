@@ -3,6 +3,14 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
 
+-- |
+-- Module      : Aztecs.ECS.Access
+-- Copyright   : (c) Matt Hunzinger, 2025
+-- License     : BSD-style (see the LICENSE file in the distribution)
+--
+-- Maintainer  : matt@hunzinger.me
+-- Stability   : provisional
+-- Portability : non-portable (GHC extensions)
 module Aztecs.ECS.Access
   ( Access,
     AccessT (..),
@@ -36,12 +44,16 @@ import Control.Monad.Reader
 import Control.Monad.State.Strict
 import qualified Data.Foldable as F
 
+-- | @since 9.0
 type Access = AccessT Identity
 
 -- | Access into the `World`.
+--
+-- @since 9.0
 newtype AccessT m a = AccessT {unAccessT :: StateT World m a}
   deriving (Functor, Applicative, MonadFix, MonadIO)
 
+-- | @since 9.0
 instance (Monad m) => Monad (AccessT m) where
   a >>= f = AccessT $ do
     !w <- get
@@ -50,12 +62,18 @@ instance (Monad m) => Monad (AccessT m) where
     unAccessT $ f a'
 
 -- | Run an `Access` on a `World`, returning the output and updated `World`.
+--
+-- @since 9.0
 runAccessT :: (Functor m) => AccessT m a -> World -> m (a, World)
 runAccessT a = runStateT $ unAccessT a
 
+-- | Run an `Access` on an empty `World`.
+--
+-- @since 9.0
 runAccessT_ :: (Functor m) => AccessT m a -> m a
 runAccessT_ a = fmap fst . runAccessT a $ W.empty
 
+-- | @since 9.0
 instance (Monad m) => MonadAccess Bundle (AccessT m) where
   spawn b = AccessT $ do
     !w <- get
@@ -79,6 +97,7 @@ instance (Monad m) => MonadAccess Bundle (AccessT m) where
     let !(_, w') = W.despawn e w
     put w'
 
+-- | @since 9.0
 instance (Monad m) => MonadReaderSystem (QueryReaderT m) (AccessT m) where
   all i q = AccessT $ do
     w <- get
@@ -95,6 +114,7 @@ instance (Monad m) => MonadReaderSystem (QueryReaderT m) (AccessT m) where
             && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
     unAccessT $ filterDyn i cIds dynQ f'
 
+-- | @since 9.0
 instance (Monad m) => MonadSystem (QueryT m) (AccessT m) where
   map i q = AccessT $ do
     !w <- get
@@ -116,6 +136,7 @@ instance (Monad m) => MonadSystem (QueryT m) (AccessT m) where
             && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
     unAccessT $ filterMapDyn i (Q.reads rws <> Q.writes rws) f' dynQ
 
+-- | @since 9.0
 instance (Monad m) => MonadDynamicReaderSystem (DynamicQueryReaderT m) (AccessT m) where
   allDyn i cIds q = AccessT $ do
     !w <- get
@@ -124,6 +145,7 @@ instance (Monad m) => MonadDynamicReaderSystem (DynamicQueryReaderT m) (AccessT 
     !w <- get
     lift . Q.filterDyn cIds i f q $ entities w
 
+-- | @since 9.0
 instance (Monad m) => MonadDynamicSystem (DynamicQueryT m) (AccessT m) where
   mapDyn i cIds q = AccessT $ do
     !w <- get
@@ -141,6 +163,9 @@ instance (Monad m) => MonadDynamicSystem (DynamicQueryT m) (AccessT m) where
     put w {entities = es}
     return as
 
+-- | Run a `System`.
+--
+-- @since 9.0
 system :: System a -> AccessT IO a
 system s = AccessT $ do
   !w <- get
