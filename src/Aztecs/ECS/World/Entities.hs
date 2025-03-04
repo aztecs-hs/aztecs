@@ -139,25 +139,19 @@ insert e b w =
 --
 -- @since 0.9
 insertDyn :: EntityID -> Set ComponentID -> DynamicBundle -> Entities -> Entities
-insertDyn e cIds b w = case Map.lookup e (entities w) of
+insertDyn e cIds b w = case Map.lookup e $ entities w of
   Just aId ->
     let (maybeNextAId, arches) = AS.insert e aId cIds b $ archetypes w
         es = case maybeNextAId of
-          Just nextAId -> Map.insert e nextAId (entities w)
+          Just nextAId -> Map.insert e nextAId $ entities w
           Nothing -> entities w
      in w {archetypes = arches, entities = es}
-  Nothing -> case AS.lookupArchetypeId cIds (archetypes w) of
+  Nothing -> case AS.lookupArchetypeId cIds $ archetypes w of
     Just aId -> spawnWithArchetypeId e aId b w
     Nothing ->
-      let (aId, arches) =
-            AS.insertArchetype
-              cIds
-              ( Node
-                  { nodeComponentIds = cIds,
-                    nodeArchetype = runDynamicBundle b e $ A.singleton e
-                  }
-              )
-              (archetypes w)
+      let arch = runDynamicBundle b e $ A.singleton e
+          node = Node {nodeComponentIds = cIds, nodeArchetype = arch}
+          (aId, arches) = AS.insertArchetype cIds node $ archetypes w
        in w {archetypes = arches, entities = Map.insert e aId (entities w)}
 
 -- | Lookup a component in an entity.

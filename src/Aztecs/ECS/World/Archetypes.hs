@@ -185,29 +185,30 @@ insert ::
   (Maybe ArchetypeID, Archetypes)
 insert e aId cIds b arches = case lookup aId arches of
   Just node ->
-    if cIds == nodeComponentIds node
+    if Set.isSubsetOf cIds $ nodeComponentIds node
       then
         let go n = n {nodeArchetype = runDynamicBundle b e $ nodeArchetype n}
          in (Nothing, arches {nodes = Map.adjust go aId $ nodes arches})
-      else case lookupArchetypeId cIds arches of
-        Just nextAId ->
-          let !(cs, arch') = A.remove e $ nodeArchetype node
-              node' = node {nodeArchetype = arch'}
-              !arches' = arches {nodes = Map.insert aId node' (nodes arches)}
-              adjustNode nextNode =
-                let !nextArch = A.insertComponents e cs $ nodeArchetype nextNode
-                 in nextNode {nodeArchetype = runDynamicBundle b e nextArch}
-           in (Just nextAId, arches' {nodes = Map.adjust adjustNode nextAId (nodes arches')})
-        Nothing ->
-          let !(s, arch') = A.removeStorages e $ nodeArchetype node
-              !n =
-                Node
-                  { nodeComponentIds = cIds,
-                    nodeArchetype = runDynamicBundle b e (Archetype {storages = s, entities = Set.singleton e})
-                  }
-              !(nextAId, arches') = insertArchetype cIds n arches
-           in let nodes' = Map.insert aId (node {nodeArchetype = arch'}) (nodes arches')
-               in (Just nextAId, arches' {nodes = nodes'})
+      else
+        let cIds' = cIds <> nodeComponentIds node
+         in case lookupArchetypeId cIds' arches of
+              Just nextAId ->
+                let !(cs, arch) = A.remove e $ nodeArchetype node
+                    node' = node {nodeArchetype = arch}
+                    !nodes' = Map.insert aId node' $ nodes arches
+                    adjustNode nextNode =
+                      let nextArch = nodeArchetype nextNode
+                          nextArch' = nextArch {A.entities = Set.insert e $ A.entities nextArch}
+                          !nextArch'' = A.insertComponents e cs nextArch'
+                       in nextNode {nodeArchetype = runDynamicBundle b e nextArch''}
+                 in (Just nextAId, arches {nodes = Map.adjust adjustNode nextAId nodes'})
+              Nothing ->
+                let !(s, arch) = A.removeStorages e $ nodeArchetype node
+                    nodes' = Map.insert aId node {nodeArchetype = arch} $ nodes arches
+                    !nextArch = runDynamicBundle b e Archetype {storages = s, entities = Set.singleton e}
+                    !n = Node {nodeComponentIds = cIds', nodeArchetype = nextArch}
+                    !(nextAId, arches') = insertArchetype cIds' n arches {nodes = nodes'}
+                 in (Just nextAId, arches')
   Nothing -> (Nothing, arches)
 
 -- | Remove a component from an entity with its `ComponentID`.
