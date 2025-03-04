@@ -40,24 +40,24 @@ import Prelude hiding (null)
 
 -- | View into a `World`, containing a subset of archetypes.
 --
--- @since 9.0
+-- @since 0.9
 newtype View = View
   { -- | Archetypes contained in this view.
     --
-    -- @since 9.0
+    -- @since 0.9
     viewArchetypes :: Map ArchetypeID Node
   }
   deriving (Show, Semigroup, Monoid)
 
 -- | View into all archetypes containing the provided component IDs.
 --
--- @since 9.0
+-- @since 0.9
 view :: Set ComponentID -> Archetypes -> View
 view cIds as = View $ AS.find cIds as
 
 -- | View into a single archetype containing the provided component IDs.
 --
--- @since 9.0
+-- @since 0.9
 viewSingle :: Set ComponentID -> Archetypes -> Maybe View
 viewSingle cIds as = case Map.toList $ AS.find cIds as of
   [a] -> Just . View $ uncurry Map.singleton a
@@ -65,7 +65,7 @@ viewSingle cIds as = case Map.toList $ AS.find cIds as of
 
 -- | View into all archetypes containing the provided component IDs and matching the provided predicate.
 --
--- @since 9.0
+-- @since 0.9
 filterView ::
   Set ComponentID ->
   (Node -> Bool) ->
@@ -75,13 +75,13 @@ filterView cIds f as = View $ Map.filter f (AS.find cIds as)
 
 -- | @True@ if the `View` is empty.
 --
--- @since 9.0
+-- @since 0.9
 null :: View -> Bool
 null = Map.null . viewArchetypes
 
 -- | "Un-view" a `View` back into a `World`.
 --
--- @since 9.0
+-- @since 0.9
 unview :: View -> Entities -> Entities
 unview v es =
   es
@@ -94,7 +94,7 @@ unview v es =
 
 -- | Query all matching entities in a `View`.
 --
--- @since 9.0
+-- @since 0.9
 allDyn :: (Monad m) => i -> DynamicQueryReaderT m i a -> View -> m [a]
 allDyn i q v =
   foldlM
@@ -107,7 +107,7 @@ allDyn i q v =
 
 -- | Query all matching entities in a `View`.
 --
--- @since 9.0
+-- @since 0.9
 singleDyn :: (Monad m) => i -> DynamicQueryReaderT m i a -> View -> m (Maybe a)
 singleDyn i q v = do
   as <- allDyn i q v
@@ -117,7 +117,7 @@ singleDyn i q v = do
 
 -- | Map all matching entities in a `View`.
 --
--- @since 9.0
+-- @since 0.9
 mapDyn :: (Monad m) => i -> DynamicQueryT m i a -> View -> m ([a], View)
 mapDyn i q v = do
   (as, arches) <-
@@ -132,7 +132,7 @@ mapDyn i q v = do
 
 -- | Map a single matching entity in a `View`.
 --
--- @since 9.0
+-- @since 0.9
 mapSingleDyn :: (Monad m) => i -> DynamicQueryT m i a -> View -> m (Maybe a, View)
 mapSingleDyn i q v = do
   (as, arches) <- mapDyn i q v

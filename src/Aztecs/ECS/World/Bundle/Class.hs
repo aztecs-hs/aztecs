@@ -15,9 +15,9 @@ import Aztecs.ECS.Component
 
 -- | Monoid bundle of components.
 --
--- @since 9.0
+-- @since 0.9
 class (Monoid a) => MonoidBundle a where
   -- | Add a component to the bundle.
   --
-  -- @since 9.0
+  -- @since 0.9
   bundle :: forall c. (Component c) => c -> a

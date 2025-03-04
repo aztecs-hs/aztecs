@@ -16,11 +16,11 @@ import GHC.Generics
 
 -- | Unique entity identifier.
 --
--- @since 9.0
+-- @since 0.9
 newtype EntityID = EntityID
   { -- | Unique integer identifier.
     --
-    -- @since 9.0
+    -- @since 0.9
     unEntityId :: Int
   }
   deriving (Eq, Ord, Show, Generic, NFData)

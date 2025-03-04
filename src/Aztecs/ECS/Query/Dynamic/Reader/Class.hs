@@ -14,20 +14,20 @@ import Control.Arrow
 
 -- | Arrow dynamic query reader.
 --
--- @since 9.0
+-- @since 0.9
 class (Arrow arr) => ArrowDynamicQueryReader arr where
   -- | Fetch the currently matched `EntityID`.
   --
-  -- @since 9.0
+  -- @since 0.9
   entity :: arr () EntityID
 
   -- | Fetch a `Component` by its `ComponentID`.
   --
-  -- @since 9.0
+  -- @since 0.9
   fetchDyn :: (Component a) => ComponentID -> arr () a
 
   -- | Try to fetch a `Component` by its `ComponentID`.
   --
-  -- @since 9.0
+  -- @since 0.9
   fetchMaybeDyn :: (Component a) => ComponentID -> arr () (Maybe a)
   fetchMaybeDyn cId = fetchDyn cId >>> arr Just

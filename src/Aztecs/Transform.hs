@@ -48,72 +48,72 @@ import Linear
 
 -- | Transform component.
 --
--- @since 9.0
+-- @since 0.9
 data Transform v r = Transform
   { -- | Translation.
     --
-    -- @since 9.0
+    -- @since 0.9
     transformTranslation :: !v,
     -- | Rotation.
     --
-    -- @since 9.0
+    -- @since 0.9
     transformRotation :: !r,
     -- | Scale.
     --
-    -- @since 9.0
+    -- @since 0.9
     transformScale :: !v
   }
   deriving (Eq, Show, Generic, NFData)
 
--- | @since 9.0
+-- | @since 0.9
 instance (Num v, Num r) => Semigroup (Transform v r) where
   Transform t1 r1 s1 <> Transform t2 r2 s2 = Transform (t1 + t2) (r1 + r2) (s1 + s2)
 
--- | @since 9.0
+-- | @since 0.9
 instance (Num v, Num r) => Monoid (Transform v r) where
   mempty = Transform 0 0 0
 
 -- | 2D transform component.
 --
--- @since 9.0
+-- @since 0.9
 type Transform2D = Transform (V2 Int) Int
 
 -- | Empty transform.
 --
--- @since 9.0
+-- @since 0.9
 transform2d :: Transform2D
 transform2d = Transform (V2 0 0) 0 (V2 1 1)
 
--- | @since 9.0
+-- | @since 0.9
 instance Component (Transform (V2 Int) Int)
 
 -- | Size component.
 --
--- @since 9.0
+-- @since 0.9
 newtype Size v = Size {unSize :: v}
   deriving (Generic, NFData)
 
--- | @since 9.0
+-- | @since 0.9
 type Size2D = Size (V2 Int)
 
 -- | Empty size.
 --
--- @since 9.0
+-- @since 0.9
 size2D :: Size (V2 Integer)
 size2D = Size (V2 0 0)
 
--- | @since 9.0
+-- | @since 0.9
 instance Component (Size (V2 Int))
 
 -- | Propagate a hierarchy of transform components.
 --
--- @since 9.0
+-- @since 0.9
 propagateHierarchy :: (Component a, Monoid a) => Hierarchy a -> Hierarchy a
 propagateHierarchy = mapWithAccum (\_ t acc -> let t' = t <> acc in (t', t')) mempty
 
 -- | Propagate and update all hierarchies of transform components.
 --
--- @since 9.0
+-- @since 0.9
 update ::
   forall q s b m a.
   ( ArrowQueryReader q,
@@ -128,7 +128,7 @@ update = mapM_ (\(e, a) -> A.insert e $ bundle a) . concatMap toList <$> propaga
 
 -- | Propagate and update all hierarchies of transform components.
 --
--- @since 9.0
+-- @since 0.9
 update2d ::
   ( ArrowQueryReader q,
     ArrowDynamicQueryReader q,
@@ -140,7 +140,7 @@ update2d = update @_ @_ @_ @_ @Transform2D
 
 -- | Propagate all hierarchies of transform components.
 --
--- @since 9.0
+-- @since 0.9
 propagate ::
   ( ArrowQueryReader q,
     ArrowDynamicQueryReader q,
@@ -155,7 +155,7 @@ propagate = do
 
 -- | Propagate all hierarchies of `Transform2D` components.
 --
--- @since 9.0
+-- @since 0.9
 propagate2d ::
   ( ArrowQueryReader q,
     ArrowDynamicQueryReader q,

@@ -48,46 +48,46 @@ import GHC.Generics
 
 -- | Parent component.
 --
--- @since 9.0
+-- @since 0.9
 newtype Parent = Parent
   { -- | Parent entity ID.
     --
-    -- @since 9.0
+    -- @since 0.9
     unParent :: EntityID
   }
   deriving (Eq, Ord, Show, Generic, NFData)
 
--- | @since 9.0
+-- | @since 0.9
 instance Component Parent
 
 -- | Parent internal state component.
 --
--- @since 9.0
+-- @since 0.9
 newtype ParentState = ParentState {unParentState :: EntityID}
   deriving (Show, Generic, NFData)
 
--- | @since 9.0
+-- | @since 0.9
 instance Component ParentState
 
 -- | Children component.
 --
--- @since 9.0
+-- @since 0.9
 newtype Children = Children {unChildren :: Set EntityID}
   deriving (Eq, Ord, Show, Semigroup, Monoid, Generic, NFData)
 
--- | @since 9.0
+-- | @since 0.9
 instance Component Children
 
 -- | Child internal state component.
 newtype ChildState = ChildState {unChildState :: Set EntityID}
   deriving (Show, Generic, NFData)
 
--- | @since 9.0
+-- | @since 0.9
 instance Component ChildState
 
 -- | Update the parent-child relationships.
 --
--- @since 9.0
+-- @since 0.9
 update ::
   ( ArrowQueryReader qr,
     ArrowDynamicQueryReader qr,
@@ -158,59 +158,59 @@ update = do
 
 -- | Hierarchy of entities.
 --
--- @since 9.0
+-- @since 0.9
 data Hierarchy a = Node
   { -- | Entity ID.
     --
-    -- @since 9.0
+    -- @since 0.9
     nodeEntityId :: EntityID,
     -- | Entity components.
     nodeEntity :: a,
     -- | Child nodes.
     --
-    -- @since 9.0
+    -- @since 0.9
     nodeChildren :: [Hierarchy a]
   }
   deriving (Functor)
 
--- | @since 9.0
+-- | @since 0.9
 instance Foldable Hierarchy where
   foldMap f n = f (nodeEntity n) <> foldMap (foldMap f) (nodeChildren n)
 
--- | @since 9.0
+-- | @since 0.9
 instance Traversable Hierarchy where
   traverse f n =
     Node (nodeEntityId n) <$> f (nodeEntity n) <*> traverse (traverse f) (nodeChildren n)
 
 -- | Convert a hierarchy to a list of entity IDs and components.
 --
--- @since 9.0
+-- @since 0.9
 toList :: Hierarchy a -> [(EntityID, a)]
 toList n = (nodeEntityId n, nodeEntity n) : concatMap toList (nodeChildren n)
 
 -- | Fold a hierarchy with a function that takes the entity ID, entity, and accumulator.
 --
--- @since 9.0
+-- @since 0.9
 foldWithKey :: (EntityID -> a -> b -> b) -> Hierarchy a -> b -> b
 foldWithKey f n b = f (nodeEntityId n) (nodeEntity n) (foldr (foldWithKey f) b (nodeChildren n))
 
 -- | Map a hierarchy with a function that takes the entity ID and entity.
 --
--- @since 9.0
+-- @since 0.9
 mapWithKey :: (EntityID -> a -> b) -> Hierarchy a -> Hierarchy b
 mapWithKey f n =
   Node (nodeEntityId n) (f (nodeEntityId n) (nodeEntity n)) (map (mapWithKey f) (nodeChildren n))
 
 -- | Map a hierarchy with a function that takes the entity ID, entity, and accumulator.
 --
--- @since 9.0
+-- @since 0.9
 mapWithAccum :: (EntityID -> a -> b -> (c, b)) -> b -> Hierarchy a -> Hierarchy c
 mapWithAccum f b n = case f (nodeEntityId n) (nodeEntity n) b of
   (c, b') -> Node (nodeEntityId n) c (map (mapWithAccum f b') (nodeChildren n))
 
 -- | System to read a hierarchy of parents to children with the given query.
 --
--- @since 9.0
+-- @since 0.9
 hierarchy ::
   (ArrowQueryReader q, ArrowDynamicQueryReader q, MonadReaderSystem q s) =>
   EntityID ->
@@ -232,7 +232,7 @@ hierarchy e i q = do
 
 -- | Build all hierarchies of parents to children, joined with the given query.
 --
--- @since 9.0
+-- @since 0.9
 hierarchies ::
   (ArrowQueryReader q, ArrowDynamicQueryReader q, MonadReaderSystem q s) =>
   i ->
@@ -255,7 +255,7 @@ hierarchies i q = do
 
 -- | Build a hierarchy of parents to children.
 --
--- @since 9.0
+-- @since 0.9
 hierarchy' :: EntityID -> Map EntityID (Set EntityID, a) -> Maybe (Hierarchy a)
 hierarchy' e childMap = case Map.lookup e childMap of
   Just (cs, a) ->

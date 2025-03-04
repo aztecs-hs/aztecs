@@ -19,25 +19,25 @@ import Control.Arrow
 
 -- | Arrow dynamic query.
 --
--- @since 9.0
+-- @since 0.9
 class (ArrowDynamicQueryReader arr) => ArrowDynamicQuery m arr | arr -> m where
   -- | Adjust a `Component` by its `ComponentID`.
   --
-  -- @since 9.0
+  -- @since 0.9
   adjustDyn :: (Component a) => (i -> a -> a) -> ComponentID -> arr i a
 
   -- | Adjust a `Component` by its `ComponentID`, ignoring any output.
   --
-  -- @since 9.0
+  -- @since 0.9
   adjustDyn_ :: (Component a) => (i -> a -> a) -> ComponentID -> arr i ()
   adjustDyn_ f cid = adjustDyn @m f cid >>> arr (const ())
 
   -- | Adjust a `Component` by its `ComponentID` with some `Monad` @m@.
   --
-  -- @since 9.0
+  -- @since 0.9
   adjustDynM :: (Component a) => (i -> a -> m a) -> ComponentID -> arr i a
 
   -- | Set a `Component` by its `ComponentID`.
   --
-  -- @since 9.0
+  -- @since 0.9
   setDyn :: (Component a) => ComponentID -> arr a a

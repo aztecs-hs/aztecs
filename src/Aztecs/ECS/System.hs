@@ -47,21 +47,21 @@ import qualified Data.Map as Map
 import Data.Set (Set)
 import Prelude hiding (all, filter, id, map, (.))
 
--- | @since 9.0
+-- | @since 0.9
 type System = SystemT STM
 
 -- | System to process queries in parallel.
 --
--- @since 9.0
+-- @since 0.9
 newtype SystemT m a = SystemT
   { -- | Run a system on a collection of `Entities`.
     --
-    -- @since 9.0
+    -- @since 0.9
     runSystemT :: ReaderT (TVar Entities) m a
   }
   deriving (Functor, Applicative, Monad, MonadFix)
 
--- | @since 9.0
+-- | @since 0.9
 instance MonadDynamicSystem (DynamicQueryT STM) System where
   mapDyn i cIds q = SystemT $ do
     wVar <- ask
@@ -87,7 +87,7 @@ instance MonadDynamicSystem (DynamicQueryT STM) System where
     lift . modifyTVar wVar $ V.unview v'
     return o
 
--- | @since 9.0
+-- | @since 0.9
 instance MonadSystem (QueryT STM) System where
   map i q = SystemT $ do
     (rws, dynQ) <- runSystemT $ fromQuery q
@@ -107,7 +107,7 @@ instance MonadSystem (QueryT STM) System where
             && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
     runSystemT $ filterMapDyn i (Q.reads rws <> Q.writes rws) f' dynQ
 
--- | @since 9.0
+-- | @since 0.9
 instance MonadReaderSystem (QueryReaderT STM) System where
   all i q = SystemT $ do
     (cIds, dynQ) <- runSystemT $ fromQueryReader q
@@ -124,7 +124,7 @@ instance MonadReaderSystem (QueryReaderT STM) System where
             && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
     runSystemT $ filterDyn i cIds dynQ f'
 
--- | @since 9.0
+-- | @since 0.9
 instance MonadDynamicReaderSystem (DynamicQueryReaderT STM) System where
   allDyn i cIds q = SystemT $ do
     wVar <- ask
@@ -142,7 +142,7 @@ instance MonadDynamicReaderSystem (DynamicQueryReaderT STM) System where
 
 -- | Convert a `QueryReaderT` to a `System`.
 --
--- @since 9.0
+-- @since 0.9
 fromQueryReader :: QueryReaderT STM i o -> System (Set ComponentID, DynamicQueryReaderT STM i o)
 fromQueryReader q = SystemT $ do
   wVar <- ask
@@ -153,7 +153,7 @@ fromQueryReader q = SystemT $ do
 
 -- | Convert a `QueryT` to a `System`.
 --
--- @since 9.0
+-- @since 0.9
 fromQuery :: QueryT STM i o -> System (ReadsWrites, DynamicQueryT STM i o)
 fromQuery q = SystemT $ do
   wVar <- ask

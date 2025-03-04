@@ -29,39 +29,39 @@ import Linear
 
 -- | Camera component.
 --
--- @since 9.0
+-- @since 0.9
 data Camera = Camera
   { -- | Camera viewport size.
     --
-    -- @since 9.0
+    -- @since 0.9
     cameraViewport :: !(V2 Int),
     -- | Camera scale factor.
     --
-    -- @since 9.0
+    -- @since 0.9
     cameraScale :: !(V2 Float)
   }
   deriving (Show, Generic, NFData)
 
--- | @since 9.0
+-- | @since 0.9
 instance Component Camera
 
 -- | Camera target component.
 --
--- @since 9.0
+-- @since 0.9
 newtype CameraTarget = CameraTarget
   { -- | This camera's target window.
     --
-    -- @since 9.0
+    -- @since 0.9
     cameraTargetWindow :: EntityID
   }
   deriving (Eq, Show, Generic, NFData)
 
--- | @since 9.0
+-- | @since 0.9
 instance Component CameraTarget
 
 -- | Add `CameraTarget` components to entities with a new `Draw` component.
 --
--- @since 9.0
+-- @since 0.9
 addCameraTargets ::
   ( ArrowQueryReader qr,
     ArrowDynamicQueryReader qr,

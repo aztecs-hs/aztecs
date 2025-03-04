@@ -14,14 +14,14 @@ import Data.Data
 
 -- | Loadable asset.
 --
--- @since 9.0
+-- @since 0.9
 class (Typeable a) => Asset a where
   -- | Configuration for loading an asset.
   --
-  -- @since 9.0
+  -- @since 0.9
   type AssetConfig a
 
   -- | Load an asset from a file path with a configuration.
   --
-  -- @since 9.0
+  -- @since 0.9
   loadAsset :: FilePath -> AssetConfig a -> IO a

@@ -16,16 +16,16 @@ import Prelude hiding (all)
 
 -- | Monadic reader system.
 --
--- @since 9.0
+-- @since 0.9
 class (Monad m) => MonadReaderSystem q m | m -> q where
   -- | Match all entities with a query.
   --
-  -- @since 9.0
+  -- @since 0.9
   all :: i -> q i o -> m [o]
 
   -- | Match a single entity with a query.
   --
-  -- @since 9.0
+  -- @since 0.9
   single :: (HasCallStack) => i -> q i o -> m o
   single i q = do
     os <- all i q
@@ -35,7 +35,7 @@ class (Monad m) => MonadReaderSystem q m | m -> q where
 
   -- | Match a single entity with a query, or @Nothing@.
   --
-  -- @since 9.0
+  -- @since 0.9
   singleMaybe :: i -> q i o -> m (Maybe o)
   singleMaybe i q = do
     os <- all i q
@@ -45,5 +45,5 @@ class (Monad m) => MonadReaderSystem q m | m -> q where
 
   -- | Match all entities with a query and filter.
   --
-  -- @since 9.0
+  -- @since 0.9
   filter :: i -> q i o -> QueryFilter -> m [o]

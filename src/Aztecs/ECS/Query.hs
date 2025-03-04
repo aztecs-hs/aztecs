@@ -86,21 +86,21 @@ import qualified Data.Set as Set
 import GHC.Stack
 import Prelude hiding (all, id, map, reads, (.))
 
--- | @since 9.0
+-- | @since 0.9
 type Query i = QueryT Identity i
 
 -- | Query for matching entities.
 --
--- @since 9.0
+-- @since 0.9
 newtype QueryT m i o = Query
   { -- | Run a query, producing a `DynamicQueryT`.
     --
-    -- @since 9.0
+    -- @since 0.9
     runQuery :: Components -> (ReadsWrites, Components, DynamicQueryT m i o)
   }
   deriving (Functor)
 
--- | @since 9.0
+-- | @since 0.9
 instance (Monad m) => Applicative (QueryT m i) where
   {-# INLINE pure #-}
   pure a = Query (mempty,,pure a)
@@ -110,7 +110,7 @@ instance (Monad m) => Applicative (QueryT m i) where
         !(cIdsF, cs'', bQS) = f cs'
      in (cIdsG <> cIdsF, cs'', bQS <*> aQS)
 
--- | @since 9.0
+-- | @since 0.9
 instance (Monad m) => Category (QueryT m) where
   {-# INLINE id #-}
   id = Query (mempty,,id)
@@ -120,26 +120,26 @@ instance (Monad m) => Category (QueryT m) where
         !(cIdsF, cs'', bQS) = f cs'
      in (cIdsG <> cIdsF, cs'', bQS . aQS)
 
--- | @since 9.0
+-- | @since 0.9
 instance (Monad m) => Arrow (QueryT m) where
   {-# INLINE arr #-}
   arr f = Query (mempty,,arr f)
   {-# INLINE first #-}
   first (Query f) = Query $ \cs -> let !(cIds, cs', qS) = f cs in (cIds, cs', first qS)
 
--- |  @since 9.0
+-- |  @since 0.9
 instance (Monad m) => ArrowChoice (QueryT m) where
   {-# INLINE left #-}
   left (Query f) = Query $ \cs -> let !(cIds, cs', qS) = f cs in (cIds, cs', left qS)
 
--- | @since 9.0
+-- | @since 0.9
 instance (Monad m) => ArrowQueryReader (QueryT m) where
   {-# INLINE fetch #-}
   fetch = fromReader fetch
   {-# INLINE fetchMaybe #-}
   fetchMaybe = fromReader fetchMaybe
 
--- | @since 9.0
+-- | @since 0.9
 instance (Monad m) => ArrowDynamicQueryReader (QueryT m) where
   {-# INLINE entity #-}
   entity = fromReader entity
@@ -148,7 +148,7 @@ instance (Monad m) => ArrowDynamicQueryReader (QueryT m) where
   {-# INLINE fetchMaybeDyn #-}
   fetchMaybeDyn = fromReader . fetchMaybeDyn
 
--- | @since 9.0
+-- | @since 0.9
 instance (Monad m) => ArrowDynamicQuery m (QueryT m) where
   {-# INLINE adjustDyn #-}
   adjustDyn f cId = Query (ReadsWrites Set.empty (Set.singleton cId),,adjustDyn f cId)
@@ -159,7 +159,7 @@ instance (Monad m) => ArrowDynamicQuery m (QueryT m) where
   {-# INLINE setDyn #-}
   setDyn cId = Query (ReadsWrites Set.empty (Set.singleton cId),,setDyn cId)
 
--- | @since 9.0
+-- | @since 0.9
 instance (Monad m) => ArrowQuery m (QueryT m) where
   {-# INLINE adjust #-}
   adjust :: forall i a. (Component a) => (i -> a -> a) -> QueryT m i a
@@ -179,7 +179,7 @@ instance (Monad m) => ArrowQuery m (QueryT m) where
 
 -- | Convert a `DynamicQueryT` to a `Query`.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE fromDyn #-}
 fromDyn :: forall a m i o. (Component a) => (ComponentID -> DynamicQueryT m i o) -> QueryT m i o
 fromDyn f = Query $ \cs ->
@@ -187,7 +187,7 @@ fromDyn f = Query $ \cs ->
 
 -- | Convert a `QueryReader` to a `Query`.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE fromReader #-}
 fromReader :: (Monad m) => QueryReaderT m i o -> QueryT m i o
 fromReader (QueryReader f) = Query $ \cs ->
@@ -195,7 +195,7 @@ fromReader (QueryReader f) = Query $ \cs ->
 
 -- | Convert a `Query` to a `QueryReader`.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE toReader #-}
 toReader :: (Functor m) => QueryT m i o -> QueryReaderT m i o
 toReader (Query f) = QueryReader $ \cs ->
@@ -203,30 +203,30 @@ toReader (Query f) = QueryReader $ \cs ->
 
 -- | Reads and writes of a `Query`.
 --
--- @since 9.0
+-- @since 0.9
 data ReadsWrites = ReadsWrites
   { -- | Component IDs being read.
     --
-    -- @since 9.0
+    -- @since 0.9
     reads :: !(Set ComponentID),
     -- | Component IDs being written.
     --
-    -- @since 9.0
+    -- @since 0.9
     writes :: !(Set ComponentID)
   }
   deriving (Show)
 
--- | @since 9.0
+-- | @since 0.9
 instance Semigroup ReadsWrites where
   ReadsWrites r1 w1 <> ReadsWrites r2 w2 = ReadsWrites (r1 <> r2) (w1 <> w2)
 
--- | @since 9.0
+-- | @since 0.9
 instance Monoid ReadsWrites where
   mempty = ReadsWrites mempty mempty
 
 -- | `True` if the reads and writes of two `Query`s overlap.
 --
--- @since 9.0
+-- @since 0.9
 disjoint :: ReadsWrites -> ReadsWrites -> Bool
 disjoint a b =
   Set.disjoint (reads a) (writes b)
@@ -235,49 +235,49 @@ disjoint a b =
 
 -- | Match all entities.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE all #-}
 all :: (Monad m) => i -> QueryT m i a -> Entities -> (m [a], Entities)
 all i = QR.all i . toReader
 
 -- | Match all entities.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE all' #-}
 all' :: (Monad m) => i -> QueryT m i a -> Entities -> (m [a], Components)
 all' i = QR.all' i . toReader
 
 -- | Match a single entity.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE single #-}
 single :: (HasCallStack) => i -> Query i a -> Entities -> (a, Entities)
 single i = QR.single i . toReader
 
 -- | Match a single entity.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE single' #-}
 single' :: (HasCallStack) => i -> Query i a -> Entities -> (a, Components)
 single' i = QR.single' i . toReader
 
 -- | Match a single entity, or `Nothing`.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE singleMaybe #-}
 singleMaybe :: i -> Query i a -> Entities -> (Maybe a, Entities)
 singleMaybe i = QR.singleMaybe i . toReader
 
 -- | Match a single entity, or `Nothing`.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE singleMaybe' #-}
 singleMaybe' :: i -> Query i a -> Entities -> (Maybe a, Components)
 singleMaybe' i = QR.singleMaybe' i . toReader
 
 -- | Map all matched entities.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE map #-}
 map :: (Monad m) => i -> QueryT m i o -> Entities -> m ([o], Entities)
 map i q es = do
@@ -288,7 +288,7 @@ map i q es = do
 
 -- | Map a single matched entity.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE mapSingle #-}
 mapSingle :: (HasCallStack, Monad m) => i -> QueryT m i a -> Entities -> m (a, Entities)
 mapSingle i q es = do
@@ -299,7 +299,7 @@ mapSingle i q es = do
 
 -- | Map a single matched entity, or `Nothing`.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE mapSingleMaybe #-}
 mapSingleMaybe :: (Monad m) => i -> QueryT m i a -> Entities -> m (Maybe a, Entities)
 mapSingleMaybe i q es = do

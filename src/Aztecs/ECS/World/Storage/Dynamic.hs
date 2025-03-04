@@ -32,41 +32,41 @@ import Data.Maybe
 
 -- | Dynamic storage of components.
 --
--- @since 9.0
+-- @since 0.9
 data DynamicStorage = DynamicStorage
   { -- | Dynamic storage.
     --
-    -- @since 9.0
+    -- @since 0.9
     storageDyn :: !Dynamic,
     -- | Singleton storage.
     --
-    -- @since 9.0
+    -- @since 0.9
     singletonDyn' :: !(Dynamic -> Dynamic),
     -- | Convert this storage to an ascending list.
     --
-    -- @since 9.0
+    -- @since 0.9
     toAscListDyn' :: !(Dynamic -> [Dynamic]),
     -- | Convert from an ascending list.
     --
-    -- @since 9.0
+    -- @since 0.9
     fromAscListDyn' :: !([Dynamic] -> Dynamic),
     -- | Reduce this storage to normal form.
     --
-    -- @since 9.0
+    -- @since 0.9
     storageRnf :: !(Dynamic -> ())
   }
 
--- | @since 9.0
+-- | @since 0.9
 instance Show DynamicStorage where
   show s = "DynamicStorage " ++ show (storageDyn s)
 
--- | @since 9.0
+-- | @since 0.9
 instance NFData DynamicStorage where
   rnf s = storageRnf s (storageDyn s)
 
 -- | Create a dynamic storage from a storage.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE dynStorage #-}
 dynStorage :: forall a s. (S.Storage a s) => s -> DynamicStorage
 dynStorage s =
@@ -80,18 +80,18 @@ dynStorage s =
 
 -- | Singleton dynamic storage.
 --
--- @since 9.0
+-- @since 0.9
 singletonDyn :: Dynamic -> DynamicStorage -> DynamicStorage
 singletonDyn dyn s = s {storageDyn = singletonDyn' s dyn}
 
 -- | Convert from an ascending list.
 --
--- @since 9.0
+-- @since 0.9
 fromAscListDyn :: [Dynamic] -> DynamicStorage -> DynamicStorage
 fromAscListDyn dyns s = s {storageDyn = fromAscListDyn' s dyns}
 
 -- | Convert this storage to an ascending list.
 --
--- @since 9.0
+-- @since 0.9
 toAscListDyn :: DynamicStorage -> [Dynamic]
 toAscListDyn = toAscListDyn' <*> storageDyn

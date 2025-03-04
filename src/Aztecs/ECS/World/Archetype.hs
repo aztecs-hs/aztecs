@@ -62,34 +62,34 @@ import Prelude hiding (map, zipWith)
 -- | Archetype of entities and components.
 -- An archetype is guranteed to contain one of each stored component per entity.
 --
--- @since 9.0
+-- @since 0.9
 data Archetype = Archetype
   { -- | Component storages.
     --
-    -- @since 9.0
+    -- @since 0.9
     storages :: !(IntMap DynamicStorage),
     -- | Entities stored in this archetype.
     --
-    -- @since 9.0
+    -- @since 0.9
     entities :: !(Set EntityID)
   }
   deriving (Show, Generic, NFData)
 
 -- | Empty archetype.
 --
--- @since 9.0
+-- @since 0.9
 empty :: Archetype
 empty = Archetype {storages = IntMap.empty, entities = Set.empty}
 
 -- | Archetype with a single entity.
 --
--- @since 9.0
+-- @since 0.9
 singleton :: EntityID -> Archetype
 singleton e = Archetype {storages = IntMap.empty, entities = Set.singleton e}
 
 -- | Lookup a component `Storage` by its `ComponentID`.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE lookupStorage #-}
 lookupStorage :: (Component a) => ComponentID -> Archetype -> Maybe (StorageT a)
 lookupStorage cId w = do
@@ -98,14 +98,14 @@ lookupStorage cId w = do
 
 -- | Lookup a component by its `EntityID` and `ComponentID`.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE lookupComponent #-}
 lookupComponent :: (Component a) => EntityID -> ComponentID -> Archetype -> Maybe a
 lookupComponent e cId w = lookupComponents cId w Map.!? e
 
 -- | Lookup all components by their `ComponentID`.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE lookupComponents #-}
 lookupComponents :: (Component a) => ComponentID -> Archetype -> Map EntityID a
 lookupComponents cId arch = case lookupComponentsAscMaybe cId arch of
@@ -114,14 +114,14 @@ lookupComponents cId arch = case lookupComponentsAscMaybe cId arch of
 
 -- | Lookup all components by their `ComponentID`, in ascending order by their `EntityID`.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE lookupComponentsAsc #-}
 lookupComponentsAsc :: (Component a) => ComponentID -> Archetype -> [a]
 lookupComponentsAsc cId = fromMaybe [] . lookupComponentsAscMaybe cId
 
 -- | Lookup all components by their `ComponentID`, in ascending order by their `EntityID`.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE lookupComponentsAscMaybe #-}
 lookupComponentsAscMaybe :: forall a. (Component a) => ComponentID -> Archetype -> Maybe [a]
 lookupComponentsAscMaybe cId arch = S.toAscList <$> lookupStorage @a cId arch
@@ -129,7 +129,7 @@ lookupComponentsAscMaybe cId arch = S.toAscList <$> lookupStorage @a cId arch
 -- | Insert a component into the archetype.
 -- This assumes the archetype contains one of each stored component per entity.
 --
--- @since 9.0
+-- @since 0.9
 insertComponent ::
   forall a. (Component a) => EntityID -> ComponentID -> a -> Archetype -> Archetype
 insertComponent e cId c arch =
@@ -139,13 +139,13 @@ insertComponent e cId c arch =
 
 -- | @True@ if this archetype contains an entity with the provided `ComponentID`.
 --
--- @since 9.0
+-- @since 0.9
 member :: ComponentID -> Archetype -> Bool
 member cId = IntMap.member (unComponentId cId) . storages
 
 -- | Zip a list of components with a function and a component storage.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE zipWith #-}
 zipWith ::
   forall a c. (Component c) => [a] -> (a -> c -> c) -> ComponentID -> Archetype -> ([c], Archetype)
@@ -163,7 +163,7 @@ zipWith as f cId arch =
 
 -- | Zip a list of components with a monadic function and a component storage.
 --
--- @since 9.0
+-- @since 0.9
 zipWithM ::
   forall m a c. (Monad m, Component c) => [a] -> (a -> c -> m c) -> ComponentID -> Archetype -> m ([c], Archetype)
 zipWithM as f cId arch = do
@@ -180,7 +180,7 @@ zipWithM as f cId arch = do
 
 -- | Zip a list of components with a function and a component storage.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE zipWith_ #-}
 zipWith_ ::
   forall a c. (Component c) => [a] -> (a -> c -> c) -> ComponentID -> Archetype -> Archetype
@@ -196,7 +196,7 @@ zipWith_ as f cId arch =
 
 -- | Insert a list of components into the archetype, sorted in ascending order by their `EntityID`.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE insertAscList #-}
 insertAscList :: forall a. (Component a) => ComponentID -> [a] -> Archetype -> Archetype
 insertAscList cId as arch =
@@ -205,7 +205,7 @@ insertAscList cId as arch =
 
 -- | Remove an entity from an archetype, returning its components.
 --
--- @since 9.0
+-- @since 0.9
 remove :: EntityID -> Archetype -> (IntMap Dynamic, Archetype)
 remove e arch =
   let go (dynAcc, archAcc) (cId, dynS) =
@@ -221,7 +221,7 @@ remove e arch =
 
 -- | Remove an entity from an archetype, returning its component storages.
 --
--- @since 9.0
+-- @since 0.9
 removeStorages :: EntityID -> Archetype -> (IntMap DynamicStorage, Archetype)
 removeStorages e arch =
   let go (dynAcc, archAcc) (cId, dynS) =
@@ -237,7 +237,7 @@ removeStorages e arch =
 
 -- | Insert a map of component storages and their `EntityID` into the archetype.
 --
--- @since 9.0
+-- @since 0.9
 insertComponents :: EntityID -> IntMap Dynamic -> Archetype -> Archetype
 insertComponents e cs arch =
   let f archAcc (itemCId, dyn) =

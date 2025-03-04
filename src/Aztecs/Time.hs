@@ -18,11 +18,11 @@ import GHC.Generics
 
 -- | Time component.
 --
--- @since 9.0
+-- @since 0.9
 newtype Time = Time
   { -- | Elapsed time (in milliseconds).
     --
-    -- @since 9.0
+    -- @since 0.9
     elapsedMS :: Word32
   }
   deriving (Eq, Ord, Num, Show, Generic, NFData)

@@ -50,26 +50,26 @@ import Prelude hiding (lookup)
 
 -- | World of entities and their components.
 --
--- @since 9.0
+-- @since 0.9
 data Entities = Entities
   { -- | Archetypes.
     --
-    -- @since 9.0
+    -- @since 0.9
     archetypes :: !Archetypes,
     -- | Components.
     --
-    -- @since 9.0
+    -- @since 0.9
     components :: !Components,
     -- | Entities and their archetype identifiers.
     --
-    -- @since 9.0
+    -- @since 0.9
     entities :: !(Map EntityID ArchetypeID)
   }
   deriving (Show, Generic, NFData)
 
 -- | Empty `World`.
 --
--- @since 9.0
+-- @since 0.9
 empty :: Entities
 empty =
   Entities
@@ -80,7 +80,7 @@ empty =
 
 -- | Spawn a `Bundle`.
 --
--- @since 9.0
+-- @since 0.9
 spawn :: EntityID -> Bundle -> Entities -> Entities
 spawn eId b w =
   let (cIds, components', dynB) = unBundle b (components w)
@@ -113,7 +113,7 @@ spawn eId b w =
 
 -- | Spawn a `DynamicBundle` with a specified `ArchetypeID`.
 --
--- @since 9.0
+-- @since 0.9
 spawnWithArchetypeId ::
   EntityID ->
   ArchetypeID ->
@@ -129,7 +129,7 @@ spawnWithArchetypeId e aId b w =
 
 -- | Insert a component into an entity.
 --
--- @since 9.0
+-- @since 0.9
 insert :: EntityID -> Bundle -> Entities -> Entities
 insert e b w =
   let !(cIds, components', dynB) = unBundle b (components w)
@@ -137,7 +137,7 @@ insert e b w =
 
 -- | Insert a component into an entity with its `ComponentID`.
 --
--- @since 9.0
+-- @since 0.9
 insertDyn :: EntityID -> Set ComponentID -> DynamicBundle -> Entities -> Entities
 insertDyn e cIds b w = case Map.lookup e (entities w) of
   Just aId ->
@@ -162,7 +162,7 @@ insertDyn e cIds b w = case Map.lookup e (entities w) of
 
 -- | Lookup a component in an entity.
 --
--- @since 9.0
+-- @since 0.9
 lookup :: forall a. (Component a) => EntityID -> Entities -> Maybe a
 lookup e w = do
   !cId <- CS.lookup @a $ components w
@@ -172,7 +172,7 @@ lookup e w = do
 
 -- | Insert a component into an entity.
 --
--- @since 9.0
+-- @since 0.9
 remove :: forall a. (Component a) => EntityID -> Entities -> (Maybe a, Entities)
 remove e w =
   let !(cId, components') = CS.insert @a (components w)
@@ -180,7 +180,7 @@ remove e w =
 
 -- | Remove a component from an entity with its `ComponentID`.
 --
--- @since 9.0
+-- @since 0.9
 removeWithId :: forall a. (Component a) => EntityID -> ComponentID -> Entities -> (Maybe a, Entities)
 removeWithId e cId w = case Map.lookup e (entities w) of
   Just aId ->
@@ -193,7 +193,7 @@ removeWithId e cId w = case Map.lookup e (entities w) of
 
 -- | Despawn an entity, returning its components.
 --
--- @since 9.0
+-- @since 0.9
 despawn :: EntityID -> Entities -> (IntMap Dynamic, Entities)
 despawn e w =
   let res = do

@@ -40,44 +40,44 @@ import GHC.Generics
 
 -- | Unique identifier for an asset.
 --
--- @since 9.0
+-- @since 0.9
 newtype AssetId = AssetId
   { -- | Unique integer identifier.
     --
-    -- @since 9.0
+    -- @since 0.9
     unAssetId :: Int
   }
   deriving (Eq, Ord, Show)
 
 -- | Asset server.
 --
--- @since 9.0
+-- @since 0.9
 data AssetServer a = AssetServer
   { -- | Loaded assets.
     --
-    -- @since 9.0
+    -- @since 0.9
     assetServerAssets :: !(Map AssetId a),
     -- | Assets currently being loaded.
     --
-    -- @since 9.0
+    -- @since 0.9
     loadingAssets :: !(Map AssetId (Either (IO (IORef (Maybe a))) (IORef (Maybe a)))),
     -- | Next unique asset identifier.
     --
-    -- @since 9.0
+    -- @since 0.9
     nextAssetId :: !AssetId
   }
   deriving (Generic)
 
--- | @since 9.0
+-- | @since 0.9
 instance (Typeable a) => Component (AssetServer a)
 
--- | @since 9.0
+-- | @since 0.9
 instance NFData (AssetServer a) where
   rnf = rwhnf
 
 -- | Empty asset server.
 --
--- @since 9.0
+-- @since 0.9
 assetServer :: AssetServer a
 assetServer =
   AssetServer
@@ -88,40 +88,40 @@ assetServer =
 
 -- | Handle to an asset.
 --
--- @since 9.0
+-- @since 0.9
 newtype Handle a = Handle
   { -- | Asset ID.
     --
-    -- @since 9.0
+    -- @since 0.9
     handleId :: AssetId
   }
   deriving (Eq, Ord, Show)
 
--- | @since 9.0
+-- | @since 0.9
 instance NFData (Handle a) where
   rnf = rwhnf
 
 -- | Lookup an asset by its handle.
 --
--- @since 9.0
+-- @since 0.9
 lookupAsset :: Handle a -> AssetServer a -> Maybe a
 lookupAsset h server = Map.lookup (handleId h) (assetServerAssets server)
 
 -- | Setup the asset server.
 --
--- @since 9.0
+-- @since 0.9
 setup :: forall m b a. (Typeable a, MonadAccess b m) => m ()
 setup = A.spawn_ . bundle $ assetServer @a
 
 -- | Load any pending assets.
 --
--- @since 9.0
+-- @since 0.9
 loadAssets :: forall a q s m. (Typeable a, ArrowQuery m q, MonadSystem q s, MonadIO m) => s ()
 loadAssets = void . S.map @q () $ Q.adjustM (\_ s -> loadAssetServer @m @a s)
 
 -- | Load any pending assets in an `AssetServer`.
 --
--- @since 9.0
+-- @since 0.9
 loadAssetServer :: (MonadIO m) => AssetServer a -> m (AssetServer a)
 loadAssetServer server =
   let go (aId, v) acc = do

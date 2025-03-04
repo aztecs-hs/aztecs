@@ -17,16 +17,16 @@ import GHC.Stack
 
 -- | Monadic dynamic system.
 --
--- @since 9.0
+-- @since 0.9
 class (Monad m) => MonadDynamicSystem q m | m -> q where
   -- | Map all matching entities with a query.
   --
-  -- @since 9.0
+  -- @since 0.9
   mapDyn :: i -> Set ComponentID -> q i o -> m [o]
 
   -- | Map a single matching entity with a query, or @Nothing@.
   --
-  -- @since 9.0
+  -- @since 0.9
   mapSingleMaybeDyn :: i -> Set ComponentID -> q i a -> m (Maybe a)
 
   -- | Map a single matching entity with a query.
@@ -39,5 +39,5 @@ class (Monad m) => MonadDynamicSystem q m | m -> q where
 
   -- | Map all matching entities with a query and filter.
   --
-  -- @since 9.0
+  -- @since 0.9
   filterMapDyn :: i -> Set ComponentID -> (Node -> Bool) -> q i a -> m [a]

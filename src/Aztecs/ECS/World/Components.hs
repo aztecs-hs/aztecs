@@ -33,22 +33,22 @@ import Prelude hiding (lookup)
 
 -- | Component ID map.
 --
--- @since 9.0
+-- @since 0.9
 data Components = Components
   { -- | Map of component types to identifiers.
     --
-    -- @since 9.0
+    -- @since 0.9
     componentIds :: !(Map TypeRep ComponentID),
     -- | Next unique component identifier.
     --
-    -- @since 9.0
+    -- @since 0.9
     nextComponentId :: !ComponentID
   }
   deriving (Show, Generic, NFData)
 
 -- | Empty `Components`.
 --
--- @since 9.0
+-- @since 0.9
 empty :: Components
 empty =
   Components
@@ -58,13 +58,13 @@ empty =
 
 -- | Lookup a component ID by type.
 --
--- @since 9.0
+-- @since 0.9
 lookup :: forall a. (Typeable a) => Components -> Maybe ComponentID
 lookup cs = Map.lookup (typeOf (Proxy @a)) (componentIds cs)
 
 -- | Insert a component ID by type, if it does not already exist.
 --
--- @since 9.0
+-- @since 0.9
 insert :: forall a. (Component a) => Components -> (ComponentID, Components)
 insert cs = case lookup @a cs of
   Just cId -> (cId, cs)
@@ -72,7 +72,7 @@ insert cs = case lookup @a cs of
 
 -- | Insert a component ID by type.
 --
--- @since 9.0
+-- @since 0.9
 insert' :: forall c. (Component c) => Components -> (ComponentID, Components)
 insert' cs =
   let !cId = nextComponentId cs

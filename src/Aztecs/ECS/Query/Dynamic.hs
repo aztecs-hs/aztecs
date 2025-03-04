@@ -53,23 +53,23 @@ import qualified Data.Set as Set
 import GHC.Stack (HasCallStack)
 import Prelude hiding ((.))
 
--- | @since 9.0
+-- | @since 0.9
 type DynamicQuery = DynamicQueryT Identity
 
 -- | Dynamic query for components by ID.
 --
--- @since 9.0
+-- @since 0.9
 newtype DynamicQueryT m i o
   = DynamicQuery
   { -- | Run a dynamic query with a list of inputs with length equal to the number of entities in the `Archetype`.
     -- This is an internal function that should typically not be used directly.
     --
-    -- @since 9.0
+    -- @since 0.9
     runDynQuery :: [i] -> Archetype -> m ([o], Archetype)
   }
   deriving (Functor)
 
--- | @since 9.0
+-- | @since 0.9
 instance (Monad m) => Applicative (DynamicQueryT m i) where
   {-# INLINE pure #-}
   pure a = DynamicQuery $ \is arch -> pure (replicate (length is) a, arch)
@@ -79,7 +79,7 @@ instance (Monad m) => Applicative (DynamicQueryT m i) where
     (fs, arch'') <- runDynQuery f i arch'
     return (zipWith ($) fs as, arch'')
 
--- | @since 9.0
+-- | @since 0.9
 instance (Monad m) => Category (DynamicQueryT m) where
   {-# INLINE id #-}
   id = DynamicQuery $ curry pure
@@ -88,7 +88,7 @@ instance (Monad m) => Category (DynamicQueryT m) where
     (as, arch') <- runDynQuery g i arch
     runDynQuery f as arch'
 
--- | @since 9.0
+-- | @since 0.9
 instance (Monad m) => Arrow (DynamicQueryT m) where
   {-# INLINE arr #-}
   arr f = DynamicQuery $ \bs arch -> pure (fmap f bs, arch)
@@ -98,7 +98,7 @@ instance (Monad m) => Arrow (DynamicQueryT m) where
     (cs, arch') <- runDynQuery f bs arch
     return (zip cs ds, arch')
 
--- | @since 9.0
+-- | @since 0.9
 instance (Monad m) => ArrowChoice (DynamicQueryT m) where
   {-# INLINE left #-}
   left f = DynamicQuery $ \eds arch -> do
@@ -106,7 +106,7 @@ instance (Monad m) => ArrowChoice (DynamicQueryT m) where
     (cs, arch') <- runDynQuery f es' arch
     return (fmap Left cs ++ fmap Right ds, arch')
 
--- | @since 9.0
+-- | @since 0.9
 instance (Monad m) => ArrowDynamicQueryReader (DynamicQueryT m) where
   {-# INLINE entity #-}
   entity = fromDynReader entity
@@ -115,7 +115,7 @@ instance (Monad m) => ArrowDynamicQueryReader (DynamicQueryT m) where
   {-# INLINE fetchMaybeDyn #-}
   fetchMaybeDyn = fromDynReader . fetchMaybeDyn
 
--- | @since 9.0
+-- | @since 0.9
 instance (Monad m) => ArrowDynamicQuery m (DynamicQueryT m) where
   {-# INLINE adjustDyn #-}
   adjustDyn f cId = DynamicQuery $ \is arch -> pure $ A.zipWith is f cId arch
@@ -131,7 +131,7 @@ instance (Monad m) => ArrowDynamicQuery m (DynamicQueryT m) where
 
 -- | Convert a `DynamicQueryReaderT` to a `DynamicQueryT`.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE fromDynReader #-}
 fromDynReader :: (Monad m) => DynamicQueryReaderT m i o -> DynamicQueryT m i o
 fromDynReader q = DynamicQuery $ \is arch -> do
@@ -140,14 +140,14 @@ fromDynReader q = DynamicQuery $ \is arch -> do
 
 -- | Convert a `DynamicQueryT` to a `DynamicQueryReaderT`.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE toDynReader #-}
 toDynReader :: (Functor m) => DynamicQueryT m i o -> DynamicQueryReaderT m i o
 toDynReader q = DynamicQueryReader $ \is arch -> fst <$> runDynQuery q is arch
 
 -- | Map all matched entities.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE mapDyn #-}
 mapDyn :: (Monad m) => Set ComponentID -> i -> DynamicQueryT m i a -> Entities -> m ([a], Entities)
 mapDyn cIds i q es =
@@ -165,7 +165,7 @@ mapDyn cIds i q es =
 
 -- | Map all matched entities.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE filterMapDyn #-}
 filterMapDyn :: (Monad m) => Set ComponentID -> i -> (Node -> Bool) -> DynamicQueryT m i a -> Entities -> m ([a], Entities)
 filterMapDyn cIds i f q es =
@@ -183,7 +183,7 @@ filterMapDyn cIds i f q es =
 
 -- | Map a single matched entity.
 --
--- @since 9.0
+-- @since 0.9
 mapSingleDyn :: (HasCallStack, Monad m) => Set ComponentID -> i -> DynamicQueryT m i a -> Entities -> m (a, Entities)
 mapSingleDyn cIds i q es = do
   res <- mapSingleMaybeDyn cIds i q es
@@ -193,7 +193,7 @@ mapSingleDyn cIds i q es = do
 
 -- | Map a single matched entity, or @Nothing@.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE mapSingleMaybeDyn #-}
 mapSingleMaybeDyn :: (Monad m) => Set ComponentID -> i -> DynamicQueryT m i a -> Entities -> m (Maybe a, Entities)
 mapSingleMaybeDyn cIds i q es =

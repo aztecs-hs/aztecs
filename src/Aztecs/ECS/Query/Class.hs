@@ -19,25 +19,25 @@ import Control.Arrow
 
 -- | Arrow for queries that can update entities.
 --
--- @since 9.0
+-- @since 0.9
 class (ArrowQueryReader arr) => ArrowQuery m arr | arr -> m where
   -- | Adjust a `Component` by its type.
   --
-  -- @since 9.0
+  -- @since 0.9
   adjust :: (Component a) => (i -> a -> a) -> arr i a
 
   -- | Adjust a `Component` by its type, ignoring any output.
   --
-  -- @since 9.0
+  -- @since 0.9
   adjust_ :: (Component a) => (i -> a -> a) -> arr i ()
   adjust_ f = adjust @m f >>> arr (const ())
 
   -- | Adjust a `Component` by its type with some `Monad` @m@.
   --
-  -- @since 9.0
+  -- @since 0.9
   adjustM :: (Component a) => (i -> a -> m a) -> arr i a
 
   -- | Set a `Component` by its type.
   --
-  -- @since 9.0
+  -- @since 0.9
   set :: (Component a) => arr a a

@@ -16,21 +16,21 @@ import Prelude hiding (map)
 
 -- | Monadic system.
 --
--- @since 9.0
+-- @since 0.9
 class (Monad m) => MonadSystem q m | m -> q where
   -- | Map all matching entities with a query.
   --
-  -- @since 9.0
+  -- @since 0.9
   map :: i -> q i o -> m [o]
 
   -- | Map a single matching entity with a query, or @Nothing@.
   --
-  -- @since 9.0
+  -- @since 0.9
   mapSingleMaybe :: i -> q i o -> m (Maybe o)
 
   -- | Map a single matching entity with a query.
   --
-  -- @since 9.0
+  -- @since 0.9
   mapSingle :: (HasCallStack) => i -> q i o -> m o
   mapSingle i q = do
     res <- mapSingleMaybe i q
@@ -40,5 +40,5 @@ class (Monad m) => MonadSystem q m | m -> q where
 
   -- | Map all matching entities with a query and filter.
   --
-  -- @since 9.0
+  -- @since 0.9
   filterMap :: i -> q i o -> QueryFilter -> m [o]

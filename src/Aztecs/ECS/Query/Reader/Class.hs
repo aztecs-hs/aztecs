@@ -13,15 +13,15 @@ import Control.Arrow
 
 -- | Arrow for queries that can read from entities.
 --
--- @since 9.0
+-- @since 0.9
 class (Arrow arr) => ArrowQueryReader arr where
   -- | Fetch a `Component` by its type.
   --
-  -- @since 9.0
+  -- @since 0.9
   fetch :: (Component a) => arr () a
 
   -- | Fetch a `Component` by its type, returning `Nothing` if it doesn't exist.
   --
-  -- @since 9.0
+  -- @since 0.9
   fetchMaybe :: (Component a) => arr () (Maybe a)
   fetchMaybe = fetch >>> arr Just

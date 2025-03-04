@@ -46,23 +46,23 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Stack
 
--- | @since 9.0
+-- | @since 0.9
 type DynamicQueryReader = DynamicQueryReaderT Identity
 
 -- | Dynamic query for components by ID.
 --
--- @since 9.0
+-- @since 0.9
 newtype DynamicQueryReaderT m i o
   = DynamicQueryReader
   { -- | Run a dynamic query with a list of inputs with length equal to the number of entities in the `Archetype`.
     -- This is an internal function that should typically not be used directly.
     --
-    -- @since 9.0
+    -- @since 0.9
     runDynQueryReader' :: [i] -> Archetype -> m [o]
   }
   deriving (Functor)
 
--- | @since 9.0
+-- | @since 0.9
 instance (Monad m) => Applicative (DynamicQueryReaderT m i) where
   {-# INLINE pure #-}
   pure a = DynamicQueryReader $ \is _ -> pure $ replicate (length is) a
@@ -73,7 +73,7 @@ instance (Monad m) => Applicative (DynamicQueryReaderT m i) where
       !fs <- runDynQueryReader' f i arch
       return $ zipWith ($) fs as
 
--- | @since 9.0
+-- | @since 0.9
 instance (Monad m) => Category (DynamicQueryReaderT m) where
   {-# INLINE id #-}
   id = DynamicQueryReader $ \as _ -> pure as
@@ -82,7 +82,7 @@ instance (Monad m) => Category (DynamicQueryReaderT m) where
     !as <- runDynQueryReader' g i arch
     runDynQueryReader' f as arch
 
--- | @since 9.0
+-- | @since 0.9
 instance (Monad m) => Arrow (DynamicQueryReaderT m) where
   {-# INLINE arr #-}
   arr f = DynamicQueryReader $ \bs _ -> pure $ fmap f bs
@@ -92,7 +92,7 @@ instance (Monad m) => Arrow (DynamicQueryReaderT m) where
     !cs <- runDynQueryReader' f bs arch
     return $ zip cs ds
 
--- | @since 9.0
+-- | @since 0.9
 instance (Monad m) => ArrowChoice (DynamicQueryReaderT m) where
   {-# INLINE left #-}
   left f = DynamicQueryReader $ \eds arch -> do
@@ -100,7 +100,7 @@ instance (Monad m) => ArrowChoice (DynamicQueryReaderT m) where
     !cs <- runDynQueryReader' f es' arch
     return $ fmap Left cs ++ fmap Right ds
 
--- | @since 9.0
+-- | @since 0.9
 instance (Monad m) => ArrowDynamicQueryReader (DynamicQueryReaderT m) where
   {-# INLINE entity #-}
   entity = DynamicQueryReader $ \_ arch -> pure $ Set.toList $ A.entities arch
@@ -113,44 +113,44 @@ instance (Monad m) => ArrowDynamicQueryReader (DynamicQueryReaderT m) where
 
 -- | Dynamic query filter.
 --
--- @since 9.0
+-- @since 0.9
 data DynamicQueryFilter = DynamicQueryFilter
   { -- | `ComponentID`s to include.
     --
-    -- @since 9.0
+    -- @since 0.9
     filterWith :: !(Set ComponentID),
     -- | `ComponentID`s to exclude.
     --
-    -- @since 9.0
+    -- @since 0.9
     filterWithout :: !(Set ComponentID)
   }
 
--- | @since 9.0
+-- | @since 0.9
 instance Semigroup DynamicQueryFilter where
   DynamicQueryFilter withA withoutA <> DynamicQueryFilter withB withoutB =
     DynamicQueryFilter (withA <> withB) (withoutA <> withoutB)
 
--- | @since 9.0
+-- | @since 0.9
 instance Monoid DynamicQueryFilter where
   mempty = DynamicQueryFilter mempty mempty
 
 -- | Run a dynamic query.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE runDynQueryReaderT #-}
 runDynQueryReaderT :: i -> DynamicQueryReaderT m i o -> Archetype -> m [o]
 runDynQueryReaderT i q arch = runDynQueryReader' q (replicate (length $ A.entities arch) i) arch
 
 -- | Run a dynamic query.
 --
--- @since 9.0
+-- @since 0.9
 {-# INLINE runDynQueryReader #-}
 runDynQueryReader :: i -> DynamicQueryReader i o -> Archetype -> [o]
 runDynQueryReader i q arch = runIdentity $ runDynQueryReaderT i q arch
 
 -- | Match all entities.
 --
--- @since 9.0
+-- @since 0.9
 allDyn :: (Monad m) => Set ComponentID -> i -> DynamicQueryReaderT m i a -> Entities -> m [a]
 allDyn cIds i q es =
   if Set.null cIds
@@ -161,7 +161,7 @@ allDyn cIds i q es =
 
 -- | Match all entities with a filter.
 --
--- @since 9.0
+-- @since 0.9
 filterDyn :: (Monad m) => Set ComponentID -> i -> (Node -> Bool) -> DynamicQueryReaderT m i a -> Entities -> m [a]
 filterDyn cIds i f q es =
   if Set.null cIds
@@ -172,7 +172,7 @@ filterDyn cIds i f q es =
 
 -- | Match a single entity.
 --
--- @since 9.0
+-- @since 0.9
 singleDyn :: (HasCallStack) => Set ComponentID -> i -> DynamicQueryReader i a -> Entities -> a
 singleDyn cIds i q es = case singleMaybeDyn cIds i q es of
   Just a -> a
@@ -180,7 +180,7 @@ singleDyn cIds i q es = case singleMaybeDyn cIds i q es of
 
 -- | Match a single entity, or `Nothing`.
 --
--- @since 9.0
+-- @since 0.9
 singleMaybeDyn :: Set ComponentID -> i -> DynamicQueryReader i a -> Entities -> Maybe a
 singleMaybeDyn cIds i q es =
   if Set.null cIds

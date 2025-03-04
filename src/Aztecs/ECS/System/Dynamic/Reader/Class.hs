@@ -17,16 +17,16 @@ import GHC.Stack
 
 -- | Monadic dynamic reader system.
 --
--- @since 9.0
+-- @since 0.9
 class (Monad m) => MonadDynamicReaderSystem q m | m -> q where
   -- | Match all entities with a query.
   --
-  -- @since 9.0
+  -- @since 0.9
   allDyn :: i -> Set ComponentID -> q i o -> m [o]
 
   -- | Match a single entity with a query.
   --
-  -- @since 9.0
+  -- @since 0.9
   singleDyn :: (HasCallStack) => i -> Set ComponentID -> q i o -> m o
   singleDyn i cIds q = do
     os <- allDyn i cIds q
@@ -36,7 +36,7 @@ class (Monad m) => MonadDynamicReaderSystem q m | m -> q where
 
   -- | Match a single entity with a query, or Nothing.
   --
-  -- @since 9.0
+  -- @since 0.9
   singleMaybeDyn :: i -> Set ComponentID -> q i o -> m (Maybe o)
   singleMaybeDyn i cIds q = do
     os <- allDyn i cIds q
@@ -46,5 +46,5 @@ class (Monad m) => MonadDynamicReaderSystem q m | m -> q where
 
   -- | Match all entities with a query and filter.
   --
-  -- @since 9.0
+  -- @since 0.9
   filterDyn :: i -> Set ComponentID -> q i a -> (Node -> Bool) -> m [a]

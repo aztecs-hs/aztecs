@@ -56,26 +56,26 @@ import Prelude hiding (all, lookup, map)
 
 -- | `Archetype` ID.
 --
--- @since 9.0
+-- @since 0.9
 newtype ArchetypeID = ArchetypeID
   { -- | Unique integer identifier.
     --
-    -- @since 9.0
+    -- @since 0.9
     unArchetypeId :: Int
   }
   deriving newtype (Eq, Ord, Show, NFData)
 
 -- | Node in `Archetypes`.
 --
--- @since 9.0
+-- @since 0.9
 data Node = Node
   { -- | Unique set of `ComponentID`s of this `Node`.
     --
-    -- @since 9.0
+    -- @since 0.9
     nodeComponentIds :: !(Set ComponentID),
     -- | `Archetype` of this `Node`.
     --
-    -- @since 9.0
+    -- @since 0.9
     nodeArchetype :: !Archetype
   }
   deriving (Show, Generic, NFData)
@@ -84,26 +84,26 @@ data Node = Node
 data Archetypes = Archetypes
   { -- | Archetype nodes in the map.
     --
-    -- @since 9.0
+    -- @since 0.9
     nodes :: !(Map ArchetypeID Node),
     -- | Mapping of unique `ComponentID` sets to `ArchetypeID`s.
     --
-    -- @since 9.0
+    -- @since 0.9
     archetypeIds :: !(Map (Set ComponentID) ArchetypeID),
     -- | Next unique `ArchetypeID`.
     --
-    -- @since 9.0
+    -- @since 0.9
     nextArchetypeId :: !ArchetypeID,
     -- | Mapping of `ComponentID`s to `ArchetypeID`s of `Archetypes` that contain them.
     --
-    -- @since 9.0
+    -- @since 0.9
     componentIds :: !(Map ComponentID (Set ArchetypeID))
   }
   deriving (Show, Generic, NFData)
 
 -- | Empty `Archetypes`.
 --
--- @since 9.0
+-- @since 0.9
 empty :: Archetypes
 empty =
   Archetypes
@@ -115,7 +115,7 @@ empty =
 
 -- | Insert an archetype by its set of `ComponentID`s.
 --
--- @since 9.0
+-- @since 0.9
 insertArchetype :: Set ComponentID -> Node -> Archetypes -> (ArchetypeID, Archetypes)
 insertArchetype cIds n arches =
   let aId = nextArchetypeId arches
@@ -130,14 +130,14 @@ insertArchetype cIds n arches =
 
 -- | Adjust an `Archetype` by its `ArchetypeID`.
 --
--- @since 9.0
+-- @since 0.9
 adjustArchetype :: ArchetypeID -> (Archetype -> Archetype) -> Archetypes -> Archetypes
 adjustArchetype aId f arches =
   arches {nodes = Map.adjust (\node -> node {nodeArchetype = f (nodeArchetype node)}) aId (nodes arches)}
 
 -- | Find `ArchetypeID`s containing a set of `ComponentID`s.
 --
--- @since 9.0
+-- @since 0.9
 findArchetypeIds :: Set ComponentID -> Archetypes -> Set ArchetypeID
 findArchetypeIds cIds arches = case mapMaybe (\cId -> Map.lookup cId (componentIds arches)) (Set.elems cIds) of
   (aId : aIds') -> foldl' Set.intersection aId aIds'
@@ -145,13 +145,13 @@ findArchetypeIds cIds arches = case mapMaybe (\cId -> Map.lookup cId (componentI
 
 -- | Lookup `Archetype`s containing a set of `ComponentID`s.
 --
--- @since 9.0
+-- @since 0.9
 find :: Set ComponentID -> Archetypes -> Map ArchetypeID Node
 find cIds arches = Map.fromSet (\aId -> nodes arches Map.! aId) (findArchetypeIds cIds arches)
 
 -- | Map over `Archetype`s containing a set of `ComponentID`s.
 --
--- @since 9.0
+-- @since 0.9
 map :: Set ComponentID -> (Archetype -> (a, Archetype)) -> Archetypes -> ([a], Archetypes)
 map cIds f arches =
   let go (acc, archAcc) aId =
@@ -163,19 +163,19 @@ map cIds f arches =
 
 -- | Lookup an `ArchetypeID` by its set of `ComponentID`s.
 --
--- @since 9.0
+-- @since 0.9
 lookupArchetypeId :: Set ComponentID -> Archetypes -> Maybe ArchetypeID
 lookupArchetypeId cIds arches = Map.lookup cIds (archetypeIds arches)
 
 -- | Lookup an `Archetype` by its `ArchetypeID`.
 --
--- @since 9.0
+-- @since 0.9
 lookup :: ArchetypeID -> Archetypes -> Maybe Node
 lookup aId arches = Map.lookup aId (nodes arches)
 
 -- | Insert a component into an entity with its `ComponentID`.
 --
--- @since 9.0
+-- @since 0.9
 insert ::
   EntityID ->
   ArchetypeID ->
@@ -212,7 +212,7 @@ insert e aId cIds b arches = case lookup aId arches of
 
 -- | Remove a component from an entity with its `ComponentID`.
 --
--- @since 9.0
+-- @since 0.9
 remove ::
   (Component a) =>
   EntityID ->

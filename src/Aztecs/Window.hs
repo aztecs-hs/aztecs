@@ -17,14 +17,14 @@ import GHC.Generics
 
 -- | Window component.
 --
--- @since 9.0
+-- @since 0.9
 newtype Window = Window
   { -- | Window title.
     --
-    -- @since 9.0
+    -- @since 0.9
     windowTitle :: String
   }
   deriving (Show, Generic, NFData)
 
--- | @since 9.0
+-- | @since 0.9
 instance Component Window

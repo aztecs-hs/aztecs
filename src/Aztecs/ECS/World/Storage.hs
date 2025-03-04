@@ -19,46 +19,46 @@ import qualified Prelude
 
 -- | Component storage, containing zero or many components of the same type.
 --
--- @since 9.0
+-- @since 0.9
 class (Typeable s, NFData s, Typeable a) => Storage a s where
   -- | Storage with a single component.
   --
-  -- @since 9.0
+  -- @since 0.9
   singleton :: a -> s
 
   -- | List of all components in the storage in ascending order.
   --
-  -- @since 9.0
+  -- @since 0.9
   toAscList :: s -> [a]
 
   -- | Convert a sorted list of components (in ascending order) into a storage.
   --
-  -- @since 9.0
+  -- @since 0.9
   fromAscList :: [a] -> s
 
   -- | Map a function over all components in the storage.
   --
   --
-  -- @since 9.0
+  -- @since 0.9
   map :: (a -> a) -> s -> s
 
   -- | Map a function with some input over all components in the storage.
   --
-  -- @since 9.0
+  -- @since 0.9
   zipWith :: (i -> a -> a) -> [i] -> s -> ([a], s)
 
   -- | Map a monadic function with some input over all components in the storage.
   --
-  -- @since 9.0
+  -- @since 0.9
   zipWithM :: (Monad m) => (i -> a -> m a) -> [i] -> s -> m ([a], s)
 
   -- | Map a function with some input over all components in the storage.
   --
-  -- @since 9.0
+  -- @since 0.9
   zipWith_ :: (i -> a -> a) -> [i] -> s -> s
   zipWith_ f is as = snd $ zipWith f is as
 
--- | @since 9.0
+-- | @since 0.9
 instance (Typeable a, NFData a) => Storage a [a] where
   {-# INLINE singleton #-}
   singleton a = [a]

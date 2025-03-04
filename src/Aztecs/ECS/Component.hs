@@ -20,22 +20,22 @@ import GHC.Generics
 
 -- | Unique component identifier.
 --
--- @since 9.0
+-- @since 0.9
 newtype ComponentID = ComponentID
   { -- | Unique integer identifier.
     --
-    -- @since 9.0
+    -- @since 0.9
     unComponentId :: Int
   }
   deriving (Eq, Ord, Show, Generic, NFData)
 
 -- | Component that can be stored in the `World`.
 --
--- @since 9.0
+-- @since 0.9
 class (Typeable a, Storage a (StorageT a)) => Component a where
   -- | `Storage` of this component.
   --
-  -- @since 9.0
+  -- @since 0.9
   type StorageT a
 
   type StorageT a = [a]

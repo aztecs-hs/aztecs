@@ -39,22 +39,22 @@ import Prelude hiding (lookup)
 
 -- | World of entities and their components.
 --
--- @since 9.0
+-- @since 0.9
 data World = World
   { -- | Entities and their components.
     --
-    -- @since 9.0
+    -- @since 0.9
     entities :: !Entities,
     -- | Next unique entity identifier.
     --
-    -- @since 9.0
+    -- @since 0.9
     nextEntityId :: !EntityID
   }
   deriving (Show, Generic, NFData)
 
 -- | Empty `World`.
 --
--- @since 9.0
+-- @since 0.9
 empty :: World
 empty =
   World
@@ -64,7 +64,7 @@ empty =
 
 -- | Spawn a `Bundle` into the `World`.
 --
--- @since 9.0
+-- @since 0.9
 spawn :: Bundle -> World -> (EntityID, World)
 spawn b w =
   let e = nextEntityId w
@@ -72,31 +72,31 @@ spawn b w =
 
 -- | Spawn an empty entity.
 --
--- @since 9.0
+-- @since 0.9
 spawnEmpty :: World -> (EntityID, World)
 spawnEmpty w = let e = nextEntityId w in (e, w {nextEntityId = EntityID $ unEntityId e + 1})
 
 -- | Insert a `Bundle` into an entity.
 --
--- @since 9.0
+-- @since 0.9
 insert :: EntityID -> Bundle -> World -> World
 insert e c w = w {entities = E.insert e c (entities w)}
 
 -- | Lookup a component in an entity.
 --
--- @since 9.0
+-- @since 0.9
 lookup :: forall a. (Component a) => EntityID -> World -> Maybe a
 lookup e w = E.lookup e $ entities w
 
 -- | Remove a component from an entity.
 --
--- @since 9.0
+-- @since 0.9
 remove :: forall a. (Component a) => EntityID -> World -> (Maybe a, World)
 remove e w = let (a, es) = E.remove e (entities w) in (a, w {entities = es})
 
 -- | Remove a component from an entity with its `ComponentID`.
 --
--- @since 9.0
+-- @since 0.9
 removeWithId :: forall a. (Component a) => EntityID -> ComponentID -> World -> (Maybe a, World)
 removeWithId e cId w = let (a, es) = E.removeWithId e cId (entities w) in (a, w {entities = es})
 

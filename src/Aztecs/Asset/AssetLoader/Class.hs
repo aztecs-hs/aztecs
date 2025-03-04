@@ -15,9 +15,9 @@ import Aztecs.Asset.Class
 
 -- | Monadic interface for loading assets.
 --
--- @since 9.0
+-- @since 0.9
 class MonadAssetLoader a m | m -> a where
   -- | Load an asset from a file path with a configuration.
   --
-  -- @since 9.0
+  -- @since 0.9
   asset :: FilePath -> AssetConfig a -> m (Handle a)

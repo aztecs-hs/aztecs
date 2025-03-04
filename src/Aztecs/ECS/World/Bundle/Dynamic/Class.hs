@@ -12,9 +12,9 @@ import Aztecs.ECS.Component
 
 -- | Monoid bundle of dynamic components.
 --
--- @since 9.0
+-- @since 0.9
 class MonoidDynamicBundle a where
   -- | Add a component to the bundle by its `ComponentID`.
   --
-  -- @since 9.0
+  -- @since 0.9
   dynBundle :: (Component c) => ComponentID -> c -> a
