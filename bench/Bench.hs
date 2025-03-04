@@ -21,16 +21,16 @@ newtype Velocity = Velocity Int deriving (Show, Generic, NFData)
 
 instance Component Velocity
 
-query :: Query () ()
-query = Q.fetch >>> Q.adjust_ (\(Velocity v) (Position p) -> Position $ p + v)
+query :: Query () Position
+query = Q.fetch >>> Q.adjust (\(Velocity v) (Position p) -> Position $ p + v)
 
-queryDo :: Query () ()
+queryDo :: Query () Position
 queryDo = proc () -> do
   Velocity v <- Q.fetch -< ()
-  Q.adjust_ (\v (Position p) -> Position $ p + v) -< v
+  Q.adjust (\v (Position p) -> Position $ p + v) -< v
 
-run :: Query () () -> World -> World
-run q w = let !(_, es) = runIdentity $ Q.map () q $ entities w in w {entities = es}
+run :: Query () Position -> World -> [Position]
+run q = fst . runIdentity . Q.map () q . entities
 
 main :: IO ()
 main = do
