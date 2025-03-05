@@ -59,7 +59,7 @@ newtype SystemT m a = SystemT
     -- @since 0.9
     runSystemT :: ReaderT (TVar Entities) m a
   }
-  deriving (Functor, Applicative, Monad, MonadFix)
+  deriving (Functor, Applicative, Monad)
 
 -- | @since 0.9
 instance MonadDynamicSystem (DynamicQueryT STM) System where

@@ -8,6 +8,7 @@ import Aztecs.ECS.World
 import qualified Aztecs.ECS.World as W
 import Control.DeepSeq
 import Criterion.Main
+import Data.Function
 import Data.Functor.Identity
 import GHC.Generics
 
@@ -20,7 +21,7 @@ newtype Velocity = Velocity Int deriving (Show, Generic, NFData)
 instance Component Velocity
 
 query :: Query Position
-query = Q.adjust (\(Velocity v) (Position p) -> Position $ p + v) Q.fetch
+query = Q.fetch & Q.adjust (\(Velocity v) (Position p) -> Position $ p + v)
 
 run :: Query Position -> World -> [Position]
 run q = fst . runIdentity . Q.map q . entities

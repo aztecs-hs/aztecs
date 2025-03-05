@@ -22,7 +22,6 @@ import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query.Reader as Q
 import qualified Aztecs.ECS.System as S
 import Aztecs.Window
-import Control.Arrow
 import Control.DeepSeq
 import GHC.Generics
 import Linear
