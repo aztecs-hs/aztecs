@@ -64,11 +64,10 @@ module Aztecs.ECS
     Query,
     QueryT,
     QueryReader,
-    QueryReaderT,
-    ArrowQueryReader,
-    ArrowQuery,
-    ArrowDynamicQueryReader,
-    ArrowDynamicQuery,
+    QueryReaderF,
+    QueryF,
+    DynamicQueryReaderF,
+    DynamicQueryF,
     QueryFilter,
     with,
     without,
@@ -84,17 +83,17 @@ import Aztecs.ECS.Access
 import Aztecs.ECS.Component (Component (..))
 import Aztecs.ECS.Entity (EntityID)
 import Aztecs.ECS.Query
-  ( ArrowDynamicQuery,
-    ArrowDynamicQueryReader,
-    ArrowQuery,
-    ArrowQueryReader,
+  ( DynamicQueryF,
+    DynamicQueryReaderF,
     Query,
+    QueryF,
     QueryFilter,
+    QueryReaderF,
     QueryT,
     with,
     without,
   )
-import Aztecs.ECS.Query.Reader (QueryReader, QueryReaderT)
+import Aztecs.ECS.Query.Reader (QueryReader)
 import Aztecs.ECS.System
 import Aztecs.ECS.World (World)
 import Aztecs.ECS.World.Bundle (Bundle, MonoidBundle (..))

@@ -1,7 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 
 -- |
 -- Module      : Aztecs.ECS.Query.Reader.Class
@@ -11,33 +10,32 @@
 -- Maintainer  : matt@hunzinger.me
 -- Stability   : provisional
 -- Portability : non-portable (GHC extensions)
-module Aztecs.ECS.Query.Class (ArrowQuery (..)) where
+module Aztecs.ECS.Query.Class (QueryF (..)) where
 
 import Aztecs.ECS.Component
-import Aztecs.ECS.Query.Reader.Class (ArrowQueryReader)
-import Control.Arrow
+import Control.Monad
 
--- | Arrow for queries that can update entities.
+-- | Query functor.
 --
--- @since 0.9
-class (ArrowQueryReader arr) => ArrowQuery m arr | arr -> m where
+-- @since 0.10
+class (Monad m, Functor f) => QueryF m f | f -> m where
   -- | Adjust a `Component` by its type.
   --
-  -- @since 0.9
-  adjust :: (Component a) => (i -> a -> a) -> arr i a
+  -- @since 0.10
+  adjust :: (Component a) => (b -> a -> a) -> f b -> f a
 
   -- | Adjust a `Component` by its type, ignoring any output.
   --
-  -- @since 0.9
-  adjust_ :: (Component a) => (i -> a -> a) -> arr i ()
-  adjust_ f = adjust @m f >>> arr (const ())
+  -- @since 0.10
+  adjust_ :: (Component a) => (b -> a -> a) -> f b -> f ()
+  adjust_ f = void . adjust f
 
   -- | Adjust a `Component` by its type with some `Monad` @m@.
   --
-  -- @since 0.9
-  adjustM :: (Component a) => (i -> a -> m a) -> arr i a
+  -- @since 0.10
+  adjustM :: (Component a) => (b -> a -> m a) -> f b -> f a
 
   -- | Set a `Component` by its type.
   --
-  -- @since 0.9
-  set :: (Component a) => arr a a
+  -- @since 0.10
+  set :: (Component a) => f a -> f a

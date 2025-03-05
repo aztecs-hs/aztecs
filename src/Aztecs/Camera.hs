@@ -63,15 +63,16 @@ instance Component CameraTarget
 --
 -- @since 0.9
 addCameraTargets ::
-  ( ArrowQueryReader qr,
-    ArrowDynamicQueryReader qr,
+  ( Applicative qr,
+    QueryReaderF qr,
+    DynamicQueryReaderF qr,
     MonadReaderSystem qr s,
     MonadAccess b m
   ) =>
   s (m ())
 addCameraTargets = do
-  windows <- S.all () (Q.entity &&& Q.fetch @_ @Window)
-  newCameras <- S.filter () (Q.entity &&& Q.fetch @_ @Camera) (without @CameraTarget)
+  windows <- S.all ((,) <$> Q.entity <*> Q.fetch @_ @Window)
+  newCameras <- S.filter ((,) <$> Q.entity <*> Q.fetch @_ @Camera) (without @CameraTarget)
   let go = case windows of
         (windowEId, _) : _ -> mapM_ (\(eId, _) -> A.insert eId . bundle $ CameraTarget windowEId) newCameras
         _ -> return ()

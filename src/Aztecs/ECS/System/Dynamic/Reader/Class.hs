@@ -22,14 +22,14 @@ class (Monad m) => MonadDynamicReaderSystem q m | m -> q where
   -- | Match all entities with a query.
   --
   -- @since 0.9
-  allDyn :: i -> Set ComponentID -> q i o -> m [o]
+  allDyn :: Set ComponentID -> q a -> m [a]
 
   -- | Match a single entity with a query.
   --
   -- @since 0.9
-  singleDyn :: (HasCallStack) => i -> Set ComponentID -> q i o -> m o
-  singleDyn i cIds q = do
-    os <- allDyn i cIds q
+  singleDyn :: (HasCallStack) => Set ComponentID -> q a -> m a
+  singleDyn cIds q = do
+    os <- allDyn cIds q
     case os of
       [o] -> return o
       _ -> error "singleDyn: expected a single result, but got multiple"
@@ -37,9 +37,9 @@ class (Monad m) => MonadDynamicReaderSystem q m | m -> q where
   -- | Match a single entity with a query, or Nothing.
   --
   -- @since 0.9
-  singleMaybeDyn :: i -> Set ComponentID -> q i o -> m (Maybe o)
-  singleMaybeDyn i cIds q = do
-    os <- allDyn i cIds q
+  singleMaybeDyn :: Set ComponentID -> q a -> m (Maybe a)
+  singleMaybeDyn cIds q = do
+    os <- allDyn cIds q
     return $ case os of
       [o] -> Just o
       _ -> Nothing
@@ -47,4 +47,4 @@ class (Monad m) => MonadDynamicReaderSystem q m | m -> q where
   -- | Match all entities with a query and filter.
   --
   -- @since 0.9
-  filterDyn :: i -> Set ComponentID -> q i a -> (Node -> Bool) -> m [a]
+  filterDyn :: Set ComponentID -> q a -> (Node -> Bool) -> m [a]

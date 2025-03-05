@@ -21,19 +21,19 @@ class (Monad m) => MonadSystem q m | m -> q where
   -- | Map all matching entities with a query.
   --
   -- @since 0.9
-  map :: i -> q i o -> m [o]
+  map :: q a -> m [a]
 
   -- | Map a single matching entity with a query, or @Nothing@.
   --
   -- @since 0.9
-  mapSingleMaybe :: i -> q i o -> m (Maybe o)
+  mapSingleMaybe :: q a -> m (Maybe a)
 
   -- | Map a single matching entity with a query.
   --
   -- @since 0.9
-  mapSingle :: (HasCallStack) => i -> q i o -> m o
-  mapSingle i q = do
-    res <- mapSingleMaybe i q
+  mapSingle :: (HasCallStack) => q a -> m a
+  mapSingle q = do
+    res <- mapSingleMaybe q
     case res of
       Just a -> return a
       Nothing -> error "Expected a single matching entity."
@@ -41,4 +41,4 @@ class (Monad m) => MonadSystem q m | m -> q where
   -- | Map all matching entities with a query and filter.
   --
   -- @since 0.9
-  filterMap :: i -> q i o -> QueryFilter -> m [o]
+  filterMap :: q a -> QueryFilter -> m [a]

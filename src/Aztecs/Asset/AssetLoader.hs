@@ -1,5 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE Arrows #-}
+{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -73,15 +73,11 @@ instance (Monad m, Asset a) => MonadAssetLoader a (AssetLoaderT a m) where
 -- | Query to load assets.
 --
 -- @since 0.9
-loadQuery :: (Asset a, ArrowQuery m arr) => AssetLoader a o -> arr () o
-loadQuery a = proc () -> do
-  server <- Q.fetch -< ()
-  let (o, server') = runState (unAssetLoader a) server
-  Q.set -< server'
-  returnA -< o
+loadQuery :: (Asset a, QueryF m q) => AssetLoader a o -> q o
+loadQuery a = error "TODO"
 
 -- | System to load assets.
 --
 -- @since 0.9
-load :: forall m q s a o. (ArrowQuery m q, MonadSystem q s, Asset a) => AssetLoader a o -> s o
-load a = S.mapSingle @q () $ loadQuery a
+load :: forall m q s a o. (QueryF m q, MonadSystem q s, Asset a) => AssetLoader a o -> s o
+load a = S.mapSingle @q $ loadQuery a

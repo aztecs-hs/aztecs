@@ -16,8 +16,8 @@ module Aztecs.ECS.Query.Dynamic
   ( -- * Dynamic queries
     DynamicQuery,
     DynamicQueryT (..),
-    ArrowDynamicQueryReader (..),
-    ArrowDynamicQuery (..),
+    DynamicQueryReaderF (..),
+    DynamicQueryF (..),
 
     -- ** Conversion
     fromDynReader,
@@ -42,10 +42,8 @@ import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
 import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Entities (Entities (..))
-import Control.Arrow
 import Control.Category
 import Control.Monad.Identity
-import Data.Either (partitionEithers)
 import Data.Foldable
 import qualified Data.Map as Map
 import Data.Set (Set)
@@ -53,105 +51,87 @@ import qualified Data.Set as Set
 import GHC.Stack (HasCallStack)
 import Prelude hiding ((.))
 
--- | @since 0.9
 type DynamicQuery = DynamicQueryT Identity
 
 -- | Dynamic query for components by ID.
 --
--- @since 0.9
-newtype DynamicQueryT m i o
+-- @since 0.10
+newtype DynamicQueryT m a
   = DynamicQuery
-  { -- | Run a dynamic query with a list of inputs with length equal to the number of entities in the `Archetype`.
-    -- This is an internal function that should typically not be used directly.
+  { -- | Run a dynamic query.
     --
-    -- @since 0.9
-    runDynQuery :: [i] -> Archetype -> m ([o], Archetype)
+    -- @since 0.10
+    runDynQuery :: Archetype -> m ([a], Archetype)
   }
   deriving (Functor)
 
--- | @since 0.9
-instance (Monad m) => Applicative (DynamicQueryT m i) where
+-- | @since 0.10
+instance (Monad m) => Applicative (DynamicQueryT m) where
   {-# INLINE pure #-}
-  pure a = DynamicQuery $ \is arch -> pure (replicate (length is) a, arch)
+  pure a = DynamicQuery $ \arch -> pure (replicate (length $ A.entities arch) a, arch)
+
   {-# INLINE (<*>) #-}
-  f <*> g = DynamicQuery $ \i arch -> do
-    (as, arch') <- runDynQuery g i arch
-    (fs, arch'') <- runDynQuery f i arch'
+  f <*> g = DynamicQuery $ \arch -> do
+    (as, arch') <- runDynQuery g arch
+    (fs, arch'') <- runDynQuery f arch'
     return (zipWith ($) fs as, arch'')
 
--- | @since 0.9
-instance (Monad m) => Category (DynamicQueryT m) where
-  {-# INLINE id #-}
-  id = DynamicQuery $ curry pure
-  {-# INLINE (.) #-}
-  f . g = DynamicQuery $ \i arch -> do
-    (as, arch') <- runDynQuery g i arch
-    runDynQuery f as arch'
-
--- | @since 0.9
-instance (Monad m) => Arrow (DynamicQueryT m) where
-  {-# INLINE arr #-}
-  arr f = DynamicQuery $ \bs arch -> pure (fmap f bs, arch)
-  {-# INLINE first #-}
-  first f = DynamicQuery $ \bds arch -> do
-    let !(bs, ds) = unzip bds
-    (cs, arch') <- runDynQuery f bs arch
-    return (zip cs ds, arch')
-
--- | @since 0.9
-instance (Monad m) => ArrowChoice (DynamicQueryT m) where
-  {-# INLINE left #-}
-  left f = DynamicQuery $ \eds arch -> do
-    let !(es', ds) = partitionEithers eds
-    (cs, arch') <- runDynQuery f es' arch
-    return (fmap Left cs ++ fmap Right ds, arch')
-
--- | @since 0.9
-instance (Monad m) => ArrowDynamicQueryReader (DynamicQueryT m) where
+-- | @since 0.10
+instance DynamicQueryReaderF DynamicQuery where
   {-# INLINE entity #-}
   entity = fromDynReader entity
+
   {-# INLINE fetchDyn #-}
   fetchDyn = fromDynReader . fetchDyn
+
   {-# INLINE fetchMaybeDyn #-}
   fetchMaybeDyn = fromDynReader . fetchMaybeDyn
 
--- | @since 0.9
-instance (Monad m) => ArrowDynamicQuery m (DynamicQueryT m) where
+-- | @since 0.10
+instance (Monad m) => DynamicQueryF m (DynamicQueryT m) where
   {-# INLINE adjustDyn #-}
-  adjustDyn f cId = DynamicQuery $ \is arch -> pure $ A.zipWith is f cId arch
+  adjustDyn f cId q = DynamicQuery $ \arch -> do
+    (bs, arch') <- runDynQuery q arch
+    return $ A.zipWith bs f cId arch'
 
   {-# INLINE adjustDyn_ #-}
-  adjustDyn_ f cId = DynamicQuery $ \is arch -> pure (repeat (), A.zipWith_ is f cId arch)
+  adjustDyn_ f cId q = DynamicQuery $ \arch -> do
+    (bs, arch') <- runDynQuery q arch
+    return (map (const ()) bs, A.zipWith_ bs f cId arch')
 
   {-# INLINE adjustDynM #-}
-  adjustDynM f cId = DynamicQuery $ \is arch -> A.zipWithM is f cId arch
+  adjustDynM f cId q = DynamicQuery $ \arch -> do
+    (bs, arch') <- runDynQuery q arch
+    A.zipWithM bs f cId arch'
 
   {-# INLINE setDyn #-}
-  setDyn cId = DynamicQuery $ \is arch -> pure (is, A.insertAscList cId is arch)
+  setDyn cId q = DynamicQuery $ \arch -> do
+    (bs, arch') <- runDynQuery q arch
+    return (bs, A.insertAscList cId bs arch')
 
 -- | Convert a `DynamicQueryReaderT` to a `DynamicQueryT`.
 --
--- @since 0.9
+-- @since 0.10
 {-# INLINE fromDynReader #-}
-fromDynReader :: (Monad m) => DynamicQueryReaderT m i o -> DynamicQueryT m i o
-fromDynReader q = DynamicQuery $ \is arch -> do
-  !os <- runDynQueryReader' q is arch
+fromDynReader :: (Monad m) => DynamicQueryReader a -> DynamicQueryT m a
+fromDynReader q = DynamicQuery $ \arch -> do
+  let !os = runDynQueryReader q arch
   return (os, arch)
 
 -- | Convert a `DynamicQueryT` to a `DynamicQueryReaderT`.
 --
--- @since 0.9
+-- @since 0.10
 {-# INLINE toDynReader #-}
-toDynReader :: (Functor m) => DynamicQueryT m i o -> DynamicQueryReaderT m i o
-toDynReader q = DynamicQueryReader $ \is arch -> fst <$> runDynQuery q is arch
+toDynReader :: DynamicQuery a -> DynamicQueryReader a
+toDynReader q = DynamicQueryReader $ \arch -> fst $ runIdentity $ runDynQuery q arch
 
 -- | Map all matched entities.
 --
--- @since 0.9
+-- @since 0.10
 {-# INLINE mapDyn #-}
-mapDyn :: (Monad m) => Set ComponentID -> i -> DynamicQueryT m i a -> Entities -> m ([a], Entities)
-mapDyn cIds i q es =
-  let go = runDynQuery q (repeat i)
+mapDyn :: (Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m ([a], Entities)
+mapDyn cIds q es =
+  let go = runDynQuery q
    in if Set.null cIds
         then do
           (as, _) <- go A.empty {A.entities = Map.keysSet $ entities es}
@@ -165,11 +145,11 @@ mapDyn cIds i q es =
 
 -- | Map all matched entities.
 --
--- @since 0.9
+-- @since 0.10
 {-# INLINE filterMapDyn #-}
-filterMapDyn :: (Monad m) => Set ComponentID -> i -> (Node -> Bool) -> DynamicQueryT m i a -> Entities -> m ([a], Entities)
-filterMapDyn cIds i f q es =
-  let go = runDynQuery q (repeat i)
+filterMapDyn :: (Monad m) => Set ComponentID -> (Node -> Bool) -> DynamicQueryT m a -> Entities -> m ([a], Entities)
+filterMapDyn cIds f q es =
+  let go = runDynQuery q
    in if Set.null cIds
         then do
           (as, _) <- go A.empty {A.entities = Map.keysSet $ entities es}
@@ -183,31 +163,31 @@ filterMapDyn cIds i f q es =
 
 -- | Map a single matched entity.
 --
--- @since 0.9
-mapSingleDyn :: (HasCallStack, Monad m) => Set ComponentID -> i -> DynamicQueryT m i a -> Entities -> m (a, Entities)
-mapSingleDyn cIds i q es = do
-  res <- mapSingleMaybeDyn cIds i q es
+-- @since 0.10
+mapSingleDyn :: (HasCallStack, Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m (a, Entities)
+mapSingleDyn cIds q es = do
+  res <- mapSingleMaybeDyn cIds q es
   return $ case res of
     (Just a, es') -> (a, es')
     _ -> error "mapSingleDyn: expected single matching entity"
 
 -- | Map a single matched entity, or @Nothing@.
 --
--- @since 0.9
+-- @since 0.10
 {-# INLINE mapSingleMaybeDyn #-}
-mapSingleMaybeDyn :: (Monad m) => Set ComponentID -> i -> DynamicQueryT m i a -> Entities -> m (Maybe a, Entities)
-mapSingleMaybeDyn cIds i q es =
+mapSingleMaybeDyn :: (Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m (Maybe a, Entities)
+mapSingleMaybeDyn cIds q es =
   if Set.null cIds
     then case Map.keys $ entities es of
       [eId] -> do
-        res <- runDynQuery q [i] $ A.singleton eId
+        res <- runDynQuery q $ A.singleton eId
         return $ case res of
           ([a], _) -> (Just a, es)
           _ -> (Nothing, es)
       _ -> pure (Nothing, es)
     else case Map.toList $ AS.find cIds $ archetypes es of
       [(aId, n)] -> do
-        res <- runDynQuery q [i] (AS.nodeArchetype n)
+        res <- runDynQuery q $ AS.nodeArchetype n
         return $ case res of
           ([a], arch') ->
             let nodes = Map.insert aId n {nodeArchetype = arch'} . AS.nodes $ archetypes es

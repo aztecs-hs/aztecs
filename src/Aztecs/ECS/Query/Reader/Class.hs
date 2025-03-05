@@ -6,22 +6,21 @@
 -- Maintainer  : matt@hunzinger.me
 -- Stability   : provisional
 -- Portability : non-portable (GHC extensions)
-module Aztecs.ECS.Query.Reader.Class (ArrowQueryReader (..)) where
+module Aztecs.ECS.Query.Reader.Class (QueryReaderF (..)) where
 
 import Aztecs.ECS.Component
-import Control.Arrow
 
--- | Arrow for queries that can read from entities.
+-- | Query reader functor.
 --
--- @since 0.9
-class (Arrow arr) => ArrowQueryReader arr where
+-- @since 0.10
+class (Functor f) => QueryReaderF f where
   -- | Fetch a `Component` by its type.
   --
-  -- @since 0.9
-  fetch :: (Component a) => arr () a
+  -- @since 0.10
+  fetch :: (Component a) => f a
 
   -- | Fetch a `Component` by its type, returning `Nothing` if it doesn't exist.
   --
-  -- @since 0.9
-  fetchMaybe :: (Component a) => arr () (Maybe a)
-  fetchMaybe = fetch >>> arr Just
+  -- @since 0.10
+  fetchMaybe :: (Component a) => f (Maybe a)
+  fetchMaybe = Just <$> fetch

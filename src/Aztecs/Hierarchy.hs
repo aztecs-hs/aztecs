@@ -1,4 +1,4 @@
-{-# LANGUAGE Arrows #-}
+{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -36,7 +36,6 @@ import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
-import Control.Arrow
 import Control.DeepSeq
 import Control.Monad
 import Data.Map (Map)
@@ -89,32 +88,25 @@ instance Component ChildState
 --
 -- @since 0.9
 update ::
-  ( ArrowQueryReader qr,
-    ArrowDynamicQueryReader qr,
+  ( Applicative qr,
+    QueryReaderF qr,
+    DynamicQueryReaderF qr,
     MonadReaderSystem qr s,
     MonadAccess b m
   ) =>
   s (m ())
 update = do
-  parents <-
-    S.all
-      ()
-      ( proc () -> do
-          entity <- Q.entity -< ()
-          Parent parent <- Q.fetch -< ()
-          maybeParentState <- Q.fetchMaybe @_ @ParentState -< ()
-          returnA -< (entity, parent, maybeParentState)
-      )
+  parents <- S.all $ do
+    entity <- Q.entity
+    parent <- Q.fetch
+    maybeParentState <- Q.fetchMaybe @_ @ParentState
+    return (entity, unParent parent, maybeParentState)
 
-  children <-
-    S.all
-      ()
-      ( proc () -> do
-          entity <- Q.entity -< ()
-          Children cs <- Q.fetch -< ()
-          maybeChildState <- Q.fetchMaybe @_ @ChildState -< ()
-          returnA -< (entity, cs, maybeChildState)
-      )
+  children <- S.all $ do
+    entity <- Q.entity
+    cs <- Q.fetch
+    maybeChildState <- Q.fetchMaybe @_ @ChildState
+    return (entity, unChildren cs, maybeChildState)
 
   let go = do
         mapM_
@@ -212,21 +204,17 @@ mapWithAccum f b n = case f (nodeEntityId n) (nodeEntity n) b of
 --
 -- @since 0.9
 hierarchy ::
-  (ArrowQueryReader q, ArrowDynamicQueryReader q, MonadReaderSystem q s) =>
+  (Applicative q, QueryReaderF q, DynamicQueryReaderF q, MonadReaderSystem q s) =>
   EntityID ->
-  i ->
-  q i a ->
+  q a ->
   s (Maybe (Hierarchy a))
-hierarchy e i q = do
-  children <-
-    S.all
-      ()
-      ( proc () -> do
-          entity <- Q.entity -< ()
-          Children cs <- Q.fetch -< ()
-          a <- q -< i
-          returnA -< (entity, (cs, a))
-      )
+hierarchy e q = do
+  children <- S.all $ do
+    entity <- Q.entity
+    cs <- Q.fetch
+    a <- q
+    return (entity, (unChildren cs, a))
+
   let childMap = Map.fromList children
   return $ hierarchy' e childMap
 
@@ -234,23 +222,21 @@ hierarchy e i q = do
 --
 -- @since 0.9
 hierarchies ::
-  (ArrowQueryReader q, ArrowDynamicQueryReader q, MonadReaderSystem q s) =>
-  i ->
-  q i a ->
+  (Applicative q, QueryReaderF q, DynamicQueryReaderF q, MonadReaderSystem q s) =>
+  q a ->
   s [Hierarchy a]
-hierarchies i q = do
+hierarchies q = do
   children <-
     S.all
-      ()
-      ( proc () -> do
-          entity <- Q.entity -< ()
-          Children cs <- Q.fetch -< ()
-          a <- q -< i
-          returnA -< (entity, (cs, a))
+      ( do
+          entity <- Q.entity
+          cs <- Q.fetch
+          a <- q
+          return (entity, (unChildren cs, a))
       )
 
   let childMap = Map.fromList children
-  roots <- S.filter () Q.entity $ with @Children <> without @Parent
+  roots <- S.filter Q.entity $ with @Children <> without @Parent
   return $ mapMaybe (`hierarchy'` childMap) roots
 
 -- | Build a hierarchy of parents to children.

@@ -63,7 +63,7 @@ prop_queryEmpty = do
 -- | Query all components from a list of `ComponentID`s.
 queryComponentIds ::
   forall q a.
-  (ArrowDynamicQueryReader q, Component a) =>
+  (DynamicQueryReaderF q, Component a) =>
   [ComponentID] ->
   q () (EntityID, [a])
 queryComponentIds =

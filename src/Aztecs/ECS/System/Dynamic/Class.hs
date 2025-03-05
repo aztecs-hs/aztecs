@@ -22,17 +22,17 @@ class (Monad m) => MonadDynamicSystem q m | m -> q where
   -- | Map all matching entities with a query.
   --
   -- @since 0.9
-  mapDyn :: i -> Set ComponentID -> q i o -> m [o]
+  mapDyn :: Set ComponentID -> q a -> m [a]
 
   -- | Map a single matching entity with a query, or @Nothing@.
   --
   -- @since 0.9
-  mapSingleMaybeDyn :: i -> Set ComponentID -> q i a -> m (Maybe a)
+  mapSingleMaybeDyn :: Set ComponentID -> q a -> m (Maybe a)
 
   -- | Map a single matching entity with a query.
-  mapSingleDyn :: (HasCallStack) => i -> Set ComponentID -> q i o -> m o
-  mapSingleDyn i cIds q = do
-    res <- mapSingleMaybeDyn i cIds q
+  mapSingleDyn :: (HasCallStack) => Set ComponentID -> q a -> m a
+  mapSingleDyn cIds q = do
+    res <- mapSingleMaybeDyn cIds q
     case res of
       Just a -> return a
       Nothing -> error "Expected a single matching entity."
@@ -40,4 +40,4 @@ class (Monad m) => MonadDynamicSystem q m | m -> q where
   -- | Map all matching entities with a query and filter.
   --
   -- @since 0.9
-  filterMapDyn :: i -> Set ComponentID -> (Node -> Bool) -> q i a -> m [a]
+  filterMapDyn :: Set ComponentID -> (Node -> Bool) -> q a -> m [a]

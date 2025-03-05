@@ -1,7 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 
 -- |
 -- Module      : Aztecs.ECS.Query.Dynamic.Class
@@ -11,33 +8,32 @@
 -- Maintainer  : matt@hunzinger.me
 -- Stability   : provisional
 -- Portability : non-portable (GHC extensions)
-module Aztecs.ECS.Query.Dynamic.Class (ArrowDynamicQuery (..)) where
+module Aztecs.ECS.Query.Dynamic.Class (DynamicQueryF (..)) where
 
 import Aztecs.ECS.Component
-import Aztecs.ECS.Query.Dynamic.Reader.Class
-import Control.Arrow
+import Control.Monad
 
--- | Arrow dynamic query.
+-- | Dynamic query functor.
 --
--- @since 0.9
-class (ArrowDynamicQueryReader arr) => ArrowDynamicQuery m arr | arr -> m where
+-- @since 0.10
+class (Monad m, Functor f) => DynamicQueryF m f | f -> m where
   -- | Adjust a `Component` by its `ComponentID`.
   --
-  -- @since 0.9
-  adjustDyn :: (Component a) => (i -> a -> a) -> ComponentID -> arr i a
+  -- @since 0.10
+  adjustDyn :: (Component a) => (b -> a -> a) -> ComponentID -> f b -> f a
 
   -- | Adjust a `Component` by its `ComponentID`, ignoring any output.
   --
-  -- @since 0.9
-  adjustDyn_ :: (Component a) => (i -> a -> a) -> ComponentID -> arr i ()
-  adjustDyn_ f cid = adjustDyn @m f cid >>> arr (const ())
+  -- @since 0.10
+  adjustDyn_ :: (Component a) => (b -> a -> a) -> ComponentID -> f b -> f ()
+  adjustDyn_ f cId = void . adjustDyn f cId
 
-  -- | Adjust a `Component` by its `ComponentID` with some `Monad` @m@.
+  -- | Adjust a `Component` by its `ComponentID` with some applicative functor @g@.
   --
-  -- @since 0.9
-  adjustDynM :: (Component a) => (i -> a -> m a) -> ComponentID -> arr i a
+  -- @since 0.10
+  adjustDynM :: (Component a) => (b -> a -> m a) -> ComponentID -> f b -> f a
 
   -- | Set a `Component` by its `ComponentID`.
   --
-  -- @since 0.9
-  setDyn :: (Component a) => ComponentID -> arr a a
+  -- @since 0.10
+  setDyn :: (Component a) => ComponentID -> f a -> f a

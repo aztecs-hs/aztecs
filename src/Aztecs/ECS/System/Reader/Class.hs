@@ -21,14 +21,14 @@ class (Monad m) => MonadReaderSystem q m | m -> q where
   -- | Match all entities with a query.
   --
   -- @since 0.9
-  all :: i -> q i o -> m [o]
+  all :: q a -> m [a]
 
   -- | Match a single entity with a query.
   --
   -- @since 0.9
-  single :: (HasCallStack) => i -> q i o -> m o
-  single i q = do
-    os <- all i q
+  single :: (HasCallStack) => q a -> m a
+  single q = do
+    os <- all q
     case os of
       [o] -> return o
       _ -> error "single: expected a single result"
@@ -36,9 +36,9 @@ class (Monad m) => MonadReaderSystem q m | m -> q where
   -- | Match a single entity with a query, or @Nothing@.
   --
   -- @since 0.9
-  singleMaybe :: i -> q i o -> m (Maybe o)
-  singleMaybe i q = do
-    os <- all i q
+  singleMaybe :: q a -> m (Maybe a)
+  singleMaybe q = do
+    os <- all q
     return $ case os of
       [o] -> Just o
       _ -> Nothing
@@ -46,4 +46,4 @@ class (Monad m) => MonadReaderSystem q m | m -> q where
   -- | Match all entities with a query and filter.
   --
   -- @since 0.9
-  filter :: i -> q i o -> QueryFilter -> m [o]
+  filter :: q a -> QueryFilter -> m [a]

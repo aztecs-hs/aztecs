@@ -1,4 +1,3 @@
-{-# LANGUAGE Arrows #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -7,7 +6,6 @@ import Aztecs.ECS
 import qualified Aztecs.ECS.Query as Q
 import Aztecs.ECS.World
 import qualified Aztecs.ECS.World as W
-import Control.Arrow
 import Control.DeepSeq
 import Criterion.Main
 import Data.Functor.Identity
@@ -21,22 +19,14 @@ newtype Velocity = Velocity Int deriving (Show, Generic, NFData)
 
 instance Component Velocity
 
-query :: Query () Position
-query = Q.fetch >>> Q.adjust (\(Velocity v) (Position p) -> Position $ p + v)
+query :: Query Position
+query = Q.adjust (\(Velocity v) (Position p) -> Position $ p + v) Q.fetch
 
-queryDo :: Query () Position
-queryDo = proc () -> do
-  Velocity v <- Q.fetch -< ()
-  Q.adjust (\v (Position p) -> Position $ p + v) -< v
-
-run :: Query () Position -> World -> [Position]
-run q = fst . runIdentity . Q.map () q . entities
+run :: Query Position -> World -> [Position]
+run q = fst . runIdentity . Q.map q . entities
 
 main :: IO ()
 main = do
   let go wAcc = snd $ W.spawn (bundle (Position 0) <> bundle (Velocity 1)) wAcc
       !w = foldr (const go) W.empty [0 :: Int .. 10000]
-  defaultMain
-    [ bench "iter" $ nf (run query) w,
-      bench "iter do-notation" $ nf (run queryDo) w
-    ]
+  defaultMain [bench "iter" $ nf (run query) w]
