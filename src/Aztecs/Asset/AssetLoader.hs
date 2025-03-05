@@ -1,12 +1,10 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 
 -- |
 -- Module      : Aztecs.Asset.AssetLoader
@@ -29,12 +27,14 @@ import Aztecs.Asset.AssetLoader.Class
 import Aztecs.Asset.AssetServer
 import Aztecs.Asset.Class
 import Aztecs.ECS
+import Aztecs.ECS.Query (QueryT (..))
 import qualified Aztecs.ECS.Query as Q
+import Aztecs.ECS.Query.Dynamic (DynamicQueryT (DynamicQuery, runDynQuery))
 import qualified Aztecs.ECS.System as S
-import Control.Arrow
 import Control.Concurrent
 import Control.Monad.Identity
 import Control.Monad.State.Strict
+import Control.Monad.Writer
 import Data.IORef
 import qualified Data.Map.Strict as Map
 
@@ -73,11 +73,27 @@ instance (Monad m, Asset a) => MonadAssetLoader a (AssetLoaderT a m) where
 -- | Query to load assets.
 --
 -- @since 0.9
-loadQuery :: (Asset a, QueryF m q) => AssetLoader a o -> q o
-loadQuery a = error "TODO"
+loadQuery :: (Asset a) => AssetLoader a o -> Query o
+loadQuery a =
+  -- TODO
+  Query $ \cs ->
+    let q =
+          Q.adjustM
+            ( \_ server -> do
+                let (o, server') = runState (unAssetLoader a) server
+                tell [o]
+                return server'
+            )
+            (pure ())
+        (rws, cs', dynQ) = runQuery q cs
+     in ( rws,
+          cs',
+          DynamicQuery $ \arch ->
+            let ((_, arch'), os) = runWriter $ runDynQuery dynQ arch in return (os, arch')
+        )
 
 -- | System to load assets.
 --
 -- @since 0.9
-load :: forall m q s a o. (QueryF m q, MonadSystem q s, Asset a) => AssetLoader a o -> s o
-load a = S.mapSingle @q $ loadQuery a
+load :: (MonadSystem Query s, Asset a) => AssetLoader a o -> s o
+load a = S.mapSingle $ loadQuery a
