@@ -134,19 +134,23 @@ instance (Monad m) => DynamicQueryReaderF (QueryT m) where
 instance (Monad m) => DynamicQueryF m (QueryT m) where
   {-# INLINE adjustDyn #-}
   adjustDyn f cId q = Query $ \cs ->
-    let !(rws, cs', dynQ) = runQuery q cs in (rws, cs', adjustDyn f cId dynQ)
+    let !(rws, cs', dynQ) = runQuery q cs
+     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', adjustDyn f cId dynQ)
 
   {-# INLINE adjustDyn_ #-}
   adjustDyn_ f cId q = Query $ \cs ->
-    let !(rws, cs', dynQ) = runQuery q cs in (rws, cs', adjustDyn_ f cId dynQ)
+    let !(rws, cs', dynQ) = runQuery q cs
+     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', adjustDyn_ f cId dynQ)
 
   {-# INLINE adjustDynM #-}
   adjustDynM f cId q = Query $ \cs ->
-    let !(rws, cs', dynQ) = runQuery q cs in (rws, cs', adjustDynM f cId dynQ)
+    let !(rws, cs', dynQ) = runQuery q cs
+     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', adjustDynM f cId dynQ)
 
   {-# INLINE setDyn #-}
   setDyn cId q = Query $ \cs ->
-    let !(rws, cs', dynQ) = runQuery q cs in (rws, cs', setDyn cId dynQ)
+    let !(rws, cs', dynQ) = runQuery q cs
+     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', setDyn cId dynQ)
 
 -- | @since 0.9
 instance (Monad m) => QueryF m (QueryT m) where
@@ -155,28 +159,28 @@ instance (Monad m) => QueryF m (QueryT m) where
   adjust f q = Query $ \cs ->
     let !(cId, cs') = CS.insert @a cs
         !(rws, cs'', dynQ) = runQuery q cs'
-     in (rws, cs'', adjustDyn f cId dynQ)
+     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs'', adjustDyn f cId dynQ)
 
   {-# INLINE adjust_ #-}
   adjust_ :: forall a b. (Component a) => (b -> a -> a) -> QueryT m b -> QueryT m ()
   adjust_ f q = Query $ \cs ->
     let !(cId, cs') = CS.insert @a cs
         !(rws, cs'', dynQ) = runQuery q cs'
-     in (rws, cs'', adjustDyn_ f cId dynQ)
+     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs'', adjustDyn_ f cId dynQ)
 
   {-# INLINE adjustM #-}
   adjustM :: forall a b. (Component a, Monad m) => (b -> a -> m a) -> QueryT m b -> QueryT m a
   adjustM f q = Query $ \cs ->
     let !(cId, cs') = CS.insert @a cs
         !(rws, cs'', dynQ) = runQuery q cs'
-     in (rws, cs'', adjustDynM f cId dynQ)
+     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs'', adjustDynM f cId dynQ)
 
   {-# INLINE set #-}
   set :: forall a. (Component a) => QueryT m a -> QueryT m a
   set q = Query $ \cs ->
     let !(cId, cs') = CS.insert @a cs
         !(rws, cs'', dynQ) = runQuery q cs'
-     in (rws, cs'', setDyn cId dynQ)
+     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs'', setDyn cId dynQ)
 
 -- | Convert a `QueryReader` to a `Query`.
 --
