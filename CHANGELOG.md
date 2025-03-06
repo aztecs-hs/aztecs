@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [0.10.0](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.9.1..aztecs-v0.10.0) - 2025-3-6
+
+## Breaking changes
+
+- Applicative queries (5e8000f) (02c2028) (495c9e3)
+  - Replaces the `Arrow` DSL with an applicative one, which I now believe has better ergonomics overall
+
 ## [0.9.1](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.9.0..aztecs-v0.9.1) - 2025-3-4
 
 ## Fixes

@@ -30,6 +30,7 @@ import qualified Aztecs.ECS.System as S
 import Control.DeepSeq
 import Control.Monad
 import Control.Monad.IO.Class
+import Data.Function
 import GHC.Generics
 
 newtype Position = Position Int deriving (Show, Generic, NFData)
@@ -40,14 +41,12 @@ newtype Velocity = Velocity Int deriving (Show, Generic, NFData)
 
 instance Component Velocity
 
-move :: (ArrowQuery m q) => q () Position
-move = proc () -> do
-  v <- Q.fetch -< ()
-  Q.adjust (\(Velocity v) (Position p) -> Position $ p + v) -< v
+move :: (Monad m) => QueryT m Position
+move = Q.fetch & Q.adjust (\(Velocity v) (Position p) -> Position $ p + v)
 
-run :: (ArrowQuery m q, MonadSystem q s, MonadIO s) => s ()
+run :: AccessT IO ()
 run = do
-  positions <- S.map () move
+  positions <- S.map move
   liftIO $ print positions
 
 app :: AccessT IO ()
