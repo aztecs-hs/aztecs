@@ -72,8 +72,8 @@ instance (Monad m, Asset a) => MonadAssetLoader a (AssetLoaderT a m) where
 
 -- | Query to load assets.
 --
--- @since 0.9
-loadQuery :: (Asset a) => AssetLoader a o -> Query o
+-- @since 0.10
+loadQuery :: (Applicative m, Asset a) => AssetLoader a o -> QueryT m o
 loadQuery a =
   -- TODO
   Query $ \cs ->
@@ -89,11 +89,11 @@ loadQuery a =
      in ( rws,
           cs',
           DynamicQuery $ \arch ->
-            let ((_, arch'), os) = runWriter $ runDynQuery dynQ arch in return (os, arch')
+            let ((_, arch'), os) = runWriter $ runDynQuery dynQ arch in pure (os, arch')
         )
 
 -- | System to load assets.
 --
--- @since 0.9
-load :: (MonadSystem Query s, Asset a) => AssetLoader a o -> s o
+-- @since 0.10
+load :: (Applicative m, MonadSystem (QueryT m) s, Asset a) => AssetLoader a o -> s o
 load a = S.mapSingle $ loadQuery a
