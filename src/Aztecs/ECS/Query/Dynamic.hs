@@ -40,11 +40,12 @@ import Aztecs.ECS.Query.Dynamic.Class
 import Aztecs.ECS.Query.Dynamic.Reader
 import Aztecs.ECS.World.Archetype (Archetype)
 import qualified Aztecs.ECS.World.Archetype as A
-import Aztecs.ECS.World.Archetypes (Node (..))
+import Aztecs.ECS.World.Archetypes (ArchetypeID, Node (..))
 import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Entities (Entities (..))
 import Control.Monad.Identity
 import Data.Foldable
+import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -112,10 +113,8 @@ instance (Applicative f) => DynamicQueryF f (DynamicQueryT f) where
 --
 -- @since 0.10
 {-# INLINE fromDynReader #-}
-fromDynReader :: (Monad m) => DynamicQueryReader a -> DynamicQueryT m a
-fromDynReader q = DynamicQuery $ \arch -> do
-  let !os = runDynQueryReader q arch
-  return (os, arch)
+fromDynReader :: (Applicative m) => DynamicQueryReader a -> DynamicQueryT m a
+fromDynReader q = DynamicQuery $ \arch -> let !os = runDynQueryReader q arch in pure (os, arch)
 
 -- | Convert a `DynamicQueryT` to a `DynamicQueryReaderT`.
 --
@@ -129,25 +128,30 @@ toDynReader q = DynamicQueryReader $ \arch -> fst $ runIdentity $ runDynQuery q 
 -- @since 0.10
 {-# INLINE mapDyn #-}
 mapDyn :: (Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m ([a], Entities)
-mapDyn cIds q es =
-  let go = runDynQuery q
-   in if Set.null cIds
-        then do
-          (as, _) <- go A.empty {A.entities = Map.keysSet $ entities es}
-          return (as, es)
-        else
-          let go' (acc, esAcc) (aId, n) = do
-                (as', arch') <- go $ nodeArchetype n
-                let !nodes = Map.insert aId n {nodeArchetype = arch' <> nodeArchetype n} . AS.nodes $ archetypes esAcc
-                return (as' ++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}})
-           in foldlM go' ([], es) $ Map.toList . AS.find cIds $ archetypes es
+mapDyn cIds = mapDyn' cIds id
 
--- | Map all matched entities.
+-- | Map all matched entities with a filter.
 --
 -- @since 0.10
 {-# INLINE filterMapDyn #-}
-filterMapDyn :: (Monad m) => Set ComponentID -> (Node -> Bool) -> DynamicQueryT m a -> Entities -> m ([a], Entities)
-filterMapDyn cIds f q es =
+filterMapDyn ::
+  (Monad m) =>
+  Set ComponentID ->
+  (Node -> Bool) ->
+  DynamicQueryT m a ->
+  Entities ->
+  m ([a], Entities)
+filterMapDyn cIds f = mapDyn' cIds (Map.filter f)
+
+{-# INLINE mapDyn' #-}
+mapDyn' ::
+  (Monad m) =>
+  Set ComponentID ->
+  (Map ArchetypeID Node -> Map ArchetypeID Node) ->
+  DynamicQueryT m a ->
+  Entities ->
+  m ([a], Entities)
+mapDyn' cIds f q es =
   let go = runDynQuery q
    in if Set.null cIds
         then do
@@ -156,9 +160,10 @@ filterMapDyn cIds f q es =
         else
           let go' (acc, esAcc) (aId, n) = do
                 (as', arch') <- go $ nodeArchetype n
-                let !nodes = Map.insert aId n {nodeArchetype = arch' <> nodeArchetype n} . AS.nodes $ archetypes esAcc
+                let n' = n {nodeArchetype = arch' <> nodeArchetype n}
+                    !nodes = Map.insert aId n' . AS.nodes $ archetypes esAcc
                 return (as' ++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}})
-           in foldlM go' ([], es) $ Map.toList . Map.filter f . AS.find cIds $ archetypes es
+           in foldlM go' ([], es) $ Map.toList . f . AS.find cIds $ archetypes es
 
 -- | Map a single matched entity.
 --

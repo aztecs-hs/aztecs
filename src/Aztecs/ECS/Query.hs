@@ -57,6 +57,7 @@ module Aztecs.ECS.Query
     -- ** Conversion
     fromReader,
     toReader,
+    fromDyn,
 
     -- * Filters
     QueryFilter (..),
@@ -92,16 +93,16 @@ type Query = QueryT Identity
 -- | Query for matching entities.
 --
 -- @since 0.10
-newtype QueryT m a = Query
+newtype QueryT f a = Query
   { -- | Run a query, producing a `DynamicQueryT`.
     --
     -- @since 0.10
-    runQuery :: Components -> (ReadsWrites, Components, DynamicQueryT m a)
+    runQuery :: Components -> (ReadsWrites, Components, DynamicQueryT f a)
   }
   deriving (Functor)
 
 -- | @since 0.10
-instance (Monad m) => Applicative (QueryT m) where
+instance (Applicative f) => Applicative (QueryT f) where
   {-# INLINE pure #-}
   pure a = Query (mempty,,pure a)
 
@@ -112,7 +113,7 @@ instance (Monad m) => Applicative (QueryT m) where
      in (cIdsG <> cIdsF, cs'', bQS <*> aQS)
 
 -- | @since 0.10
-instance (Monad m) => QueryReaderF (QueryT m) where
+instance (Applicative f) => QueryReaderF (QueryT f) where
   {-# INLINE fetch #-}
   fetch = fromReader fetch
 
@@ -120,7 +121,7 @@ instance (Monad m) => QueryReaderF (QueryT m) where
   fetchMaybe = fromReader fetchMaybe
 
 -- | @since 0.10
-instance (Monad m) => DynamicQueryReaderF (QueryT m) where
+instance (Applicative f) => DynamicQueryReaderF (QueryT f) where
   {-# INLINE entity #-}
   entity = fromReader entity
 
@@ -131,62 +132,42 @@ instance (Monad m) => DynamicQueryReaderF (QueryT m) where
   fetchMaybeDyn = fromReader . fetchMaybeDyn
 
 -- | @since 0.10
-instance (Monad m) => DynamicQueryF m (QueryT m) where
+instance (Applicative f) => DynamicQueryF f (QueryT f) where
   {-# INLINE adjustDyn #-}
-  adjustDyn f cId q = Query $ \cs ->
-    let !(rws, cs', dynQ) = runQuery q cs
-     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', adjustDyn f cId dynQ)
+  adjustDyn f = fromDynInternal $ adjustDyn f
 
   {-# INLINE adjustDyn_ #-}
-  adjustDyn_ f cId q = Query $ \cs ->
-    let !(rws, cs', dynQ) = runQuery q cs
-     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', adjustDyn_ f cId dynQ)
+  adjustDyn_ f = fromDynInternal $ adjustDyn_ f
 
   {-# INLINE adjustDynM #-}
-  adjustDynM f cId q = Query $ \cs ->
-    let !(rws, cs', dynQ) = runQuery q cs
-     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', adjustDynM f cId dynQ)
+  adjustDynM f = fromDynInternal $ adjustDynM f
 
   {-# INLINE setDyn #-}
-  setDyn cId q = Query $ \cs ->
-    let !(rws, cs', dynQ) = runQuery q cs
-     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', setDyn cId dynQ)
+  setDyn = fromDynInternal setDyn
 
 -- | @since 0.9
 instance (Monad m) => QueryF m (QueryT m) where
   {-# INLINE adjust #-}
   adjust :: forall a b. (Component a) => (b -> a -> a) -> QueryT m b -> QueryT m a
-  adjust f q = Query $ \cs ->
-    let !(cId, cs') = CS.insert @a cs
-        !(rws, cs'', dynQ) = runQuery q cs'
-     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs'', adjustDyn f cId dynQ)
+  adjust f = fromWriterInternal @a $ adjustDyn f
 
   {-# INLINE adjust_ #-}
   adjust_ :: forall a b. (Component a) => (b -> a -> a) -> QueryT m b -> QueryT m ()
-  adjust_ f q = Query $ \cs ->
-    let !(cId, cs') = CS.insert @a cs
-        !(rws, cs'', dynQ) = runQuery q cs'
-     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs'', adjustDyn_ f cId dynQ)
+  adjust_ f = fromWriterInternal @a $ adjustDyn_ f
 
   {-# INLINE adjustM #-}
   adjustM :: forall a b. (Component a, Monad m) => (b -> a -> m a) -> QueryT m b -> QueryT m a
-  adjustM f q = Query $ \cs ->
-    let !(cId, cs') = CS.insert @a cs
-        !(rws, cs'', dynQ) = runQuery q cs'
-     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs'', adjustDynM f cId dynQ)
+  adjustM f = fromWriterInternal @a $ adjustDynM f
 
   {-# INLINE set #-}
   set :: forall a. (Component a) => QueryT m a -> QueryT m a
-  set q = Query $ \cs ->
-    let !(cId, cs') = CS.insert @a cs
-        !(rws, cs'', dynQ) = runQuery q cs'
-     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs'', setDyn cId dynQ)
+  set = fromWriterInternal @a setDyn
 
 -- | Convert a `QueryReader` to a `Query`.
 --
 -- @since 0.9
 {-# INLINE fromReader #-}
-fromReader :: (Monad m) => QueryReader a -> QueryT m a
+fromReader :: (Applicative f) => QueryReader a -> QueryT f a
 fromReader (QueryReader f) = Query $ \cs ->
   let !(cIds, cs', dynQ) = f cs in (ReadsWrites cIds Set.empty, cs', fromDynReader dynQ)
 
@@ -197,6 +178,35 @@ fromReader (QueryReader f) = Query $ \cs ->
 toReader :: Query a -> QueryReader a
 toReader (Query f) = QueryReader $ \cs ->
   let !(rws, cs', dynQ) = f cs in (reads rws, cs', toDynReader dynQ)
+
+-- | Convert a `DynamicQueryT` to a `QueryT`.
+--
+-- @since 0.10
+{-# INLINE fromDyn #-}
+fromDyn :: ReadsWrites -> DynamicQueryT f a -> QueryT f a
+fromDyn rws q = Query (rws,,q)
+
+{-# INLINE fromDynInternal #-}
+fromDynInternal ::
+  (ComponentID -> DynamicQueryT f b -> DynamicQueryT f a) ->
+  ComponentID ->
+  QueryT f b ->
+  QueryT f a
+fromDynInternal f cId q = Query $ \cs ->
+  let !(rws, cs', dynQ) = runQuery q cs
+   in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', f cId dynQ)
+
+{-# INLINE fromWriterInternal #-}
+fromWriterInternal ::
+  forall c f a b.
+  (Applicative f, Component c) =>
+  (ComponentID -> DynamicQueryT f b -> DynamicQueryT f a) ->
+  QueryT f b ->
+  QueryT f a
+fromWriterInternal f q = Query $ \cs ->
+  let !(cId, cs') = CS.insert @c cs
+      !(rws, cs'', dynQ) = runQuery q cs'
+   in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs'', f cId dynQ)
 
 -- | Reads and writes of a `Query`.
 --
@@ -232,49 +242,49 @@ disjoint a b =
 
 -- | Match all entities.
 --
--- @since 0.9
+-- @since 0.10
 {-# INLINE all #-}
 all :: Query a -> Entities -> ([a], Entities)
 all = QR.all . toReader
 
 -- | Match all entities.
 --
--- @since 0.9
+-- @since 0.10
 {-# INLINE all' #-}
 all' :: Query a -> Entities -> ([a], Components)
 all' = QR.all' . toReader
 
 -- | Match a single entity.
 --
--- @since 0.9
+-- @since 0.10
 {-# INLINE single #-}
 single :: (HasCallStack) => Query a -> Entities -> (a, Entities)
 single = QR.single . toReader
 
 -- | Match a single entity.
 --
--- @since 0.9
+-- @since 0.10
 {-# INLINE single' #-}
 single' :: (HasCallStack) => Query a -> Entities -> (a, Components)
 single' = QR.single' . toReader
 
 -- | Match a single entity, or `Nothing`.
 --
--- @since 0.9
+-- @since 0.10
 {-# INLINE singleMaybe #-}
 singleMaybe :: Query a -> Entities -> (Maybe a, Entities)
 singleMaybe = QR.singleMaybe . toReader
 
 -- | Match a single entity, or `Nothing`.
 --
--- @since 0.9
+-- @since 0.10
 {-# INLINE singleMaybe' #-}
 singleMaybe' :: Query a -> Entities -> (Maybe a, Components)
 singleMaybe' = QR.singleMaybe' . toReader
 
 -- | Map all matched entities.
 --
--- @since 0.9
+-- @since 0.10
 {-# INLINE map #-}
 map :: (Monad m) => QueryT m o -> Entities -> m ([o], Entities)
 map q es = do
@@ -285,7 +295,7 @@ map q es = do
 
 -- | Map a single matched entity.
 --
--- @since 0.9
+-- @since 0.10
 {-# INLINE mapSingle #-}
 mapSingle :: (HasCallStack, Monad m) => QueryT m a -> Entities -> m (a, Entities)
 mapSingle q es = do
@@ -296,7 +306,7 @@ mapSingle q es = do
 
 -- | Map a single matched entity, or `Nothing`.
 --
--- @since 0.9
+-- @since 0.10
 {-# INLINE mapSingleMaybe #-}
 mapSingleMaybe :: (Monad m) => QueryT m a -> Entities -> m (Maybe a, Entities)
 mapSingleMaybe q es = do
