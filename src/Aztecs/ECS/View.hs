@@ -96,10 +96,10 @@ unview v es =
 --
 -- @since 0.9
 allDyn :: DynamicQueryReader a -> View -> [a]
-allDyn q v =
+allDyn (DynamicQueryReader (_, q)) v =
   foldl'
     ( \acc n ->
-        let as = runDynQueryReader q $ nodeArchetype n
+        let as = q $ nodeArchetype n
          in as ++ acc
     )
     []
@@ -117,11 +117,11 @@ singleDyn q v = case allDyn q v of
 --
 -- @since 0.9
 mapDyn :: (Monad m) => DynamicQueryT m a -> View -> m ([a], View)
-mapDyn q v = do
+mapDyn (DynamicQuery (_, q)) v = do
   (as, arches) <-
     foldlM
       ( \(acc, archAcc) (aId, n) -> do
-          (as', arch') <- runDynQuery q $ nodeArchetype n
+          (as', arch') <- q $ nodeArchetype n
           return (as' ++ acc, Map.insert aId (n {nodeArchetype = arch'}) archAcc)
       )
       ([], Map.empty)

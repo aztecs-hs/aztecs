@@ -29,7 +29,7 @@ import Aztecs.Asset.Class
 import Aztecs.ECS
 import Aztecs.ECS.Query (QueryT (..))
 import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.Query.Dynamic (DynamicQueryT (DynamicQuery, runDynQuery))
+import Aztecs.ECS.Query.Dynamic (DynamicQueryT (..))
 import qualified Aztecs.ECS.System as S
 import Control.Concurrent
 import Control.Monad.Identity
@@ -85,11 +85,13 @@ loadQuery a =
                 return server'
             )
             (pure ())
-        (rws, cs', dynQ) = runQuery q cs
-     in ( rws,
-          cs',
-          DynamicQuery $ \arch ->
-            let ((_, arch'), os) = runWriter $ runDynQuery dynQ arch in pure (os, arch')
+        (cs', DynamicQuery (rws, dynQ)) = runQuery q cs
+     in ( cs',
+          DynamicQuery
+            ( rws,
+              \arch ->
+                let ((_, arch'), os) = runWriter $ dynQ arch in pure (os, arch')
+            )
         )
 
 -- | System to load assets.

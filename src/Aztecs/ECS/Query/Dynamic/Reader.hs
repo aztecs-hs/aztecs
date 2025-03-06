@@ -45,31 +45,37 @@ newtype DynamicQueryReader a = DynamicQueryReader
   { -- | Run a dynamic query reader.
     --
     -- @since 0.10
-    runDynQueryReader :: Archetype -> [a]
+    unDynQueryReader :: (Set ComponentID, Archetype -> [a])
   }
   deriving (Functor)
 
 -- | @since 0.10
 instance Applicative DynamicQueryReader where
   {-# INLINE pure #-}
-  pure a = DynamicQueryReader $ \arch -> replicate (length $ A.entities arch) a
+  pure a = DynamicQueryReader (mempty, \arch -> replicate (length $ A.entities arch) a)
 
   {-# INLINE (<*>) #-}
-  f <*> g = DynamicQueryReader $ \arch ->
-    zipWith ($) (runDynQueryReader f arch) $ runDynQueryReader g arch
+  f <*> g =
+    let (cs, f') = unDynQueryReader f
+        (cs', g') = unDynQueryReader g
+     in DynamicQueryReader (cs <> cs', \arch -> zipWith ($) (f' arch) (g' arch))
 
 -- | @since 0.10
 instance DynamicQueryReaderF DynamicQueryReader where
   {-# INLINE entity #-}
-  entity = DynamicQueryReader $ \arch -> Set.toList $ A.entities arch
+  entity = DynamicQueryReader (mempty, Set.toList . A.entities)
 
   {-# INLINE fetchDyn #-}
-  fetchDyn cId = DynamicQueryReader $ \arch -> A.lookupComponentsAsc cId arch
+  fetchDyn cId = DynamicQueryReader (Set.singleton cId, A.lookupComponentsAsc cId)
 
   {-# INLINE fetchMaybeDyn #-}
-  fetchMaybeDyn cId = DynamicQueryReader $ \arch -> case A.lookupComponentsAscMaybe cId arch of
-    Just as -> fmap Just as
-    Nothing -> replicate (length $ A.entities arch) Nothing
+  fetchMaybeDyn cId =
+    DynamicQueryReader
+      ( Set.singleton cId,
+        \arch -> case A.lookupComponentsAscMaybe cId arch of
+          Just as -> fmap Just as
+          Nothing -> replicate (length $ A.entities arch) Nothing
+      )
 
 -- | Dynamic query for components by ID.
 --
@@ -101,46 +107,49 @@ instance Monoid DynamicQueryFilter where
 -- | Match all entities.
 --
 -- @since 0.10
-allDyn :: Set ComponentID -> DynamicQueryReader a -> Entities -> [a]
-allDyn cIds q es =
-  if Set.null cIds
-    then runDynQueryReader q A.empty {A.entities = Map.keysSet $ entities es}
-    else
-      let go n = runDynQueryReader q $ AS.nodeArchetype n
-       in concatMap go (AS.find cIds $ archetypes es)
+allDyn :: DynamicQueryReader a -> Entities -> [a]
+allDyn q es =
+  let (cIds, q') = unDynQueryReader q
+   in if Set.null cIds
+        then q' A.empty {A.entities = Map.keysSet $ entities es}
+        else
+          let go n = q' $ AS.nodeArchetype n
+           in concatMap go (AS.find cIds $ archetypes es)
 
 -- | Match all entities with a filter.
 --
 -- @since 0.10
-filterDyn :: Set ComponentID -> (Node -> Bool) -> DynamicQueryReader a -> Entities -> [a]
-filterDyn cIds f q es =
-  if Set.null cIds
-    then runDynQueryReader q A.empty {A.entities = Map.keysSet $ entities es}
-    else
-      let go n = runDynQueryReader q $ AS.nodeArchetype n
-       in concatMap go (Map.filter f $ AS.find cIds $ archetypes es)
+filterDyn :: (Node -> Bool) -> DynamicQueryReader a -> Entities -> [a]
+filterDyn f q es =
+  let (cIds, q') = unDynQueryReader q
+   in if Set.null cIds
+        then q' A.empty {A.entities = Map.keysSet $ entities es}
+        else
+          let go n = q' $ AS.nodeArchetype n
+           in concatMap go (Map.filter f $ AS.find cIds $ archetypes es)
 
 -- | Match a single entity.
 --
 -- @since 0.10
-singleDyn :: (HasCallStack) => Set ComponentID -> DynamicQueryReader a -> Entities -> a
-singleDyn cIds q es = case singleMaybeDyn cIds q es of
+singleDyn :: (HasCallStack) => DynamicQueryReader a -> Entities -> a
+singleDyn q es = case singleMaybeDyn q es of
   Just a -> a
   _ -> error "singleDyn: expected a single entity"
 
 -- | Match a single entity, or `Nothing`.
 --
 -- @since 0.10
-singleMaybeDyn :: Set ComponentID -> DynamicQueryReader a -> Entities -> Maybe a
-singleMaybeDyn cIds q es =
-  if Set.null cIds
-    then case Map.keys $ entities es of
-      [eId] -> case runDynQueryReader q $ A.singleton eId of
-        [a] -> Just a
-        _ -> Nothing
-      _ -> Nothing
-    else case Map.elems $ AS.find cIds $ archetypes es of
-      [n] -> case runDynQueryReader q $ AS.nodeArchetype n of
-        [a] -> Just a
-        _ -> Nothing
-      _ -> Nothing
+singleMaybeDyn :: DynamicQueryReader a -> Entities -> Maybe a
+singleMaybeDyn q es =
+  let (cIds, q') = unDynQueryReader q
+   in if Set.null cIds
+        then case Map.keys $ entities es of
+          [eId] -> case q' $ A.singleton eId of
+            [a] -> Just a
+            _ -> Nothing
+          _ -> Nothing
+        else case Map.elems $ AS.find cIds $ archetypes es of
+          [n] -> case q' $ AS.nodeArchetype n of
+            [a] -> Just a
+            _ -> Nothing
+          _ -> Nothing

@@ -23,7 +23,6 @@ where
 
 import Aztecs.ECS.Access.Class
 import Aztecs.ECS.Query (QueryT (..))
-import qualified Aztecs.ECS.Query as Q
 import Aztecs.ECS.Query.Dynamic (DynamicQueryT)
 import qualified Aztecs.ECS.Query.Dynamic as Q
 import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader)
@@ -101,65 +100,65 @@ instance (Monad m) => MonadAccess Bundle (AccessT m) where
 instance (Monad m) => MonadReaderSystem QueryReader (AccessT m) where
   all q = AccessT $ do
     w <- get
-    let (cIds, cs, dynQ) = runQueryReader q . E.components $ entities w
+    let (cs, dynQ) = runQueryReader q . E.components $ entities w
     put w {entities = (entities w) {E.components = cs}}
-    unAccessT $ allDyn cIds dynQ
+    unAccessT $ allDyn dynQ
   filter q f = AccessT $ do
     w <- get
-    let (cIds, cs, dynQ) = runQueryReader q . E.components $ entities w
+    let (cs, dynQ) = runQueryReader q . E.components $ entities w
         (dynF, cs') = runQueryFilter f cs
     put w {entities = (entities w) {E.components = cs'}}
     let f' n =
           F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynF)
             && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
-    unAccessT $ filterDyn cIds dynQ f'
+    unAccessT $ filterDyn dynQ f'
 
 -- | @since 0.9
 instance (Monad m) => MonadSystem (QueryT m) (AccessT m) where
   map q = AccessT $ do
     !w <- get
-    let (rws, cs, dynQ) = runQuery q . E.components $ entities w
+    let (cs, dynQ) = runQuery q . E.components $ entities w
     put w {entities = (entities w) {E.components = cs}}
-    unAccessT $ mapDyn (Q.reads rws <> Q.writes rws) dynQ
+    unAccessT $ mapDyn dynQ
   mapSingleMaybe q = AccessT $ do
     !w <- get
-    let (rws, cs, dynQ) = runQuery q . E.components $ entities w
+    let (cs, dynQ) = runQuery q . E.components $ entities w
     put w {entities = (entities w) {E.components = cs}}
-    unAccessT $ mapSingleMaybeDyn (Q.reads rws <> Q.writes rws) dynQ
+    unAccessT $ mapSingleMaybeDyn dynQ
   filterMap q f = AccessT $ do
     !w <- get
-    let (rws, cs, dynQ) = runQuery q . E.components $ entities w
+    let (cs, dynQ) = runQuery q . E.components $ entities w
         (dynF, cs') = runQueryFilter f cs
     put w {entities = (entities w) {E.components = cs'}}
     let f' n =
           F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynF)
             && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
-    unAccessT $ filterMapDyn (Q.reads rws <> Q.writes rws) f' dynQ
+    unAccessT $ filterMapDyn f' dynQ
 
 -- | @since 0.9
 instance (Monad m) => MonadDynamicReaderSystem DynamicQueryReader (AccessT m) where
-  allDyn cIds q = AccessT $ do
+  allDyn q = AccessT $ do
     !w <- get
-    return . Q.allDyn cIds q $ entities w
-  filterDyn cIds q f = AccessT $ do
+    return . Q.allDyn q $ entities w
+  filterDyn q f = AccessT $ do
     !w <- get
-    return . Q.filterDyn cIds f q $ entities w
+    return . Q.filterDyn f q $ entities w
 
 -- | @since 0.9
 instance (Monad m) => MonadDynamicSystem (DynamicQueryT m) (AccessT m) where
-  mapDyn cIds q = AccessT $ do
+  mapDyn q = AccessT $ do
     !w <- get
-    (as, es) <- lift . Q.mapDyn cIds q $ entities w
+    (as, es) <- lift . Q.mapDyn q $ entities w
     put w {entities = es}
     return as
-  mapSingleMaybeDyn cIds q = AccessT $ do
+  mapSingleMaybeDyn q = AccessT $ do
     !w <- get
-    (res, es) <- lift . Q.mapSingleMaybeDyn cIds q $ entities w
+    (res, es) <- lift . Q.mapSingleMaybeDyn q $ entities w
     put w {entities = es}
     return res
-  filterMapDyn cIds f q = AccessT $ do
+  filterMapDyn f q = AccessT $ do
     !w <- get
-    (as, es) <- lift . Q.filterMapDyn cIds f q $ entities w
+    (as, es) <- lift . Q.filterMapDyn f q $ entities w
     put w {entities = es}
     return as
 

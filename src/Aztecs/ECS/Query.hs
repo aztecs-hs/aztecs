@@ -81,9 +81,6 @@ import qualified Aztecs.ECS.World.Components as CS
 import Aztecs.ECS.World.Entities (Entities (..))
 import Control.Category
 import Control.Monad.Identity
-import Control.Monad.Writer
-import Data.Set (Set)
-import qualified Data.Set as Set
 import GHC.Stack
 import Prelude hiding (all, id, map, reads, (.))
 
@@ -97,20 +94,20 @@ newtype QueryT f a = Query
   { -- | Run a query, producing a `DynamicQueryT`.
     --
     -- @since 0.10
-    runQuery :: Components -> (ReadsWrites, Components, DynamicQueryT f a)
+    runQuery :: Components -> (Components, DynamicQueryT f a)
   }
   deriving (Functor)
 
 -- | @since 0.10
 instance (Applicative f) => Applicative (QueryT f) where
   {-# INLINE pure #-}
-  pure a = Query (mempty,,pure a)
+  pure a = Query (,pure a)
 
   {-# INLINE (<*>) #-}
   (Query f) <*> (Query g) = Query $ \cs ->
-    let !(cIdsG, cs', aQS) = g cs
-        !(cIdsF, cs'', bQS) = f cs'
-     in (cIdsG <> cIdsF, cs'', bQS <*> aQS)
+    let !(cs', aQS) = g cs
+        !(cs'', bQS) = f cs'
+     in (cs'', bQS <*> aQS)
 
 -- | @since 0.10
 instance (Applicative f) => QueryReaderF (QueryT f) where
@@ -169,7 +166,7 @@ instance (Monad m) => QueryF m (QueryT m) where
 {-# INLINE fromReader #-}
 fromReader :: (Applicative f) => QueryReader a -> QueryT f a
 fromReader (QueryReader f) = Query $ \cs ->
-  let !(cIds, cs', dynQ) = f cs in (ReadsWrites cIds Set.empty, cs', fromDynReader dynQ)
+  let !(cs', dynQ) = f cs in (cs', fromDynReader dynQ)
 
 -- | Convert a `Query` to a `QueryReader`.
 --
@@ -177,14 +174,14 @@ fromReader (QueryReader f) = Query $ \cs ->
 {-# INLINE toReader #-}
 toReader :: Query a -> QueryReader a
 toReader (Query f) = QueryReader $ \cs ->
-  let !(rws, cs', dynQ) = f cs in (reads rws, cs', toDynReader dynQ)
+  let !(cs', dynQ) = f cs in (cs', toDynReader dynQ)
 
 -- | Convert a `DynamicQueryT` to a `QueryT`.
 --
 -- @since 0.10
 {-# INLINE fromDyn #-}
-fromDyn :: ReadsWrites -> DynamicQueryT f a -> QueryT f a
-fromDyn rws q = Query (rws,,q)
+fromDyn :: DynamicQueryT f a -> QueryT f a
+fromDyn q = Query (,q)
 
 {-# INLINE fromDynInternal #-}
 fromDynInternal ::
@@ -193,8 +190,8 @@ fromDynInternal ::
   QueryT f b ->
   QueryT f a
 fromDynInternal f cId q = Query $ \cs ->
-  let !(rws, cs', dynQ) = runQuery q cs
-   in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', f cId dynQ)
+  let !(cs', dynQ) = runQuery q cs
+   in (cs', f cId dynQ)
 
 {-# INLINE fromWriterInternal #-}
 fromWriterInternal ::
@@ -205,40 +202,8 @@ fromWriterInternal ::
   QueryT f a
 fromWriterInternal f q = Query $ \cs ->
   let !(cId, cs') = CS.insert @c cs
-      !(rws, cs'', dynQ) = runQuery q cs'
-   in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs'', f cId dynQ)
-
--- | Reads and writes of a `Query`.
---
--- @since 0.9
-data ReadsWrites = ReadsWrites
-  { -- | Component IDs being read.
-    --
-    -- @since 0.9
-    reads :: !(Set ComponentID),
-    -- | Component IDs being written.
-    --
-    -- @since 0.9
-    writes :: !(Set ComponentID)
-  }
-  deriving (Show)
-
--- | @since 0.9
-instance Semigroup ReadsWrites where
-  ReadsWrites r1 w1 <> ReadsWrites r2 w2 = ReadsWrites (r1 <> r2) (w1 <> w2)
-
--- | @since 0.9
-instance Monoid ReadsWrites where
-  mempty = ReadsWrites mempty mempty
-
--- | `True` if the reads and writes of two `Query`s overlap.
---
--- @since 0.9
-disjoint :: ReadsWrites -> ReadsWrites -> Bool
-disjoint a b =
-  Set.disjoint (reads a) (writes b)
-    || Set.disjoint (reads b) (writes a)
-    || Set.disjoint (writes b) (writes a)
+      !(cs'', dynQ) = runQuery q cs'
+   in (cs'', f cId dynQ)
 
 -- | Match all entities.
 --
@@ -288,9 +253,8 @@ singleMaybe' = QR.singleMaybe' . toReader
 {-# INLINE map #-}
 map :: (Monad m) => QueryT m o -> Entities -> m ([o], Entities)
 map q es = do
-  let !(rws, cs', dynQ) = runQuery q $ components es
-      !cIds = reads rws <> writes rws
-  (as, es') <- mapDyn cIds dynQ es
+  let !(cs', dynQ) = runQuery q $ components es
+  (as, es') <- mapDyn dynQ es
   return (as, es' {components = cs'})
 
 -- | Map a single matched entity.
@@ -299,9 +263,8 @@ map q es = do
 {-# INLINE mapSingle #-}
 mapSingle :: (HasCallStack, Monad m) => QueryT m a -> Entities -> m (a, Entities)
 mapSingle q es = do
-  let !(rws, cs', dynQ) = runQuery q $ components es
-      !cIds = reads rws <> writes rws
-  (as, es') <- mapSingleDyn cIds dynQ es
+  let !(cs', dynQ) = runQuery q $ components es
+  (as, es') <- mapSingleDyn dynQ es
   return (as, es' {components = cs'})
 
 -- | Map a single matched entity, or `Nothing`.
@@ -310,7 +273,6 @@ mapSingle q es = do
 {-# INLINE mapSingleMaybe #-}
 mapSingleMaybe :: (Monad m) => QueryT m a -> Entities -> m (Maybe a, Entities)
 mapSingleMaybe q es = do
-  let !(rws, cs', dynQ) = runQuery q $ components es
-      !cIds = reads rws <> writes rws
-  (as, es') <- mapSingleMaybeDyn cIds dynQ es
+  let !(cs', dynQ) = runQuery q $ components es
+  (as, es') <- mapSingleMaybeDyn dynQ es
   return (as, es' {components = cs'})

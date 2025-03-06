@@ -10,41 +10,39 @@
 -- Portability : non-portable (GHC extensions)
 module Aztecs.ECS.System.Dynamic.Reader.Class (MonadDynamicReaderSystem (..)) where
 
-import Aztecs.ECS.Component
 import Aztecs.ECS.World.Archetypes (Node)
-import Data.Set (Set)
 import GHC.Stack
 
 -- | Monadic dynamic reader system.
 --
--- @since 0.9
+-- @since 0.11
 class (Monad m) => MonadDynamicReaderSystem q m | m -> q where
   -- | Match all entities with a query.
   --
-  -- @since 0.9
-  allDyn :: Set ComponentID -> q a -> m [a]
+  -- @since 0.11
+  allDyn :: q a -> m [a]
 
   -- | Match a single entity with a query.
   --
-  -- @since 0.9
-  singleDyn :: (HasCallStack) => Set ComponentID -> q a -> m a
-  singleDyn cIds q = do
-    os <- allDyn cIds q
+  -- @since 0.11
+  singleDyn :: (HasCallStack) => q a -> m a
+  singleDyn q = do
+    os <- allDyn q
     case os of
       [o] -> return o
       _ -> error "singleDyn: expected a single result, but got multiple"
 
   -- | Match a single entity with a query, or Nothing.
   --
-  -- @since 0.9
-  singleMaybeDyn :: Set ComponentID -> q a -> m (Maybe a)
-  singleMaybeDyn cIds q = do
-    os <- allDyn cIds q
+  -- @since 0.11
+  singleMaybeDyn :: q a -> m (Maybe a)
+  singleMaybeDyn q = do
+    os <- allDyn q
     return $ case os of
       [o] -> Just o
       _ -> Nothing
 
   -- | Match all entities with a query and filter.
   --
-  -- @since 0.9
-  filterDyn :: Set ComponentID -> q a -> (Node -> Bool) -> m [a]
+  -- @since 0.11
+  filterDyn :: q a -> (Node -> Bool) -> m [a]
