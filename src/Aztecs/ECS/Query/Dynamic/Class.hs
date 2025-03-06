@@ -16,7 +16,7 @@ import Control.Monad
 -- | Dynamic query functor.
 --
 -- @since 0.10
-class (Monad m, Functor f) => DynamicQueryF m f | f -> m where
+class (Applicative m, Functor f) => DynamicQueryF m f | f -> m where
   -- | Adjust a `Component` by its `ComponentID`.
   --
   -- @since 0.10
@@ -31,7 +31,7 @@ class (Monad m, Functor f) => DynamicQueryF m f | f -> m where
   -- | Adjust a `Component` by its `ComponentID` with some applicative functor @g@.
   --
   -- @since 0.10
-  adjustDynM :: (Component a) => (b -> a -> m a) -> ComponentID -> f b -> f a
+  adjustDynM :: (Monad m, Component a) => (b -> a -> m a) -> ComponentID -> f b -> f a
 
   -- | Set a `Component` by its `ComponentID`.
   --

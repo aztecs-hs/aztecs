@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
@@ -47,8 +48,7 @@ import Aztecs.ECS.World.Storage.Dynamic
 import qualified Aztecs.ECS.World.Storage.Dynamic as S
 import Control.DeepSeq
 import Control.Monad.Writer
-  ( MonadTrans (..),
-    MonadWriter (..),
+  ( MonadWriter (..),
     WriterT (..),
     runWriter,
   )
@@ -79,6 +79,12 @@ data Archetype = Archetype
     entities :: !(Set EntityID)
   }
   deriving (Show, Generic, NFData)
+
+instance Semigroup Archetype where
+  a <> b = Archetype {storages = storages a <> storages b, entities = entities a <> entities b}
+
+instance Monoid Archetype where
+  mempty = empty
 
 -- | Empty archetype.
 --
@@ -170,18 +176,19 @@ zipWith as f cId arch =
 --
 -- @since 0.9
 zipWithM ::
-  forall m a c. (Monad m, Component c) => [a] -> (a -> c -> m c) -> ComponentID -> Archetype -> m ([c], Archetype)
+  forall m a c. (Applicative m, Component c) => [a] -> (a -> c -> m c) -> ComponentID -> Archetype -> m ([c], Archetype)
 zipWithM as f cId arch = do
   let go maybeDyn = case maybeDyn of
         Just dyn -> case fromDynamic $ storageDyn dyn of
-          Just s -> do
-            (cs', s') <- lift $ S.zipWithM @c @(StorageT c) f as s
-            tell cs'
-            return $ Just $ dyn {storageDyn = toDyn s'}
-          Nothing -> return maybeDyn
-        Nothing -> return Nothing
-  (storages', cs) <- runWriterT $ IntMap.alterF go (unComponentId cId) $ storages arch
-  return (cs, arch {storages = storages'})
+          Just s ->
+            WriterT $
+              fmap
+                (\(cs, s') -> (Just dyn {storageDyn = toDyn s'}, cs))
+                (S.zipWithM @c @(StorageT c) f as s)
+          Nothing -> pure maybeDyn
+        Nothing -> pure Nothing
+  res <- runWriterT $ IntMap.alterF go (unComponentId cId) $ storages arch
+  return (snd res, arch {storages = fst res})
 
 -- | Zip a list of components with a function and a component storage.
 --
@@ -190,14 +197,13 @@ zipWithM as f cId arch = do
 zipWith_ ::
   forall a c. (Component c) => [a] -> (a -> c -> c) -> ComponentID -> Archetype -> Archetype
 zipWith_ as f cId arch =
-  let go maybeDyn = case maybeDyn of
+  let maybeStorage = case IntMap.lookup (unComponentId cId) $ storages arch of
         Just dyn -> case fromDynamic $ storageDyn dyn of
           Just s ->
             let !s' = S.zipWith_ @c @(StorageT c) f as s in Just $ dyn {storageDyn = toDyn s'}
-          Nothing -> maybeDyn
+          Nothing -> Nothing
         Nothing -> Nothing
-      !storages' = IntMap.alter go (unComponentId cId) $ storages arch
-   in (arch {storages = storages'})
+   in (empty {storages = maybe IntMap.empty (IntMap.singleton (unComponentId cId)) maybeStorage})
 
 -- | Insert a list of components into the archetype, sorted in ascending order by their `EntityID`.
 --

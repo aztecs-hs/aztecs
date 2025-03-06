@@ -1,3 +1,4 @@
+{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -42,39 +43,40 @@ import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
 import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Entities (Entities (..))
-import Control.Category
 import Control.Monad.Identity
 import Data.Foldable
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
-import GHC.Stack (HasCallStack)
-import Prelude hiding ((.))
+import GHC.Stack
 
 type DynamicQuery = DynamicQueryT Identity
 
 -- | Dynamic query for components by ID.
 --
 -- @since 0.10
-newtype DynamicQueryT m a
+newtype DynamicQueryT f a
   = DynamicQuery
   { -- | Run a dynamic query.
     --
     -- @since 0.10
-    runDynQuery :: Archetype -> m ([a], Archetype)
+    runDynQuery :: Archetype -> f ([a], Archetype)
   }
   deriving (Functor)
 
 -- | @since 0.10
-instance (Monad m) => Applicative (DynamicQueryT m) where
+instance (Applicative f) => Applicative (DynamicQueryT f) where
   {-# INLINE pure #-}
   pure a = DynamicQuery $ \arch -> pure (replicate (length $ A.entities arch) a, arch)
 
   {-# INLINE (<*>) #-}
   f <*> g = DynamicQuery $ \arch -> do
-    (as, arch') <- runDynQuery g arch
-    (fs, arch'') <- runDynQuery f arch'
-    return (zipWith ($) fs as, arch'')
+    x <- runDynQuery g arch
+    y <- runDynQuery f arch
+    return $
+      let (as, arch') = x
+          (bs, arch'') = y
+       in (zipWith ($) bs as, arch' <> arch'')
 
 -- | @since 0.10
 instance DynamicQueryReaderF DynamicQuery where
@@ -88,16 +90,14 @@ instance DynamicQueryReaderF DynamicQuery where
   fetchMaybeDyn = fromDynReader . fetchMaybeDyn
 
 -- | @since 0.10
-instance (Monad m) => DynamicQueryF m (DynamicQueryT m) where
+instance (Applicative m) => DynamicQueryF m (DynamicQueryT m) where
   {-# INLINE adjustDyn #-}
-  adjustDyn f cId q = DynamicQuery $ \arch -> do
-    (bs, arch') <- runDynQuery q arch
-    return $ A.zipWith bs f cId arch'
+  adjustDyn f cId q =
+    DynamicQuery (fmap (\(bs, arch') -> A.zipWith bs f cId arch') . runDynQuery q)
 
   {-# INLINE adjustDyn_ #-}
-  adjustDyn_ f cId q = DynamicQuery $ \arch -> do
-    (bs, arch') <- runDynQuery q arch
-    return (map (const ()) bs, A.zipWith_ bs f cId arch')
+  adjustDyn_ f cId q = DynamicQuery $ \arch ->
+    fmap (\(bs, arch') -> (map (const ()) bs, A.zipWith_ bs f cId arch')) (runDynQuery q arch)
 
   {-# INLINE adjustDynM #-}
   adjustDynM f cId q = DynamicQuery $ \arch -> do
@@ -105,9 +105,8 @@ instance (Monad m) => DynamicQueryF m (DynamicQueryT m) where
     A.zipWithM bs f cId arch'
 
   {-# INLINE setDyn #-}
-  setDyn cId q = DynamicQuery $ \arch -> do
-    (bs, arch') <- runDynQuery q arch
-    return (bs, A.insertAscList cId bs arch')
+  setDyn cId q =
+    DynamicQuery (fmap (\(bs, arch') -> (bs, A.insertAscList cId bs arch')) . runDynQuery q)
 
 -- | Convert a `DynamicQueryReaderT` to a `DynamicQueryT`.
 --
@@ -139,7 +138,7 @@ mapDyn cIds q es =
         else
           let go' (acc, esAcc) (aId, n) = do
                 (as', arch') <- go $ nodeArchetype n
-                let !nodes = Map.insert aId n {nodeArchetype = arch'} . AS.nodes $ archetypes esAcc
+                let !nodes = Map.insert aId n {nodeArchetype = nodeArchetype n <> arch'} . AS.nodes $ archetypes esAcc
                 return (as' ++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}})
            in foldlM go' ([], es) $ Map.toList . AS.find cIds $ archetypes es
 
@@ -157,7 +156,7 @@ filterMapDyn cIds f q es =
         else
           let go' (acc, esAcc) (aId, n) = do
                 (as', arch') <- go $ nodeArchetype n
-                let !nodes = Map.insert aId n {nodeArchetype = arch'} . AS.nodes $ archetypes esAcc
+                let !nodes = Map.insert aId n {nodeArchetype = nodeArchetype n <> arch'} . AS.nodes $ archetypes esAcc
                 return (as' ++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}})
            in foldlM go' ([], es) $ Map.toList . Map.filter f . AS.find cIds $ archetypes es
 
@@ -190,7 +189,7 @@ mapSingleMaybeDyn cIds q es =
         res <- runDynQuery q $ AS.nodeArchetype n
         return $ case res of
           ([a], arch') ->
-            let nodes = Map.insert aId n {nodeArchetype = arch'} . AS.nodes $ archetypes es
+            let nodes = Map.insert aId n {nodeArchetype = nodeArchetype n <> arch'} . AS.nodes $ archetypes es
              in (Just a, es {archetypes = (archetypes es) {AS.nodes = nodes}})
           _ -> (Nothing, es)
       _ -> pure (Nothing, es)
