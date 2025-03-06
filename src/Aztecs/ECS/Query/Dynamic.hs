@@ -90,7 +90,7 @@ instance DynamicQueryReaderF DynamicQuery where
   fetchMaybeDyn = fromDynReader . fetchMaybeDyn
 
 -- | @since 0.10
-instance (Applicative m) => DynamicQueryF m (DynamicQueryT m) where
+instance (Applicative f) => DynamicQueryF f (DynamicQueryT f) where
   {-# INLINE adjustDyn #-}
   adjustDyn f cId q =
     DynamicQuery (fmap (\(bs, arch') -> A.zipWith bs f cId arch') . runDynQuery q)
@@ -138,7 +138,7 @@ mapDyn cIds q es =
         else
           let go' (acc, esAcc) (aId, n) = do
                 (as', arch') <- go $ nodeArchetype n
-                let !nodes = Map.insert aId n {nodeArchetype = nodeArchetype n <> arch'} . AS.nodes $ archetypes esAcc
+                let !nodes = Map.insert aId n {nodeArchetype = arch' <> nodeArchetype n} . AS.nodes $ archetypes esAcc
                 return (as' ++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}})
            in foldlM go' ([], es) $ Map.toList . AS.find cIds $ archetypes es
 
@@ -156,7 +156,7 @@ filterMapDyn cIds f q es =
         else
           let go' (acc, esAcc) (aId, n) = do
                 (as', arch') <- go $ nodeArchetype n
-                let !nodes = Map.insert aId n {nodeArchetype = nodeArchetype n <> arch'} . AS.nodes $ archetypes esAcc
+                let !nodes = Map.insert aId n {nodeArchetype = arch' <> nodeArchetype n} . AS.nodes $ archetypes esAcc
                 return (as' ++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}})
            in foldlM go' ([], es) $ Map.toList . Map.filter f . AS.find cIds $ archetypes es
 
@@ -189,7 +189,7 @@ mapSingleMaybeDyn cIds q es =
         res <- runDynQuery q $ AS.nodeArchetype n
         return $ case res of
           ([a], arch') ->
-            let nodes = Map.insert aId n {nodeArchetype = nodeArchetype n <> arch'} . AS.nodes $ archetypes es
+            let nodes = Map.insert aId n {nodeArchetype = arch' <> nodeArchetype n} . AS.nodes $ archetypes es
              in (Just a, es {archetypes = (archetypes es) {AS.nodes = nodes}})
           _ -> (Nothing, es)
       _ -> pure (Nothing, es)

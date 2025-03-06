@@ -18,7 +18,7 @@ import Control.Monad
 -- | Query functor.
 --
 -- @since 0.10
-class (Monad m, Functor f) => QueryF m f | f -> m where
+class (Applicative g, Functor f) => QueryF g f | f -> g where
   -- | Adjust a `Component` by its type.
   --
   -- @since 0.10
@@ -33,7 +33,7 @@ class (Monad m, Functor f) => QueryF m f | f -> m where
   -- | Adjust a `Component` by its type with some `Monad` @m@.
   --
   -- @since 0.10
-  adjustM :: (Component a) => (b -> a -> m a) -> f b -> f a
+  adjustM :: (Component a) => (b -> a -> g a) -> f b -> f a
 
   -- | Set a `Component` by its type.
   --
