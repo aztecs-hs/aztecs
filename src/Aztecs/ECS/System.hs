@@ -91,6 +91,9 @@ instance (Monad m) => Applicative (SystemT m) where
 instance (Monad m) => Monad (SystemT m) where
   (System a) >>= f = System $ Bind a (unSystem . f)
 
+instance (MonadIO m) => MonadIO (SystemT m) where
+  liftIO m = System $ Once . Task . const . lift $ liftIO m
+
 -- | @since 0.9
 mapDyn :: (Monad m) => DynamicQueryT m a -> SystemT m [a]
 mapDyn q = System $ Once . Task $ \f -> do
