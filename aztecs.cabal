@@ -57,6 +57,15 @@ library
         parallel >=3,
         stm >=2
 
+executable ecs
+    main-is:          examples/ECS.hs
+    default-language: Haskell2010
+    ghc-options:      -Wall
+    build-depends:
+        base,
+        aztecs,
+        deepseq >=1
+
 test-suite aztecs-test
     type:             exitcode-stdio-1.0
     main-is:          Main.hs

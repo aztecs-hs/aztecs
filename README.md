@@ -23,10 +23,7 @@ For more information, please see the documentation on [Hackage](https://hackage.
 - Modular design: Aztecs can be extended for a variety of use cases
 
 ```hs
-import Aztecs
-import qualified Aztecs.ECS.Access as A
-import qualified Aztecs.ECS.Query as Q
-import qualified Aztecs.ECS.System as S
+import Aztecs.ECS
 import Control.DeepSeq
 import Control.Monad
 import Control.Monad.IO.Class
@@ -42,17 +39,17 @@ newtype Velocity = Velocity Int deriving (Show, Generic, NFData)
 instance Component Velocity
 
 move :: (Monad m) => QueryT m Position
-move = Q.fetch & Q.adjust (\(Velocity v) (Position p) -> Position $ p + v)
+move = fetch & zipFetchMap (\(Velocity v) (Position p) -> Position $ p + v)
 
-run :: AccessT IO ()
+run :: SystemT IO ()
 run = do
-  positions <- S.map move
+  positions <- query move
   liftIO $ print positions
 
 app :: AccessT IO ()
 app = do
-  A.spawn_ $ bundle (Position 0) <> bundle (Velocity 1)
-  forever run
+  _ <- spawn $ bundle (Position 0) <> bundle (Velocity 1)
+  forever $ system run
 
 main :: IO ()
 main = runAccessT_ app
