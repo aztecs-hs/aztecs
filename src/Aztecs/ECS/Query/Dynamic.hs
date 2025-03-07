@@ -486,7 +486,7 @@ mapSingleMaybeDyn q es =
 --
 -- @since 0.11
 data QueryFilter = QueryFilter
-  { filterWith :: {-# UNPACK #-} !(Set ComponentID),
+  { filterWith :: !(Set ComponentID),
     filterWithout :: !(Set ComponentID)
   }
   deriving (Show)

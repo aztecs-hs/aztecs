@@ -106,7 +106,7 @@ singleton e = Archetype {storages = IntMap.empty, entities = Set.singleton e}
 {-# INLINE lookupStorage #-}
 lookupStorage :: (Component a) => ComponentID -> Archetype -> Maybe (StorageT a)
 lookupStorage cId w = do
-  !dynS <- IntMap.lookup (unComponentId cId) $ storages w
+  dynS <- IntMap.lookup (unComponentId cId) $ storages w
   fromDynamic $ storageDyn dynS
 
 -- | Lookup a component by its `EntityID` and `ComponentID`.
@@ -153,6 +153,7 @@ insertComponent e cId c arch =
 -- | @True@ if this archetype contains an entity with the provided `ComponentID`.
 --
 -- @since 0.9
+{-# INLINE member #-}
 member :: ComponentID -> Archetype -> Bool
 member cId = IntMap.member (unComponentId cId) . storages
 
@@ -213,12 +214,12 @@ zipWith as f cId arch =
   let go maybeDyn = case maybeDyn of
         Just dyn -> case fromDynamic $ storageDyn dyn of
           Just s -> do
-            let !(acs, s') = S.zipWith @c @(StorageT c) f as s
+            let (acs, s') = S.zipWith @c @(StorageT c) f as s
             tell acs
             return $ Just $ dyn {storageDyn = toDyn s'}
           Nothing -> return maybeDyn
         Nothing -> return Nothing
-      !(storages', cs) = runWriter $ IntMap.alterF go (unComponentId cId) $ storages arch
+      (storages', cs) = runWriter $ IntMap.alterF go (unComponentId cId) $ storages arch
    in (cs, arch {storages = storages'})
 
 -- | Zip a list of components with a monadic function .
