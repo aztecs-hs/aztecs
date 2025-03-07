@@ -257,8 +257,8 @@ runOpEntities (FetchMaybe cId) es arch =
         $ A.lookupComponents cId arch,
       mempty
     )
-runOpEntities (FetchMap f cId) es arch = do
-  return $
+runOpEntities (FetchMap f cId) es arch =
+  pure $
     let go e a =
           if e `elem` es
             then let a' = f a in (Just a', a')
