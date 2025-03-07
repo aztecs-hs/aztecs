@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [0.11.1](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.11.0..aztecs-v0.11.1) - 2025-3-7
+
+## Documentation
+
+- Fix Hackage compilation
+
 ## [0.11.0](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.10.0..aztecs-v0.11.0) - 2025-3-7
 
 ## Breaking changes

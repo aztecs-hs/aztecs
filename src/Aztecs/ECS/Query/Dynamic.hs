@@ -62,7 +62,8 @@ import Aztecs.ECS.World.Archetypes (ArchetypeID, Node (..))
 import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Entities
 import Control.Applicative
-import Control.Monad.Identity
+import Control.Monad
+import Control.Monad.Identity (Identity)
 import Data.Bifunctor
 import Data.Foldable
 import Data.Map (Map)
