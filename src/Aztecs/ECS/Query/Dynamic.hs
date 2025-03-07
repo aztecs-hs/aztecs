@@ -1,10 +1,6 @@
 {-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TypeFamilies #-}
 
 -- |
 -- Module      : Aztecs.ECS.Query.Dynamic
@@ -130,19 +126,31 @@ fetchMapDynM :: (Monad f, Component a) => (a -> f a) -> ComponentID -> DynamicQu
 fetchMapDynM f = Op . FetchMapM f
 
 {-# INLINE zipFetchMapDyn #-}
-zipFetchMapDyn :: (Component a) => (b -> a -> a) -> ComponentID -> DynamicQueryT f b -> DynamicQueryT f a
+zipFetchMapDyn ::
+  (Component a) => (b -> a -> a) -> ComponentID -> DynamicQueryT f b -> DynamicQueryT f a
 zipFetchMapDyn f cId q = snd <$> Op (Adjust (\b a -> ((), f b a)) cId q)
 
 {-# INLINE zipFetchMapAccumDyn #-}
-zipFetchMapAccumDyn :: (Component a) => (b -> a -> (c, a)) -> ComponentID -> DynamicQueryT f b -> DynamicQueryT f (c, a)
+zipFetchMapAccumDyn ::
+  (Component a) => (b -> a -> (c, a)) -> ComponentID -> DynamicQueryT f b -> DynamicQueryT f (c, a)
 zipFetchMapAccumDyn f cId q = Op $ Adjust f cId q
 
 {-# INLINE zipFetchMapDynM #-}
-zipFetchMapDynM :: (Monad f, Component a) => (b -> a -> f a) -> ComponentID -> DynamicQueryT f b -> DynamicQueryT f a
+zipFetchMapDynM ::
+  (Monad f, Component a) =>
+  (b -> a -> f a) ->
+  ComponentID ->
+  DynamicQueryT f b ->
+  DynamicQueryT f a
 zipFetchMapDynM f cId q = snd <$> zipFetchMapAccumDynM (\b a -> ((),) <$> f b a) cId q
 
 {-# INLINE zipFetchMapAccumDynM #-}
-zipFetchMapAccumDynM :: (Monad f, Component a) => (b -> a -> f (c, a)) -> ComponentID -> DynamicQueryT f b -> DynamicQueryT f (c, a)
+zipFetchMapAccumDynM ::
+  (Monad f, Component a) =>
+  (b -> a -> f (c, a)) ->
+  ComponentID ->
+  DynamicQueryT f b ->
+  DynamicQueryT f (c, a)
 zipFetchMapAccumDynM f cId q = Op $ AdjustM f cId q
 
 {-# INLINE withDyn #-}
@@ -174,15 +182,6 @@ queryFilter (Op op) = opFilter op
 
 {-# INLINE runOp #-}
 runOp :: (Applicative f) => Operation f a -> Archetype -> f ([a], Archetype)
-runOp Entity arch = pure (Set.toList $ A.entities arch, mempty)
-runOp (Fetch cId) arch = pure (A.lookupComponentsAsc cId arch, mempty)
-runOp (FetchMaybe cId) arch =
-  pure
-    ( case A.lookupComponentsAscMaybe cId arch of
-        Just as -> fmap Just as
-        Nothing -> replicate (length $ A.entities arch) Nothing,
-      mempty
-    )
 runOp (FetchMap f cId) arch = pure $ A.map f cId arch
 runOp (FetchMapM f cId) arch = do
   (as, arch') <- A.mapM f cId arch
@@ -197,8 +196,7 @@ runOp (AdjustM f cId q) arch = do
   (as, arch') <- runDynQuery q arch
   (bs, arch'') <- A.zipWithM as f cId arch
   return (bs, arch'' <> arch')
-runOp (With _) _ = pure ([], mempty)
-runOp (Without _) _ = pure ([], mempty)
+runOp op arch = (,mempty) <$> readOp op arch
 
 {-# INLINE readOp #-}
 readOp :: (Applicative f) => Operation f a -> Archetype -> f [a]
@@ -258,15 +256,6 @@ readQueryEntitiesDyn eIds q es =
            in concat <$> mapM go (AS.find (filterWith qf) (filterWithout qf) $ archetypes es)
 
 runOpEntities :: (Applicative f) => Operation f a -> [EntityID] -> Archetype -> f ([a], Archetype)
-runOpEntities Entity es _ = pure (es, mempty)
-runOpEntities (Fetch cId) es arch =
-  pure
-    ( map snd
-        . filter (\(e, _) -> e `elem` es)
-        . Map.toList
-        $ A.lookupComponents cId arch,
-      mempty
-    )
 runOpEntities (FetchMaybe cId) es arch =
   pure
     ( map (\(e, a) -> if e `elem` es then Just a else Nothing)
@@ -305,8 +294,7 @@ runOpEntities (AdjustM f cId q) es arch = do
           else return (Nothing, a)
   (as, arch'') <- A.zipWithM (zip es bs) go cId arch
   return (mapMaybe (\(m, b) -> fmap (,b) m) as, arch'' <> arch')
-runOpEntities (With _) _ arch = pure ([], arch)
-runOpEntities (Without _) _ arch = pure ([], arch)
+runOpEntities op es arch = (,arch) <$> readOpEntities op es arch
 
 runDynQueryEntities :: (Applicative f) => [EntityID] -> DynamicQueryT f a -> Archetype -> f ([a], Archetype)
 runDynQueryEntities es (Pure a) _ = pure (replicate (length es) a, mempty)
@@ -498,8 +486,8 @@ mapSingleMaybeDyn q es =
 --
 -- @since 0.11
 data QueryFilter = QueryFilter
-  { filterWith :: (Set ComponentID),
-    filterWithout :: (Set ComponentID)
+  { filterWith :: {-# UNPACK #-} !(Set ComponentID),
+    filterWithout :: !(Set ComponentID)
   }
   deriving (Show)
 
