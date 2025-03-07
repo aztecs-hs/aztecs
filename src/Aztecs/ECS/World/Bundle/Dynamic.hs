@@ -6,11 +6,11 @@
 -- Maintainer  : matt@hunzinger.me
 -- Stability   : provisional
 -- Portability : non-portable (GHC extensions)
-module Aztecs.ECS.World.Bundle.Dynamic (DynamicBundle (..), MonoidDynamicBundle (..)) where
+module Aztecs.ECS.World.Bundle.Dynamic (DynamicBundle (..), dynBundle) where
 
+import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
 import Aztecs.ECS.World.Archetype
-import Aztecs.ECS.World.Bundle.Dynamic.Class
 
 -- | Dynamic bundle of components.
 --
@@ -25,6 +25,6 @@ instance Semigroup DynamicBundle where
 instance Monoid DynamicBundle where
   mempty = DynamicBundle $ \_ arch -> arch
 
--- | @since 0.9
-instance MonoidDynamicBundle DynamicBundle where
-  dynBundle cId a = DynamicBundle $ \eId arch -> insertComponent eId cId a arch
+-- | @since 0.11
+dynBundle :: (Component a) => ComponentID -> a -> DynamicBundle
+dynBundle cId a = DynamicBundle $ \eId arch -> insertComponent eId cId a arch

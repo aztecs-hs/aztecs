@@ -55,9 +55,9 @@ module Aztecs.ECS
     runAccessT,
     runAccessT_,
     Bundle,
-    MonoidBundle (..),
+    bundle,
     DynamicBundle,
-    MonoidDynamicBundle (..),
+    dynBundle,
     Component (..),
     EntityID,
     Query,
@@ -99,5 +99,5 @@ import Aztecs.ECS.System
     querySingleMaybeDyn,
   )
 import Aztecs.ECS.World (World)
-import Aztecs.ECS.World.Bundle (Bundle, MonoidBundle (..))
-import Aztecs.ECS.World.Bundle.Dynamic (DynamicBundle, MonoidDynamicBundle (..))
+import Aztecs.ECS.World.Bundle
+import Aztecs.ECS.World.Bundle.Dynamic

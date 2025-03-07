@@ -17,8 +17,7 @@
 -- Portability : non-portable (GHC extensions)
 module Aztecs.ECS.World.Bundle
   ( Bundle (..),
-    MonoidBundle (..),
-    MonoidDynamicBundle (..),
+    bundle,
     runBundle,
   )
 where
@@ -26,7 +25,6 @@ where
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
 import Aztecs.ECS.World.Archetype
-import Aztecs.ECS.World.Bundle.Class
 import Aztecs.ECS.World.Bundle.Dynamic
 import Aztecs.ECS.World.Components
 import qualified Aztecs.ECS.World.Components as CS
@@ -54,15 +52,10 @@ instance Semigroup Bundle where
         (cIds2, cs'', d2) = b2 cs'
      in (cIds1 <> cIds2, cs'', d1 <> d2)
 
--- | @since 0.9
-instance MonoidBundle Bundle where
-  bundle :: forall a. (Component a) => a -> Bundle
-  bundle a = Bundle $ \cs ->
-    let (cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', dynBundle cId a)
-
--- | @since 0.9
-instance MonoidDynamicBundle Bundle where
-  dynBundle cId c = Bundle (Set.singleton cId,,dynBundle cId c)
+-- | @since 0.11
+bundle :: forall a. (Component a) => a -> Bundle
+bundle a = Bundle $ \cs ->
+  let (cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', dynBundle cId a)
 
 -- | Insert a bundle of components into an archetype.
 --
