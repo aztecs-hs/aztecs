@@ -36,6 +36,7 @@ module Aztecs.ECS.World.Archetype
     insertComponents,
     insertAscList,
     map,
+    mapM,
     zipWith,
     zipWithM,
   )
@@ -48,7 +49,8 @@ import Aztecs.ECS.World.Storage.Dynamic
 import qualified Aztecs.ECS.World.Storage.Dynamic as S
 import Control.DeepSeq
 import Control.Monad.Writer
-  ( MonadWriter (..),
+  ( MonadTrans (..),
+    MonadWriter (..),
     WriterT (..),
     runWriter,
   )
@@ -62,7 +64,7 @@ import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Generics
-import Prelude hiding (map, zipWith)
+import Prelude hiding (map, mapM, zipWith)
 
 -- | Archetype of entities and components.
 -- An archetype is guranteed to contain one of each stored component per entity.
@@ -156,7 +158,7 @@ member cId = IntMap.member (unComponentId cId) . storages
 
 -- | Map a list of components with a function and a component storage.
 --
--- @since 0.9
+-- @since 0.11
 {-# INLINE map #-}
 map ::
   forall a. (Component a) => (a -> a) -> ComponentID -> Archetype -> ([a], Archetype)
@@ -172,12 +174,41 @@ map f cId arch =
       !(storages', cs) = runWriter $ IntMap.alterF go (unComponentId cId) $ storages arch
    in (cs, arch {storages = storages'})
 
--- | Zip a list of components with a function and a component storage.
+-- | Map a list of components with a monadic function.
+--
+-- @since 0.11
+{-# INLINE mapM #-}
+mapM ::
+  forall m a.
+  (Monad m, Component a) =>
+  (a -> m a) ->
+  ComponentID ->
+  Archetype ->
+  m ([a], Archetype)
+mapM f cId arch = do
+  let go maybeDyn = case maybeDyn of
+        Just dyn -> case fromDynamic $ storageDyn dyn of
+          Just s -> do
+            (as, s') <- lift $ S.mapM @a @(StorageT a) f s
+            tell as
+            return $ Just $ dyn {storageDyn = toDyn s'}
+          Nothing -> return maybeDyn
+        Nothing -> return Nothing
+  (storages', cs) <- runWriterT $ IntMap.alterF go (unComponentId cId) $ storages arch
+  return (cs, arch {storages = storages'})
+
+-- | Zip a list of components with a function.
 --
 -- @since 0.9
 {-# INLINE zipWith #-}
 zipWith ::
-  forall a b c. (Component c) => [a] -> (a -> c -> (b, c)) -> ComponentID -> Archetype -> ([(b, c)], Archetype)
+  forall a b c.
+  (Component c) =>
+  [a] ->
+  (a -> c -> (b, c)) ->
+  ComponentID ->
+  Archetype ->
+  ([(b, c)], Archetype)
 zipWith as f cId arch =
   let go maybeDyn = case maybeDyn of
         Just dyn -> case fromDynamic $ storageDyn dyn of
@@ -190,11 +221,17 @@ zipWith as f cId arch =
       !(storages', cs) = runWriter $ IntMap.alterF go (unComponentId cId) $ storages arch
    in (cs, arch {storages = storages'})
 
--- | Zip a list of components with a monadic function and a component storage.
+-- | Zip a list of components with a monadic function .
 --
 -- @since 0.9
 zipWithM ::
-  forall m a b c. (Applicative m, Component c) => [a] -> (a -> c -> m (b, c)) -> ComponentID -> Archetype -> m ([(b, c)], Archetype)
+  forall m a b c.
+  (Applicative m, Component c) =>
+  [a] ->
+  (a -> c -> m (b, c)) ->
+  ComponentID ->
+  Archetype ->
+  m ([(b, c)], Archetype)
 zipWithM as f cId arch = do
   let go maybeDyn = case maybeDyn of
         Just dyn -> case fromDynamic $ storageDyn dyn of

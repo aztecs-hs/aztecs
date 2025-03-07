@@ -43,6 +43,7 @@ module Aztecs.ECS.Query
     entity,
     fetch,
     fetchMap,
+    fetchMapM,
     zipFetchMap,
     zipFetchMapAccum,
     zipFetchMapM,
@@ -113,6 +114,10 @@ fetch = fromDynInternal @f @a $ fetchDyn
 {-# INLINE fetchMap #-}
 fetchMap :: forall m a. (Component a) => (a -> a) -> QueryT m a
 fetchMap f = fromDynInternal @_ @a $ fetchMapDyn f
+
+{-# INLINE fetchMapM #-}
+fetchMapM :: forall m a. (Monad m, Component a) => (a -> m a) -> QueryT m a
+fetchMapM f = fromDynInternal @_ @a $ fetchMapDynM f
 
 {-# INLINE zipFetchMap #-}
 zipFetchMap :: forall m a b. (Component a) => (b -> a -> a) -> QueryT m b -> QueryT m a

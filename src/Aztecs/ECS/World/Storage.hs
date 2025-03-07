@@ -13,6 +13,7 @@ module Aztecs.ECS.World.Storage (Storage (..)) where
 
 import Control.DeepSeq
 import qualified Control.Monad
+import qualified Control.Monad as M
 import Data.Data
 import Prelude hiding (zipWith)
 import qualified Prelude
@@ -42,6 +43,11 @@ class (Typeable s, NFData s, Typeable a) => Storage a s where
   -- @since 0.11
   map :: (a -> a) -> s -> ([a], s)
 
+  -- | Map a monadic function over all components in the storage.
+  --
+  -- @since 0.11
+  mapM :: (Monad m) => (a -> m a) -> s -> m ([a], s)
+
   -- | Map a function with some input over all components in the storage.
   --
   -- @since 0.11
@@ -62,6 +68,8 @@ instance (Typeable a, NFData a) => Storage a [a] where
   fromAscList = id
   {-# INLINE map #-}
   map f as = let as' = fmap f as in (as', as')
+  {-# INLINE mapM #-}
+  mapM f as = (\as' -> (as', as')) <$> M.mapM f as
   {-# INLINE zipWith #-}
   zipWith f is as = let as' = Prelude.zipWith f is as in (as', fmap snd as')
   {-# INLINE zipWithM #-}

@@ -24,6 +24,7 @@ module Aztecs.ECS.Query.Dynamic
     fetchDyn,
     fetchMaybeDyn,
     fetchMapDyn,
+    fetchMapDynM,
     zipFetchMapDyn,
     zipFetchMapAccumDyn,
     zipFetchMapDynM,
@@ -77,6 +78,7 @@ data Operation f a where
   Fetch :: (Component a) => !ComponentID -> Operation f a
   FetchMaybe :: (Component a) => !ComponentID -> Operation f (Maybe a)
   FetchMap :: (Component a) => !(a -> a) -> !ComponentID -> Operation f a
+  FetchMapM :: (Monad f, Component a) => !(a -> f a) -> !ComponentID -> Operation f a
   Adjust :: (Component a) => !(b -> a -> (c, a)) -> !ComponentID -> !(DynamicQueryT f b) -> Operation f (c, a)
   AdjustM :: (Monad f, Component a) => !(b -> a -> f (c, a)) -> !ComponentID -> !(DynamicQueryT f b) -> Operation f (c, a)
   With :: !ComponentID -> Operation f ()
@@ -118,8 +120,13 @@ fetchDyn = Op . Fetch
 fetchMaybeDyn :: (Component a) => ComponentID -> DynamicQueryT f (Maybe a)
 fetchMaybeDyn = Op . FetchMaybe
 
+{-# INLINE fetchMapDyn #-}
 fetchMapDyn :: (Component a) => (a -> a) -> ComponentID -> DynamicQueryT f a
 fetchMapDyn f = Op . FetchMap f
+
+{-# INLINE fetchMapDynM #-}
+fetchMapDynM :: (Monad f, Component a) => (a -> f a) -> ComponentID -> DynamicQueryT f a
+fetchMapDynM f = Op . FetchMapM f
 
 {-# INLINE zipFetchMapDyn #-}
 zipFetchMapDyn :: (Component a) => (b -> a -> a) -> ComponentID -> DynamicQueryT f b -> DynamicQueryT f a
@@ -149,6 +156,7 @@ opFilter Entity = mempty
 opFilter (Fetch cId) = mempty {filterWith = Set.singleton cId}
 opFilter (FetchMaybe cId) = mempty {filterWith = Set.singleton cId}
 opFilter (FetchMap _ cId) = mempty {filterWith = Set.singleton cId}
+opFilter (FetchMapM _ cId) = mempty {filterWith = Set.singleton cId}
 opFilter (Adjust _ cId q) = queryFilter q <> mempty {filterWith = Set.singleton cId}
 opFilter (AdjustM _ cId q) = queryFilter q <> mempty {filterWith = Set.singleton cId}
 opFilter (With cId) = mempty {filterWith = Set.singleton cId}
@@ -173,6 +181,9 @@ runOp (FetchMaybe cId) arch =
       mempty
     )
 runOp (FetchMap f cId) arch = pure $ A.map f cId arch
+runOp (FetchMapM f cId) arch = do
+  (as, arch') <- A.mapM f cId arch
+  return (as, arch')
 runOp (Adjust f cId q) arch = do
   res <- runDynQuery q arch
   return $
@@ -198,6 +209,9 @@ readOp (FetchMaybe cId) arch =
 readOp (FetchMap f cId) arch = do
   bs <- readOp (Fetch cId) arch
   return $ map f bs
+readOp (FetchMapM f cId) arch = do
+  bs <- readOp (Fetch cId) arch
+  mapM f bs
 readOp (Adjust f cId q) arch = do
   as <- readDynQuery q arch
   bs <- readOp (Fetch cId) arch
@@ -265,6 +279,9 @@ runOpEntities (FetchMap f cId) es arch =
             else (Nothing, a)
         !(as, arch') = A.zipWith es go cId arch
      in (mapMaybe fst as, arch')
+runOpEntities (FetchMapM f cId) es arch = do
+  (as, arch') <- runOpEntities (AdjustM (\() a -> (,a) <$> f a) cId (pure ())) es arch
+  return (map snd as, arch')
 runOpEntities (Adjust f cId q) es arch = do
   res <- runDynQuery q arch
   return $
@@ -317,6 +334,9 @@ readOpEntities (FetchMaybe cId) es arch =
 readOpEntities (FetchMap f cId) es arch = do
   b <- readOpEntities (Fetch cId) es arch
   pure $ map f b
+readOpEntities (FetchMapM f cId) es arch = do
+  b <- readOpEntities (Fetch cId) es arch
+  mapM f b
 readOpEntities (Adjust f cId q) es arch = do
   a <- readDynQueryEntities es q arch
   b <- readOpEntities (Fetch cId) es arch
