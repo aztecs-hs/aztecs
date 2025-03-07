@@ -136,12 +136,12 @@ adjustArchetype aId f arches =
 
 -- | Find `ArchetypeID`s containing a set of `ComponentID`s.
 --
--- @since 0.9
+-- @since 0.11
 findArchetypeIds :: Set ComponentID -> Set ComponentID -> Archetypes -> Set ArchetypeID
 findArchetypeIds w wo arches =
-  let withIds = mapMaybe (\cId -> Map.lookup cId (componentIds arches)) (Set.elems w)
-      withoutIds = mapMaybe (\cId -> Map.lookup cId (componentIds arches)) (Set.elems wo)
-      withoutSet = foldl' Set.union Set.empty withoutIds
+  let !withIds = mapMaybe (\cId -> Map.lookup cId (componentIds arches)) (Set.elems w)
+      !withoutIds = mapMaybe (\cId -> Map.lookup cId (componentIds arches)) (Set.elems wo)
+      !withoutSet = foldl' Set.union Set.empty withoutIds
    in case withIds of
         (aId : aIds') -> foldl' Set.intersection aId aIds' `Set.difference` withoutSet
         [] -> Set.empty

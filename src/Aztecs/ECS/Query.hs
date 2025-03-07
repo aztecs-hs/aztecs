@@ -38,12 +38,12 @@ module Aztecs.ECS.Query
 
     -- ** Running
     query,
-    single,
-    single',
-    singleMaybe,
-    singleMaybe',
-    mapSingle,
-    mapSingleMaybe,
+    readSingle,
+    readSingle',
+    readSingleMaybe,
+    readSingleMaybe',
+    querySingle,
+    querySingleMaybe,
     queryEntities,
     readQueryEntities,
 
@@ -187,46 +187,6 @@ fromWriterInternal f q = Query $ \cs ->
       !(cs'', dynQ) = runQuery q cs'
    in (cs'', f cId dynQ)
 
--- | Match a single entity.
---
--- @since 0.11
-{-# INLINE single #-}
-single :: (HasCallStack, Monad m) => QueryT m a -> Entities -> m (a, Entities)
-single q es = do
-  let !(cs', dynQ) = runQuery q $ components es
-  as <- singleDyn dynQ es
-  return (as, es {components = cs'})
-
--- | Match a single entity.
---
--- @since 0.11
-{-# INLINE single' #-}
-single' :: (HasCallStack, Monad m) => QueryT m a -> Entities -> m (a, Components)
-single' q es = do
-  let !(cs', dynQ) = runQuery q $ components es
-  as <- singleDyn dynQ es
-  return (as, cs')
-
--- | Match a single entity, or `Nothing`.
---
--- @since 0.11
-{-# INLINE singleMaybe #-}
-singleMaybe :: (Monad m) => QueryT m a -> Entities -> m (Maybe a, Entities)
-singleMaybe q es = do
-  let !(cs', dynQ) = runQuery q $ components es
-  as <- singleMaybeDyn dynQ es
-  return (as, es {components = cs'})
-
--- | Match a single entity, or `Nothing`.
---
--- @since 0.11
-{-# INLINE singleMaybe' #-}
-singleMaybe' :: (Monad m) => QueryT m a -> Entities -> m (Maybe a, Components)
-singleMaybe' q es = do
-  let !(cs', dynQ) = runQuery q $ components es
-  as <- singleMaybeDyn dynQ es
-  return (as, cs')
-
 -- | Match and update all entities.
 --
 -- @since 0.11
@@ -237,22 +197,22 @@ query q es = do
   (as, es') <- queryDyn dynQ es
   return (as, es' {components = cs'})
 
--- | Map a single matched entity.
+-- | Match and update a single matched entity.
 --
 -- @since 0.11
-{-# INLINE mapSingle #-}
-mapSingle :: (HasCallStack, Monad m) => QueryT m a -> Entities -> m (a, Entities)
-mapSingle q es = do
+{-# INLINE querySingle #-}
+querySingle :: (HasCallStack, Monad m) => QueryT m a -> Entities -> m (a, Entities)
+querySingle q es = do
   let !(cs', dynQ) = runQuery q $ components es
   (as, es') <- mapSingleDyn dynQ es
   return (as, es' {components = cs'})
 
--- | Map a single matched entity, or `Nothing`.
+-- | Match and update a single matched entity, or `Nothing`.
 --
 -- @since 0.11
-{-# INLINE mapSingleMaybe #-}
-mapSingleMaybe :: (Monad m) => QueryT m a -> Entities -> m (Maybe a, Entities)
-mapSingleMaybe q es = do
+{-# INLINE querySingleMaybe #-}
+querySingleMaybe :: (Monad m) => QueryT m a -> Entities -> m (Maybe a, Entities)
+querySingleMaybe q es = do
   let !(cs', dynQ) = runQuery q $ components es
   (as, es') <- mapSingleMaybeDyn dynQ es
   return (as, es' {components = cs'})
@@ -265,6 +225,46 @@ queryEntities eIds q es = do
   let !(cs', dynQ) = runQuery q $ components es
   (as, es') <- queryEntitiesDyn eIds dynQ es
   return (as, es' {components = cs'})
+
+-- | Match a single entity.
+--
+-- @since 0.11
+{-# INLINE readSingle #-}
+readSingle :: (HasCallStack, Monad m) => QueryT m a -> Entities -> m (a, Entities)
+readSingle q es = do
+  let !(cs', dynQ) = runQuery q $ components es
+  as <- singleDyn dynQ es
+  return (as, es {components = cs'})
+
+-- | Match a single entity.
+--
+-- @since 0.11
+{-# INLINE readSingle' #-}
+readSingle' :: (HasCallStack, Monad m) => QueryT m a -> Entities -> m (a, Components)
+readSingle' q es = do
+  let !(cs', dynQ) = runQuery q $ components es
+  as <- singleDyn dynQ es
+  return (as, cs')
+
+-- | Match a single entity, or `Nothing`.
+--
+-- @since 0.11
+{-# INLINE readSingleMaybe #-}
+readSingleMaybe :: (Monad m) => QueryT m a -> Entities -> m (Maybe a, Entities)
+readSingleMaybe q es = do
+  let !(cs', dynQ) = runQuery q $ components es
+  as <- singleMaybeDyn dynQ es
+  return (as, es {components = cs'})
+
+-- | Match a single entity, or `Nothing`.
+--
+-- @since 0.11
+{-# INLINE readSingleMaybe' #-}
+readSingleMaybe' :: (Monad m) => QueryT m a -> Entities -> m (Maybe a, Components)
+readSingleMaybe' q es = do
+  let !(cs', dynQ) = runQuery q $ components es
+  as <- singleMaybeDyn dynQ es
+  return (as, cs')
 
 -- | Match the specified entities.
 --

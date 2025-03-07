@@ -115,15 +115,15 @@ prop_queryThreeTypedComponents xyzs = do
 prop_querySingle :: Expectation
 prop_querySingle =
   let (_, w) = W.spawn (bundle $ X 1) W.empty
-      (res, _) = runIdentity . Q.single Q.fetch $ W.entities w
+      (res, _) = runIdentity . Q.readSingle Q.fetch $ W.entities w
    in res `shouldBe` X 1
 
 prop_queryMapSingle :: Word8 -> Expectation
 prop_queryMapSingle n =
   let (_, w) = W.spawn (bundle $ X 0) W.empty
       q = Q.zipFetchMap (\_ (X x) -> X $ x + 1) (pure ())
-      w' = foldr (\_ es -> snd . runIdentity $ Q.mapSingle q es) (W.entities w) [1 .. n]
-      (res, _) = runIdentity $ Q.single Q.fetch w'
+      w' = foldr (\_ es -> snd . runIdentity $ Q.querySingle q es) (W.entities w) [1 .. n]
+      (res, _) = runIdentity $ Q.readSingle Q.fetch w'
    in res `shouldBe` X (fromIntegral n)
 
 {-TODO

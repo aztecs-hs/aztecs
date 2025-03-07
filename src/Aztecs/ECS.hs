@@ -45,7 +45,7 @@ where
 import Aztecs.ECS.Access
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
-import Aztecs.ECS.Query hiding (query, readQueryEntities)
+import Aztecs.ECS.Query hiding (query, querySingle, querySingleMaybe, readQueryEntities)
 import Aztecs.ECS.System hiding (concurrently)
 import Aztecs.ECS.World (World)
 import Aztecs.ECS.World.Bundle

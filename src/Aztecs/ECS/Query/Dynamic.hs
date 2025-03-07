@@ -444,7 +444,7 @@ mapDyn' ::
   Entities ->
   m ([a], Entities)
 mapDyn' f q es =
-  let qf = queryFilter q
+  let !qf = queryFilter q
       go = runDynQuery q
    in if Set.null $ filterWith qf
         then do
