@@ -56,7 +56,7 @@ describe "Aztecs.ECS.Hierarchy.update" $ do
 
 prop_queryEmpty :: Expectation
 prop_queryEmpty =
-  let res = fst . runIdentity . Q.all (Q.fetch @_ @X) $ W.entities W.empty in res `shouldMatchList` []
+  let res = fst . runIdentity . Q.all (fetch @_ @X) $ W.entities W.empty in res `shouldMatchList` []
 
 -- | Query all components from a list of `ComponentID`s.
 queryComponentIds ::
@@ -73,16 +73,16 @@ queryComponentIds =
 
 prop_queryDyn :: [[X]] -> Expectation
 prop_queryDyn xs =
-  let spawn xs' (acc, wAcc) =
-        let spawn' x (bAcc, cAcc, idAcc) =
-              ( dynBundle (ComponentID idAcc) x <> bAcc,
+  let s xs' (acc, wAcc) =
+        let s' x (bAcc, cAcc, idAcc) =
+              ( fromDynBundle (dynBundle (ComponentID idAcc) x) <> bAcc,
                 (x, ComponentID idAcc) : cAcc,
                 idAcc + 1
               )
-            (b, cs, _) = foldr spawn' (mempty, [], 0) xs'
+            (b, cs, _) = foldr s' (mempty, [], 0) xs'
             (e, wAcc') = W.spawn b wAcc
          in ((e, cs) : acc, wAcc')
-      (es, w) = foldr spawn ([], W.empty) xs
+      (es, w) = foldr s ([], W.empty) xs
       go (e, cs) = do
         let q = queryComponentIds $ map snd cs
             (res, _) = runIdentity . Q.all q $ W.entities w
@@ -121,7 +121,7 @@ prop_querySingle =
 prop_queryMapSingle :: Word8 -> Expectation
 prop_queryMapSingle n =
   let (_, w) = W.spawn (bundle $ X 0) W.empty
-      q = Q.adjust (\_ (X x) -> X $ x + 1) (pure ())
+      q = Q.zipFetchMap (\_ (X x) -> X $ x + 1) (pure ())
       w' = foldr (\_ es -> snd . runIdentity $ Q.mapSingle q es) (W.entities w) [1 .. n]
       (res, _) = runIdentity $ Q.single Q.fetch w'
    in res `shouldBe` X (fromIntegral n)

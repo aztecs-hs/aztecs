@@ -56,6 +56,7 @@ module Aztecs.ECS
     runAccessT_,
     Bundle,
     bundle,
+    fromDynBundle,
     DynamicBundle,
     dynBundle,
     Component (..),

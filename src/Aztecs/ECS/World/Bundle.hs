@@ -1,6 +1,4 @@
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
@@ -18,6 +16,7 @@
 module Aztecs.ECS.World.Bundle
   ( Bundle (..),
     bundle,
+    fromDynBundle,
     runBundle,
   )
 where
@@ -56,6 +55,9 @@ instance Semigroup Bundle where
 bundle :: forall a. (Component a) => a -> Bundle
 bundle a = Bundle $ \cs ->
   let (cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', dynBundle cId a)
+
+fromDynBundle :: DynamicBundle -> Bundle
+fromDynBundle d = Bundle (Set.empty,,d)
 
 -- | Insert a bundle of components into an archetype.
 --
