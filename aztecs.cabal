@@ -27,7 +27,6 @@ library
     exposed-modules:
         Aztecs.ECS
         Aztecs.ECS.Access
-        Aztecs.ECS.Access.Class
         Aztecs.ECS.Component
         Aztecs.ECS.Entity
         Aztecs.ECS.Query

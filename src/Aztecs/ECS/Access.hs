@@ -15,7 +15,11 @@
 module Aztecs.ECS.Access
   ( Access,
     AccessT (..),
-    MonadAccess (..),
+    spawn,
+    insert,
+    lookup,
+    remove,
+    despawn,
     runAccessT,
     runAccessT_,
     system,
@@ -23,7 +27,8 @@ module Aztecs.ECS.Access
   )
 where
 
-import Aztecs.ECS.Access.Class
+import Aztecs.ECS.Component
+import Aztecs.ECS.Entity
 import Aztecs.ECS.System (SystemT (..), runSystemT)
 import qualified Aztecs.ECS.System as S
 import Aztecs.ECS.World (World (..))
@@ -35,6 +40,7 @@ import Control.Monad.Fix
 import Control.Monad.Identity
 import Control.Monad.Reader
 import Control.Monad.State.Strict
+import Prelude hiding (lookup)
 
 -- | @since 0.9
 type Access = AccessT Identity
@@ -65,31 +71,56 @@ runAccessT a = runStateT $ unAccessT a
 runAccessT_ :: (Functor m) => AccessT m a -> m a
 runAccessT_ a = fmap fst . runAccessT a $ W.empty
 
--- | @since 0.9
-instance (Monad m) => MonadAccess Bundle (AccessT m) where
-  spawn b = AccessT $ do
-    !w <- get
-    let !(e, w') = W.spawn b w
-    put w'
-    return e
-  insert e c = AccessT $ do
-    !w <- get
-    let !w' = W.insert e c w
-    put w'
-  lookup e = AccessT $ do
-    !w <- get
-    return $ W.lookup e w
-  remove e = AccessT $ do
-    !w <- get
-    let !(a, w') = W.remove e w
-    put w'
-    return a
-  despawn e = AccessT $ do
-    !w <- get
-    let !(_, w') = W.despawn e w
-    put w'
+-- | Spawn an entity with a `Bundle`.
+--
+-- @since 0.11
+spawn :: (Monad m) => Bundle -> AccessT m EntityID
+spawn b = AccessT $ do
+  !w <- get
+  let !(e, w') = W.spawn b w
+  put w'
+  return e
 
-system :: SystemT IO a -> AccessT IO a
+-- | Insert a `Bundle` into an entity.
+--
+-- @since 0.11
+insert :: (Monad m) => EntityID -> Bundle -> AccessT m ()
+insert e c = AccessT $ do
+  !w <- get
+  let !w' = W.insert e c w
+  put w'
+
+-- | Lookup a component by `EntityID`.
+--
+-- @since 0.11
+lookup :: (Monad m, Component a) => EntityID -> AccessT m (Maybe a)
+lookup e = AccessT $ do
+  !w <- get
+  return $ W.lookup e w
+
+-- | Remove a component by `EntityID`.
+--
+-- @since 0.11
+remove :: (Monad m, Component a) => EntityID -> AccessT m (Maybe a)
+remove e = AccessT $ do
+  !w <- get
+  let !(a, w') = W.remove e w
+  put w'
+  return a
+
+-- | Despawn an entity by `EntityID`.
+--
+-- @since 0.11
+despawn :: (Monad m) => EntityID -> AccessT m ()
+despawn e = AccessT $ do
+  !w <- get
+  let !(_, w') = W.despawn e w
+  put w'
+
+-- | Run a `System`.
+--
+-- @since 0.11
+system :: (Monad m) => SystemT m a -> AccessT m a
 system s = AccessT $ do
   !w <- get
   let go f = do
@@ -103,7 +134,7 @@ system s = AccessT $ do
 
 -- | Run a `System` concurrently.
 --
--- @since 0.9
+-- @since 0.11
 concurrently :: SystemT IO a -> AccessT IO a
 concurrently s = AccessT $ do
   !w <- get

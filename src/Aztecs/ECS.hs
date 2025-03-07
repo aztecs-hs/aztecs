@@ -52,7 +52,6 @@
 module Aztecs.ECS
   ( Access,
     AccessT,
-    MonadAccess,
     runAccessT,
     runAccessT_,
     Bundle,
