@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [0.11.0](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.10.0..aztecs-v0.11.0) - 2025-3-7
+
+## Breaking changes
+
+- Replace classes with interpreter pattern (77ed001) (a3c6db6) (9d9c4ca)
+
+  - Combine query filters into queries (f1c9c55)
+  - Query accum methods (ac3c0d8)
+  - Concurrent systems (edaeffd)
+
+- Remove engine-specific components
+  - My plan is to move these to other packages down the road, focusing this package on a modular ECS
+
+```hs
+move :: (Monad m) => QueryT m Position
+move = fetch & zipFetchMap (\(Velocity v) (Position p) -> Position $ p + v)
+```
+
 ## [0.10.0](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.9.1..aztecs-v0.10.0) - 2025-3-6
 
 ## Breaking changes
