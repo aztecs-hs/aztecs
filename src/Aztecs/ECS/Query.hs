@@ -58,6 +58,7 @@ module Aztecs.ECS.Query
     mapSingle,
     mapSingleMaybe,
     queryEntities,
+    readQueryEntities,
 
     -- ** Conversion
     fromDyn,
@@ -256,7 +257,13 @@ mapSingleMaybe q es = do
 queryEntities :: (Monad m) => [EntityID] -> QueryT m a -> Entities -> m ([a], Entities)
 queryEntities eIds q es = do
   let !(cs', dynQ) = runQuery q $ components es
-  as <- queryEntitiesDyn eIds dynQ es
+  (as, es') <- queryEntitiesDyn eIds dynQ es
+  return (as, es' {components = cs'})
+
+readQueryEntities :: (Monad m) => [EntityID] -> QueryT m a -> Entities -> m ([a], Entities)
+readQueryEntities eIds q es = do
+  let !(cs', dynQ) = runQuery q $ components es
+  as <- readQueryEntitiesDyn eIds dynQ es
   return (as, es {components = cs'})
 
 -- | Filter for a `Query`.

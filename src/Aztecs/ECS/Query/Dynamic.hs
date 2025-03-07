@@ -33,16 +33,18 @@ module Aztecs.ECS.Query.Dynamic
     filterDyn,
     singleDyn,
     singleMaybeDyn,
+    queryEntitiesDyn,
     mapDyn,
     filterMapDyn,
     mapSingleDyn,
     mapSingleMaybeDyn,
-    queryEntitiesDyn,
+    readQueryEntitiesDyn,
 
     -- *** Internal
     runDynQuery,
+    runDynQueryEntities,
     readDynQuery,
-    lookupDynQuery,
+    readDynQueryEntities,
 
     -- * Dynamic query filters
     DynamicQueryFilter (..),
@@ -67,6 +69,7 @@ import Data.Bifunctor
 import Data.Foldable
 import Data.Map (Map)
 import qualified Data.Map.Strict as Map
+import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Stack
@@ -186,44 +189,121 @@ readOp (AdjustM f cId q) arch = do
   bs <- readOp (Fetch cId) arch
   zipWithM f as bs
 
-queryEntitiesDyn :: (Monad m) => [EntityID] -> DynamicQueryT m a -> Entities -> m [a]
+{-# INLINE queryEntitiesDyn #-}
+queryEntitiesDyn ::
+  (Monad m) =>
+  [EntityID] ->
+  DynamicQueryT m a ->
+  Entities ->
+  m ([a], Entities)
 queryEntitiesDyn eIds q es =
   let ReadsWrites rs ws = readsWrites q
       cIds = rs <> ws
+      go = runDynQueryEntities eIds q
    in if Set.null cIds
-        then lookupDynQuery eIds q A.empty {A.entities = Map.keysSet $ entities es}
+        then do
+          (as, _) <- go A.empty {A.entities = Map.keysSet $ entities es}
+          return (as, es)
+        else
+          let go' (acc, esAcc) (aId, n) = do
+                (as', arch') <- go $ nodeArchetype n
+                let n' = n {nodeArchetype = arch' <> nodeArchetype n}
+                    !nodes = Map.insert aId n' . AS.nodes $ archetypes esAcc
+                return (as' ++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}})
+           in foldlM go' ([], es) $ Map.toList . AS.find cIds $ archetypes es
+
+readQueryEntitiesDyn :: (Monad m) => [EntityID] -> DynamicQueryT m a -> Entities -> m [a]
+readQueryEntitiesDyn eIds q es =
+  let ReadsWrites rs ws = readsWrites q
+      cIds = rs <> ws
+   in if Set.null cIds
+        then readDynQueryEntities eIds q A.empty {A.entities = Map.keysSet $ entities es}
         else
           let go n = readDynQuery q $ AS.nodeArchetype n
            in concat <$> mapM go (AS.find cIds $ archetypes es)
 
-{-# INLINE lookupOp #-}
-lookupOp :: (Applicative f) => Operation f a -> [EntityID] -> Archetype -> f [a]
-lookupOp Entity es _ = pure es
-lookupOp (Fetch cId) es arch =
+runOpEntities :: (Applicative f) => Operation f a -> [EntityID] -> Archetype -> f ([a], Archetype)
+runOpEntities Entity es _ = pure (es, mempty)
+runOpEntities (Fetch cId) es arch =
+  pure
+    ( map snd
+        . filter (\(e, _) -> e `elem` es)
+        . Map.toList
+        $ A.lookupComponents cId arch,
+      mempty
+    )
+runOpEntities (FetchMaybe cId) es arch =
+  pure
+    ( map (\(e, a) -> if e `elem` es then Just a else Nothing)
+        . Map.toList
+        $ A.lookupComponents cId arch,
+      mempty
+    )
+runOpEntities (Adjust f cId q) es arch = do
+  res <- runDynQuery q arch
+  return $
+    let go (e, b) a =
+          if e `elem` es
+            then let (x, y) = f b a in (Just x, y)
+            else (Nothing, a)
+        !(bs, arch') = res
+        !(as, arch'') = A.zipWith (zip es bs) go cId arch
+     in (mapMaybe (\(m, b) -> fmap (,b) m) as, arch'' <> arch')
+runOpEntities (AdjustM f cId q) es arch = do
+  (bs, arch') <- runDynQuery q arch
+  let go (e, b) a =
+        if e `elem` es
+          then do
+            (x, y) <- f b a
+            return (Just x, y)
+          else return (Nothing, a)
+  (as, arch'') <- A.zipWithM (zip es bs) go cId arch
+  return (mapMaybe (\(m, b) -> fmap (,b) m) as, arch'' <> arch')
+
+runDynQueryEntities :: (Applicative f) => [EntityID] -> DynamicQueryT f a -> Archetype -> f ([a], Archetype)
+runDynQueryEntities es (Pure a) _ = pure (replicate (length es) a, mempty)
+runDynQueryEntities es (Map f q) arch = first (fmap f) <$> runDynQueryEntities es q arch
+runDynQueryEntities es (Ap f g) arch = do
+  res <- runDynQueryEntities es g arch
+  res' <- runDynQueryEntities es f arch
+  return $
+    let (as, arch') = res
+        (bs, arch'') = res'
+     in (zipWith ($) bs as, arch'' <> arch')
+runDynQueryEntities es (Op op) arch = runOpEntities op es arch
+
+{-# INLINE readOpEntities #-}
+readOpEntities :: (Applicative f) => Operation f a -> [EntityID] -> Archetype -> f [a]
+readOpEntities Entity es _ = pure es
+readOpEntities (Fetch cId) es arch =
   pure
     . map snd
-    . filter (\(a, _) -> a `elem` es)
+    . filter (\(e, _) -> e `elem` es)
     . Map.toList
     $ A.lookupComponents cId arch
-lookupOp (FetchMaybe cId) es arch = pure $ map (\e -> A.lookupComponent e cId arch) es
-lookupOp (Adjust f cId q) es arch = do
-  a <- lookupDynQuery es q arch
-  b <- lookupOp (Fetch cId) es arch
+readOpEntities (FetchMaybe cId) es arch =
+  pure
+    . map (\(e, a) -> if e `elem` es then Just a else Nothing)
+    . Map.toList
+    $ A.lookupComponents cId arch
+readOpEntities (Adjust f cId q) es arch = do
+  a <- readDynQueryEntities es q arch
+  b <- readOpEntities (Fetch cId) es arch
   pure $ zipWith f a b
-lookupOp (AdjustM f cId q) es arch = do
-  a <- lookupDynQuery es q arch
-  b <- lookupOp (Fetch cId) es arch
+readOpEntities (AdjustM f cId q) es arch = do
+  a <- readDynQueryEntities es q arch
+  b <- readOpEntities (Fetch cId) es arch
   zipWithM f a b
 
-{-# INLINE lookupDynQuery #-}
-lookupDynQuery :: (Applicative f) => [EntityID] -> DynamicQueryT f a -> Archetype -> f [a]
-lookupDynQuery es (Pure a) _ = pure $ replicate (length es) a
-lookupDynQuery es (Map f q) arch = fmap f <$> lookupDynQuery es q arch
-lookupDynQuery es (Ap f g) arch = do
-  a <- lookupDynQuery es g arch
-  b <- lookupDynQuery es f arch
+{-# INLINE readDynQueryEntities #-}
+readDynQueryEntities :: (Applicative f) => [EntityID] -> DynamicQueryT f a -> Archetype -> f [a]
+readDynQueryEntities es (Pure a) _ = pure $ replicate (length es) a
+readDynQueryEntities es (Map f q) arch = fmap f <$> readDynQueryEntities es q arch
+readDynQueryEntities es (Ap f g) arch = do
+  a <- readDynQueryEntities es g arch
+  b <- readDynQueryEntities es f arch
   pure $ b <*> a
-lookupDynQuery es (Op op) arch = lookupOp op es arch
+readDynQueryEntities es (Op op) arch = readOpEntities op es arch
 
 {-# INLINE runDynQuery #-}
 runDynQuery :: (Applicative f) => DynamicQueryT f a -> Archetype -> f ([a], Archetype)

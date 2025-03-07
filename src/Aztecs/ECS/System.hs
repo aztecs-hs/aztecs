@@ -50,7 +50,7 @@ where
 import Aztecs.ECS.Entity (EntityID)
 import Aztecs.ECS.Query (QueryFilter (..), QueryT (..))
 import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.Query.Dynamic (DynamicQueryFilter (..), DynamicQueryT, lookupDynQuery, readDynQuery, readsWrites)
+import Aztecs.ECS.Query.Dynamic (DynamicQueryFilter (..), DynamicQueryT, readDynQuery, readDynQueryEntities, readsWrites)
 import qualified Aztecs.ECS.View as V
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
@@ -223,7 +223,7 @@ queryEntitiesDyn es q = System $ Once . Task $ \f -> do
       !v = V.view (Q.reads rws <> Q.writes rws) $ archetypes w
   lift $
     if V.null v
-      then lookupDynQuery es q $ A.empty {A.entities = Map.keysSet $ entities w}
+      then readDynQueryEntities es q $ A.empty {A.entities = Map.keysSet $ entities w}
       else V.allDyn q v
 
 filterDyn :: (Monad m) => DynamicQueryT m a -> (Node -> Bool) -> SystemT m [a]

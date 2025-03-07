@@ -50,9 +50,7 @@ library
         base >=4.2 && <5,
         containers >=0.6,
         deepseq >=1,
-        linear >=1,
         mtl >=2,
-        parallel >=3,
         stm >=2
 
 executable ecs
