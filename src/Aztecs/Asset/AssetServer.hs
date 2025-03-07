@@ -116,8 +116,8 @@ setup = A.spawn_ . bundle $ assetServer @a
 -- | Load any pending assets.
 --
 -- @since 0.9
-loadAssets :: forall a q s m. (Typeable a, QueryF m q, Applicative q, MonadSystem q s, MonadIO m) => s ()
-loadAssets = void $ S.map (Q.adjustM (\_ s -> loadAssetServer @m @a s) (pure ())) -- TODO Q.setM
+loadAssets :: forall a. (Typeable a) => System ()
+loadAssets = void $ S.map (Q.adjustM (\_ s -> loadAssetServer @_ @a s) (pure ())) -- TODO Q.setM
 
 -- | Load any pending assets in an `AssetServer`.
 --

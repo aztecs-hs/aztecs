@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 -- |
@@ -17,22 +18,18 @@
 module Aztecs.ECS.System
   ( System,
     SystemT (..),
-    MonadReaderSystem (..),
-    MonadSystem (..),
-    MonadDynamicReaderSystem (..),
-    MonadDynamicSystem (..),
+    all,
+    filter,
+    map,
+    mapDyn,
+    mapSingleMaybeDyn,
+    filterMapDyn,
   )
 where
 
-import Aztecs.ECS.Query
+import Aztecs.ECS.Query (QueryFilter (..), QueryT (..))
 import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.Query.Dynamic (DynamicQueryT (..))
-import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..))
-import Aztecs.ECS.Query.Reader
-import Aztecs.ECS.System.Class
-import Aztecs.ECS.System.Dynamic.Class
-import Aztecs.ECS.System.Dynamic.Reader.Class
-import Aztecs.ECS.System.Reader.Class
+import Aztecs.ECS.Query.Dynamic (DynamicQueryFilter (..), DynamicQueryT, readDynQuery, readsWrites)
 import qualified Aztecs.ECS.View as V
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
@@ -60,94 +57,102 @@ newtype SystemT m a = SystemT
   deriving (Functor, Applicative, Monad)
 
 -- | @since 0.9
-instance MonadDynamicSystem (DynamicQueryT STM) System where
-  mapDyn (DynamicQuery (rws, q)) = SystemT $ do
-    wVar <- ask
-    w <- lift $ readTVar wVar
-    let !v = V.view (Q.reads rws <> Q.writes rws) $ archetypes w
-    (o, v') <- lift $ V.mapDyn (DynamicQuery (rws, q)) v
-    lift . modifyTVar wVar $ V.unview v'
-    return o
-  mapSingleMaybeDyn (DynamicQuery (rws, q)) = SystemT $ do
-    wVar <- ask
-    w <- lift $ readTVar wVar
-    case V.viewSingle (Q.reads rws <> Q.writes rws) $ archetypes w of
-      Just v -> do
-        (o, v') <- lift $ V.mapSingleDyn (DynamicQuery (rws, q)) v
-        lift . modifyTVar wVar $ V.unview v'
-        return o
-      Nothing -> return Nothing
-  filterMapDyn f (DynamicQuery (rws, q)) = SystemT $ do
-    wVar <- ask
-    w <- lift $ readTVar wVar
-    let !v = V.filterView (Q.reads rws <> Q.writes rws) f $ archetypes w
-    (o, v') <- lift $ V.mapDyn (DynamicQuery (rws, q)) v
-    lift . modifyTVar wVar $ V.unview v'
-    return o
+mapDyn :: DynamicQueryT STM a -> System [a]
+mapDyn q = SystemT $ do
+  wVar <- ask
+  w <- lift $ readTVar wVar
+  let rws = readsWrites q
+      !v = V.view (Q.reads rws <> Q.writes rws) $ archetypes w
+  (o, v') <- lift $ V.mapDyn q v
+  lift . modifyTVar wVar $ V.unview v'
+  return o
+
+mapSingleMaybeDyn :: DynamicQueryT STM a -> System (Maybe a)
+mapSingleMaybeDyn q = SystemT $ do
+  wVar <- ask
+  w <- lift $ readTVar wVar
+  let rws = readsWrites q
+  case V.viewSingle (Q.reads rws <> Q.writes rws) $ archetypes w of
+    Just v -> do
+      (o, v') <- lift $ V.mapSingleDyn q v
+      lift . modifyTVar wVar $ V.unview v'
+      return o
+    Nothing -> return Nothing
+
+filterMapDyn :: (Node -> Bool) -> DynamicQueryT STM a -> System [a]
+filterMapDyn f q = SystemT $ do
+  wVar <- ask
+  w <- lift $ readTVar wVar
+  let rws = readsWrites q
+      !v = V.filterView (Q.reads rws <> Q.writes rws) f $ archetypes w
+  (o, v') <- lift $ V.mapDyn q v
+  lift . modifyTVar wVar $ V.unview v'
+  return o
 
 -- | @since 0.9
-instance MonadSystem (QueryT STM) System where
-  map q = SystemT $ do
-    dynQ <- runSystemT $ fromQuery q
-    runSystemT $ mapDyn dynQ
-  mapSingleMaybe q = SystemT $ do
-    dynQ <- runSystemT $ fromQuery q
-    runSystemT $ mapSingleMaybeDyn dynQ
-  filterMap q qf = SystemT $ do
-    wVar <- ask
-    let go w =
-          let (cs', dynQ) = runQuery q $ components w
-              (dynF, cs'') = runQueryFilter qf cs'
-           in ((dynQ, dynF), w {components = cs''})
-    (dynQ, dynF) <- lift $ stateTVar wVar go
-    let f' n =
-          F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynF)
-            && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
-    runSystemT $ filterMapDyn f' dynQ
+map :: QueryT STM a -> System [a]
+map q = SystemT $ do
+  dynQ <- runSystemT $ fromQuery q
+  runSystemT $ mapDyn dynQ
 
--- | @since 0.9
-instance MonadReaderSystem QueryReader System where
-  all q = SystemT $ do
-    dynQ <- runSystemT $ fromQueryReader q
-    runSystemT $ allDyn dynQ
-  filter q qf = SystemT $ do
-    wVar <- ask
-    let go w =
-          let (cs', dynQ) = runQueryReader q $ components w
-              (dynF, cs'') = runQueryFilter qf cs'
-           in ((dynQ, dynF), w {components = cs''})
-    (dynQ, dynF) <- lift $ stateTVar wVar go
-    let f' n =
-          F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynF)
-            && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
-    runSystemT $ filterDyn dynQ f'
+mapSingleMaybe :: QueryT STM a -> System (Maybe a)
+mapSingleMaybe q = SystemT $ do
+  dynQ <- runSystemT $ fromQuery q
+  runSystemT $ mapSingleMaybeDyn dynQ
 
--- | @since 0.9
-instance MonadDynamicReaderSystem DynamicQueryReader System where
-  allDyn (DynamicQueryReader (cIds, q)) = SystemT $ do
-    wVar <- ask
-    w <- lift $ readTVar wVar
-    let !v = V.view cIds $ archetypes w
-    return $
-      if V.null v
-        then q A.empty {A.entities = Map.keysSet $ entities w}
-        else V.allDyn (DynamicQueryReader (cIds, q)) v
-  filterDyn (DynamicQueryReader (cIds, q)) f = SystemT $ do
-    wVar <- ask
-    w <- lift $ readTVar wVar
-    let !v = V.filterView cIds f $ archetypes w
-    return $ V.allDyn (DynamicQueryReader (cIds, q)) v
-
--- | Convert a `QueryReaderT` to a `System`.
---
--- @since 0.9
-fromQueryReader :: QueryReader a -> System (DynamicQueryReader a)
-fromQueryReader q = SystemT $ do
+filterMap :: QueryT STM a -> QueryFilter -> System [a]
+filterMap q qf = SystemT $ do
   wVar <- ask
   let go w =
-        let (cs', dynQ) = runQueryReader q $ components w
+        let (cs', dynQ) = runQuery q $ components w
+            (dynF, cs'') = runQueryFilter qf cs'
+         in ((dynQ, dynF), w {components = cs''})
+  (dynQ, dynF) <- lift $ stateTVar wVar go
+  let f' n =
+        F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynF)
+          && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
+  runSystemT $ filterMapDyn f' dynQ
+
+all :: QueryT STM a -> System [a]
+all q = SystemT $ do
+  wVar <- ask
+  let go w =
+        let (cs', dynQ) = runQuery q $ components w
          in (dynQ, w {components = cs'})
-  lift $ stateTVar wVar go
+  dynQ <- lift $ stateTVar wVar go
+  runSystemT $ allDyn dynQ
+
+filter :: QueryT STM a -> QueryFilter -> System [a]
+filter q qf = SystemT $ do
+  wVar <- ask
+  let go w =
+        let (cs', dynQ) = runQuery q $ components w
+            (dynF, cs'') = runQueryFilter qf cs'
+         in ((dynQ, dynF), w {components = cs''})
+  (dynQ, dynF) <- lift $ stateTVar wVar go
+  let f' n =
+        F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynF)
+          && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
+  runSystemT $ filterDyn dynQ f'
+
+allDyn :: DynamicQueryT STM a -> System [a]
+allDyn q = SystemT $ do
+  wVar <- ask
+  w <- lift $ readTVar wVar
+  let rws = readsWrites q
+      !v = V.view (Q.reads rws <> Q.writes rws) $ archetypes w
+  lift $
+    if V.null v
+      then readDynQuery q $ A.empty {A.entities = Map.keysSet $ entities w}
+      else V.allDyn q v
+
+filterDyn :: DynamicQueryT STM a -> (Node -> Bool) -> System [a]
+filterDyn q f = SystemT $ do
+  wVar <- ask
+  w <- lift $ readTVar wVar
+  let rws = readsWrites q
+      !v = V.filterView (Q.reads rws <> Q.writes rws) f $ archetypes w
+  lift $ V.allDyn q v
 
 -- | Convert a `QueryT` to a `System`.
 --

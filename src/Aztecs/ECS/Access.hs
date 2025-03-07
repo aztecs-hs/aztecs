@@ -1,7 +1,10 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 -- |
 -- Module      : Aztecs.ECS.Access
@@ -22,13 +25,10 @@ module Aztecs.ECS.Access
 where
 
 import Aztecs.ECS.Access.Class
-import Aztecs.ECS.Query (QueryT (..))
-import Aztecs.ECS.Query.Dynamic (DynamicQueryT)
+import Aztecs.ECS.Query (Query, QueryFilter (..), QueryT (..))
+import Aztecs.ECS.Query.Dynamic (DynamicQueryFilter (..), DynamicQueryT)
 import qualified Aztecs.ECS.Query.Dynamic as Q
-import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader)
-import qualified Aztecs.ECS.Query.Dynamic.Reader as Q
-import Aztecs.ECS.Query.Reader
-import Aztecs.ECS.System
+import Aztecs.ECS.System (System, SystemT (..))
 import Aztecs.ECS.World (World (..))
 import qualified Aztecs.ECS.World as W
 import qualified Aztecs.ECS.World.Archetype as A
@@ -96,71 +96,83 @@ instance (Monad m) => MonadAccess Bundle (AccessT m) where
     let !(_, w') = W.despawn e w
     put w'
 
--- | @since 0.9
-instance (Monad m) => MonadReaderSystem QueryReader (AccessT m) where
-  all q = AccessT $ do
-    w <- get
-    let (cs, dynQ) = runQueryReader q . E.components $ entities w
-    put w {entities = (entities w) {E.components = cs}}
-    unAccessT $ allDyn dynQ
-  filter q f = AccessT $ do
-    w <- get
-    let (cs, dynQ) = runQueryReader q . E.components $ entities w
-        (dynF, cs') = runQueryFilter f cs
-    put w {entities = (entities w) {E.components = cs'}}
-    let f' n =
-          F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynF)
-            && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
-    unAccessT $ filterDyn dynQ f'
+-- | @since 0.11
+all :: (Monad m) => QueryT m a -> AccessT m [a]
+all q = AccessT $ do
+  w <- get
+  let (cs, dynQ) = runQuery q . E.components $ entities w
+  put w {entities = (entities w) {E.components = cs}}
+  unAccessT $ allDyn dynQ
+
+-- | @since 0.11
+filter :: (Monad m) => QueryT m a -> QueryFilter -> AccessT m [a]
+filter q f = AccessT $ do
+  w <- get
+  let (cs, dynQ) = runQuery q . E.components $ entities w
+      (dynF, cs') = runQueryFilter f cs
+  put w {entities = (entities w) {E.components = cs'}}
+  let f' n =
+        F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynF)
+          && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
+  unAccessT $ filterDyn dynQ f'
+
+map :: (Monad m) => QueryT m a -> AccessT m [a]
+map q = AccessT $ do
+  !w <- get
+  let (cs, dynQ) = runQuery q . E.components $ entities w
+  put w {entities = (entities w) {E.components = cs}}
+  unAccessT $ mapDyn dynQ
+
+mapSingleMaybe :: (Monad m) => QueryT m a -> AccessT m (Maybe a)
+mapSingleMaybe q = AccessT $ do
+  !w <- get
+  let (cs, dynQ) = runQuery q . E.components $ entities w
+  put w {entities = (entities w) {E.components = cs}}
+  unAccessT $ mapSingleMaybeDyn dynQ
+
+filterMap :: (Monad m) => QueryT m a -> QueryFilter -> AccessT m [a]
+filterMap q f = AccessT $ do
+  !w <- get
+  let (cs, dynQ) = runQuery q . E.components $ entities w
+      (dynF, cs') = runQueryFilter f cs
+  put w {entities = (entities w) {E.components = cs'}}
+  let f' n =
+        F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynF)
+          && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
+  unAccessT $ filterMapDyn f' dynQ
 
 -- | @since 0.9
-instance (Monad m) => MonadSystem (QueryT m) (AccessT m) where
-  map q = AccessT $ do
-    !w <- get
-    let (cs, dynQ) = runQuery q . E.components $ entities w
-    put w {entities = (entities w) {E.components = cs}}
-    unAccessT $ mapDyn dynQ
-  mapSingleMaybe q = AccessT $ do
-    !w <- get
-    let (cs, dynQ) = runQuery q . E.components $ entities w
-    put w {entities = (entities w) {E.components = cs}}
-    unAccessT $ mapSingleMaybeDyn dynQ
-  filterMap q f = AccessT $ do
-    !w <- get
-    let (cs, dynQ) = runQuery q . E.components $ entities w
-        (dynF, cs') = runQueryFilter f cs
-    put w {entities = (entities w) {E.components = cs'}}
-    let f' n =
-          F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynF)
-            && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
-    unAccessT $ filterMapDyn f' dynQ
+allDyn :: (Monad m) => DynamicQueryT m a -> AccessT m [a]
+allDyn q = AccessT $ do
+  !w <- get
+  lift . Q.allDyn q $ entities w
+
+filterDyn :: (Monad m) => DynamicQueryT m a -> (Node -> Bool) -> AccessT m [a]
+filterDyn q f = AccessT $ do
+  !w <- get
+  lift . Q.filterDyn f q $ entities w
 
 -- | @since 0.9
-instance (Monad m) => MonadDynamicReaderSystem DynamicQueryReader (AccessT m) where
-  allDyn q = AccessT $ do
-    !w <- get
-    return . Q.allDyn q $ entities w
-  filterDyn q f = AccessT $ do
-    !w <- get
-    return . Q.filterDyn f q $ entities w
+mapDyn :: (Monad m) => DynamicQueryT m a -> AccessT m [a]
+mapDyn q = AccessT $ do
+  !w <- get
+  (as, es) <- lift . Q.mapDyn q $ entities w
+  put w {entities = es}
+  return as
 
--- | @since 0.9
-instance (Monad m) => MonadDynamicSystem (DynamicQueryT m) (AccessT m) where
-  mapDyn q = AccessT $ do
-    !w <- get
-    (as, es) <- lift . Q.mapDyn q $ entities w
-    put w {entities = es}
-    return as
-  mapSingleMaybeDyn q = AccessT $ do
-    !w <- get
-    (res, es) <- lift . Q.mapSingleMaybeDyn q $ entities w
-    put w {entities = es}
-    return res
-  filterMapDyn f q = AccessT $ do
-    !w <- get
-    (as, es) <- lift . Q.filterMapDyn f q $ entities w
-    put w {entities = es}
-    return as
+mapSingleMaybeDyn :: (Monad m) => DynamicQueryT m a -> AccessT m (Maybe a)
+mapSingleMaybeDyn q = AccessT $ do
+  !w <- get
+  (res, es) <- lift . Q.mapSingleMaybeDyn q $ entities w
+  put w {entities = es}
+  return res
+
+filterMapDyn :: (Monad m) => (Node -> Bool) -> DynamicQueryT m a -> AccessT m [a]
+filterMapDyn f q = AccessT $ do
+  !w <- get
+  (as, es) <- lift . Q.filterMapDyn f q $ entities w
+  put w {entities = es}
+  return as
 
 -- | Run a `System`.
 --

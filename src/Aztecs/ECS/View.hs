@@ -25,7 +25,7 @@ module Aztecs.ECS.View
   )
 where
 
-import Aztecs.ECS.Query.Dynamic (DynamicQueryT (..))
+import Aztecs.ECS.Query.Dynamic (DynamicQueryT (..), readDynQuery, runDynQuery)
 import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..))
 import Aztecs.ECS.World.Archetypes
 import qualified Aztecs.ECS.World.Archetypes as AS
@@ -95,12 +95,12 @@ unview v es =
 -- | Query all matching entities in a `View`.
 --
 -- @since 0.9
-allDyn :: DynamicQueryReader a -> View -> [a]
-allDyn (DynamicQueryReader (_, q)) v =
-  foldl'
-    ( \acc n ->
-        let as = q $ nodeArchetype n
-         in as ++ acc
+allDyn :: (Monad m) => DynamicQueryT m a -> View -> m [a]
+allDyn q v =
+  foldlM
+    ( \acc n -> do
+        as <- readDynQuery q $ nodeArchetype n
+        return $ as ++ acc
     )
     []
     (viewArchetypes v)
@@ -108,20 +108,22 @@ allDyn (DynamicQueryReader (_, q)) v =
 -- | Query all matching entities in a `View`.
 --
 -- @since 0.9
-singleDyn :: DynamicQueryReader a -> View -> Maybe a
-singleDyn q v = case allDyn q v of
-  [a] -> Just a
-  _ -> Nothing
+singleDyn :: (Monad m) => DynamicQueryT m a -> View -> m (Maybe a)
+singleDyn q v = do
+  as <- allDyn q v
+  return $ case as of
+    [a] -> Just a
+    _ -> Nothing
 
 -- | Map all matching entities in a `View`.
 --
 -- @since 0.9
 mapDyn :: (Monad m) => DynamicQueryT m a -> View -> m ([a], View)
-mapDyn (DynamicQuery (_, q)) v = do
+mapDyn q v = do
   (as, arches) <-
     foldlM
       ( \(acc, archAcc) (aId, n) -> do
-          (as', arch') <- q $ nodeArchetype n
+          (as', arch') <- runDynQuery q $ nodeArchetype n
           return (as' ++ acc, Map.insert aId (n {nodeArchetype = arch'}) archAcc)
       )
       ([], Map.empty)
