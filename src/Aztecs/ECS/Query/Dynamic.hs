@@ -135,24 +135,26 @@ readsWrites (Op op) = opReadsWrites op
 
 {-# INLINE runOp #-}
 runOp :: (Applicative f) => Operation f a -> Archetype -> f ([a], Archetype)
-runOp Entity arch = pure (Set.toList $ A.entities arch, arch)
-runOp (Fetch cId) arch = pure (A.lookupComponentsAsc cId arch, arch)
+runOp Entity arch = pure (Set.toList $ A.entities arch, mempty)
+runOp (Fetch cId) arch = pure (A.lookupComponentsAsc cId arch, mempty)
 runOp (FetchMaybe cId) arch =
   pure
     ( case A.lookupComponentsAscMaybe cId arch of
         Just as -> fmap Just as
         Nothing -> replicate (length $ A.entities arch) Nothing,
-      arch
+      mempty
     )
 runOp (Adjust f cId q) arch = do
   res <- runDynQuery q arch
-  pure $
-    let !(as, arch'') = A.zipWith (fst res) f cId arch
-     in (as, snd res <> arch'')
+  return $
+    let !(bs, arch') = res
+        !(as, arch'') = A.zipWith bs f cId arch
+     in (as, arch'' <> arch')
 runOp (AdjustM f cId q) arch = do
   !res <- runDynQuery q arch
   !res' <- A.zipWithM (fst res) f cId arch
-  pure (second (snd res <>) res')
+  return $
+    let (as, arch'') = res' in (as, arch'' <> snd res)
 
 {-# INLINE readOp #-}
 readOp :: (Applicative f) => Operation f a -> Archetype -> f [a]
@@ -174,15 +176,17 @@ readOp (AdjustM f cId q) arch = do
 
 {-# INLINE runDynQuery #-}
 runDynQuery :: (Applicative f) => DynamicQueryT f a -> Archetype -> f ([a], Archetype)
-runDynQuery (Pure a) arch = pure (replicate (length $ A.entities arch) a, arch)
-runDynQuery (Map f q) arch = first (fmap f) <$> runDynQuery q arch
+runDynQuery (Pure a) arch = pure (replicate (length $ A.entities arch) a, mempty)
+runDynQuery (Map f q) arch = do
+  res <- runDynQuery q arch
+  return $ first (fmap f) res
 runDynQuery (Ap f g) arch = do
   res <- runDynQuery g arch
   res' <- runDynQuery f arch
   return $
     let (as, arch') = res
         (bs, arch'') = res'
-     in (zipWith ($) bs as, arch' <> arch'')
+     in (zipWith ($) bs as, arch'' <> arch')
 runDynQuery (Op op) arch = runOp op arch
 
 {-# INLINE readDynQuery #-}
@@ -324,9 +328,9 @@ mapSingleMaybeDyn q es =
           _ -> pure (Nothing, es)
         else case Map.toList $ AS.find cIds $ archetypes es of
           [(aId, n)] -> do
-            res <- runDynQuery q $ AS.nodeArchetype n
-            return $ case res of
-              ([a], arch') ->
+            (as, arch') <- runDynQuery q $ AS.nodeArchetype n
+            return $ case as of
+              [a] ->
                 let nodes = Map.insert aId n {nodeArchetype = arch' <> nodeArchetype n} . AS.nodes $ archetypes es
                  in (Just a, es {archetypes = (archetypes es) {AS.nodes = nodes}})
               _ -> (Nothing, es)

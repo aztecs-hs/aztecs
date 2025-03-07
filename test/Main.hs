@@ -9,9 +9,10 @@
 
 module Main (main) where
 
-import Aztecs
+import Aztecs.ECS
 import Aztecs.ECS.Component (ComponentID (ComponentID))
 import qualified Aztecs.ECS.Query as Q
+import qualified Aztecs.ECS.Query.Dynamic as Q
 import qualified Aztecs.ECS.World as W
 import Control.DeepSeq
 import Data.Functor.Identity (Identity (runIdentity))
@@ -55,17 +56,17 @@ describe "Aztecs.ECS.Hierarchy.update" $ do
 
 prop_queryEmpty :: Expectation
 prop_queryEmpty =
-  let res = fst $ Q.all (Q.fetch @_ @X) $ W.entities W.empty in res `shouldMatchList` []
+  let res = fst . runIdentity . Q.all (Q.fetch @_ @X) $ W.entities W.empty in res `shouldMatchList` []
 
 -- | Query all components from a list of `ComponentID`s.
 queryComponentIds ::
-  forall q a.
-  (Applicative q, DynamicQueryReaderF q, Component a) =>
+  forall f a.
+  (Monad f, Component a) =>
   [ComponentID] ->
-  q (EntityID, [a])
+  QueryT f (EntityID, [a])
 queryComponentIds =
   let go cId qAcc = do
-        x' <- Q.fetchDyn @_ @a cId
+        x' <- Q.fromDyn $ Q.fetchDyn @a cId
         (e, xs) <- qAcc
         return (e, x' : xs)
    in foldr go ((,) <$> Q.entity <*> pure [])
@@ -84,20 +85,20 @@ prop_queryDyn xs =
       (es, w) = foldr spawn ([], W.empty) xs
       go (e, cs) = do
         let q = queryComponentIds $ map snd cs
-            (res, _) = Q.all q $ W.entities w
+            (res, _) = runIdentity . Q.all q $ W.entities w
         return $ res `shouldContain` [(e, map fst cs)]
    in mapM_ go es
 
 prop_queryTypedComponent :: [X] -> Expectation
 prop_queryTypedComponent xs = do
   let w = foldr (\x -> snd . W.spawn (bundle x)) W.empty xs
-      (res, _) = Q.all Q.fetch $ W.entities w
+      (res, _) = runIdentity . Q.all Q.fetch $ W.entities w
   res `shouldMatchList` xs
 
 prop_queryTwoTypedComponents :: [(X, Y)] -> Expectation
 prop_queryTwoTypedComponents xys = do
   let w = foldr (\(x, y) -> snd . W.spawn (bundle x <> bundle y)) W.empty xys
-      (res, _) = Q.all ((,) <$> Q.fetch <*> Q.fetch) $ W.entities w
+      (res, _) = runIdentity . Q.all ((,) <$> Q.fetch <*> Q.fetch) $ W.entities w
   res `shouldMatchList` xys
 
 prop_queryThreeTypedComponents :: [(X, Y, Z)] -> Expectation
@@ -108,13 +109,13 @@ prop_queryThreeTypedComponents xyzs = do
         y <- Q.fetch
         z <- Q.fetch
         pure (x, y, z)
-      (res, _) = Q.all q $ W.entities w
+      (res, _) = runIdentity . Q.all q $ W.entities w
   res `shouldMatchList` xyzs
 
 prop_querySingle :: Expectation
 prop_querySingle =
   let (_, w) = W.spawn (bundle $ X 1) W.empty
-      (res, _) = Q.single Q.fetch $ W.entities w
+      (res, _) = runIdentity . Q.single Q.fetch $ W.entities w
    in res `shouldBe` X 1
 
 prop_queryMapSingle :: Word8 -> Expectation
@@ -122,7 +123,7 @@ prop_queryMapSingle n =
   let (_, w) = W.spawn (bundle $ X 0) W.empty
       q = Q.adjust (\_ (X x) -> X $ x + 1) (pure ())
       w' = foldr (\_ es -> snd . runIdentity $ Q.mapSingle q es) (W.entities w) [1 .. n]
-      (res, _) = Q.single Q.fetch w'
+      (res, _) = runIdentity $ Q.single Q.fetch w'
    in res `shouldBe` X (fromIntegral n)
 
 {-TODO
