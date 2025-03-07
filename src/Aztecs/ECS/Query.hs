@@ -17,23 +17,6 @@
 -- Maintainer  : matt@hunzinger.me
 -- Stability   : provisional
 -- Portability : non-portable (GHC extensions)
---
--- Query for matching entities.
---
--- === Do notation:
--- > move :: (ArrowQuery arr) => arr () Position
--- > move = proc () -> do
--- >   Velocity v <- Q.fetch -< ()
--- >   Position p <- Q.fetch -< ()
--- >   Q.set -< Position $ p + v
---
--- === Arrow combinators:
--- > move :: (ArrowQuery arr) => arr () Position
--- > move = Q.fetch &&& Q.fetch >>> arr (\(Position p, Velocity v) -> Position $ p + v) >>> Q.set
---
--- === Applicative combinators:
--- > move :: (ArrowQuery arr) => arr () Position
--- > move = (,) <$> Q.fetch <*> Q.fetch >>> arr (\(Position p, Velocity v) -> Position $ p + v) >>> Q.set
 module Aztecs.ECS.Query
   ( -- * Queries
     Query,
@@ -103,44 +86,75 @@ instance (Applicative f) => Applicative (QueryT f) where
         !(cs'', bQS) = f cs'
      in (cs'', bQS <*> aQS)
 
+-- | Fetch the current `EntityID`.
+--
+-- @since 0.11
 {-# INLINE entity #-}
 entity :: QueryT f EntityID
 entity = Query (,entityDyn)
 
+-- | Fetch a component.
+--
+-- @since 0.11
 {-# INLINE fetch #-}
 fetch :: forall f a. (Component a) => QueryT f a
 fetch = fromDynInternal @f @a $ fetchDyn
 
+-- | Fetch a component and map it, storing the result.
+--
+-- @since 0.11
 {-# INLINE fetchMap #-}
 fetchMap :: forall m a. (Component a) => (a -> a) -> QueryT m a
 fetchMap f = fromDynInternal @_ @a $ fetchMapDyn f
 
+-- | Fetch a component and map it with a monadic function, storing the result.
+--
+-- @since 0.11
 {-# INLINE fetchMapM #-}
 fetchMapM :: forall m a. (Monad m, Component a) => (a -> m a) -> QueryT m a
 fetchMapM f = fromDynInternal @_ @a $ fetchMapDynM f
 
+-- | Fetch a component and map it with some input, storing the result.
+--
+-- @since 0.11
 {-# INLINE zipFetchMap #-}
 zipFetchMap :: forall m a b. (Component a) => (b -> a -> a) -> QueryT m b -> QueryT m a
 zipFetchMap f = fromWriterInternal @a $ zipFetchMapDyn f
 
+-- | Fetch a component and map it with some input, storing the result and returning some output.
+--
+-- @since 0.11
 {-# INLINE zipFetchMapAccum #-}
 zipFetchMapAccum ::
   forall m a b c. (Component a) => (b -> a -> (c, a)) -> QueryT m b -> QueryT m (c, a)
 zipFetchMapAccum f = fromWriterInternal @a $ zipFetchMapAccumDyn f
 
+-- | Fetch a component and map it with some input and a monadic function, storing the result.
+--
+-- @since 0.11
 {-# INLINE zipFetchMapM #-}
 zipFetchMapM :: forall m a b. (Monad m, Component a) => (b -> a -> m a) -> QueryT m b -> QueryT m a
 zipFetchMapM f = fromWriterInternal @a $ zipFetchMapDynM f
 
+-- | Fetch a component and map it with some input and a monadic function,
+-- storing the result and returning some output.
+--
+-- @since 0.11
 {-# INLINE zipFetchMapAccumM #-}
 zipFetchMapAccumM ::
   forall m a b c. (Monad m, Component a) => (b -> a -> m (c, a)) -> QueryT m b -> QueryT m (c, a)
 zipFetchMapAccumM f = fromWriterInternal @a $ zipFetchMapAccumDynM f
 
+-- | Filter for entities with a component.
+--
+-- @since 0.11
 {-# INLINE with #-}
 with :: forall f a. (Component a) => QueryT f ()
 with = fromDynInternal @f @a $ withDyn
 
+-- | Filter for entities without a component.
+--
+-- @since 0.11
 {-# INLINE without #-}
 without :: forall f a. (Component a) => QueryT f ()
 without = fromDynInternal @f @a $ withDyn
@@ -243,12 +257,18 @@ mapSingleMaybe q es = do
   (as, es') <- mapSingleMaybeDyn dynQ es
   return (as, es' {components = cs'})
 
+-- | Match and update the specified entities.
+--
+-- @since 0.11
 queryEntities :: (Monad m) => [EntityID] -> QueryT m a -> Entities -> m ([a], Entities)
 queryEntities eIds q es = do
   let !(cs', dynQ) = runQuery q $ components es
   (as, es') <- queryEntitiesDyn eIds dynQ es
   return (as, es' {components = cs'})
 
+-- | Match the specified entities.
+--
+-- @since 0.11
 readQueryEntities :: (Monad m) => [EntityID] -> QueryT m a -> Entities -> m ([a], Entities)
 readQueryEntities eIds q es = do
   let !(cs', dynQ) = runQuery q $ components es
