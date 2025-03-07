@@ -18,13 +18,14 @@ module Aztecs.ECS.Access
     MonadAccess (..),
     runAccessT,
     runAccessT_,
-    runSystem,
-    runSystemConcurrently,
+    system,
+    concurrently,
   )
 where
 
 import Aztecs.ECS.Access.Class
-import Aztecs.ECS.System (SystemT (..))
+import Aztecs.ECS.System (SystemT (..), runSystemT)
+import qualified Aztecs.ECS.System as S
 import Aztecs.ECS.World (World (..))
 import qualified Aztecs.ECS.World as W
 import Aztecs.ECS.World.Bundle
@@ -88,8 +89,8 @@ instance (Monad m) => MonadAccess Bundle (AccessT m) where
     let !(_, w') = W.despawn e w
     put w'
 
-runSystem :: SystemT IO a -> AccessT IO a
-runSystem s = AccessT $ do
+system :: SystemT IO a -> AccessT IO a
+system s = AccessT $ do
   !w <- get
   let go f = do
         es <- get
@@ -100,19 +101,19 @@ runSystem s = AccessT $ do
   put w {entities = es}
   return a
 
--- | Run a `System`.
+-- | Run a `System` concurrently.
 --
 -- @since 0.9
-runSystemConcurrently :: SystemT IO a -> AccessT IO a
-runSystemConcurrently s = AccessT $ do
+concurrently :: SystemT IO a -> AccessT IO a
+concurrently s = AccessT $ do
   !w <- get
   esVar <- lift . newTVarIO $ entities w
-  let go f = IdentityT $ atomically $ do
+  let go f = atomically $ do
         es <- readTVar esVar
         let es' = f es
         writeTVar esVar es'
         return es'
-  a <- lift $ runIdentityT $ runSystemT s go
+  a <- liftIO $ S.concurrently s go
   es <- lift $ readTVarIO esVar
   put w {entities = es}
   return a
