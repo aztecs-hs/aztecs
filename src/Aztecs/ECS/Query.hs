@@ -77,21 +77,21 @@ import Aztecs.ECS.World.Entities (Entities (..))
 import Control.Monad.Identity
 import GHC.Stack
 
--- | @since 0.10
+-- | @since 0.11
 type Query = QueryT Identity
 
 -- | Query for matching entities.
 --
--- @since 0.10
+-- @since 0.11
 newtype QueryT f a = Query
   { -- | Run a query, producing a `DynamicQueryT`.
     --
-    -- @since 0.10
+    -- @since 0.11
     runQuery :: Components -> (Components, DynamicQueryT f a)
   }
   deriving (Functor)
 
--- | @since 0.10
+-- | @since 0.11
 instance (Applicative f) => Applicative (QueryT f) where
   {-# INLINE pure #-}
   pure a = Query (,pure a)
@@ -142,7 +142,7 @@ without = fromDynInternal @f @a $ withDyn
 
 -- | Convert a `DynamicQueryT` to a `QueryT`.
 --
--- @since 0.10
+-- @since 0.11
 {-# INLINE fromDyn #-}
 fromDyn :: DynamicQueryT f a -> QueryT f a
 fromDyn q = Query (,q)
@@ -170,7 +170,7 @@ fromWriterInternal f q = Query $ \cs ->
 
 -- | Match a single entity.
 --
--- @since 0.10
+-- @since 0.11
 {-# INLINE single #-}
 single :: (HasCallStack, Monad m) => QueryT m a -> Entities -> m (a, Entities)
 single q es = do
@@ -180,7 +180,7 @@ single q es = do
 
 -- | Match a single entity.
 --
--- @since 0.10
+-- @since 0.11
 {-# INLINE single' #-}
 single' :: (HasCallStack, Monad m) => QueryT m a -> Entities -> m (a, Components)
 single' q es = do
@@ -190,7 +190,7 @@ single' q es = do
 
 -- | Match a single entity, or `Nothing`.
 --
--- @since 0.10
+-- @since 0.11
 {-# INLINE singleMaybe #-}
 singleMaybe :: (Monad m) => QueryT m a -> Entities -> m (Maybe a, Entities)
 singleMaybe q es = do
@@ -200,7 +200,7 @@ singleMaybe q es = do
 
 -- | Match a single entity, or `Nothing`.
 --
--- @since 0.10
+-- @since 0.11
 {-# INLINE singleMaybe' #-}
 singleMaybe' :: (Monad m) => QueryT m a -> Entities -> m (Maybe a, Components)
 singleMaybe' q es = do
@@ -210,7 +210,7 @@ singleMaybe' q es = do
 
 -- | Match and update all entities.
 --
--- @since 0.10
+-- @since 0.11
 {-# INLINE query #-}
 query :: (Monad m) => QueryT m a -> Entities -> m ([a], Entities)
 query q es = do
@@ -220,7 +220,7 @@ query q es = do
 
 -- | Map a single matched entity.
 --
--- @since 0.10
+-- @since 0.11
 {-# INLINE mapSingle #-}
 mapSingle :: (HasCallStack, Monad m) => QueryT m a -> Entities -> m (a, Entities)
 mapSingle q es = do
@@ -230,7 +230,7 @@ mapSingle q es = do
 
 -- | Map a single matched entity, or `Nothing`.
 --
--- @since 0.10
+-- @since 0.11
 {-# INLINE mapSingleMaybe #-}
 mapSingleMaybe :: (Monad m) => QueryT m a -> Entities -> m (Maybe a, Entities)
 mapSingleMaybe q es = do

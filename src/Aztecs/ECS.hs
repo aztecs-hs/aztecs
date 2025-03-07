@@ -21,34 +21,6 @@
 --
 -- === Systems
 -- A `System` is a pipeline that processes entities and their components.
--- Systems in Aztecs either run in sequence or in parallel automatically based on the components they access.
---
--- Systems can access game state in two ways:
---
--- ==== Access
--- An `Access` can be queued for full access to the `World`, after a system is complete.
--- `Access` allows for spawning, inserting, and removing components.
---
--- > setup :: System  () ()
--- > setup = S.queue . const . A.spawn_ $ bundle (Position 0) <> bundle (Velocity 1)
---
--- ==== Queries
--- A `Query` can read and write matching components.
---
--- > move :: System  () ()
--- > move =
--- >  S.map
--- >    ( proc () -> do
--- >        Velocity v <- Q.fetch -< ()
--- >        Position p <- Q.fetch -< ()
--- >        Q.set -< Position $ p + v
--- >    )
--- >    >>> S.run print
---
--- Finally, systems can be run on a `World` to produce a result.
---
--- > main :: IO ()
--- > main = runSystem_ $ setup >>> S.forever move
 module Aztecs.ECS
   ( Access,
     AccessT,

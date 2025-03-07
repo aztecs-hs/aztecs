@@ -98,7 +98,7 @@ instance Functor (DynamicQueryT f) where
   {-# INLINE fmap #-}
   fmap = Map
 
--- | @since 0.10
+-- | @since 0.11
 instance Applicative (DynamicQueryT f) where
   {-# INLINE pure #-}
   pure = Pure
@@ -377,7 +377,7 @@ queryDyn q es =
 
 -- | Match a single entity.
 --
--- @since 0.10
+-- @since 0.11
 singleDyn :: (HasCallStack, Monad m) => DynamicQueryT m a -> Entities -> m a
 singleDyn q es = do
   res <- singleMaybeDyn q es
@@ -387,7 +387,7 @@ singleDyn q es = do
 
 -- | Match a single entity, or `Nothing`.
 --
--- @since 0.10
+-- @since 0.11
 singleMaybeDyn :: (Monad m) => DynamicQueryT m a -> Entities -> m (Maybe a)
 singleMaybeDyn q es =
   let qf = queryFilter q
@@ -409,7 +409,7 @@ singleMaybeDyn q es =
 
 -- | Map all matched entities.
 --
--- @since 0.10
+-- @since 0.11
 {-# INLINE mapDyn #-}
 mapDyn :: (Monad m) => DynamicQueryT m a -> Entities -> m ([a], Entities)
 mapDyn = mapDyn' id
@@ -438,7 +438,7 @@ mapDyn' f q es =
 
 -- | Map a single matched entity.
 --
--- @since 0.10
+-- @since 0.11
 mapSingleDyn :: (HasCallStack, Monad m) => DynamicQueryT m a -> Entities -> m (a, Entities)
 mapSingleDyn q es = do
   (res, es') <- mapSingleMaybeDyn q es
@@ -448,7 +448,7 @@ mapSingleDyn q es = do
 
 -- | Map a single matched entity, or @Nothing@.
 --
--- @since 0.10
+-- @since 0.11
 {-# INLINE mapSingleMaybeDyn #-}
 mapSingleMaybeDyn :: (Monad m) => DynamicQueryT m a -> Entities -> m (Maybe a, Entities)
 mapSingleMaybeDyn q es =
