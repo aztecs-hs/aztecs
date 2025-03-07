@@ -76,14 +76,14 @@ import Prelude hiding (reads)
 
 data Operation f a where
   Entity :: Operation f EntityID
-  Fetch :: (Component a) => !ComponentID -> Operation f a
-  FetchMaybe :: (Component a) => !ComponentID -> Operation f (Maybe a)
-  FetchMap :: (Component a) => !(a -> a) -> !ComponentID -> Operation f a
-  FetchMapM :: (Monad f, Component a) => !(a -> f a) -> !ComponentID -> Operation f a
-  Adjust :: (Component a) => !(b -> a -> (c, a)) -> !ComponentID -> !(DynamicQueryT f b) -> Operation f (c, a)
-  AdjustM :: (Monad f, Component a) => !(b -> a -> f (c, a)) -> !ComponentID -> !(DynamicQueryT f b) -> Operation f (c, a)
-  With :: !ComponentID -> Operation f ()
-  Without :: !ComponentID -> Operation f ()
+  Fetch :: (Component a) => ComponentID -> Operation f a
+  FetchMaybe :: (Component a) => ComponentID -> Operation f (Maybe a)
+  FetchMap :: (Component a) => (a -> a) -> ComponentID -> Operation f a
+  FetchMapM :: (Monad f, Component a) => (a -> f a) -> ComponentID -> Operation f a
+  Adjust :: (Component a) => (b -> a -> (c, a)) -> ComponentID -> (DynamicQueryT f b) -> Operation f (c, a)
+  AdjustM :: (Monad f, Component a) => (b -> a -> f (c, a)) -> ComponentID -> (DynamicQueryT f b) -> Operation f (c, a)
+  With :: ComponentID -> Operation f ()
+  Without :: ComponentID -> Operation f ()
 
 -- @since 0.9
 type DynamicQuery = DynamicQueryT Identity
@@ -92,10 +92,10 @@ type DynamicQuery = DynamicQueryT Identity
 --
 -- @since 0.11
 data DynamicQueryT f a where
-  Pure :: !a -> DynamicQueryT f a
-  Map :: !(a -> b) -> !(DynamicQueryT f a) -> DynamicQueryT f b
-  Ap :: !(DynamicQueryT f (a -> b)) -> !(DynamicQueryT f a) -> DynamicQueryT f b
-  Op :: !(Operation f a) -> DynamicQueryT f a
+  Pure :: a -> DynamicQueryT f a
+  Map :: (a -> b) -> (DynamicQueryT f a) -> DynamicQueryT f b
+  Ap :: (DynamicQueryT f (a -> b)) -> (DynamicQueryT f a) -> DynamicQueryT f b
+  Op :: (Operation f a) -> DynamicQueryT f a
 
 instance Functor (DynamicQueryT f) where
   {-# INLINE fmap #-}
@@ -190,8 +190,8 @@ runOp (FetchMapM f cId) arch = do
 runOp (Adjust f cId q) arch = do
   res <- runDynQuery q arch
   return $
-    let !(bs, arch') = res
-        !(as, arch'') = A.zipWith bs f cId arch
+    let (bs, arch') = res
+        (as, arch'') = A.zipWith bs f cId arch
      in (as, arch'' <> arch')
 runOp (AdjustM f cId q) arch = do
   (as, arch') <- runDynQuery q arch
@@ -244,7 +244,7 @@ queryEntitiesDyn eIds q es =
           let go' (acc, esAcc) (aId, n) = do
                 (as', arch') <- go $ nodeArchetype n
                 let n' = n {nodeArchetype = arch' <> nodeArchetype n}
-                    !nodes = Map.insert aId n' . AS.nodes $ archetypes esAcc
+                    nodes = Map.insert aId n' . AS.nodes $ archetypes esAcc
                 return (as' ++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}})
            in foldlM go' ([], es) $ Map.toList . AS.find (filterWith qf) (filterWithout qf) $ archetypes es
 
@@ -280,7 +280,7 @@ runOpEntities (FetchMap f cId) es arch =
           if e `elem` es
             then let a' = f a in (Just a', a')
             else (Nothing, a)
-        !(as, arch') = A.zipWith es go cId arch
+        (as, arch') = A.zipWith es go cId arch
      in (mapMaybe fst as, arch')
 runOpEntities (FetchMapM f cId) es arch = do
   (as, arch') <- runOpEntities (AdjustM (\() a -> (,a) <$> f a) cId (pure ())) es arch
@@ -292,8 +292,8 @@ runOpEntities (Adjust f cId q) es arch = do
           if e `elem` es
             then let (x, y) = f b a in (Just x, y)
             else (Nothing, a)
-        !(bs, arch') = res
-        !(as, arch'') = A.zipWith (zip es bs) go cId arch
+        (bs, arch') = res
+        (as, arch'') = A.zipWith (zip es bs) go cId arch
      in (mapMaybe (\(m, b) -> fmap (,b) m) as, arch'' <> arch')
 runOpEntities (AdjustM f cId q) es arch = do
   (bs, arch') <- runDynQuery q arch
@@ -445,7 +445,7 @@ mapDyn' ::
   Entities ->
   m ([a], Entities)
 mapDyn' f q es =
-  let !qf = queryFilter q
+  let qf = queryFilter q
       go = runDynQuery q
    in if Set.null $ filterWith qf
         then do
@@ -455,7 +455,7 @@ mapDyn' f q es =
           let go' (acc, esAcc) (aId, n) = do
                 (as', arch') <- go $ nodeArchetype n
                 let n' = n {nodeArchetype = arch' <> nodeArchetype n}
-                    !nodes = Map.insert aId n' . AS.nodes $ archetypes esAcc
+                    nodes = Map.insert aId n' . AS.nodes $ archetypes esAcc
                 return (as' ++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}})
            in foldlM go' ([], es) $ Map.toList . f . AS.find (filterWith qf) (filterWithout qf) $ archetypes es
 
@@ -498,8 +498,8 @@ mapSingleMaybeDyn q es =
 --
 -- @since 0.11
 data QueryFilter = QueryFilter
-  { filterWith :: !(Set ComponentID),
-    filterWithout :: !(Set ComponentID)
+  { filterWith :: (Set ComponentID),
+    filterWithout :: (Set ComponentID)
   }
   deriving (Show)
 
