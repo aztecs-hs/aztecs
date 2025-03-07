@@ -23,6 +23,7 @@ module Aztecs.ECS.Query.Dynamic
     entityDyn,
     fetchDyn,
     fetchMaybeDyn,
+    fetchMapDyn,
     zipFetchMapDyn,
     zipFetchMapAccumDyn,
     zipFetchMapDynM,
@@ -79,6 +80,7 @@ data Operation f a where
   Entity :: Operation f EntityID
   Fetch :: (Component a) => !ComponentID -> Operation f a
   FetchMaybe :: (Component a) => !ComponentID -> Operation f (Maybe a)
+  FetchMap :: (Component a) => !(a -> a) -> !ComponentID -> Operation f a
   Adjust :: (Component a) => !(b -> a -> (c, a)) -> !ComponentID -> !(DynamicQueryT f b) -> Operation f (c, a)
   AdjustM :: (Monad f, Component a) => !(b -> a -> f (c, a)) -> !ComponentID -> !(DynamicQueryT f b) -> Operation f (c, a)
 
@@ -118,6 +120,9 @@ fetchDyn = Op . Fetch
 fetchMaybeDyn :: (Component a) => ComponentID -> DynamicQueryT f (Maybe a)
 fetchMaybeDyn = Op . FetchMaybe
 
+fetchMapDyn :: (Component a) => (a -> a) -> ComponentID -> DynamicQueryT f a
+fetchMapDyn f = Op . FetchMap f
+
 {-# INLINE zipFetchMapDyn #-}
 zipFetchMapDyn :: (Component a) => (b -> a -> a) -> ComponentID -> DynamicQueryT f b -> DynamicQueryT f a
 zipFetchMapDyn f cId q = snd <$> Op (Adjust (\b a -> ((), f b a)) cId q)
@@ -139,6 +144,7 @@ opReadsWrites :: Operation f a -> ReadsWrites
 opReadsWrites Entity = mempty
 opReadsWrites (Fetch cId) = mempty {reads = Set.singleton cId}
 opReadsWrites (FetchMaybe cId) = mempty {reads = Set.singleton cId}
+opReadsWrites (FetchMap _ cId) = mempty {writes = Set.singleton cId}
 opReadsWrites (Adjust _ cId q) = readsWrites q <> mempty {writes = Set.singleton cId}
 opReadsWrites (AdjustM _ cId q) = readsWrites q <> mempty {writes = Set.singleton cId}
 
@@ -160,6 +166,7 @@ runOp (FetchMaybe cId) arch =
         Nothing -> replicate (length $ A.entities arch) Nothing,
       mempty
     )
+runOp (FetchMap f cId) arch = pure $ A.map f cId arch
 runOp (Adjust f cId q) arch = do
   res <- runDynQuery q arch
   return $
@@ -180,6 +187,9 @@ readOp (FetchMaybe cId) arch =
     case A.lookupComponentsAscMaybe cId arch of
       Just as -> fmap Just as
       Nothing -> replicate (length $ A.entities arch) Nothing
+readOp (FetchMap f cId) arch = do
+  bs <- readOp (Fetch cId) arch
+  return $ map f bs
 readOp (Adjust f cId q) arch = do
   as <- readDynQuery q arch
   bs <- readOp (Fetch cId) arch
@@ -239,6 +249,14 @@ runOpEntities (FetchMaybe cId) es arch =
         $ A.lookupComponents cId arch,
       mempty
     )
+runOpEntities (FetchMap f cId) es arch = do
+  return $
+    let go e a =
+          if e `elem` es
+            then let a' = f a in (Just a', a')
+            else (Nothing, a)
+        !(as, arch') = A.zipWith es go cId arch
+     in (mapMaybe fst as, arch')
 runOpEntities (Adjust f cId q) es arch = do
   res <- runDynQuery q arch
   return $
@@ -286,6 +304,9 @@ readOpEntities (FetchMaybe cId) es arch =
     . map (\(e, a) -> if e `elem` es then Just a else Nothing)
     . Map.toList
     $ A.lookupComponents cId arch
+readOpEntities (FetchMap f cId) es arch = do
+  b <- readOpEntities (Fetch cId) es arch
+  pure $ map f b
 readOpEntities (Adjust f cId q) es arch = do
   a <- readDynQueryEntities es q arch
   b <- readOpEntities (Fetch cId) es arch

@@ -35,6 +35,7 @@ module Aztecs.ECS.World.Archetype
     insertComponent,
     insertComponents,
     insertAscList,
+    map,
     zipWith,
     zipWithM,
   )
@@ -152,6 +153,24 @@ insertComponent e cId c arch =
 -- @since 0.9
 member :: ComponentID -> Archetype -> Bool
 member cId = IntMap.member (unComponentId cId) . storages
+
+-- | Map a list of components with a function and a component storage.
+--
+-- @since 0.9
+{-# INLINE map #-}
+map ::
+  forall a. (Component a) => (a -> a) -> ComponentID -> Archetype -> ([a], Archetype)
+map f cId arch =
+  let go maybeDyn = case maybeDyn of
+        Just dyn -> case fromDynamic $ storageDyn dyn of
+          Just s -> do
+            let !(as, s') = S.map @a @(StorageT a) f s
+            tell as
+            return $ Just $ dyn {storageDyn = toDyn s'}
+          Nothing -> return maybeDyn
+        Nothing -> return Nothing
+      !(storages', cs) = runWriter $ IntMap.alterF go (unComponentId cId) $ storages arch
+   in (cs, arch {storages = storages'})
 
 -- | Zip a list of components with a function and a component storage.
 --

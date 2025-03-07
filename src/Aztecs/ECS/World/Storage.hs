@@ -39,20 +39,20 @@ class (Typeable s, NFData s, Typeable a) => Storage a s where
   -- | Map a function over all components in the storage.
   --
   --
-  -- @since 0.9
-  map :: (a -> a) -> s -> s
+  -- @since 0.11
+  map :: (a -> a) -> s -> ([a], s)
 
   -- | Map a function with some input over all components in the storage.
   --
-  -- @since 0.9
+  -- @since 0.11
   zipWith :: (b -> a -> (c, a)) -> [b] -> s -> ([(c, a)], s)
 
   -- | Map an applicative functor with some input over all components in the storage.
   --
-  -- @since 0.9
+  -- @since 0.11
   zipWithM :: (Applicative m) => (b -> a -> m (c, a)) -> [b] -> s -> m ([(c, a)], s)
 
--- | @since 0.9
+-- | @since 0.11
 instance (Typeable a, NFData a) => Storage a [a] where
   {-# INLINE singleton #-}
   singleton a = [a]
@@ -61,7 +61,7 @@ instance (Typeable a, NFData a) => Storage a [a] where
   {-# INLINE fromAscList #-}
   fromAscList = id
   {-# INLINE map #-}
-  map = fmap
+  map f as = let as' = fmap f as in (as', as')
   {-# INLINE zipWith #-}
   zipWith f is as = let as' = Prelude.zipWith f is as in (as', fmap snd as')
   {-# INLINE zipWithM #-}
