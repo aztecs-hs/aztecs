@@ -57,6 +57,7 @@ module Aztecs.ECS.Query
     map,
     mapSingle,
     mapSingleMaybe,
+    queryEntities,
 
     -- ** Conversion
     fromDyn,
@@ -121,7 +122,8 @@ zipFetchMap :: forall m a b. (Component a) => (b -> a -> a) -> QueryT m b -> Que
 zipFetchMap f = fromWriterInternal @a $ zipFetchMapDyn f
 
 {-# INLINE zipFetchMapAccum #-}
-zipFetchMapAccum :: forall m a b c. (Component a) => (b -> a -> (c, a)) -> QueryT m b -> QueryT m (c, a)
+zipFetchMapAccum ::
+  forall m a b c. (Component a) => (b -> a -> (c, a)) -> QueryT m b -> QueryT m (c, a)
 zipFetchMapAccum f = fromWriterInternal @a $ zipFetchMapAccumDyn f
 
 {-# INLINE zipFetchMapM #-}
@@ -129,7 +131,8 @@ zipFetchMapM :: forall m a b. (Monad m, Component a) => (b -> a -> m a) -> Query
 zipFetchMapM f = fromWriterInternal @a $ zipFetchMapDynM f
 
 {-# INLINE zipFetchMapAccumM #-}
-zipFetchMapAccumM :: forall m a b c. (Monad m, Component a) => (b -> a -> m (c, a)) -> QueryT m b -> QueryT m (c, a)
+zipFetchMapAccumM ::
+  forall m a b c. (Monad m, Component a) => (b -> a -> m (c, a)) -> QueryT m b -> QueryT m (c, a)
 zipFetchMapAccumM f = fromWriterInternal @a $ zipFetchMapAccumDynM f
 
 -- | Convert a `DynamicQueryT` to a `QueryT`.
@@ -249,6 +252,12 @@ mapSingleMaybe q es = do
   let !(cs', dynQ) = runQuery q $ components es
   (as, es') <- mapSingleMaybeDyn dynQ es
   return (as, es' {components = cs'})
+
+queryEntities :: (Monad m) => [EntityID] -> QueryT m a -> Entities -> m ([a], Entities)
+queryEntities eIds q es = do
+  let !(cs', dynQ) = runQuery q $ components es
+  as <- queryEntitiesDyn eIds dynQ es
+  return (as, es {components = cs'})
 
 -- | Filter for a `Query`.
 --

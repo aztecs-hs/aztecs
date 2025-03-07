@@ -27,6 +27,7 @@ module Aztecs.ECS.System
     readFilterQuery,
     allDyn,
     filterDyn,
+    readQueryEntities,
 
     -- ** Writing
     query,
@@ -46,9 +47,10 @@ module Aztecs.ECS.System
   )
 where
 
+import Aztecs.ECS.Entity (EntityID)
 import Aztecs.ECS.Query (QueryFilter (..), QueryT (..))
 import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.Query.Dynamic (DynamicQueryFilter (..), DynamicQueryT, readDynQuery, readsWrites)
+import Aztecs.ECS.Query.Dynamic (DynamicQueryFilter (..), DynamicQueryT, lookupDynQuery, readDynQuery, readsWrites)
 import qualified Aztecs.ECS.View as V
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
@@ -198,6 +200,12 @@ readFilterQuery q qf = System $ Once . Task $ \f -> do
           && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
   runTask (filterDyn' dynQ f') f
 
+-- | Match entities with a `QueryT`.
+--
+-- @since 0.11
+readQueryEntities :: (Monad m) => [EntityID] -> QueryT m a -> SystemT m [a]
+readQueryEntities es q = fromQuery q >>= queryEntitiesDyn es
+
 allDyn :: (Monad m) => DynamicQueryT m a -> SystemT m [a]
 allDyn q = System $ Once . Task $ \f -> do
   w <- f id
@@ -206,6 +214,16 @@ allDyn q = System $ Once . Task $ \f -> do
   lift $
     if V.null v
       then readDynQuery q $ A.empty {A.entities = Map.keysSet $ entities w}
+      else V.allDyn q v
+
+queryEntitiesDyn :: (Monad m) => [EntityID] -> DynamicQueryT m a -> SystemT m [a]
+queryEntitiesDyn es q = System $ Once . Task $ \f -> do
+  w <- f id
+  let rws = readsWrites q
+      !v = V.view (Q.reads rws <> Q.writes rws) $ archetypes w
+  lift $
+    if V.null v
+      then lookupDynQuery es q $ A.empty {A.entities = Map.keysSet $ entities w}
       else V.allDyn q v
 
 filterDyn :: (Monad m) => DynamicQueryT m a -> (Node -> Bool) -> SystemT m [a]

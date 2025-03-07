@@ -37,10 +37,12 @@ module Aztecs.ECS.Query.Dynamic
     filterMapDyn,
     mapSingleDyn,
     mapSingleMaybeDyn,
+    queryEntitiesDyn,
 
     -- *** Internal
     runDynQuery,
     readDynQuery,
+    lookupDynQuery,
 
     -- * Dynamic query filters
     DynamicQueryFilter (..),
@@ -183,6 +185,45 @@ readOp (AdjustM f cId q) arch = do
   as <- readDynQuery q arch
   bs <- readOp (Fetch cId) arch
   zipWithM f as bs
+
+queryEntitiesDyn :: (Monad m) => [EntityID] -> DynamicQueryT m a -> Entities -> m [a]
+queryEntitiesDyn eIds q es =
+  let ReadsWrites rs ws = readsWrites q
+      cIds = rs <> ws
+   in if Set.null cIds
+        then lookupDynQuery eIds q A.empty {A.entities = Map.keysSet $ entities es}
+        else
+          let go n = readDynQuery q $ AS.nodeArchetype n
+           in concat <$> mapM go (AS.find cIds $ archetypes es)
+
+{-# INLINE lookupOp #-}
+lookupOp :: (Applicative f) => Operation f a -> [EntityID] -> Archetype -> f [a]
+lookupOp Entity es _ = pure es
+lookupOp (Fetch cId) es arch =
+  pure
+    . map snd
+    . filter (\(a, _) -> a `elem` es)
+    . Map.toList
+    $ A.lookupComponents cId arch
+lookupOp (FetchMaybe cId) es arch = pure $ map (\e -> A.lookupComponent e cId arch) es
+lookupOp (Adjust f cId q) es arch = do
+  a <- lookupDynQuery es q arch
+  b <- lookupOp (Fetch cId) es arch
+  pure $ zipWith f a b
+lookupOp (AdjustM f cId q) es arch = do
+  a <- lookupDynQuery es q arch
+  b <- lookupOp (Fetch cId) es arch
+  zipWithM f a b
+
+{-# INLINE lookupDynQuery #-}
+lookupDynQuery :: (Applicative f) => [EntityID] -> DynamicQueryT f a -> Archetype -> f [a]
+lookupDynQuery es (Pure a) _ = pure $ replicate (length es) a
+lookupDynQuery es (Map f q) arch = fmap f <$> lookupDynQuery es q arch
+lookupDynQuery es (Ap f g) arch = do
+  a <- lookupDynQuery es g arch
+  b <- lookupDynQuery es f arch
+  pure $ b <*> a
+lookupDynQuery es (Op op) arch = lookupOp op es arch
 
 {-# INLINE runDynQuery #-}
 runDynQuery :: (Applicative f) => DynamicQueryT f a -> Archetype -> f ([a], Archetype)

@@ -79,6 +79,8 @@ module Aztecs.ECS
     queryDyn,
     filterQueryDyn,
     querySingleMaybeDyn,
+    readQuery,
+    readQueryEntities,
     system,
     concurrently,
     World,
@@ -89,16 +91,7 @@ import Aztecs.ECS.Access
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
 import Aztecs.ECS.Query
-import Aztecs.ECS.System
-  ( System,
-    SystemT,
-    filterQuery,
-    filterQueryDyn,
-    query,
-    queryDyn,
-    querySingleMaybe,
-    querySingleMaybeDyn,
-  )
+import Aztecs.ECS.System hiding (concurrently)
 import Aztecs.ECS.World (World)
 import Aztecs.ECS.World.Bundle
 import Aztecs.ECS.World.Bundle.Dynamic
