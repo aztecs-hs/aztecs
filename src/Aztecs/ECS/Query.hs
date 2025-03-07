@@ -220,7 +220,7 @@ singleMaybe' q es = do
 query :: (Monad m) => QueryT m a -> Entities -> m ([a], Entities)
 query q es = do
   let !(cs', dynQ) = runQuery q $ components es
-  (as, es') <- mapDyn dynQ es
+  (as, es') <- queryDyn dynQ es
   return (as, es' {components = cs'})
 
 -- | Map a single matched entity.

@@ -39,7 +39,7 @@ module Aztecs.ECS.Query.Dynamic
     singleDyn,
     singleMaybeDyn,
     queryEntitiesDyn,
-    mapDyn,
+    readQueryDyn,
     mapSingleDyn,
     mapSingleMaybeDyn,
     readQueryEntitiesDyn,
@@ -144,9 +144,11 @@ zipFetchMapDynM f cId q = snd <$> zipFetchMapAccumDynM (\b a -> ((),) <$> f b a)
 zipFetchMapAccumDynM :: (Monad f, Component a) => (b -> a -> f (c, a)) -> ComponentID -> DynamicQueryT f b -> DynamicQueryT f (c, a)
 zipFetchMapAccumDynM f cId q = Op $ AdjustM f cId q
 
+{-# INLINE withDyn #-}
 withDyn :: ComponentID -> DynamicQueryT f ()
 withDyn = Op . With
 
+{-# INLINE withoutDyn #-}
 withoutDyn :: ComponentID -> DynamicQueryT f ()
 withoutDyn = Op . Without
 
@@ -383,11 +385,11 @@ readDynQuery (Ap f g) arch = do
   pure $ zipWith ($) bs as
 readDynQuery (Op op) arch = readOp op arch
 
--- | Match all entities .
+-- | Match all entities.
 --
 -- @since 0.11
-queryDyn :: (Monad m) => DynamicQueryT m a -> Entities -> m [a]
-queryDyn q es =
+readQueryDyn :: (Monad m) => DynamicQueryT m a -> Entities -> m [a]
+readQueryDyn q es =
   let qf = queryFilter q
    in if Set.null $ filterWith qf
         then readDynQuery q $ A.empty {A.entities = Map.keysSet $ entities es}
@@ -427,12 +429,12 @@ singleMaybeDyn q es =
               _ -> Nothing
           _ -> return Nothing
 
--- | Map all matched entities.
+-- | Match and update all matched entities.
 --
 -- @since 0.11
-{-# INLINE mapDyn #-}
-mapDyn :: (Monad m) => DynamicQueryT m a -> Entities -> m ([a], Entities)
-mapDyn = mapDyn' id
+{-# INLINE queryDyn #-}
+queryDyn :: (Monad m) => DynamicQueryT m a -> Entities -> m ([a], Entities)
+queryDyn = mapDyn' id
 
 {-# INLINE mapDyn' #-}
 mapDyn' ::

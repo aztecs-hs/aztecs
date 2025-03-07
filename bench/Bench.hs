@@ -20,14 +20,14 @@ newtype Velocity = Velocity Int deriving (Show, Generic, NFData)
 
 instance Component Velocity
 
-query :: Query Position
-query = Q.fetch & Q.adjust (\(Velocity v) (Position p) -> Position $ p + v)
+q :: Query Position
+q = fetch & zipFetchMap (\(Velocity v) (Position p) -> Position $ p + v)
 
-run :: Query Position -> World -> [Position]
-run q = fst . runIdentity . Q.map q . entities
+run :: World -> [Position]
+run = fst . runIdentity . Q.query q . entities
 
 main :: IO ()
 main = do
   let go wAcc = snd $ W.spawn (bundle (Position 0) <> bundle (Velocity 1)) wAcc
       !w = foldr (const go) W.empty [0 :: Int .. 10000]
-  defaultMain [bench "iter" $ nf (run query) w]
+  defaultMain [bench "iter" $ nf run w]
