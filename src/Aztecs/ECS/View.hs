@@ -26,7 +26,6 @@ module Aztecs.ECS.View
 where
 
 import Aztecs.ECS.Query.Dynamic (DynamicQueryT (..), readDynQuery, runDynQuery)
-import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..))
 import Aztecs.ECS.World.Archetypes
 import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Components
