@@ -123,8 +123,8 @@ opReadsWrites :: Operation f a -> ReadsWrites
 opReadsWrites Entity = mempty
 opReadsWrites (Fetch cId) = mempty {reads = Set.singleton cId}
 opReadsWrites (FetchMaybe cId) = mempty {reads = Set.singleton cId}
-opReadsWrites (Adjust _ cId q) = (readsWrites q) {writes = Set.singleton cId}
-opReadsWrites (AdjustM _ cId q) = (readsWrites q) {writes = Set.singleton cId}
+opReadsWrites (Adjust _ cId q) = readsWrites q <> mempty {writes = Set.singleton cId}
+opReadsWrites (AdjustM _ cId q) = readsWrites q <> mempty {writes = Set.singleton cId}
 
 {-# INLINE readsWrites #-}
 readsWrites :: DynamicQueryT f a -> ReadsWrites
@@ -151,10 +151,9 @@ runOp (Adjust f cId q) arch = do
         !(as, arch'') = A.zipWith bs f cId arch
      in (as, arch'' <> arch')
 runOp (AdjustM f cId q) arch = do
-  !res <- runDynQuery q arch
-  !res' <- A.zipWithM (fst res) f cId arch
-  return $
-    let (as, arch'') = res' in (as, arch'' <> snd res)
+  (as, arch') <- runDynQuery q arch
+  (bs, arch'') <- A.zipWithM as f cId arch
+  return (bs, arch'' <> arch')
 
 {-# INLINE readOp #-}
 readOp :: (Applicative f) => Operation f a -> Archetype -> f [a]
@@ -166,13 +165,13 @@ readOp (FetchMaybe cId) arch =
       Just as -> fmap Just as
       Nothing -> replicate (length $ A.entities arch) Nothing
 readOp (Adjust f cId q) arch = do
-  res <- runDynQuery q arch
+  as <- readDynQuery q arch
   bs <- readOp (Fetch cId) arch
-  pure $ zipWith f (fst res) bs
+  return $ zipWith f as bs
 readOp (AdjustM f cId q) arch = do
-  res <- runDynQuery q arch
+  as <- readDynQuery q arch
   bs <- readOp (Fetch cId) arch
-  zipWithM f (fst res) bs
+  zipWithM f as bs
 
 {-# INLINE runDynQuery #-}
 runDynQuery :: (Applicative f) => DynamicQueryT f a -> Archetype -> f ([a], Archetype)
@@ -305,9 +304,9 @@ mapDyn' f q es =
 -- @since 0.10
 mapSingleDyn :: (HasCallStack, Monad m) => DynamicQueryT m a -> Entities -> m (a, Entities)
 mapSingleDyn q es = do
-  res <- mapSingleMaybeDyn q es
+  (res, es') <- mapSingleMaybeDyn q es
   return $ case res of
-    (Just a, es') -> (a, es')
+    Just a -> (a, es')
     _ -> error "mapSingleDyn: expected single matching entity"
 
 -- | Map a single matched entity, or @Nothing@.
