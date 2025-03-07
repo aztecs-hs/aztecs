@@ -35,11 +35,11 @@ instance Component Z
 
 main :: IO ()
 main = hspec $ do
-  describe "Aztecs.ECS.Query.single" $ do
+  describe "Aztecs.ECS.Query.querySingle" $ do
     it "queries a single entity" prop_querySingle
-  describe "Aztecs.ECS.Query.mapSingle" $ do
+  describe "Aztecs.ECS.Query.queryMapSingle" $ do
     it "maps a single entity" $ property prop_queryMapSingle
-  describe "Aztecs.ECS.Query.all" $ do
+  describe "Aztecs.ECS.Query.query" $ do
     it "queries an empty world" prop_queryEmpty
     it "queries dynamic components" $ property prop_queryDyn
     it "queries a typed component" $ property prop_queryTypedComponent
@@ -56,7 +56,7 @@ describe "Aztecs.ECS.Hierarchy.update" $ do
 
 prop_queryEmpty :: Expectation
 prop_queryEmpty =
-  let res = fst . runIdentity . Q.all (fetch @_ @X) $ W.entities W.empty in res `shouldMatchList` []
+  let res = fst . runIdentity . Q.query (fetch @_ @X) $ W.entities W.empty in res `shouldMatchList` []
 
 -- | Query all components from a list of `ComponentID`s.
 queryComponentIds ::
@@ -85,20 +85,20 @@ prop_queryDyn xs =
       (es, w) = foldr s ([], W.empty) xs
       go (e, cs) = do
         let q = queryComponentIds $ map snd cs
-            (res, _) = runIdentity . Q.all q $ W.entities w
+            (res, _) = runIdentity . Q.query q $ W.entities w
         return $ res `shouldContain` [(e, map fst cs)]
    in mapM_ go es
 
 prop_queryTypedComponent :: [X] -> Expectation
 prop_queryTypedComponent xs = do
   let w = foldr (\x -> snd . W.spawn (bundle x)) W.empty xs
-      (res, _) = runIdentity . Q.all Q.fetch $ W.entities w
+      (res, _) = runIdentity . Q.query Q.fetch $ W.entities w
   res `shouldMatchList` xs
 
 prop_queryTwoTypedComponents :: [(X, Y)] -> Expectation
 prop_queryTwoTypedComponents xys = do
   let w = foldr (\(x, y) -> snd . W.spawn (bundle x <> bundle y)) W.empty xys
-      (res, _) = runIdentity . Q.all ((,) <$> Q.fetch <*> Q.fetch) $ W.entities w
+      (res, _) = runIdentity . Q.query ((,) <$> Q.fetch <*> Q.fetch) $ W.entities w
   res `shouldMatchList` xys
 
 prop_queryThreeTypedComponents :: [(X, Y, Z)] -> Expectation
@@ -109,7 +109,7 @@ prop_queryThreeTypedComponents xyzs = do
         y <- Q.fetch
         z <- Q.fetch
         pure (x, y, z)
-      (res, _) = runIdentity . Q.all q $ W.entities w
+      (res, _) = runIdentity . Q.query q $ W.entities w
   res `shouldMatchList` xyzs
 
 prop_querySingle :: Expectation

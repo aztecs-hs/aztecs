@@ -15,7 +15,6 @@ module Aztecs.ECS.View
   ( View (..),
     view,
     viewSingle,
-    filterView,
     null,
     unview,
     allDyn,
@@ -25,16 +24,14 @@ module Aztecs.ECS.View
   )
 where
 
-import Aztecs.ECS.Query.Dynamic (DynamicQueryT (..), readDynQuery, runDynQuery)
+import Aztecs.ECS.Query.Dynamic (DynamicQueryT (..), QueryFilter (filterWith, filterWithout), readDynQuery, runDynQuery)
 import Aztecs.ECS.World.Archetypes
 import qualified Aztecs.ECS.World.Archetypes as AS
-import Aztecs.ECS.World.Components
 import Aztecs.ECS.World.Entities (Entities)
 import qualified Aztecs.ECS.World.Entities as E
 import Data.Foldable (foldl', foldlM)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Set (Set)
 import Prelude hiding (null)
 
 -- | View into a `World`, containing a subset of archetypes.
@@ -51,26 +48,16 @@ newtype View = View
 -- | View into all archetypes containing the provided component IDs.
 --
 -- @since 0.9
-view :: Set ComponentID -> Archetypes -> View
-view cIds as = View $ AS.find cIds as
+view :: QueryFilter -> Archetypes -> View
+view qf as = View $ AS.find (filterWith qf) (filterWithout qf) as
 
 -- | View into a single archetype containing the provided component IDs.
 --
 -- @since 0.9
-viewSingle :: Set ComponentID -> Archetypes -> Maybe View
-viewSingle cIds as = case Map.toList $ AS.find cIds as of
+viewSingle :: QueryFilter -> Archetypes -> Maybe View
+viewSingle qf as = case Map.toList $ AS.find (filterWith qf) (filterWithout qf) as of
   [a] -> Just . View $ uncurry Map.singleton a
   _ -> Nothing
-
--- | View into all archetypes containing the provided component IDs and matching the provided predicate.
---
--- @since 0.9
-filterView ::
-  Set ComponentID ->
-  (Node -> Bool) ->
-  Archetypes ->
-  View
-filterView cIds f as = View $ Map.filter f (AS.find cIds as)
 
 -- | @True@ if the `View` is empty.
 --

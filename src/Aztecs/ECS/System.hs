@@ -24,17 +24,13 @@ module Aztecs.ECS.System
 
     -- ** Reading
     readQuery,
-    readFilterQuery,
     allDyn,
-    filterDyn,
     readQueryEntities,
 
     -- ** Writing
     query,
-    filterQuery,
     querySingleMaybe,
     queryDyn,
-    filterQueryDyn,
     querySingleMaybeDyn,
 
     -- ** Running
@@ -48,18 +44,15 @@ module Aztecs.ECS.System
 where
 
 import Aztecs.ECS.Entity (EntityID)
-import Aztecs.ECS.Query (QueryFilter (..), QueryT (..))
-import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.Query.Dynamic (DynamicQueryFilter (..), DynamicQueryT, readDynQuery, readDynQueryEntities, readsWrites)
+import Aztecs.ECS.Query (QueryT (..))
+import Aztecs.ECS.Query.Dynamic (DynamicQueryT, queryFilter, readDynQuery, readDynQueryEntities)
 import qualified Aztecs.ECS.View as V
 import qualified Aztecs.ECS.World.Archetype as A
-import Aztecs.ECS.World.Archetypes (Node (..))
 import Aztecs.ECS.World.Entities (Entities (..))
 import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar
 import Control.Monad.Identity
 import Control.Monad.Trans
-import qualified Data.Foldable as F
 import Data.Kind
 import qualified Data.Map as Map
 
@@ -111,8 +104,8 @@ instance (MonadIO m) => MonadIO (SystemT m) where
 queryDyn :: (Monad m) => DynamicQueryT m a -> SystemT m [a]
 queryDyn q = System $ Once . Task $ \f -> do
   w <- f id
-  let rws = readsWrites q
-      !v = V.view (Q.reads rws <> Q.writes rws) $ archetypes w
+  let qf = queryFilter q
+      !v = V.view qf $ archetypes w
   (o, v') <- lift $ V.mapDyn q v
   _ <- f $ V.unview v'
   return o
@@ -123,35 +116,13 @@ queryDyn q = System $ Once . Task $ \f -> do
 querySingleMaybeDyn :: (Monad m) => DynamicQueryT m a -> SystemT m (Maybe a)
 querySingleMaybeDyn q = System $ Once . Task $ \f -> do
   w <- f id
-  let rws = readsWrites q
-  case V.viewSingle (Q.reads rws <> Q.writes rws) $ archetypes w of
+  let qf = queryFilter q
+  case V.viewSingle qf $ archetypes w of
     Just v -> do
       (o, v') <- lift $ V.mapSingleDyn q v
       _ <- f $ V.unview v'
       return o
     Nothing -> return Nothing
-
--- | Filter and map all entities with a `DynamicQueryT`.
---
--- @since 0.11
-filterQueryDyn :: (Monad m) => (Node -> Bool) -> DynamicQueryT m a -> SystemT m [a]
-filterQueryDyn qf q = System $ Once . Task $ \f -> do
-  w <- f id
-  let rws = readsWrites q
-      !v = V.filterView (Q.reads rws <> Q.writes rws) qf $ archetypes w
-  (o, v') <- lift $ V.mapDyn q v
-  _ <- f $ V.unview v'
-  return o
-
-filterMapDyn' ::
-  (MonadTrans t, Monad (t m), Monad m) => (Node -> Bool) -> DynamicQueryT m a -> Task t m [a]
-filterMapDyn' qf q = Task $ \f -> do
-  w <- f id
-  let rws = readsWrites q
-      !v = V.filterView (Q.reads rws <> Q.writes rws) qf $ archetypes w
-  (o, v') <- lift $ V.mapDyn q v
-  _ <- f $ V.unview v'
-  return o
 
 -- | Match and update all entities with a `QueryT`.
 --
@@ -169,19 +140,6 @@ querySingleMaybe q = do
   dynQ <- fromQuery q
   querySingleMaybeDyn dynQ
 
--- | Filter and map all entities with a `QueryT`.
---
--- @since 0.11
-filterQuery :: (Monad m) => QueryT m a -> QueryFilter -> SystemT m [a]
-filterQuery q qf = System $ Once . Task $ \f -> do
-  w <- f id
-  let (cs', dynQ) = runQuery q $ components w
-      (dynF, _) = runQueryFilter qf cs'
-  let f' n =
-        F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynF)
-          && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
-  runTask (filterMapDyn' f' dynQ) f
-
 -- | Match all entities with a `QueryT`.
 --
 -- @since 0.11
@@ -189,16 +147,6 @@ readQuery :: (Monad m) => QueryT m a -> SystemT m [a]
 readQuery q = do
   dynQ <- fromQuery q
   allDyn dynQ
-
-readFilterQuery :: (Monad m) => QueryT m a -> QueryFilter -> SystemT m [a]
-readFilterQuery q qf = System $ Once . Task $ \f -> do
-  w <- f id
-  let (cs', dynQ) = runQuery q $ components w
-      (dynF, _) = runQueryFilter qf cs'
-  let f' n =
-        F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynF)
-          && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
-  runTask (filterDyn' dynQ f') f
 
 -- | Match entities with a `QueryT`.
 --
@@ -209,8 +157,8 @@ readQueryEntities es q = fromQuery q >>= queryEntitiesDyn es
 allDyn :: (Monad m) => DynamicQueryT m a -> SystemT m [a]
 allDyn q = System $ Once . Task $ \f -> do
   w <- f id
-  let rws = readsWrites q
-      !v = V.view (Q.reads rws <> Q.writes rws) $ archetypes w
+  let qf = queryFilter q
+      !v = V.view qf $ archetypes w
   lift $
     if V.null v
       then readDynQuery q $ A.empty {A.entities = Map.keysSet $ entities w}
@@ -219,26 +167,12 @@ allDyn q = System $ Once . Task $ \f -> do
 queryEntitiesDyn :: (Monad m) => [EntityID] -> DynamicQueryT m a -> SystemT m [a]
 queryEntitiesDyn es q = System $ Once . Task $ \f -> do
   w <- f id
-  let rws = readsWrites q
-      !v = V.view (Q.reads rws <> Q.writes rws) $ archetypes w
+  let qf = queryFilter q
+      !v = V.view qf $ archetypes w
   lift $
     if V.null v
       then readDynQueryEntities es q $ A.empty {A.entities = Map.keysSet $ entities w}
       else V.allDyn q v
-
-filterDyn :: (Monad m) => DynamicQueryT m a -> (Node -> Bool) -> SystemT m [a]
-filterDyn q qf = System $ Once . Task $ \f -> do
-  w <- f id
-  let rws = readsWrites q
-      !v = V.filterView (Q.reads rws <> Q.writes rws) qf $ archetypes w
-  lift $ V.allDyn q v
-
-filterDyn' :: (MonadTrans t, Monad (t m), Monad m) => DynamicQueryT m a -> (Node -> Bool) -> Task t m [a]
-filterDyn' q qf = Task $ \f -> do
-  w <- f id
-  let rws = readsWrites q
-      !v = V.filterView (Q.reads rws <> Q.writes rws) qf $ archetypes w
-  lift $ V.allDyn q v
 
 -- | Convert a `QueryT` to a `System`.
 --

@@ -48,14 +48,16 @@ module Aztecs.ECS.Query
     zipFetchMapM,
     zipFetchMapAccumM,
 
+    -- ** Filters
+    with,
+    without,
+
     -- ** Running
-    all,
-    all',
+    query,
     single,
     single',
     singleMaybe,
     singleMaybe',
-    map,
     mapSingle,
     mapSingleMaybe,
     queryEntities,
@@ -63,15 +65,6 @@ module Aztecs.ECS.Query
 
     -- ** Conversion
     fromDyn,
-
-    -- * Filters
-    QueryFilter (..),
-    with,
-    without,
-
-    -- * Reads and writes
-    ReadsWrites (..),
-    disjoint,
   )
 where
 
@@ -82,9 +75,7 @@ import Aztecs.ECS.World.Components (Components)
 import qualified Aztecs.ECS.World.Components as CS
 import Aztecs.ECS.World.Entities (Entities (..))
 import Control.Monad.Identity
-import qualified Data.Set as Set
 import GHC.Stack
-import Prelude hiding (all, map)
 
 -- | @since 0.10
 type Query = QueryT Identity
@@ -141,6 +132,14 @@ zipFetchMapAccumM ::
   forall m a b c. (Monad m, Component a) => (b -> a -> m (c, a)) -> QueryT m b -> QueryT m (c, a)
 zipFetchMapAccumM f = fromWriterInternal @a $ zipFetchMapAccumDynM f
 
+{-# INLINE with #-}
+with :: forall f a. (Component a) => QueryT f ()
+with = fromDynInternal @f @a $ withDyn
+
+{-# INLINE without #-}
+without :: forall f a. (Component a) => QueryT f ()
+without = fromDynInternal @f @a $ withDyn
+
 -- | Convert a `DynamicQueryT` to a `QueryT`.
 --
 -- @since 0.10
@@ -150,10 +149,10 @@ fromDyn q = Query (,q)
 
 {-# INLINE fromDynInternal #-}
 fromDynInternal ::
-  forall f a.
+  forall f a b.
   (Component a) =>
-  (ComponentID -> DynamicQueryT f a) ->
-  QueryT f a
+  (ComponentID -> DynamicQueryT f b) ->
+  QueryT f b
 fromDynInternal f = Query $ \cs ->
   let !(cId, cs') = CS.insert @a cs in (cs', f cId)
 
@@ -168,26 +167,6 @@ fromWriterInternal f q = Query $ \cs ->
   let !(cId, cs') = CS.insert @c cs
       !(cs'', dynQ) = runQuery q cs'
    in (cs'', f cId dynQ)
-
--- | Match all entities.
---
--- @since 0.10
-{-# INLINE all #-}
-all :: (Monad m) => QueryT m a -> Entities -> m ([a], Entities)
-all q es = do
-  let !(cs', dynQ) = runQuery q $ components es
-  as <- allDyn dynQ es
-  return (as, es {components = cs'})
-
--- | Match all entities.
---
--- @since 0.10
-{-# INLINE all' #-}
-all' :: (Monad m) => QueryT m a -> Entities -> m ([a], Components)
-all' q es = do
-  let !(cs', dynQ) = runQuery q $ components es
-  as <- allDyn dynQ es
-  return (as, cs')
 
 -- | Match a single entity.
 --
@@ -229,12 +208,12 @@ singleMaybe' q es = do
   as <- singleMaybeDyn dynQ es
   return (as, cs')
 
--- | Map all matched entities.
+-- | Match and update all entities.
 --
 -- @since 0.10
-{-# INLINE map #-}
-map :: (Monad m) => QueryT m a -> Entities -> m ([a], Entities)
-map q es = do
+{-# INLINE query #-}
+query :: (Monad m) => QueryT m a -> Entities -> m ([a], Entities)
+query q es = do
   let !(cs', dynQ) = runQuery q $ components es
   (as, es') <- mapDyn dynQ es
   return (as, es' {components = cs'})
@@ -270,39 +249,3 @@ readQueryEntities eIds q es = do
   let !(cs', dynQ) = runQuery q $ components es
   as <- readQueryEntitiesDyn eIds dynQ es
   return (as, es {components = cs'})
-
--- | Filter for a `Query`.
---
--- @since 0.9
-newtype QueryFilter = QueryFilter
-  { -- | Run a query filter.
-    runQueryFilter :: Components -> (DynamicQueryFilter, Components)
-  }
-
--- | @since 0.9
-instance Semigroup QueryFilter where
-  a <> b =
-    QueryFilter
-      ( \cs ->
-          let !(withA', cs') = runQueryFilter a cs
-              !(withB', cs'') = runQueryFilter b cs'
-           in (withA' <> withB', cs'')
-      )
-
--- | @since 0.9
-instance Monoid QueryFilter where
-  mempty = QueryFilter (mempty,)
-
--- | Filter for entities containing this component.
---
--- @since 0.9
-with :: forall a. (Component a) => QueryFilter
-with = QueryFilter $ \cs ->
-  let !(cId, cs') = CS.insert @a cs in (mempty {filterWith = Set.singleton cId}, cs')
-
--- | Filter out entities containing this component.
---
--- @since 0.9
-without :: forall a. (Component a) => QueryFilter
-without = QueryFilter $ \cs ->
-  let !(cId, cs') = CS.insert @a cs in (mempty {filterWithout = Set.singleton cId}, cs')

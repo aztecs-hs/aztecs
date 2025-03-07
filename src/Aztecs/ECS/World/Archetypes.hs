@@ -29,7 +29,6 @@ module Aztecs.ECS.World.Archetypes
     findArchetypeIds,
     lookup,
     find,
-    map,
     adjustArchetype,
     insert,
     remove,
@@ -138,28 +137,20 @@ adjustArchetype aId f arches =
 -- | Find `ArchetypeID`s containing a set of `ComponentID`s.
 --
 -- @since 0.9
-findArchetypeIds :: Set ComponentID -> Archetypes -> Set ArchetypeID
-findArchetypeIds cIds arches = case mapMaybe (\cId -> Map.lookup cId (componentIds arches)) (Set.elems cIds) of
-  (aId : aIds') -> foldl' Set.intersection aId aIds'
-  [] -> Set.empty
+findArchetypeIds :: Set ComponentID -> Set ComponentID -> Archetypes -> Set ArchetypeID
+findArchetypeIds w wo arches =
+  let withIds = mapMaybe (\cId -> Map.lookup cId (componentIds arches)) (Set.elems w)
+      withoutIds = mapMaybe (\cId -> Map.lookup cId (componentIds arches)) (Set.elems wo)
+      withoutSet = foldl' Set.union Set.empty withoutIds
+   in case withIds of
+        (aId : aIds') -> foldl' Set.intersection aId aIds' `Set.difference` withoutSet
+        [] -> Set.empty
 
 -- | Lookup `Archetype`s containing a set of `ComponentID`s.
 --
 -- @since 0.9
-find :: Set ComponentID -> Archetypes -> Map ArchetypeID Node
-find cIds arches = Map.fromSet (\aId -> nodes arches Map.! aId) (findArchetypeIds cIds arches)
-
--- | Map over `Archetype`s containing a set of `ComponentID`s.
---
--- @since 0.9
-map :: Set ComponentID -> (Archetype -> (a, Archetype)) -> Archetypes -> ([a], Archetypes)
-map cIds f arches =
-  let go (acc, archAcc) aId =
-        let !node = nodes archAcc Map.! aId
-            !(a, arch') = f (nodeArchetype node)
-            nodes' = Map.insert aId (node {nodeArchetype = arch'}) (nodes archAcc)
-         in (a : acc, archAcc {nodes = nodes'})
-   in foldl' go ([], arches) $ findArchetypeIds cIds arches
+find :: Set ComponentID -> Set ComponentID -> Archetypes -> Map ArchetypeID Node
+find w wo arches = Map.fromSet (\aId -> nodes arches Map.! aId) (findArchetypeIds w wo arches)
 
 -- | Lookup an `ArchetypeID` by its set of `ComponentID`s.
 --
