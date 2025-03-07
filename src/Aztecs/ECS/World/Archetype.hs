@@ -36,7 +36,6 @@ module Aztecs.ECS.World.Archetype
     insertComponents,
     insertAscList,
     zipWith,
-    zipWith_,
     zipWithM,
   )
 where
@@ -159,13 +158,13 @@ member cId = IntMap.member (unComponentId cId) . storages
 -- @since 0.9
 {-# INLINE zipWith #-}
 zipWith ::
-  forall a c. (Component c) => [a] -> (a -> c -> c) -> ComponentID -> Archetype -> ([c], Archetype)
+  forall a b c. (Component c) => [a] -> (a -> c -> (b, c)) -> ComponentID -> Archetype -> ([(b, c)], Archetype)
 zipWith as f cId arch =
   let go maybeDyn = case maybeDyn of
         Just dyn -> case fromDynamic $ storageDyn dyn of
           Just s -> do
-            let !(cs', s') = S.zipWith @c @(StorageT c) f as s
-            tell cs'
+            let !(acs, s') = S.zipWith @c @(StorageT c) f as s
+            tell acs
             return $ Just $ dyn {storageDyn = toDyn s'}
           Nothing -> return maybeDyn
         Nothing -> return Nothing
@@ -176,7 +175,7 @@ zipWith as f cId arch =
 --
 -- @since 0.9
 zipWithM ::
-  forall m a c. (Applicative m, Component c) => [a] -> (a -> c -> m c) -> ComponentID -> Archetype -> m ([c], Archetype)
+  forall m a b c. (Applicative m, Component c) => [a] -> (a -> c -> m (b, c)) -> ComponentID -> Archetype -> m ([(b, c)], Archetype)
 zipWithM as f cId arch = do
   let go maybeDyn = case maybeDyn of
         Just dyn -> case fromDynamic $ storageDyn dyn of
@@ -189,21 +188,6 @@ zipWithM as f cId arch = do
         Nothing -> pure Nothing
   res <- runWriterT $ IntMap.alterF go (unComponentId cId) $ storages arch
   return (snd res, arch {storages = fst res})
-
--- | Zip a list of components with a function and a component storage.
---
--- @since 0.9
-{-# INLINE zipWith_ #-}
-zipWith_ ::
-  forall a c. (Component c) => [a] -> (a -> c -> c) -> ComponentID -> Archetype -> Archetype
-zipWith_ as f cId arch =
-  let maybeStorage = case IntMap.lookup (unComponentId cId) $ storages arch of
-        Just dyn -> case fromDynamic $ storageDyn dyn of
-          Just s ->
-            let !s' = S.zipWith_ @c @(StorageT c) f as s in Just $ dyn {storageDyn = toDyn s'}
-          Nothing -> Nothing
-        Nothing -> Nothing
-   in (empty {storages = maybe IntMap.empty (IntMap.singleton (unComponentId cId)) maybeStorage})
 
 -- | Insert a list of components into the archetype, sorted in ascending order by their `EntityID`.
 --

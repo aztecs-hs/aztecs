@@ -45,18 +45,12 @@ class (Typeable s, NFData s, Typeable a) => Storage a s where
   -- | Map a function with some input over all components in the storage.
   --
   -- @since 0.9
-  zipWith :: (i -> a -> a) -> [i] -> s -> ([a], s)
+  zipWith :: (b -> a -> (c, a)) -> [b] -> s -> ([(c, a)], s)
 
   -- | Map an applicative functor with some input over all components in the storage.
   --
   -- @since 0.9
-  zipWithM :: (Applicative m) => (i -> a -> m a) -> [i] -> s -> m ([a], s)
-
-  -- | Map a function with some input over all components in the storage.
-  --
-  -- @since 0.9
-  zipWith_ :: (i -> a -> a) -> [i] -> s -> s
-  zipWith_ f is as = snd $ zipWith f is as
+  zipWithM :: (Applicative m) => (b -> a -> m (c, a)) -> [b] -> s -> m ([(c, a)], s)
 
 -- | @since 0.9
 instance (Typeable a, NFData a) => Storage a [a] where
@@ -69,8 +63,6 @@ instance (Typeable a, NFData a) => Storage a [a] where
   {-# INLINE map #-}
   map = fmap
   {-# INLINE zipWith #-}
-  zipWith f is as = let as' = Prelude.zipWith f is as in (as', as')
-  {-# INLINE zipWith_ #-}
-  zipWith_ = Prelude.zipWith
+  zipWith f is as = let as' = Prelude.zipWith f is as in (as', fmap snd as')
   {-# INLINE zipWithM #-}
-  zipWithM f is as = (\as' -> (as', as')) <$> Control.Monad.zipWithM f is as
+  zipWithM f is as = (\as' -> (as', fmap snd as')) <$> Control.Monad.zipWithM f is as

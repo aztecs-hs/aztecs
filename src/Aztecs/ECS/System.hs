@@ -16,7 +16,7 @@
 -- Stability   : provisional
 -- Portability : non-portable (GHC extensions)
 --
--- Systems to process queries in parallel.
+-- Systems to process entities.
 module Aztecs.ECS.System
   ( -- * Systems
     System,
@@ -141,7 +141,8 @@ filterQueryDyn qf q = System $ Once . Task $ \f -> do
   _ <- f $ V.unview v'
   return o
 
-filterMapDyn' :: (MonadTrans t, Monad (t m), Monad m) => (Node -> Bool) -> DynamicQueryT m a -> Task t m [a]
+filterMapDyn' ::
+  (MonadTrans t, Monad (t m), Monad m) => (Node -> Bool) -> DynamicQueryT m a -> Task t m [a]
 filterMapDyn' qf q = Task $ \f -> do
   w <- f id
   let rws = readsWrites q

@@ -19,7 +19,7 @@ For more information, please see the documentation on [Hackage](https://hackage.
 
 - High-performance: Components are stored by their unique sets in archetypes
 - Dynamic components: Scripts and remote interfaces can create runtime-specified components
-- Type-safe DSL: Queries and systems use `Arrow` syntax for compile-time gurantees
+- Type-safe DSL: Queries use `Applicative` syntax for compile-time gurantees
 - Modular design: Aztecs can be extended for a variety of use cases
 
 ```hs

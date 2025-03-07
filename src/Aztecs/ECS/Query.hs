@@ -43,7 +43,9 @@ module Aztecs.ECS.Query
     entity,
     fetch,
     zipFetchMap,
+    zipFetchMapAccum,
     zipFetchMapM,
+    zipFetchMapAccumM,
 
     -- ** Running
     all,
@@ -116,11 +118,19 @@ fetch = fromDynInternal @f @a $ fetchDyn
 
 {-# INLINE zipFetchMap #-}
 zipFetchMap :: forall m a b. (Component a) => (b -> a -> a) -> QueryT m b -> QueryT m a
-zipFetchMap f = fromWriterInternal @a $ adjustDyn f
+zipFetchMap f = fromWriterInternal @a $ zipFetchMapDyn f
+
+{-# INLINE zipFetchMapAccum #-}
+zipFetchMapAccum :: forall m a b c. (Component a) => (b -> a -> (c, a)) -> QueryT m b -> QueryT m (c, a)
+zipFetchMapAccum f = fromWriterInternal @a $ zipFetchMapAccumDyn f
 
 {-# INLINE zipFetchMapM #-}
 zipFetchMapM :: forall m a b. (Monad m, Component a) => (b -> a -> m a) -> QueryT m b -> QueryT m a
-zipFetchMapM f = fromWriterInternal @a $ adjustDynM f
+zipFetchMapM f = fromWriterInternal @a $ zipFetchMapDynM f
+
+{-# INLINE zipFetchMapAccumM #-}
+zipFetchMapAccumM :: forall m a b c. (Monad m, Component a) => (b -> a -> m (c, a)) -> QueryT m b -> QueryT m (c, a)
+zipFetchMapAccumM f = fromWriterInternal @a $ zipFetchMapAccumDynM f
 
 -- | Convert a `DynamicQueryT` to a `QueryT`.
 --

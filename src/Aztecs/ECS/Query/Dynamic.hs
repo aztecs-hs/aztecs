@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -- |
@@ -22,8 +23,10 @@ module Aztecs.ECS.Query.Dynamic
     entityDyn,
     fetchDyn,
     fetchMaybeDyn,
-    adjustDyn,
-    adjustDynM,
+    zipFetchMapDyn,
+    zipFetchMapAccumDyn,
+    zipFetchMapDynM,
+    zipFetchMapAccumDynM,
 
     -- ** Running
     allDyn,
@@ -71,8 +74,8 @@ data Operation f a where
   Entity :: Operation f EntityID
   Fetch :: (Component a) => !ComponentID -> Operation f a
   FetchMaybe :: (Component a) => !ComponentID -> Operation f (Maybe a)
-  Adjust :: (Component a) => !(b -> a -> a) -> !ComponentID -> !(DynamicQueryT f b) -> Operation f a
-  AdjustM :: (Monad f, Component a) => !(b -> a -> f a) -> !ComponentID -> !(DynamicQueryT f b) -> Operation f a
+  Adjust :: (Component a) => !(b -> a -> (c, a)) -> !ComponentID -> !(DynamicQueryT f b) -> Operation f (c, a)
+  AdjustM :: (Monad f, Component a) => !(b -> a -> f (c, a)) -> !ComponentID -> !(DynamicQueryT f b) -> Operation f (c, a)
 
 -- @since 0.9
 type DynamicQuery = DynamicQueryT Identity
@@ -110,13 +113,21 @@ fetchDyn = Op . Fetch
 fetchMaybeDyn :: (Component a) => ComponentID -> DynamicQueryT f (Maybe a)
 fetchMaybeDyn = Op . FetchMaybe
 
-{-# INLINE adjustDyn #-}
-adjustDyn :: (Component a) => (b -> a -> a) -> ComponentID -> DynamicQueryT f b -> DynamicQueryT f a
-adjustDyn f cId q = Op $ Adjust f cId q
+{-# INLINE zipFetchMapDyn #-}
+zipFetchMapDyn :: (Component a) => (b -> a -> a) -> ComponentID -> DynamicQueryT f b -> DynamicQueryT f a
+zipFetchMapDyn f cId q = snd <$> Op (Adjust (\b a -> ((), f b a)) cId q)
 
-{-# INLINE adjustDynM #-}
-adjustDynM :: (Monad f, Component a) => (b -> a -> f a) -> ComponentID -> DynamicQueryT f b -> DynamicQueryT f a
-adjustDynM f cId q = Op $ AdjustM f cId q
+{-# INLINE zipFetchMapAccumDyn #-}
+zipFetchMapAccumDyn :: (Component a) => (b -> a -> (c, a)) -> ComponentID -> DynamicQueryT f b -> DynamicQueryT f (c, a)
+zipFetchMapAccumDyn f cId q = Op $ Adjust f cId q
+
+{-# INLINE zipFetchMapDynM #-}
+zipFetchMapDynM :: (Monad f, Component a) => (b -> a -> f a) -> ComponentID -> DynamicQueryT f b -> DynamicQueryT f a
+zipFetchMapDynM f cId q = snd <$> zipFetchMapAccumDynM (\b a -> ((),) <$> f b a) cId q
+
+{-# INLINE zipFetchMapAccumDynM #-}
+zipFetchMapAccumDynM :: (Monad f, Component a) => (b -> a -> f (c, a)) -> ComponentID -> DynamicQueryT f b -> DynamicQueryT f (c, a)
+zipFetchMapAccumDynM f cId q = Op $ AdjustM f cId q
 
 {-# INLINE opReadsWrites #-}
 opReadsWrites :: Operation f a -> ReadsWrites
