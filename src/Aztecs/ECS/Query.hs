@@ -204,7 +204,7 @@ query q es = do
 querySingle :: (HasCallStack, Monad m) => QueryT m a -> Entities -> m (a, Entities)
 querySingle q es = do
   let !(cs', dynQ) = runQuery q $ components es
-  (as, es') <- mapSingleDyn dynQ es
+  (as, es') <- querySingleDyn dynQ es
   return (as, es' {components = cs'})
 
 -- | Match and update a single matched entity, or `Nothing`.
@@ -214,7 +214,7 @@ querySingle q es = do
 querySingleMaybe :: (Monad m) => QueryT m a -> Entities -> m (Maybe a, Entities)
 querySingleMaybe q es = do
   let !(cs', dynQ) = runQuery q $ components es
-  (as, es') <- mapSingleMaybeDyn dynQ es
+  (as, es') <- querySingleMaybeDyn dynQ es
   return (as, es' {components = cs'})
 
 -- | Match and update the specified entities.
@@ -233,7 +233,7 @@ queryEntities eIds q es = do
 readSingle :: (HasCallStack, Monad m) => QueryT m a -> Entities -> m (a, Entities)
 readSingle q es = do
   let !(cs', dynQ) = runQuery q $ components es
-  as <- singleDyn dynQ es
+  as <- readQuerySingleDyn dynQ es
   return (as, es {components = cs'})
 
 -- | Match a single entity.
@@ -243,7 +243,7 @@ readSingle q es = do
 readSingle' :: (HasCallStack, Monad m) => QueryT m a -> Entities -> m (a, Components)
 readSingle' q es = do
   let !(cs', dynQ) = runQuery q $ components es
-  as <- singleDyn dynQ es
+  as <- readQuerySingleDyn dynQ es
   return (as, cs')
 
 -- | Match a single entity, or `Nothing`.
@@ -253,7 +253,7 @@ readSingle' q es = do
 readSingleMaybe :: (Monad m) => QueryT m a -> Entities -> m (Maybe a, Entities)
 readSingleMaybe q es = do
   let !(cs', dynQ) = runQuery q $ components es
-  as <- singleMaybeDyn dynQ es
+  as <- readQuerySingleMaybeDyn dynQ es
   return (as, es {components = cs'})
 
 -- | Match a single entity, or `Nothing`.
@@ -263,7 +263,7 @@ readSingleMaybe q es = do
 readSingleMaybe' :: (Monad m) => QueryT m a -> Entities -> m (Maybe a, Components)
 readSingleMaybe' q es = do
   let !(cs', dynQ) = runQuery q $ components es
-  as <- singleMaybeDyn dynQ es
+  as <- readQuerySingleMaybeDyn dynQ es
   return (as, cs')
 
 -- | Match the specified entities.

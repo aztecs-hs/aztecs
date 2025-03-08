@@ -32,16 +32,17 @@ module Aztecs.ECS.Query.Dynamic
 
     -- ** Running
     queryDyn,
-    singleDyn,
-    singleMaybeDyn,
+    readQuerySingleDyn,
+    readQuerySingleMaybeDyn,
     queryEntitiesDyn,
     readQueryDyn,
-    mapSingleDyn,
-    mapSingleMaybeDyn,
+    querySingleDyn,
+    querySingleMaybeDyn,
     readQueryEntitiesDyn,
 
     -- *** Internal
     QueryFilter (..),
+    Operation (..),
     queryFilter,
     runDynQuery,
     runDynQueryEntities,
@@ -54,7 +55,7 @@ import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
 import Aztecs.ECS.World.Archetype (Archetype)
 import qualified Aztecs.ECS.World.Archetype as A
-import Aztecs.ECS.World.Archetypes (ArchetypeID, Node (..))
+import Aztecs.ECS.World.Archetypes (Node (..))
 import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Entities
 import Control.Applicative
@@ -62,24 +63,12 @@ import Control.Monad
 import Control.Monad.Identity (Identity)
 import Data.Bifunctor
 import Data.Foldable
-import Data.Map (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Stack
 import Prelude hiding (reads)
-
-data Operation f a where
-  Entity :: Operation f EntityID
-  Fetch :: (Component a) => ComponentID -> Operation f a
-  FetchMaybe :: (Component a) => ComponentID -> Operation f (Maybe a)
-  FetchMap :: (Component a) => (a -> a) -> ComponentID -> Operation f a
-  FetchMapM :: (Monad f, Component a) => (a -> f a) -> ComponentID -> Operation f a
-  Adjust :: (Component a) => (b -> a -> (c, a)) -> ComponentID -> (DynamicQueryT f b) -> Operation f (c, a)
-  AdjustM :: (Monad f, Component a) => (b -> a -> f (c, a)) -> ComponentID -> (DynamicQueryT f b) -> Operation f (c, a)
-  With :: ComponentID -> Operation f ()
-  Without :: ComponentID -> Operation f ()
 
 -- @since 0.9
 type DynamicQuery = DynamicQueryT Identity
@@ -88,10 +77,11 @@ type DynamicQuery = DynamicQueryT Identity
 --
 -- @since 0.11
 data DynamicQueryT f a where
+  Entity :: DynamicQueryT f EntityID
   Pure :: a -> DynamicQueryT f a
-  Map :: (a -> b) -> (DynamicQueryT f a) -> DynamicQueryT f b
-  Ap :: (DynamicQueryT f (a -> b)) -> (DynamicQueryT f a) -> DynamicQueryT f b
-  Op :: (Operation f a) -> DynamicQueryT f a
+  Map :: (a -> b) -> DynamicQueryT f a -> DynamicQueryT f b
+  Ap :: DynamicQueryT f (a -> b) -> DynamicQueryT f a -> DynamicQueryT f b
+  Op :: ComponentID -> Operation f a -> DynamicQueryT f a
 
 instance Functor (DynamicQueryT f) where
   {-# INLINE fmap #-}
@@ -107,33 +97,33 @@ instance Applicative (DynamicQueryT f) where
 
 {-# INLINE entityDyn #-}
 entityDyn :: DynamicQueryT f EntityID
-entityDyn = Op Entity
+entityDyn = Entity
 
 {-# INLINE fetchDyn #-}
 fetchDyn :: (Component a) => ComponentID -> DynamicQueryT f a
-fetchDyn = Op . Fetch
+fetchDyn cId = Op cId Fetch
 
 {-# INLINE fetchMaybeDyn #-}
 fetchMaybeDyn :: (Component a) => ComponentID -> DynamicQueryT f (Maybe a)
-fetchMaybeDyn = Op . FetchMaybe
+fetchMaybeDyn cId = Op cId FetchMaybe
 
 {-# INLINE fetchMapDyn #-}
 fetchMapDyn :: (Component a) => (a -> a) -> ComponentID -> DynamicQueryT f a
-fetchMapDyn f = Op . FetchMap f
+fetchMapDyn f cId = Op cId $ FetchMap f
 
 {-# INLINE fetchMapDynM #-}
 fetchMapDynM :: (Monad f, Component a) => (a -> f a) -> ComponentID -> DynamicQueryT f a
-fetchMapDynM f = Op . FetchMapM f
+fetchMapDynM f cId = Op cId $ FetchMapM f
 
 {-# INLINE zipFetchMapDyn #-}
 zipFetchMapDyn ::
   (Component a) => (b -> a -> a) -> ComponentID -> DynamicQueryT f b -> DynamicQueryT f a
-zipFetchMapDyn f cId q = snd <$> Op (Adjust (\b a -> ((), f b a)) cId q)
+zipFetchMapDyn f cId q = snd <$> Op cId (ZipFetchMap (\b a -> ((), f b a)) q)
 
 {-# INLINE zipFetchMapAccumDyn #-}
 zipFetchMapAccumDyn ::
   (Component a) => (b -> a -> (c, a)) -> ComponentID -> DynamicQueryT f b -> DynamicQueryT f (c, a)
-zipFetchMapAccumDyn f cId q = Op $ Adjust f cId q
+zipFetchMapAccumDyn f cId q = Op cId $ ZipFetchMap f q
 
 {-# INLINE zipFetchMapDynM #-}
 zipFetchMapDynM ::
@@ -151,78 +141,125 @@ zipFetchMapAccumDynM ::
   ComponentID ->
   DynamicQueryT f b ->
   DynamicQueryT f (c, a)
-zipFetchMapAccumDynM f cId q = Op $ AdjustM f cId q
+zipFetchMapAccumDynM f cId q = Op cId $ ZipFetchMapM f q
 
 {-# INLINE withDyn #-}
 withDyn :: ComponentID -> DynamicQueryT f ()
-withDyn = Op . With
+withDyn cId = Op cId With
 
 {-# INLINE withoutDyn #-}
 withoutDyn :: ComponentID -> DynamicQueryT f ()
-withoutDyn = Op . Without
+withoutDyn cId = Op cId Without
 
-{-# INLINE opFilter #-}
-opFilter :: Operation f a -> QueryFilter
-opFilter Entity = mempty
-opFilter (Fetch cId) = mempty {filterWith = Set.singleton cId}
-opFilter (FetchMaybe cId) = mempty {filterWith = Set.singleton cId}
-opFilter (FetchMap _ cId) = mempty {filterWith = Set.singleton cId}
-opFilter (FetchMapM _ cId) = mempty {filterWith = Set.singleton cId}
-opFilter (Adjust _ cId q) = queryFilter q <> mempty {filterWith = Set.singleton cId}
-opFilter (AdjustM _ cId q) = queryFilter q <> mempty {filterWith = Set.singleton cId}
-opFilter (With cId) = mempty {filterWith = Set.singleton cId}
-opFilter (Without cId) = mempty {filterWithout = Set.singleton cId}
+-- | Match all entities.
+--
+-- @since 0.11
+readQueryDyn :: (Applicative f) => DynamicQueryT f a -> Entities -> f [a]
+readQueryDyn q es =
+  let qf = queryFilter q
+   in if Set.null $ filterWith qf
+        then readDynQuery q $ A.empty {A.entities = Map.keysSet $ entities es}
+        else
+          let go n = readDynQuery q $ AS.nodeArchetype n
+           in concat <$> traverse go (AS.find (filterWith qf) (filterWithout qf) $ archetypes es)
 
-{-# INLINE queryFilter #-}
-queryFilter :: DynamicQueryT f a -> QueryFilter
-queryFilter (Pure _) = mempty
-queryFilter (Map _ q) = queryFilter q
-queryFilter (Ap f g) = queryFilter f <> queryFilter g
-queryFilter (Op op) = opFilter op
+-- | Match a single entity.
+--
+-- @since 0.11
+readQuerySingleDyn :: (HasCallStack, Applicative f) => DynamicQueryT f a -> Entities -> f a
+readQuerySingleDyn q es = do
+  res <- readQuerySingleMaybeDyn q es
+  return $ case res of
+    Just a -> a
+    _ -> error "singleDyn: expected a single entity"
 
-{-# INLINE runOp #-}
-runOp :: (Applicative f) => Operation f a -> Archetype -> f ([a], Archetype)
-runOp (FetchMap f cId) arch = pure $ A.map f cId arch
-runOp (FetchMapM f cId) arch = do
-  (as, arch') <- A.mapM f cId arch
-  return (as, arch')
-runOp (Adjust f cId q) arch = do
-  res <- runDynQuery q arch
-  return $
-    let (bs, arch') = res
-        (as, arch'') = A.zipWith bs f cId arch
-     in (as, arch'' <> arch')
-runOp (AdjustM f cId q) arch = do
-  (as, arch') <- runDynQuery q arch
-  (bs, arch'') <- A.zipWithM as f cId arch
-  return (bs, arch'' <> arch')
-runOp op arch = (,mempty) <$> readOp op arch
+-- | Match a single entity, or `Nothing`.
+--
+-- @since 0.11
+readQuerySingleMaybeDyn :: (Applicative f) => DynamicQueryT f a -> Entities -> f (Maybe a)
+readQuerySingleMaybeDyn q es =
+  let qf = queryFilter q
+   in if Set.null $ filterWith qf
+        then case Map.keys $ entities es of
+          [eId] -> do
+            res <- readDynQuery q $ A.singleton eId
+            return $ case res of
+              [a] -> Just a
+              _ -> Nothing
+          _ -> pure Nothing
+        else case Map.elems $ AS.find (filterWith qf) (filterWithout qf) $ archetypes es of
+          [n] -> do
+            res <- readDynQuery q $ AS.nodeArchetype n
+            return $ case res of
+              [a] -> Just a
+              _ -> Nothing
+          _ -> pure Nothing
 
-{-# INLINE readOp #-}
-readOp :: (Applicative f) => Operation f a -> Archetype -> f [a]
-readOp Entity arch = pure $ Set.toList $ A.entities arch
-readOp (Fetch cId) arch = pure $ A.lookupComponentsAsc cId arch
-readOp (FetchMaybe cId) arch =
-  pure $
-    case A.lookupComponentsAscMaybe cId arch of
-      Just as -> fmap Just as
-      Nothing -> replicate (length $ A.entities arch) Nothing
-readOp (FetchMap f cId) arch = do
-  bs <- readOp (Fetch cId) arch
-  return $ map f bs
-readOp (FetchMapM f cId) arch = do
-  bs <- readOp (Fetch cId) arch
-  mapM f bs
-readOp (Adjust f cId q) arch = do
-  as <- readDynQuery q arch
-  bs <- readOp (Fetch cId) arch
-  return $ zipWith f as bs
-readOp (AdjustM f cId q) arch = do
-  as <- readDynQuery q arch
-  bs <- readOp (Fetch cId) arch
-  zipWithM f as bs
-readOp (With _) _ = pure []
-readOp (Without _) _ = pure []
+readQueryEntitiesDyn :: (Applicative f) => [EntityID] -> DynamicQueryT f a -> Entities -> f [a]
+readQueryEntitiesDyn eIds q es =
+  let qf = queryFilter q
+   in if Set.null $ filterWith qf
+        then readDynQueryEntities eIds q A.empty {A.entities = Map.keysSet $ entities es}
+        else
+          let go n = readDynQuery q $ AS.nodeArchetype n
+           in concat <$> traverse go (AS.find (filterWith qf) (filterWithout qf) $ archetypes es)
+
+-- | Match and update all matched entities.
+--
+-- @since 0.11
+{-# INLINE queryDyn #-}
+queryDyn :: (Applicative f) => DynamicQueryT f a -> Entities -> f ([a], Entities)
+queryDyn q es =
+  let qf = queryFilter q
+   in if Set.null $ filterWith qf
+        then (,es) . fst <$> runDynQuery q A.empty {A.entities = Map.keysSet $ entities es}
+        else
+          let go (aId, n) = do
+                res <- runDynQuery q $ nodeArchetype n
+                return $
+                  let (as', arch') = res
+                   in (as', aId, n {nodeArchetype = arch' <> nodeArchetype n})
+              matches = Map.toList . AS.find (filterWith qf) (filterWithout qf) $ archetypes es
+              res' = traverse go matches
+              folder (acc, esAcc) (as, aId, node) =
+                let nodes = Map.insert aId node . AS.nodes $ archetypes esAcc
+                 in (as ++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}})
+           in fmap (foldl' folder ([], es)) res'
+
+-- | Match and update a single entity.
+--
+-- @since 0.11
+querySingleDyn :: (HasCallStack, Applicative m) => DynamicQueryT m a -> Entities -> m (a, Entities)
+querySingleDyn q es = do
+  res <- querySingleMaybeDyn q es
+  return $ case res of
+    (Just a, es') -> (a, es')
+    _ -> error "mapSingleDyn: expected single matching entity"
+
+-- | Match and update a single entity, or @Nothing@.
+--
+-- @since 0.11
+{-# INLINE querySingleMaybeDyn #-}
+querySingleMaybeDyn :: (Applicative f) => DynamicQueryT f a -> Entities -> f (Maybe a, Entities)
+querySingleMaybeDyn q es =
+  let qf = queryFilter q
+   in if Set.null $ filterWith qf
+        then case Map.keys $ entities es of
+          [eId] -> do
+            res <- runDynQuery q $ A.singleton eId
+            return $ case res of
+              ([a], _) -> (Just a, es)
+              _ -> (Nothing, es)
+          _ -> pure (Nothing, es)
+        else case Map.toList $ AS.find (filterWith qf) (filterWithout qf) $ archetypes es of
+          [(aId, n)] -> do
+            res <- runDynQuery q $ AS.nodeArchetype n
+            return $ case res of
+              ([a], arch') ->
+                let nodes = Map.insert aId n {nodeArchetype = arch' <> nodeArchetype n} . AS.nodes $ archetypes es
+                 in (Just a, es {archetypes = (archetypes es) {AS.nodes = nodes}})
+              _ -> (Nothing, es)
+          _ -> pure (Nothing, es)
 
 {-# INLINE queryEntitiesDyn #-}
 queryEntitiesDyn ::
@@ -246,98 +283,24 @@ queryEntitiesDyn eIds q es =
                 return (as' ++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}})
            in foldlM go' ([], es) $ Map.toList . AS.find (filterWith qf) (filterWithout qf) $ archetypes es
 
-readQueryEntitiesDyn :: (Monad m) => [EntityID] -> DynamicQueryT m a -> Entities -> m [a]
-readQueryEntitiesDyn eIds q es =
-  let qf = queryFilter q
-   in if Set.null $ filterWith qf
-        then readDynQueryEntities eIds q A.empty {A.entities = Map.keysSet $ entities es}
-        else
-          let go n = readDynQuery q $ AS.nodeArchetype n
-           in concat <$> mapM go (AS.find (filterWith qf) (filterWithout qf) $ archetypes es)
+{-# INLINE queryFilter #-}
+queryFilter :: DynamicQueryT f a -> QueryFilter
+queryFilter Entity = mempty
+queryFilter (Pure _) = mempty
+queryFilter (Map _ q) = queryFilter q
+queryFilter (Ap f g) = queryFilter f <> queryFilter g
+queryFilter (Op cId op) = opFilter cId op
 
-runOpEntities :: (Applicative f) => Operation f a -> [EntityID] -> Archetype -> f ([a], Archetype)
-runOpEntities (FetchMaybe cId) es arch =
-  pure
-    ( map (\(e, a) -> if e `elem` es then Just a else Nothing)
-        . Map.toList
-        $ A.lookupComponents cId arch,
-      mempty
-    )
-runOpEntities (FetchMap f cId) es arch =
-  pure $
-    let go e a =
-          if e `elem` es
-            then let a' = f a in (Just a', a')
-            else (Nothing, a)
-        (as, arch') = A.zipWith es go cId arch
-     in (mapMaybe fst as, arch')
-runOpEntities (FetchMapM f cId) es arch = do
-  (as, arch') <- runOpEntities (AdjustM (\() a -> (,a) <$> f a) cId (pure ())) es arch
-  return (map snd as, arch')
-runOpEntities (Adjust f cId q) es arch = do
-  res <- runDynQuery q arch
-  return $
-    let go (e, b) a =
-          if e `elem` es
-            then let (x, y) = f b a in (Just x, y)
-            else (Nothing, a)
-        (bs, arch') = res
-        (as, arch'') = A.zipWith (zip es bs) go cId arch
-     in (mapMaybe (\(m, b) -> fmap (,b) m) as, arch'' <> arch')
-runOpEntities (AdjustM f cId q) es arch = do
-  (bs, arch') <- runDynQuery q arch
-  let go (e, b) a =
-        if e `elem` es
-          then do
-            (x, y) <- f b a
-            return (Just x, y)
-          else return (Nothing, a)
-  (as, arch'') <- A.zipWithM (zip es bs) go cId arch
-  return (mapMaybe (\(m, b) -> fmap (,b) m) as, arch'' <> arch')
-runOpEntities op es arch = (,arch) <$> readOpEntities op es arch
-
-runDynQueryEntities :: (Applicative f) => [EntityID] -> DynamicQueryT f a -> Archetype -> f ([a], Archetype)
-runDynQueryEntities es (Pure a) _ = pure (replicate (length es) a, mempty)
-runDynQueryEntities es (Map f q) arch = first (fmap f) <$> runDynQueryEntities es q arch
-runDynQueryEntities es (Ap f g) arch = do
-  res <- runDynQueryEntities es g arch
-  res' <- runDynQueryEntities es f arch
-  return $
-    let (as, arch') = res
-        (bs, arch'') = res'
-     in (zipWith ($) bs as, arch'' <> arch')
-runDynQueryEntities es (Op op) arch = runOpEntities op es arch
-
-{-# INLINE readOpEntities #-}
-readOpEntities :: (Applicative f) => Operation f a -> [EntityID] -> Archetype -> f [a]
-readOpEntities Entity es _ = pure es
-readOpEntities (Fetch cId) es arch =
-  pure
-    . map snd
-    . filter (\(e, _) -> e `elem` es)
-    . Map.toList
-    $ A.lookupComponents cId arch
-readOpEntities (FetchMaybe cId) es arch =
-  pure
-    . map (\(e, a) -> if e `elem` es then Just a else Nothing)
-    . Map.toList
-    $ A.lookupComponents cId arch
-readOpEntities (FetchMap f cId) es arch = do
-  b <- readOpEntities (Fetch cId) es arch
-  pure $ map f b
-readOpEntities (FetchMapM f cId) es arch = do
-  b <- readOpEntities (Fetch cId) es arch
-  mapM f b
-readOpEntities (Adjust f cId q) es arch = do
-  a <- readDynQueryEntities es q arch
-  b <- readOpEntities (Fetch cId) es arch
-  pure $ zipWith f a b
-readOpEntities (AdjustM f cId q) es arch = do
-  a <- readDynQueryEntities es q arch
-  b <- readOpEntities (Fetch cId) es arch
-  zipWithM f a b
-readOpEntities (With _) _ _ = pure []
-readOpEntities (Without _) _ _ = pure []
+{-# INLINE readDynQuery #-}
+readDynQuery :: (Applicative f) => DynamicQueryT f a -> Archetype -> f [a]
+readDynQuery (Pure a) arch = pure $ replicate (length $ A.entities arch) a
+readDynQuery (Map f q) arch = fmap f <$> readDynQuery q arch
+readDynQuery (Ap f g) arch = do
+  as <- readDynQuery g arch
+  bs <- readDynQuery f arch
+  pure $ zipWith ($) bs as
+readDynQuery Entity arch = pure $ Set.toList $ A.entities arch
+readDynQuery (Op cId op) arch = readOp cId op arch
 
 {-# INLINE readDynQueryEntities #-}
 readDynQueryEntities :: (Applicative f) => [EntityID] -> DynamicQueryT f a -> Archetype -> f [a]
@@ -347,7 +310,8 @@ readDynQueryEntities es (Ap f g) arch = do
   a <- readDynQueryEntities es g arch
   b <- readDynQueryEntities es f arch
   pure $ b <*> a
-readDynQueryEntities es (Op op) arch = readOpEntities op es arch
+readDynQueryEntities es Entity _ = pure es
+readDynQueryEntities es (Op cId op) arch = readOpEntities cId es op arch
 
 {-# INLINE runDynQuery #-}
 runDynQuery :: (Applicative f) => DynamicQueryT f a -> Archetype -> f ([a], Archetype)
@@ -362,125 +326,156 @@ runDynQuery (Ap f g) arch = do
     let (as, arch') = res
         (bs, arch'') = res'
      in (zipWith ($) bs as, arch'' <> arch')
-runDynQuery (Op op) arch = runOp op arch
+runDynQuery Entity arch = (,arch) <$> readDynQuery Entity arch
+runDynQuery (Op cId op) arch = runOp cId op arch
 
-{-# INLINE readDynQuery #-}
-readDynQuery :: (Applicative f) => DynamicQueryT f a -> Archetype -> f [a]
-readDynQuery (Pure a) arch = pure $ replicate (length $ A.entities arch) a
-readDynQuery (Map f q) arch = fmap f <$> readDynQuery q arch
-readDynQuery (Ap f g) arch = do
-  as <- readDynQuery g arch
-  bs <- readDynQuery f arch
-  pure $ zipWith ($) bs as
-readDynQuery (Op op) arch = readOp op arch
+runDynQueryEntities :: (Applicative f) => [EntityID] -> DynamicQueryT f a -> Archetype -> f ([a], Archetype)
+runDynQueryEntities es (Pure a) _ = pure (replicate (length es) a, mempty)
+runDynQueryEntities es (Map f q) arch = first (fmap f) <$> runDynQueryEntities es q arch
+runDynQueryEntities es (Ap f g) arch = do
+  res <- runDynQueryEntities es g arch
+  res' <- runDynQueryEntities es f arch
+  return $
+    let (as, arch') = res
+        (bs, arch'') = res'
+     in (zipWith ($) bs as, arch'' <> arch')
+runDynQueryEntities es Entity _ = pure (es, mempty)
+runDynQueryEntities es (Op cId op) arch = runOpEntities cId es op arch
 
--- | Match all entities.
---
--- @since 0.11
-readQueryDyn :: (Monad m) => DynamicQueryT m a -> Entities -> m [a]
-readQueryDyn q es =
-  let qf = queryFilter q
-   in if Set.null $ filterWith qf
-        then readDynQuery q $ A.empty {A.entities = Map.keysSet $ entities es}
-        else
-          let go n = readDynQuery q $ AS.nodeArchetype n
-           in concat <$> mapM go (AS.find (filterWith qf) (filterWithout qf) $ archetypes es)
+data Operation f a where
+  Fetch :: (Component a) => Operation f a
+  FetchMaybe :: (Component a) => Operation f (Maybe a)
+  FetchMap :: (Component a) => (a -> a) -> Operation f a
+  FetchMapM :: (Monad f, Component a) => (a -> f a) -> Operation f a
+  ZipFetchMap :: (Component a) => (b -> a -> (c, a)) -> (DynamicQueryT f b) -> Operation f (c, a)
+  ZipFetchMapM :: (Monad f, Component a) => (b -> a -> f (c, a)) -> (DynamicQueryT f b) -> Operation f (c, a)
+  With :: Operation f ()
+  Without :: Operation f ()
 
--- | Match a single entity.
---
--- @since 0.11
-singleDyn :: (HasCallStack, Monad m) => DynamicQueryT m a -> Entities -> m a
-singleDyn q es = do
-  res <- singleMaybeDyn q es
-  return $ case res of
-    Just a -> a
-    _ -> error "singleDyn: expected a single entity"
+{-# INLINE opFilter #-}
+opFilter :: ComponentID -> Operation f a -> QueryFilter
+opFilter cId Fetch = mempty {filterWith = Set.singleton cId}
+opFilter cId FetchMaybe = mempty {filterWith = Set.singleton cId}
+opFilter cId (FetchMap _) = mempty {filterWith = Set.singleton cId}
+opFilter cId (FetchMapM _) = mempty {filterWith = Set.singleton cId}
+opFilter cId (ZipFetchMap _ q) = queryFilter q <> mempty {filterWith = Set.singleton cId}
+opFilter cId (ZipFetchMapM _ q) = queryFilter q <> mempty {filterWith = Set.singleton cId}
+opFilter cId With = mempty {filterWith = Set.singleton cId}
+opFilter cId Without = mempty {filterWithout = Set.singleton cId}
 
--- | Match a single entity, or `Nothing`.
---
--- @since 0.11
-singleMaybeDyn :: (Monad m) => DynamicQueryT m a -> Entities -> m (Maybe a)
-singleMaybeDyn q es =
-  let qf = queryFilter q
-   in if Set.null $ filterWith qf
-        then case Map.keys $ entities es of
-          [eId] -> do
-            res <- readDynQuery q $ A.singleton eId
-            return $ case res of
-              [a] -> Just a
-              _ -> Nothing
-          _ -> return Nothing
-        else case Map.elems $ AS.find (filterWith qf) (filterWithout qf) $ archetypes es of
-          [n] -> do
-            res <- readDynQuery q $ AS.nodeArchetype n
-            return $ case res of
-              [a] -> Just a
-              _ -> Nothing
-          _ -> return Nothing
+{-# INLINE readOp #-}
+readOp :: (Applicative f) => ComponentID -> Operation f a -> Archetype -> f [a]
+readOp cId Fetch arch = pure $ A.lookupComponentsAsc cId arch
+readOp cId FetchMaybe arch =
+  pure $
+    case A.lookupComponentsAscMaybe cId arch of
+      Just as -> fmap Just as
+      Nothing -> replicate (length $ A.entities arch) Nothing
+readOp cId (FetchMap f) arch = do
+  bs <- readOp cId Fetch arch
+  return $ map f bs
+readOp cId (FetchMapM f) arch = do
+  bs <- readOp cId Fetch arch
+  mapM f bs
+readOp cId (ZipFetchMap f q) arch = do
+  as <- readDynQuery q arch
+  bs <- readOp cId Fetch arch
+  return $ zipWith f as bs
+readOp cId (ZipFetchMapM f q) arch = do
+  as <- readDynQuery q arch
+  bs <- readOp cId Fetch arch
+  zipWithM f as bs
+readOp _ With _ = pure []
+readOp _ Without _ = pure []
 
--- | Match and update all matched entities.
---
--- @since 0.11
-{-# INLINE queryDyn #-}
-queryDyn :: (Monad m) => DynamicQueryT m a -> Entities -> m ([a], Entities)
-queryDyn = mapDyn' id
+{-# INLINE runOp #-}
+runOp :: (Applicative f) => ComponentID -> Operation f a -> Archetype -> f ([a], Archetype)
+runOp cId (FetchMap f) arch = pure $ A.map f cId arch
+runOp cId (FetchMapM f) arch = do
+  (as, arch') <- A.mapM f cId arch
+  return (as, arch')
+runOp cId (ZipFetchMap f q) arch = do
+  res <- runDynQuery q arch
+  return $
+    let (bs, arch') = res
+        (as, arch'') = A.zipWith bs f cId arch
+     in (as, arch'' <> arch')
+runOp cId (ZipFetchMapM f q) arch = do
+  (as, arch') <- runDynQuery q arch
+  (bs, arch'') <- A.zipWithM as f cId arch
+  return (bs, arch'' <> arch')
+runOp cId op arch = (,mempty) <$> readOp cId op arch
 
-{-# INLINE mapDyn' #-}
-mapDyn' ::
-  (Monad m) =>
-  (Map ArchetypeID Node -> Map ArchetypeID Node) ->
-  DynamicQueryT m a ->
-  Entities ->
-  m ([a], Entities)
-mapDyn' f q es =
-  let qf = queryFilter q
-      go = runDynQuery q
-   in if Set.null $ filterWith qf
-        then do
-          (as, _) <- go A.empty {A.entities = Map.keysSet $ entities es}
-          return (as, es)
-        else
-          let go' (acc, esAcc) (aId, n) = do
-                (as', arch') <- go $ nodeArchetype n
-                let n' = n {nodeArchetype = arch' <> nodeArchetype n}
-                    nodes = Map.insert aId n' . AS.nodes $ archetypes esAcc
-                return (as' ++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}})
-           in foldlM go' ([], es) $ Map.toList . f . AS.find (filterWith qf) (filterWithout qf) $ archetypes es
+{-# INLINE readOpEntities #-}
+readOpEntities :: (Applicative f) => ComponentID -> [EntityID] -> Operation f a -> Archetype -> f [a]
+readOpEntities cId es Fetch arch =
+  pure
+    . map snd
+    . filter (\(e, _) -> e `elem` es)
+    . Map.toList
+    $ A.lookupComponents cId arch
+readOpEntities cId es FetchMaybe arch =
+  pure
+    . map (\(e, a) -> if e `elem` es then Just a else Nothing)
+    . Map.toList
+    $ A.lookupComponents cId arch
+readOpEntities cId es (FetchMap f) arch = do
+  b <- readOpEntities cId es Fetch arch
+  pure $ map f b
+readOpEntities cId es (FetchMapM f) arch = do
+  b <- readOpEntities cId es Fetch arch
+  mapM f b
+readOpEntities cId es (ZipFetchMap f q) arch = do
+  a <- readDynQueryEntities es q arch
+  b <- readOpEntities cId es Fetch arch
+  pure $ zipWith f a b
+readOpEntities cId es (ZipFetchMapM f q) arch = do
+  a <- readDynQueryEntities es q arch
+  b <- readOpEntities cId es Fetch arch
+  zipWithM f a b
+readOpEntities _ _ With _ = pure []
+readOpEntities _ _ Without _ = pure []
 
--- | Map a single matched entity.
---
--- @since 0.11
-mapSingleDyn :: (HasCallStack, Monad m) => DynamicQueryT m a -> Entities -> m (a, Entities)
-mapSingleDyn q es = do
-  (res, es') <- mapSingleMaybeDyn q es
-  return $ case res of
-    Just a -> (a, es')
-    _ -> error "mapSingleDyn: expected single matching entity"
-
--- | Map a single matched entity, or @Nothing@.
---
--- @since 0.11
-{-# INLINE mapSingleMaybeDyn #-}
-mapSingleMaybeDyn :: (Monad m) => DynamicQueryT m a -> Entities -> m (Maybe a, Entities)
-mapSingleMaybeDyn q es =
-  let qf = queryFilter q
-   in if Set.null $ filterWith qf
-        then case Map.keys $ entities es of
-          [eId] -> do
-            res <- runDynQuery q $ A.singleton eId
-            return $ case res of
-              ([a], _) -> (Just a, es)
-              _ -> (Nothing, es)
-          _ -> pure (Nothing, es)
-        else case Map.toList $ AS.find (filterWith qf) (filterWithout qf) $ archetypes es of
-          [(aId, n)] -> do
-            (as, arch') <- runDynQuery q $ AS.nodeArchetype n
-            return $ case as of
-              [a] ->
-                let nodes = Map.insert aId n {nodeArchetype = arch' <> nodeArchetype n} . AS.nodes $ archetypes es
-                 in (Just a, es {archetypes = (archetypes es) {AS.nodes = nodes}})
-              _ -> (Nothing, es)
-          _ -> pure (Nothing, es)
+runOpEntities :: (Applicative f) => ComponentID -> [EntityID] -> Operation f a -> Archetype -> f ([a], Archetype)
+runOpEntities cId es FetchMaybe arch =
+  pure
+    ( map (\(e, a) -> if e `elem` es then Just a else Nothing)
+        . Map.toList
+        $ A.lookupComponents cId arch,
+      mempty
+    )
+runOpEntities cId es (FetchMap f) arch =
+  pure $
+    let go e a =
+          if e `elem` es
+            then let a' = f a in (Just a', a')
+            else (Nothing, a)
+        (as, arch') = A.zipWith es go cId arch
+     in (mapMaybe fst as, arch')
+runOpEntities cId es (FetchMapM f) arch = do
+  (as, arch') <- runOpEntities cId es (ZipFetchMapM (\() a -> (,a) <$> f a) (pure ())) arch
+  return (map snd as, arch')
+runOpEntities cId es (ZipFetchMap f q) arch = do
+  res <- runDynQuery q arch
+  return $
+    let go (e, b) a =
+          if e `elem` es
+            then let (x, y) = f b a in (Just x, y)
+            else (Nothing, a)
+        (bs, arch') = res
+        (as, arch'') = A.zipWith (zip es bs) go cId arch
+     in (mapMaybe (\(m, b) -> fmap (,b) m) as, arch'' <> arch')
+runOpEntities cId es (ZipFetchMapM f q) arch = do
+  (bs, arch') <- runDynQuery q arch
+  let go (e, b) a =
+        if e `elem` es
+          then do
+            (x, y) <- f b a
+            return (Just x, y)
+          else return (Nothing, a)
+  (as, arch'') <- A.zipWithM (zip es bs) go cId arch
+  return (mapMaybe (\(m, b) -> fmap (,b) m) as, arch'' <> arch')
+runOpEntities cId es op arch = (,arch) <$> readOpEntities cId es op arch
 
 -- | `Query` filter.
 --
