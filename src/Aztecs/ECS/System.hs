@@ -33,13 +33,13 @@ module Aztecs.ECS.System
     queryDyn,
     querySingleMaybeDyn,
 
-    -- ** Running
-    runSystemT,
-    concurrently,
-
     -- * Internal
     Job (..),
     Task (..),
+
+    -- ** Running
+    runSystemT,
+    concurrently,
   )
 where
 
@@ -184,10 +184,18 @@ fromQuery q = System $ Once . Task $ \f -> do
   _ <- f $ const w {components = cs'}
   return dynQ
 
-runSystemT :: (MonadTrans t, Monad (t m), Monad m) => SystemT m a -> ((Entities -> Entities) -> t m Entities) -> t m a
+runSystemT ::
+  (MonadTrans t, Monad (t m), Monad m) =>
+  SystemT m a ->
+  ((Entities -> Entities) -> t m Entities) ->
+  t m a
 runSystemT (System s) = runJob s
 
-runJob :: (MonadTrans t, Monad (t m), Monad m) => Job t m a -> ((Entities -> Entities) -> t m Entities) -> t m a
+runJob ::
+  (MonadTrans t, Monad (t m), Monad m) =>
+  Job t m a ->
+  ((Entities -> Entities) -> t m Entities) ->
+  t m a
 runJob (Pure a) _ = return a
 runJob (Map f' s') f = f' <$> runJob s' f
 runJob (Ap f' a) f = runJob f' f <*> runJob a f
