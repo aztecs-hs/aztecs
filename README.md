@@ -1,8 +1,9 @@
 # Aztecs
 
+[![Discord](https://img.shields.io/discord/1306713440873877576.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/Hb7B3Qq4Xd)
 [![License](https://img.shields.io/badge/license-BSD3-blue.svg)](https://github.com/aztecs-hs/aztecs/blob/main/LICENSE)
-[![CI status](https://github.com/aztecs-hs/aztecs/actions/workflows/ci.yml/badge.svg)](https://github.com/aztecs-hs/aztecs/actions)
 [![Package](https://img.shields.io/hackage/v/aztecs.svg)](https://hackage.haskell.org/package/aztecs)
+[![CI status](https://github.com/aztecs-hs/aztecs/actions/workflows/ci.yml/badge.svg)](https://github.com/aztecs-hs/aztecs/actions)
 
 A modular game engine and [ECS](https://en.wikipedia.org/wiki/Entity_component_system) for Haskell.
 An ECS is a modern approach to organizing your application state as a database,
@@ -74,6 +75,11 @@ main = runAccessT_ app
   [![Package](https://img.shields.io/hackage/v/aztecs-sdl-text.svg)](https://hackage.haskell.org/package/aztecs-sdl-text)
 
   SDL text rendering support.
+
+## Benchmarks
+
+<img width=300 alt="Benchmark results:  (Aztecs 160us) (Apecs 772us)
+(Bevy	8us)" src="https://github.com/user-attachments/assets/2bd8603d-284e-4cd1-a6de-dba8df8a19cb"/>
 
 ## Inspiration
 
