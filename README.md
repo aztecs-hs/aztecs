@@ -37,7 +37,7 @@ newtype Velocity = Velocity Int
 
 instance Component Velocity
 
-move :: QueryT m Position
+move :: Query Position
 move = fetch & zipFetchMap (\(Velocity v) (Position p) -> Position $ p + v)
 
 run :: SystemT IO ()
