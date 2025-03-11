@@ -75,6 +75,11 @@ main = runAccessT_ app
 
   SDL text rendering support.
 
+## Benchmarks
+
+<img width=300 alt="Benchmark results:  (Aztecs 160us) (Apecs 772us)
+(Bevy	8us)" src="https://github.com/user-attachments/assets/2bd8603d-284e-4cd1-a6de-dba8df8a19cb"/>
+
 ## Inspiration
 
 Aztecs' approach to type-safety is inspired by [Bevy](https://github.com/bevyengine/bevy/),
