@@ -26,7 +26,6 @@ module Aztecs.ECS.World.Storage.Dynamic
 where
 
 import qualified Aztecs.ECS.World.Storage as S
-import Control.DeepSeq
 import Data.Dynamic
 import Data.Maybe
 
@@ -49,20 +48,12 @@ data DynamicStorage = DynamicStorage
     -- | Convert from an ascending list.
     --
     -- @since 0.9
-    fromAscListDyn' :: !([Dynamic] -> Dynamic),
-    -- | Reduce this storage to normal form.
-    --
-    -- @since 0.9
-    storageRnf :: !(Dynamic -> ())
+    fromAscListDyn' :: !([Dynamic] -> Dynamic)
   }
 
 -- | @since 0.9
 instance Show DynamicStorage where
   show s = "DynamicStorage " ++ show (storageDyn s)
-
--- | @since 0.9
-instance NFData DynamicStorage where
-  rnf s = storageRnf s (storageDyn s)
 
 -- | Create a dynamic storage from a storage.
 --
@@ -74,8 +65,7 @@ dynStorage s =
     { storageDyn = toDyn s,
       singletonDyn' = toDyn . S.singleton @a @s . fromMaybe (error "TODO") . fromDynamic,
       toAscListDyn' = \d -> map toDyn (S.toAscList @a @s (fromMaybe (error "TODO") $ fromDynamic d)),
-      fromAscListDyn' = toDyn . S.fromAscList @a @s . map (fromMaybe (error "TODO") . fromDynamic),
-      storageRnf = maybe () rnf . fromDynamic @s
+      fromAscListDyn' = toDyn . S.fromAscList @a @s . map (fromMaybe (error "TODO") . fromDynamic)
     }
 
 -- | Singleton dynamic storage.

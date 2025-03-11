@@ -11,7 +11,6 @@
 -- Portability : non-portable (GHC extensions)
 module Aztecs.ECS.World.Storage (Storage (..)) where
 
-import Control.DeepSeq
 import qualified Control.Monad
 import qualified Control.Monad as M
 import Data.Data
@@ -21,7 +20,7 @@ import qualified Prelude
 -- | Component storage, containing zero or many components of the same type.
 --
 -- @since 0.9
-class (Typeable s, NFData s, Typeable a) => Storage a s where
+class (Typeable s, Typeable a) => Storage a s where
   -- | Storage with a single component.
   --
   -- @since 0.9
@@ -59,7 +58,7 @@ class (Typeable s, NFData s, Typeable a) => Storage a s where
   zipWithM :: (Applicative m) => (b -> a -> m (c, a)) -> [b] -> s -> m ([(c, a)], s)
 
 -- | @since 0.11
-instance (Typeable a, NFData a) => Storage a [a] where
+instance (Typeable a) => Storage a [a] where
   {-# INLINE singleton #-}
   singleton a = [a]
   {-# INLINE toAscList #-}

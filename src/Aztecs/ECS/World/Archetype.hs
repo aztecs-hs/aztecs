@@ -1,13 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -80,13 +74,16 @@ data Archetype = Archetype
     -- @since 0.9
     entities :: !(Set EntityID)
   }
-  deriving (Show, Generic, NFData)
+  deriving (Show, Generic)
 
 instance Semigroup Archetype where
   a <> b = Archetype {storages = storages a <> storages b, entities = entities a <> entities b}
 
 instance Monoid Archetype where
   mempty = empty
+
+instance NFData Archetype where
+  rnf = rnf . entities
 
 -- | Empty archetype.
 --

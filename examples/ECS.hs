@@ -1,24 +1,19 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Main where
 
 import Aztecs.ECS
-import Control.DeepSeq
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.Function
-import GHC.Generics
 
-newtype Position = Position Int deriving (Show, Generic, NFData)
+newtype Position = Position Int deriving (Show)
 
 instance Component Position
 
-newtype Velocity = Velocity Int deriving (Show, Generic, NFData)
+newtype Velocity = Velocity Int
 
 instance Component Velocity
 
-move :: (Monad m) => QueryT m Position
+move :: QueryT m Position
 move = fetch & zipFetchMap (\(Velocity v) (Position p) -> Position $ p + v)
 
 run :: SystemT IO ()
