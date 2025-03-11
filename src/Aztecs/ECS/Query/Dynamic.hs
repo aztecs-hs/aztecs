@@ -30,6 +30,9 @@ module Aztecs.ECS.Query.Dynamic
     withDyn,
     withoutDyn,
 
+    -- ** Conversion
+    liftQueryDyn,
+
     -- ** Running
     queryDyn,
     readQuerySingleDyn,
@@ -60,6 +63,7 @@ import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Entities
 import Control.Applicative
 import Control.Monad
+import Control.Monad.Cont (MonadTrans (..))
 import Control.Monad.Identity
 import Data.Bifunctor
 import Data.Foldable
@@ -81,6 +85,7 @@ data DynamicQueryT f a where
   Pure :: a -> DynamicQueryT f a
   Map :: (a -> b) -> DynamicQueryT f a -> DynamicQueryT f b
   Ap :: DynamicQueryT f (a -> b) -> DynamicQueryT f a -> DynamicQueryT f b
+  Lift :: (MonadTrans g, Monad (g f), Monad f) => DynamicQueryT f a -> DynamicQueryT (g f) a
   Op :: ComponentID -> Operation f a -> DynamicQueryT f a
 
 instance Functor (DynamicQueryT f) where
@@ -150,6 +155,10 @@ withDyn cId = Op cId With
 {-# INLINE withoutDyn #-}
 withoutDyn :: ComponentID -> DynamicQueryT f ()
 withoutDyn cId = Op cId Without
+
+{-# INLINE liftQueryDyn #-}
+liftQueryDyn :: (MonadTrans g, Monad (g f), Monad f) => DynamicQueryT f a -> DynamicQueryT (g f) a
+liftQueryDyn = Lift
 
 -- | Match all entities.
 --
@@ -285,10 +294,11 @@ queryEntitiesDyn eIds q es =
 
 {-# INLINE queryFilter #-}
 queryFilter :: DynamicQueryT f a -> QueryFilter
-queryFilter Entity = mempty
 queryFilter (Pure _) = mempty
 queryFilter (Map _ q) = queryFilter q
 queryFilter (Ap f g) = queryFilter f <> queryFilter g
+queryFilter (Lift q) = queryFilter q
+queryFilter Entity = mempty
 queryFilter (Op cId op) = opFilter cId op
 
 {-# INLINE readDynQuery #-}
@@ -299,6 +309,7 @@ readDynQuery (Ap f g) arch = do
   as <- readDynQuery g arch
   bs <- readDynQuery f arch
   pure $ zipWith ($) bs as
+readDynQuery (Lift q) arch = lift $ readDynQuery q arch
 readDynQuery Entity arch = pure $ Set.toList $ A.entities arch
 readDynQuery (Op cId op) arch = readOp cId op arch
 
@@ -310,6 +321,7 @@ readDynQueryEntities es (Ap f g) arch = do
   a <- readDynQueryEntities es g arch
   b <- readDynQueryEntities es f arch
   pure $ b <*> a
+readDynQueryEntities es (Lift q) arch = lift $ readDynQueryEntities es q arch
 readDynQueryEntities es Entity _ = pure es
 readDynQueryEntities es (Op cId op) arch = readOpEntities cId es op arch
 
@@ -326,6 +338,7 @@ runDynQuery (Ap f g) arch = do
     let (as, arch') = res
         (bs, arch'') = res'
      in (zipWith ($) bs as, arch'' <> arch')
+runDynQuery (Lift q) arch = lift $ runDynQuery q arch
 runDynQuery Entity arch = (,arch) <$> readDynQuery Entity arch
 runDynQuery (Op cId op) arch = runOp cId op arch
 
@@ -339,6 +352,7 @@ runDynQueryEntities es (Ap f g) arch = do
     let (as, arch') = res
         (bs, arch'') = res'
      in (zipWith ($) bs as, arch'' <> arch')
+runDynQueryEntities es (Lift q) arch = lift $ runDynQueryEntities es q arch
 runDynQueryEntities es Entity _ = pure (es, mempty)
 runDynQueryEntities es (Op cId op) arch = runOpEntities cId es op arch
 

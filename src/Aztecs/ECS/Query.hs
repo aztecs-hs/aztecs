@@ -36,6 +36,10 @@ module Aztecs.ECS.Query
     with,
     without,
 
+    -- ** Conversion
+    fromDyn,
+    liftQuery,
+
     -- ** Running
 
     -- *** Writing
@@ -49,9 +53,6 @@ module Aztecs.ECS.Query
     readQuery,
     readQuerySingle,
     readQuerySingleMaybe,
-
-    -- ** Conversion
-    fromDyn,
   )
 where
 
@@ -62,6 +63,7 @@ import Aztecs.ECS.World.Components (Components)
 import qualified Aztecs.ECS.World.Components as CS
 import Aztecs.ECS.World.Entities (Entities (..))
 import Control.Monad.Identity
+import Control.Monad.Trans
 import GHC.Stack
 
 -- | @since 0.11
@@ -189,6 +191,9 @@ fromWriterInternal f q = Query $ \cs ->
   let !(cId, cs') = CS.insert @c cs
       !(cs'', dynQ) = runQuery q cs'
    in (cs'', f cId dynQ)
+
+liftQuery :: (MonadTrans g, Monad (g f), Monad f) => QueryT f a -> QueryT (g f) a
+liftQuery q = Query $ \cs -> let !(cs', dynQ) = runQuery q cs in (cs', liftQueryDyn dynQ)
 
 -- | Match and update all entities.
 --
