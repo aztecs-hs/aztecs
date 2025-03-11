@@ -60,7 +60,7 @@ import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Entities
 import Control.Applicative
 import Control.Monad
-import Control.Monad.Identity (Identity)
+import Control.Monad.Identity
 import Data.Bifunctor
 import Data.Foldable
 import qualified Data.Map.Strict as Map
@@ -437,13 +437,6 @@ readOpEntities _ _ With _ = pure []
 readOpEntities _ _ Without _ = pure []
 
 runOpEntities :: (Applicative f) => ComponentID -> [EntityID] -> Operation f a -> Archetype -> f ([a], Archetype)
-runOpEntities cId es FetchMaybe arch =
-  pure
-    ( map (\(e, a) -> if e `elem` es then Just a else Nothing)
-        . Map.toList
-        $ A.lookupComponents cId arch,
-      mempty
-    )
 runOpEntities cId es (FetchMap f) arch =
   pure $
     let go e a =
