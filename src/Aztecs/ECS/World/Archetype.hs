@@ -31,8 +31,8 @@ module Aztecs.ECS.World.Archetype
     insertAscList,
     map,
     mapM,
-    zipWith,
-    zipWithM,
+    zipMap,
+    zipMapM,
   )
 where
 
@@ -198,8 +198,8 @@ mapM f cId arch = do
 -- | Zip a list of components with a function.
 --
 -- @since 0.9
-{-# INLINE zipWith #-}
-zipWith ::
+{-# INLINE zipMap #-}
+zipMap ::
   forall a b c.
   (Component c) =>
   [a] ->
@@ -207,7 +207,7 @@ zipWith ::
   ComponentID ->
   Archetype ->
   ([(b, c)], Archetype)
-zipWith as f cId arch =
+zipMap as f cId arch =
   let go maybeDyn = case maybeDyn of
         Just dyn -> case fromDynamic $ storageDyn dyn of
           Just s -> do
@@ -222,7 +222,7 @@ zipWith as f cId arch =
 -- | Zip a list of components with a monadic function .
 --
 -- @since 0.9
-zipWithM ::
+zipMapM ::
   forall m a b c.
   (Applicative m, Component c) =>
   [a] ->
@@ -230,7 +230,7 @@ zipWithM ::
   ComponentID ->
   Archetype ->
   m ([(b, c)], Archetype)
-zipWithM as f cId arch = do
+zipMapM as f cId arch = do
   let go maybeDyn = case maybeDyn of
         Just dyn -> case fromDynamic $ storageDyn dyn of
           Just s ->

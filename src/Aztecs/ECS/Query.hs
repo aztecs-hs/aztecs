@@ -25,6 +25,7 @@ module Aztecs.ECS.Query
     -- ** Operations
     entity,
     fetch,
+    fetchMaybe,
     fetchMap,
     fetchMapM,
     zipFetchMap,
@@ -104,6 +105,13 @@ entity = Query (,entityDyn)
 {-# INLINE fetch #-}
 fetch :: forall f a. (Component a) => QueryT f a
 fetch = fromDynInternal @f @a $ fetchDyn
+
+-- | Fetch a component, or `Nothing`.
+--
+-- @since 0.12
+{-# INLINE fetchMaybe #-}
+fetchMaybe :: forall f a. (Component a) => QueryT f (Maybe a)
+fetchMaybe = fromDynInternal @f @a $ fetchMaybeDyn
 
 -- | Fetch a component and map it, storing the result.
 --

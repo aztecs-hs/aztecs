@@ -412,11 +412,11 @@ runOp cId (ZipFetchMap f q) arch = do
   res <- runDynQuery q arch
   return $
     let (bs, arch') = res
-        (as, arch'') = A.zipWith bs f cId arch
+        (as, arch'') = A.zipMap bs f cId arch
      in (as, arch'' <> arch')
 runOp cId (ZipFetchMapM f q) arch = do
   (as, arch') <- runDynQuery q arch
-  (bs, arch'') <- A.zipWithM as f cId arch
+  (bs, arch'') <- A.zipMapM as f cId arch
   return (bs, arch'' <> arch')
 runOp cId op arch = (,mempty) <$> readOp cId op arch
 
@@ -457,7 +457,7 @@ runOpEntities cId es (FetchMap f) arch =
           if e `elem` es
             then let a' = f a in (Just a', a')
             else (Nothing, a)
-        (as, arch') = A.zipWith es go cId arch
+        (as, arch') = A.zipMap es go cId arch
      in (mapMaybe fst as, arch')
 runOpEntities cId es (FetchMapM f) arch = do
   (as, arch') <- runOpEntities cId es (ZipFetchMapM (\() a -> (,a) <$> f a) (pure ())) arch
@@ -470,7 +470,7 @@ runOpEntities cId es (ZipFetchMap f q) arch = do
             then let (x, y) = f b a in (Just x, y)
             else (Nothing, a)
         (bs, arch') = res
-        (as, arch'') = A.zipWith (zip es bs) go cId arch
+        (as, arch'') = A.zipMap (zip es bs) go cId arch
      in (mapMaybe (\(m, b) -> fmap (,b) m) as, arch'' <> arch')
 runOpEntities cId es (ZipFetchMapM f q) arch = do
   (bs, arch') <- runDynQuery q arch
@@ -480,7 +480,7 @@ runOpEntities cId es (ZipFetchMapM f q) arch = do
             (x, y) <- f b a
             return (Just x, y)
           else return (Nothing, a)
-  (as, arch'') <- A.zipWithM (zip es bs) go cId arch
+  (as, arch'') <- A.zipMapM (zip es bs) go cId arch
   return (mapMaybe (\(m, b) -> fmap (,b) m) as, arch'' <> arch')
 runOpEntities cId es op arch = (,arch) <$> readOpEntities cId es op arch
 
