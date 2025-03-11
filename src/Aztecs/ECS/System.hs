@@ -22,18 +22,37 @@ module Aztecs.ECS.System
     System,
     SystemT (..),
 
-    -- ** Reading
-    readQuery,
-    allDyn,
-    readQueryEntities,
+    -- ** Queries
 
-    -- ** Writing
+    -- *** Reading
+    readQuery,
+    readQueryT,
+    readQueryEntities,
+    readQueryEntitiesT,
+
+    -- *** Writing
     query,
     queryT,
     querySingleMaybe,
+    querySingleMaybeT,
+
+    -- *** Conversion
+    fromQuery,
+    fromQueryT,
+
+    -- ** Dynamic Queries
+
+    -- *** Reading
+    readQueryDyn,
+    readQueryDynT,
+    readQueryEntitiesDyn,
+    readQueryEntitiesDynT,
+
+    -- *** Writing
     queryDyn,
     queryDynT,
     querySingleMaybeDyn,
+    querySingleMaybeDynT,
 
     -- * Internal
     Job (..),
@@ -45,14 +64,19 @@ module Aztecs.ECS.System
   )
 where
 
-import Aztecs.ECS.Entity (EntityID)
+import Aztecs.ECS.Entity
 import Aztecs.ECS.Query (Query, QueryT (..))
-import Aztecs.ECS.Query.Dynamic (DynamicQuery, DynamicQueryT, queryFilter, readDynQuery, readDynQueryEntities)
+import Aztecs.ECS.Query.Dynamic
+  ( DynamicQuery,
+    DynamicQueryT,
+    queryFilter,
+    readDynQuery,
+    readDynQueryEntities,
+  )
 import qualified Aztecs.ECS.View as V
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Entities (Entities (..))
-import Control.Concurrent (forkIO)
-import Control.Concurrent.MVar
+import Control.Concurrent
 import Control.Monad.Identity
 import Control.Monad.Trans
 import Data.Kind
@@ -100,6 +124,54 @@ instance (Monad m) => Monad (SystemT m) where
 instance (MonadIO m) => MonadIO (SystemT m) where
   liftIO m = System $ Once . Task . const . lift $ liftIO m
 
+-- | Match all entities with a `Query`.
+--
+-- @since 0.11
+readQuery :: (Monad m) => Query a -> SystemT m [a]
+readQuery q = do
+  dynQ <- fromQuery q
+  readQueryDyn dynQ
+
+-- | Match all entities with a `QueryT`.
+--
+-- @since 0.11
+readQueryT :: (Monad m) => QueryT m a -> SystemT m [a]
+readQueryT q = do
+  dynQ <- fromQueryT q
+  readQueryDynT dynQ
+
+-- | Match and update all entities with a `QueryT`.
+--
+-- @since 0.11
+query :: (Monad m) => Query a -> SystemT m [a]
+query q = do
+  dynQ <- fromQuery q
+  queryDyn dynQ
+
+-- | Match and update all entities with a `QueryT`.
+--
+-- @since 0.11
+queryT :: (Monad m) => QueryT m a -> SystemT m [a]
+queryT q = do
+  dynQ <- fromQueryT q
+  queryDynT dynQ
+
+-- | Match and update a single entity with a `Query`, or @Nothing@.
+--
+-- @since 0.11
+querySingleMaybe :: (Monad m) => Query a -> SystemT m (Maybe a)
+querySingleMaybe q = do
+  dynQ <- fromQuery q
+  querySingleMaybeDyn dynQ
+
+-- | Match and update a single entity with a `QueryT`, or @Nothing@.
+--
+-- @since 0.11
+querySingleMaybeT :: (Monad m) => QueryT m a -> SystemT m (Maybe a)
+querySingleMaybeT q = do
+  dynQ <- fromQueryT q
+  querySingleMaybeDynT dynQ
+
 -- | Map all entities with a `DynamicQuery`.
 --
 -- @since 0.11
@@ -124,11 +196,25 @@ queryDynT q = System $ Once . Task $ \f -> do
   _ <- f $ V.unview v'
   return o
 
+-- | Map a single entity with a `DynamicQuery`.
+--
+-- @since 0.11
+querySingleMaybeDyn :: (Monad m) => DynamicQuery a -> SystemT m (Maybe a)
+querySingleMaybeDyn q = System $ Once . Task $ \f -> do
+  w <- f id
+  let qf = queryFilter q
+  case V.viewSingle qf $ archetypes w of
+    Just v -> do
+      let (o, v') = runIdentity $ V.mapSingleDyn q v
+      _ <- f $ V.unview v'
+      return o
+    Nothing -> return Nothing
+
 -- | Map a single entity with a `DynamicQueryT`.
 --
 -- @since 0.11
-querySingleMaybeDyn :: (Monad m) => DynamicQueryT m a -> SystemT m (Maybe a)
-querySingleMaybeDyn q = System $ Once . Task $ \f -> do
+querySingleMaybeDynT :: (Monad m) => DynamicQueryT m a -> SystemT m (Maybe a)
+querySingleMaybeDynT q = System $ Once . Task $ \f -> do
   w <- f id
   let qf = queryFilter q
   case V.viewSingle qf $ archetypes w of
@@ -138,46 +224,19 @@ querySingleMaybeDyn q = System $ Once . Task $ \f -> do
       return o
     Nothing -> return Nothing
 
--- | Match and update all entities with a `QueryT`.
---
--- @since 0.11
-query :: (Monad m) => Query a -> SystemT m [a]
-query q = do
-  dynQ <- fromQuery q
-  queryDyn dynQ
+readQueryDyn :: (Monad m) => DynamicQuery a -> SystemT m [a]
+readQueryDyn q = System $ Once . Task $ \f -> do
+  w <- f id
+  let qf = queryFilter q
+      !v = V.view qf $ archetypes w
+  return $
+    runIdentity $
+      if V.null v
+        then readDynQuery q $ A.empty {A.entities = Map.keysSet $ entities w}
+        else V.allDyn q v
 
--- | Match and update all entities with a `QueryT`.
---
--- @since 0.11
-queryT :: (Monad m) => QueryT m a -> SystemT m [a]
-queryT q = do
-  dynQ <- fromQueryT q
-  queryDynT dynQ
-
--- | Match and update a single entity with a `QueryT`, or @Nothing@.
---
--- @since 0.11
-querySingleMaybe :: (Monad m) => QueryT m a -> SystemT m (Maybe a)
-querySingleMaybe q = do
-  dynQ <- fromQueryT q
-  querySingleMaybeDyn dynQ
-
--- | Match all entities with a `QueryT`.
---
--- @since 0.11
-readQuery :: (Monad m) => QueryT m a -> SystemT m [a]
-readQuery q = do
-  dynQ <- fromQueryT q
-  allDyn dynQ
-
--- | Match entities with a `QueryT`.
---
--- @since 0.11
-readQueryEntities :: (Monad m) => [EntityID] -> QueryT m a -> SystemT m [a]
-readQueryEntities es q = fromQueryT q >>= queryEntitiesDyn es
-
-allDyn :: (Monad m) => DynamicQueryT m a -> SystemT m [a]
-allDyn q = System $ Once . Task $ \f -> do
+readQueryDynT :: (Monad m) => DynamicQueryT m a -> SystemT m [a]
+readQueryDynT q = System $ Once . Task $ \f -> do
   w <- f id
   let qf = queryFilter q
       !v = V.view qf $ archetypes w
@@ -186,8 +245,30 @@ allDyn q = System $ Once . Task $ \f -> do
       then readDynQuery q $ A.empty {A.entities = Map.keysSet $ entities w}
       else V.allDyn q v
 
-queryEntitiesDyn :: (Monad m) => [EntityID] -> DynamicQueryT m a -> SystemT m [a]
-queryEntitiesDyn es q = System $ Once . Task $ \f -> do
+-- | Match entities with a `QueryT`.
+--
+-- @since 0.11
+readQueryEntities :: (Monad m) => [EntityID] -> Query a -> SystemT m [a]
+readQueryEntities es q = fromQuery q >>= readQueryEntitiesDyn es
+
+-- | Match entities with a `QueryT`.
+--
+-- @since 0.11
+readQueryEntitiesT :: (Monad m) => [EntityID] -> QueryT m a -> SystemT m [a]
+readQueryEntitiesT es q = fromQueryT q >>= readQueryEntitiesDynT es
+
+readQueryEntitiesDyn :: (Monad m) => [EntityID] -> DynamicQuery a -> SystemT m [a]
+readQueryEntitiesDyn es q = System $ Once . Task $ \f -> do
+  w <- f id
+  let qf = queryFilter q
+      !v = V.view qf $ archetypes w
+  return . runIdentity $
+    if V.null v
+      then readDynQueryEntities es q $ A.empty {A.entities = Map.keysSet $ entities w}
+      else V.allDyn q v
+
+readQueryEntitiesDynT :: (Monad m) => [EntityID] -> DynamicQueryT m a -> SystemT m [a]
+readQueryEntitiesDynT es q = System $ Once . Task $ \f -> do
   w <- f id
   let qf = queryFilter q
       !v = V.view qf $ archetypes w
