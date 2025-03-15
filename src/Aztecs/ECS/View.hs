@@ -110,7 +110,7 @@ mapDyn q v = do
     foldlM
       ( \(acc, archAcc) (aId, n) -> do
           (as', arch') <- runDynQuery q $ nodeArchetype n
-          return (as' ++ acc, Map.insert aId (n {nodeArchetype = arch'}) archAcc)
+          return (as' ++ acc, Map.insert aId (n {nodeArchetype = arch' <> nodeArchetype n}) archAcc)
       )
       ([], Map.empty)
       (Map.toList $ viewArchetypes v)

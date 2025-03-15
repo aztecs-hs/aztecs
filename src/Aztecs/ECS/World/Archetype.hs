@@ -42,12 +42,6 @@ import qualified Aztecs.ECS.World.Storage as S
 import Aztecs.ECS.World.Storage.Dynamic
 import qualified Aztecs.ECS.World.Storage.Dynamic as S
 import Control.DeepSeq
-import Control.Monad.Writer
-  ( MonadTrans (..),
-    MonadWriter (..),
-    WriterT (..),
-    runWriter,
-  )
 import Data.Dynamic
 import Data.Foldable
 import Data.IntMap (IntMap)
@@ -160,17 +154,14 @@ member cId = IntMap.member (unComponentId cId) . storages
 {-# INLINE map #-}
 map ::
   forall a. (Component a) => (a -> a) -> ComponentID -> Archetype -> ([a], Archetype)
-map f cId arch =
-  let go maybeDyn = case maybeDyn of
-        Just dyn -> case fromDynamic $ storageDyn dyn of
-          Just s -> do
-            let !(as, s') = S.map @a @(StorageT a) f s
-            tell as
-            return $ Just $ dyn {storageDyn = toDyn s'}
-          Nothing -> return maybeDyn
-        Nothing -> return Nothing
-      !(storages', cs) = runWriter $ IntMap.alterF go (unComponentId cId) $ storages arch
-   in (cs, arch {storages = storages'})
+map f cId arch = case IntMap.lookup (unComponentId cId) $ storages arch of
+  Just dyn -> case fromDynamic $ storageDyn dyn of
+    Just s ->
+      let (acs, s') = S.map @a @(StorageT a) f s
+          s'' = dyn {storageDyn = toDyn s'}
+       in (acs, mempty {storages = IntMap.singleton (unComponentId cId) s''})
+    Nothing -> ([], mempty)
+  Nothing -> ([], mempty)
 
 -- | Map a list of components with a monadic function.
 --
@@ -183,17 +174,14 @@ mapM ::
   ComponentID ->
   Archetype ->
   m ([a], Archetype)
-mapM f cId arch = do
-  let go maybeDyn = case maybeDyn of
-        Just dyn -> case fromDynamic $ storageDyn dyn of
-          Just s -> do
-            (as, s') <- lift $ S.mapM @a @(StorageT a) f s
-            tell as
-            return $ Just $ dyn {storageDyn = toDyn s'}
-          Nothing -> return maybeDyn
-        Nothing -> return Nothing
-  (storages', cs) <- runWriterT $ IntMap.alterF go (unComponentId cId) $ storages arch
-  return (cs, arch {storages = storages'})
+mapM f cId arch = case IntMap.lookup (unComponentId cId) $ storages arch of
+  Just dyn -> case fromDynamic $ storageDyn dyn of
+    Just s -> do
+      (acs, s') <- S.mapM @a @(StorageT a) f s
+      let s'' = dyn {storageDyn = toDyn s'}
+      return (acs, mempty {storages = IntMap.singleton (unComponentId cId) s''})
+    Nothing -> return ([], mempty)
+  Nothing -> return ([], mempty)
 
 -- | Zip a list of components with a function.
 --
@@ -227,18 +215,16 @@ zipMapM ::
   ComponentID ->
   Archetype ->
   m ([(b, c)], Archetype)
-zipMapM as f cId arch = do
-  let go maybeDyn = case maybeDyn of
-        Just dyn -> case fromDynamic $ storageDyn dyn of
-          Just s ->
-            WriterT $
-              fmap
-                (\(cs, s') -> (Just dyn {storageDyn = toDyn s'}, cs))
-                (S.zipWithM @c @(StorageT c) f as s)
-          Nothing -> pure maybeDyn
-        Nothing -> pure Nothing
-  res <- runWriterT $ IntMap.alterF go (unComponentId cId) $ storages arch
-  return (snd res, arch {storages = fst res})
+zipMapM as f cId arch = case IntMap.lookup (unComponentId cId) $ storages arch of
+  Just dyn -> case fromDynamic $ storageDyn dyn of
+    Just s -> do
+      res <- S.zipWithM @c @(StorageT c) f as s
+      return $
+        let (acs, s') = res
+            s'' = dyn {storageDyn = toDyn s'}
+         in (acs, mempty {storages = IntMap.singleton (unComponentId cId) s''})
+    Nothing -> pure ([], mempty)
+  Nothing -> pure ([], mempty)
 
 -- | Insert a list of components into the archetype, sorted in ascending order by their `EntityID`.
 --
