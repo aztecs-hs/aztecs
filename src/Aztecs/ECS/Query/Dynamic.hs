@@ -399,8 +399,8 @@ readOp cId (ZipFetchMapM f q) arch = do
   as <- readDynQuery q arch
   bs <- readOp cId Fetch arch
   zipWithM f as bs
-readOp _ With _ = pure []
-readOp _ Without _ = pure []
+readOp _ With arch = pure $ replicate (length $ A.entities arch) ()
+readOp _ Without arch = pure $ replicate (length $ A.entities arch) ()
 
 {-# INLINE runOp #-}
 runOp :: (Applicative f) => ComponentID -> Operation f a -> Archetype -> f ([a], Archetype)

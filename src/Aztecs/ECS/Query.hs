@@ -170,7 +170,7 @@ with = fromDynInternal @f @a $ withDyn
 -- @since 0.11
 {-# INLINE without #-}
 without :: forall f a. (Component a) => QueryT f ()
-without = fromDynInternal @f @a $ withDyn
+without = fromDynInternal @f @a $ withoutDyn
 
 -- | Convert a `DynamicQueryT` to a `QueryT`.
 --

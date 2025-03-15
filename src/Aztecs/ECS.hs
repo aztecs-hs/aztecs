@@ -28,6 +28,8 @@ module Aztecs.ECS
     AccessT,
     runAccessT,
     runAccessT_,
+    fromAccess,
+    mapAccessT,
     Bundle,
     bundle,
     fromDynBundle,

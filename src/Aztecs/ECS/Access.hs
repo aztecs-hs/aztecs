@@ -23,6 +23,10 @@ module Aztecs.ECS.Access
     runAccessT,
     runAccessT_,
     system,
+
+    -- ** Conversion
+    mapAccessT,
+    fromAccess,
   )
 where
 
@@ -124,3 +128,10 @@ system s = AccessT $ do
   (a, v) <- lift . runSystemT s $ entities w
   put w {entities = unview v $ entities w}
   return a
+
+mapAccessT :: (Functor m, Functor n) => (m (a, World) -> n (b, World)) -> AccessT m a -> AccessT n b
+mapAccessT f =
+  AccessT . mapStateT (fmap (\(a, w) -> (a, w)) . f . fmap (\(a, w) -> (a, w))) . unAccessT
+
+fromAccess :: (Applicative m) => Access a -> AccessT m a
+fromAccess = mapAccessT (pure . runIdentity)
