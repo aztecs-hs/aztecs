@@ -63,8 +63,8 @@ import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Entities
 import Control.Applicative
 import Control.Monad
-import Control.Monad.Trans (MonadTrans (..))
 import Control.Monad.Identity
+import Control.Monad.Trans (MonadTrans (..))
 import Data.Bifunctor
 import Data.Foldable
 import qualified Data.Map.Strict as Map
@@ -339,7 +339,7 @@ runDynQuery (Ap f g) arch = do
         (bs, arch'') = res'
      in (zipWith ($) bs as, arch'' <> arch')
 runDynQuery (Lift q) arch = lift $ runDynQuery q arch
-runDynQuery Entity arch = (,arch) <$> readDynQuery Entity arch
+runDynQuery Entity arch = (,mempty) <$> readDynQuery Entity arch
 runDynQuery (Op cId op) arch = runOp cId op arch
 
 runDynQueryEntities :: (Applicative f) => [EntityID] -> DynamicQueryT f a -> Archetype -> f ([a], Archetype)

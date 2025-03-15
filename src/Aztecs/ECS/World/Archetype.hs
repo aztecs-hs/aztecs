@@ -207,17 +207,14 @@ zipMap ::
   ComponentID ->
   Archetype ->
   ([(b, c)], Archetype)
-zipMap as f cId arch =
-  let go maybeDyn = case maybeDyn of
-        Just dyn -> case fromDynamic $ storageDyn dyn of
-          Just s -> do
-            let (acs, s') = S.zipWith @c @(StorageT c) f as s
-            tell acs
-            return $ Just $ dyn {storageDyn = toDyn s'}
-          Nothing -> return maybeDyn
-        Nothing -> return Nothing
-      (storages', cs) = runWriter $ IntMap.alterF go (unComponentId cId) $ storages arch
-   in (cs, arch {storages = storages'})
+zipMap as f cId arch = case IntMap.lookup (unComponentId cId) $ storages arch of
+  Just dyn -> case fromDynamic $ storageDyn dyn of
+    Just s ->
+      let (acs, s') = S.zipWith @c @(StorageT c) f as s
+          s'' = dyn {storageDyn = toDyn s'}
+       in (acs, mempty {storages = IntMap.singleton (unComponentId cId) s''})
+    Nothing -> ([], mempty)
+  Nothing -> ([], mempty)
 
 -- | Zip a list of components with a monadic function .
 --
