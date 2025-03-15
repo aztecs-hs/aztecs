@@ -369,7 +369,7 @@ data Operation f a where
 {-# INLINE opFilter #-}
 opFilter :: ComponentID -> Operation f a -> QueryFilter
 opFilter cId Fetch = mempty {filterWith = Set.singleton cId}
-opFilter cId FetchMaybe = mempty {filterWith = Set.singleton cId}
+opFilter _ FetchMaybe = mempty
 opFilter cId (FetchMap _) = mempty {filterWith = Set.singleton cId}
 opFilter cId (FetchMapM _) = mempty {filterWith = Set.singleton cId}
 opFilter cId (ZipFetchMap _ q) = queryFilter q <> mempty {filterWith = Set.singleton cId}
