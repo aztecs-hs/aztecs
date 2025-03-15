@@ -37,7 +37,6 @@ module Aztecs.ECS
     EntityID,
     spawn,
     system,
-    concurrently,
     World,
   )
 where
@@ -52,7 +51,7 @@ import Aztecs.ECS.Query hiding
     readQuery,
     readQueryEntities,
   )
-import Aztecs.ECS.System hiding (concurrently)
+import Aztecs.ECS.System
 import Aztecs.ECS.World (World)
 import Aztecs.ECS.World.Bundle
 import Aztecs.ECS.World.Bundle.Dynamic

@@ -23,18 +23,16 @@ module Aztecs.ECS.Access
     runAccessT,
     runAccessT_,
     system,
-    concurrently,
   )
 where
 
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
 import Aztecs.ECS.System (SystemT (..), runSystemT)
-import qualified Aztecs.ECS.System as S
+import Aztecs.ECS.View
 import Aztecs.ECS.World (World (..))
 import qualified Aztecs.ECS.World as W
 import Aztecs.ECS.World.Bundle
-import Control.Concurrent.STM
 import Control.DeepSeq
 import Control.Monad.Fix
 import Control.Monad.Identity
@@ -123,28 +121,6 @@ despawn e = AccessT $ do
 system :: (Monad m) => SystemT m a -> AccessT m a
 system s = AccessT $ do
   !w <- get
-  let go f = do
-        es <- get
-        let es' = f es
-        put es'
-        return es'
-  (a, es) <- lift $ runStateT (runSystemT s go) (entities w)
-  put w {entities = es}
-  return a
-
--- | Run a `System` concurrently.
---
--- @since 0.11
-concurrently :: SystemT IO a -> AccessT IO a
-concurrently s = AccessT $ do
-  !w <- get
-  esVar <- lift . newTVarIO $ entities w
-  let go f = atomically $ do
-        es <- readTVar esVar
-        let es' = f es
-        writeTVar esVar es'
-        return es'
-  a <- liftIO $ S.concurrently s go
-  es <- lift $ readTVarIO esVar
-  put w {entities = es}
+  (a, v) <- lift . runSystemT s $ entities w
+  put w {entities = unview v $ entities w}
   return a

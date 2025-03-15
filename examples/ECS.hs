@@ -18,7 +18,7 @@ move = fetch & zipFetchMap (\(Velocity v) (Position p) -> Position $ p + v)
 
 run :: SystemT IO ()
 run = do
-  positions <- query move
+  positions <- fromSystem $ query move
   liftIO $ print positions
 
 app :: AccessT IO ()
