@@ -63,7 +63,7 @@ import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Entities
 import Control.Applicative
 import Control.Monad
-import Control.Monad.Cont (MonadTrans (..))
+import Control.Monad.Trans (MonadTrans (..))
 import Control.Monad.Identity
 import Data.Bifunctor
 import Data.Foldable

@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [0.12.0](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.11.1..aztecs-v0.12.0) - 2025-3-14
+
+## Breaking changes
+
+- Remove requirement on `NFData` (435a8b5)
+
+  - https://www.reddit.com/r/haskell/comments/1j57k50/comment/mgx23ad
+
+- Convenience functions to run pure and applicative queries (such as `query` and `queryT`) (11b384b)
+
+- Rename `Archetype.zipWith` and `Archetype.zipWithM` to `zipMap` and `zipMapM`, respectively (72990d0)
+
 ## [0.11.1](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.11.0..aztecs-v0.11.1) - 2025-3-7
 
 ## Documentation

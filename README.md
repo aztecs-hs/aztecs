@@ -9,9 +9,6 @@ A modular game engine and [ECS](https://en.wikipedia.org/wiki/Entity_component_s
 An ECS is a modern approach to organizing your application state as a database,
 providing patterns for data-oriented design and parallel processing.
 
-Aztecs provides side-effect free components and systems, as well as backends for rendering and input (such as `aztecs-sdl`), allowing you to structure your game as simple function of `Input -> World -> World`.
-For more information, please see the documentation on [Hackage](https://hackage.haskell.org/package/aztecs/).
-
 [Aztecs: An Empirical Entity Component System (ECS) for Haskell](https://github.com/aztecs-hs/paper) [Draft]
 
 [Examples](https://github.com/aztecs-hs/examples)
@@ -55,6 +52,12 @@ main = runAccessT_ app
 ```
 
 ## Packages
+
+- [`aztecs-hierarchy`](https://github.com/aztecs-hs/aztecs-hierarchy)
+
+  [![Package](https://img.shields.io/hackage/v/aztecs-hierarchy.svg)](https://hackage.haskell.org/package/aztecs-hierarchy)
+
+  Parent-child hierarchies.
 
 - [`aztecs-sdl`](https://github.com/aztecs-hs/aztecs-sdl)
 
