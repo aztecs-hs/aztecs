@@ -51,6 +51,24 @@ main :: IO ()
 main = runAccessT_ app
 ```
 
+## Scripting
+
+[`aztecs-script`](https://github.com/aztecs-hs/aztecs-script) aims to be a turing-complete query language that can be used
+for both scripting gameplay and controlling the ECS over a network.
+This package provides both fully-typed Haskell DSL for scripting as well as a low-level interpreter for the text-based scripting language.
+
+#### Haskell:
+
+```hs
+fetch @Position `as` #p <?> fetch @Velocity `as` #v `returning` #p :. #x :& #v :. #v
+```
+
+#### aztecs-script:
+
+```sql
+FETCH position AS p AND FETCH velocity AS v RETURNING (p.x, v.v)
+```
+
 ## Packages
 
 - [`aztecs-hierarchy`](https://github.com/aztecs-hs/aztecs-hierarchy)
@@ -58,6 +76,12 @@ main = runAccessT_ app
   [![Package](https://img.shields.io/hackage/v/aztecs-hierarchy.svg)](https://hackage.haskell.org/package/aztecs-hierarchy)
 
   Parent-child hierarchies.
+
+- [`aztecs-script`](https://github.com/aztecs-hs/aztecs-script)
+
+  [![Package](https://img.shields.io/hackage/v/aztecs-script.svg)](https://hackage.haskell.org/package/aztecs-script)
+
+  Aztecs scripting language.
 
 - [`aztecs-sdl`](https://github.com/aztecs-hs/aztecs-sdl)
 
