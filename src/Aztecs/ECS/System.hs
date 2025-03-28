@@ -84,7 +84,7 @@ instance (Monad m) => Monad (SystemT m) where
   {-# INLINE (>>=) #-}
   System a >>= f = System $ \g -> do
     (a', v) <- a g
-    (b', v') <- runSystemT (f a') g
+    (b', v') <- runSystemT (f a') (V.unview v g)
     return (b', v' <> v)
 
 instance (MonadIO m) => MonadIO (SystemT m) where
