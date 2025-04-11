@@ -1,30 +1,17 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module Main where
 
 import Aztecs.ECS
-import Control.Monad
-import Control.Monad.IO.Class
-import Data.Function
+import qualified Aztecs.ECS as ECS
+import qualified Data.SparseSet.Strict as S
 
-newtype Position = Position Int deriving (Show)
+newtype Position = Position Int
 
-instance Component Position
-
-newtype Velocity = Velocity Int
-
-instance Component Velocity
-
-move :: Query Position
-move = fetch & zipFetchMap (\(Velocity v) (Position p) -> Position $ p + v)
-
-run :: SystemT IO ()
-run = do
-  positions <- fromSystem $ query move
-  liftIO $ print positions
-
-app :: AccessT IO ()
-app = do
-  _ <- spawn $ bundle (Position 0) <> bundle (Velocity 1)
-  forever $ system run
+app :: (MonadAccess Position m) => m ()
+app = ECS.insert (mkEntity 0 0) (Position 1)
 
 main :: IO ()
-main = runAccessT_ app
+main = do
+  _ <- runAccessT app S.empty
+  return ()
