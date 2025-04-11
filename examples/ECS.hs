@@ -8,10 +8,12 @@ import qualified Data.SparseSet.Strict as S
 
 newtype Position = Position Int
 
-app :: (MonadAccess Position m) => m ()
-app = ECS.insert (mkEntity 0 0) (Position 1)
+app :: (MonadEntities m, MonadAccess Position m) => m ()
+app = do
+  e <- spawn
+  ECS.insert e $ Position 1
 
 main :: IO ()
 main = do
-  _ <- runAccessT app S.empty
+  _ <- runEntitiesT (runAccessT app S.empty) emptyEntityCounter
   return ()
