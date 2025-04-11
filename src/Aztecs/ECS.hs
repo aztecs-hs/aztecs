@@ -29,7 +29,7 @@ entityGeneration (Entity e) = fromIntegral ((e `shiftR` 32) .&. 0xFFFFFFFF)
 
 class (Monad m) => MonadEntities m where
   spawn :: m Entity
-  queryEntity :: m (Query Entity)
+  entities :: Query m Entity
 
 data EntityCounter = EntityCounter
   { entitiesNextGeneration :: Word32,
@@ -54,11 +54,11 @@ instance (Monad m) => MonadEntities (EntitiesT m) where
         gens' = IntMap.insert (fromIntegral nextGeneration) i gens
     put $ EntityCounter nextGeneration gens' nextIndex free'
     return $ mkEntity i gen
-  queryEntity = EntitiesT $ do
-    EntityCounter _ gens _ _ <- get
-    let entities = IntMap.toList gens
-        entities' = map (\(i, g) -> Just $ mkEntity (fromIntegral i) g) entities
-    return $ Query entities'
+  entities = Query $
+    EntitiesT $ do
+      EntityCounter _ gens _ _ <- get
+      let go (i, g) = Just $ mkEntity (fromIntegral i) g
+      return . map go $ IntMap.toList gens
 
 runEntitiesT :: (Monad m) => EntitiesT m a -> EntityCounter -> m (a, EntityCounter)
 runEntitiesT (EntitiesT m) = runStateT m
@@ -67,7 +67,7 @@ runEntitiesT (EntitiesT m) = runStateT m
 class (Monad m) => MonadAccess c m | m -> c where
   insert :: Entity -> c -> m ()
   lookup :: Entity -> m (Maybe c)
-  query :: m (Query c)
+  query :: Query m c
 
 newtype AccessT c m a = AccessT {unAccessT :: StateT (SparseSet Word32 c) m a}
   deriving (Functor, Applicative, Monad, MonadTrans, MonadIO)
@@ -77,24 +77,26 @@ instance {-# OVERLAPPING #-} (Monad m) => MonadAccess c (AccessT c m) where
   lookup e = AccessT $ do
     s <- get
     return $ S.lookup s (entityIndex e)
-  query = AccessT $ Query . S.toList <$> get
+  query = Query . AccessT $ S.toList <$> get
 
 instance (MonadAccess c2 m) => MonadAccess c2 (AccessT c m) where
   insert e = lift . insert e
   lookup = lift . lookup
-  query = lift query
+  query = Query . lift $ runQuery query
 
 instance (MonadEntities m) => MonadEntities (AccessT c m) where
   spawn = lift spawn
-  queryEntity = lift queryEntity
+  entities = Query . lift $ runQuery entities
 
 runAccessT :: (Monad m) => AccessT c m a -> SparseSet Word32 c -> m (a, SparseSet Word32 c)
 runAccessT (AccessT m) = runStateT m
 {-# INLINE runAccessT #-}
 
-newtype Query a = Query {unQuery :: [Maybe a]}
-  deriving (Show, Eq, Functor)
+newtype Query m a = Query {runQuery :: m [Maybe a]}
+  deriving (Functor)
 
-instance Applicative Query where
-  pure x = Query [Just x]
-  Query fs <*> Query xs = Query $ zipWith (<*>) fs xs
+instance (Monad m) => Applicative (Query m) where
+  pure x = Query $ return [Just x]
+  Query f <*> Query x = Query $ do
+    fs <- f
+    zipWith (<*>) fs <$> x
