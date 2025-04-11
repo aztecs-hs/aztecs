@@ -23,7 +23,7 @@ app = do
   e <- spawn
   ECS.insert e $ Position 0
   ECS.insert e $ Velocity 1
-  x <- ECS.lookup @Position @_ e
+  x <- (,,) <$> ECS.queryEntity <*> ECS.query @Position @_ <*> ECS.query @Velocity @_
   liftIO $ print x
 
 main :: IO ()
