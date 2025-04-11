@@ -1,14 +1,16 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Aztecs.ECS where
 
 import Control.Monad.State.Strict
 import Data.Bits
-import Data.SparseSet.Strict
+import Data.SparseSet.Strict (SparseSet)
 import qualified Data.SparseSet.Strict as S
 import Data.Word
+import Prelude hiding (lookup)
 
 newtype Entity = Entity {unEntity :: Word64}
   deriving (Eq, Ord, Show)
@@ -53,12 +55,20 @@ runEntitiesT (EntitiesT m) = runStateT m
 
 class (Monad m) => MonadAccess c m | m -> c where
   insert :: Entity -> c -> m ()
+  lookup :: Entity -> m (Maybe c)
 
 newtype AccessT c m a = AccessT {unAccessT :: StateT (SparseSet Word32 c) m a}
   deriving (Functor, Applicative, Monad, MonadTrans, MonadIO)
 
-instance (Monad m) => MonadAccess c (AccessT c m) where
+instance {-# OVERLAPPING #-} (Monad m) => MonadAccess c (AccessT c m) where
   insert e = AccessT . modify . S.insert (entityIndex e)
+  lookup e = AccessT $ do
+    s <- get
+    return $ S.lookup s (entityIndex e)
+
+instance (MonadAccess c2 m) => MonadAccess c2 (AccessT c m) where
+  insert e = lift . insert e
+  lookup = lift . lookup
 
 instance (MonadEntities m) => MonadEntities (AccessT c m) where
   spawn = lift spawn
