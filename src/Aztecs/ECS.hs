@@ -1,59 +1,170 @@
--- | Aztecs is a type-safe and friendly ECS for games and more.
---
--- An ECS is a modern approach to organizing your application state as a database,
--- providing patterns for data-oriented design and parallel processing.
---
--- The ECS architecture is composed of three main concepts:
---
--- === Entities
--- An entity is an object comprised of zero or more components.
--- In Aztecs, entities are represented by their `EntityID`, a unique identifier.
---
--- === Components
--- A `Component` holds the data for a particular aspect of an entity.
--- For example, a zombie entity might have a @Health@ and a @Transform@ component.
---
--- > newtype Position = Position Int deriving (Show)
--- > instance Component Position
--- >
--- > newtype Velocity = Velocity Int deriving (Show)
--- > instance Component Velocity
---
--- === Systems
--- A `System` is a pipeline that processes entities and their components.
-module Aztecs.ECS
-  ( module Aztecs.ECS.System,
-    module Aztecs.ECS.Query,
-    Access,
-    AccessT,
-    runAccessT,
-    runAccessT_,
-    fromAccess,
-    mapAccessT,
-    Bundle,
-    bundle,
-    fromDynBundle,
-    DynamicBundle,
-    dynBundle,
-    Component (..),
-    EntityID,
-    spawn,
-    system,
-    World,
-  )
-where
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-import Aztecs.ECS.Access
-import Aztecs.ECS.Component
-import Aztecs.ECS.Entity
-import Aztecs.ECS.Query hiding
-  ( query,
-    querySingle,
-    querySingleMaybe,
-    readQuery,
-    readQueryEntities,
-  )
-import Aztecs.ECS.System
-import Aztecs.ECS.World (World)
-import Aztecs.ECS.World.Bundle
-import Aztecs.ECS.World.Bundle.Dynamic
+module Aztecs.ECS where
+
+import Control.Monad.Primitive
+import Control.Monad.Reader
+import Control.Monad.State.Strict
+import Data.Bits
+import Data.IntMap.Strict (IntMap)
+import qualified Data.IntMap.Strict as IntMap
+import Data.Maybe
+import Data.SparseSet (SparseSet)
+import qualified Data.SparseSet as S
+import Data.SparseSet.Mutable (MSparseSet)
+import qualified Data.SparseSet.Mutable as MS
+import Data.Word
+import Prelude hiding (lookup)
+
+newtype Entity = Entity {unEntity :: Word64}
+  deriving (Eq, Ord, Show)
+
+mkEntity :: Word32 -> Word32 -> Entity
+mkEntity index generation = Entity $ (fromIntegral generation `shiftL` 32) .|. fromIntegral index
+
+entityIndex :: Entity -> Word32
+entityIndex (Entity e) = fromIntegral (e .&. 0xFFFFFFFF)
+
+entityGeneration :: Entity -> Word32
+entityGeneration (Entity e) = fromIntegral ((e `shiftR` 32) .&. 0xFFFFFFFF)
+
+class (Monad m) => MonadEntities m where
+  spawn :: m Entity
+  entities :: Query m Entity
+
+data EntityCounter = EntityCounter
+  { entitiesNextGeneration :: Word32,
+    entitiesGenerations :: IntMap Word32,
+    entitiesNextIndex :: Word32,
+    entitiesFreeIndicies :: [Word32]
+  }
+
+emptyEntityCounter :: EntityCounter
+emptyEntityCounter = EntityCounter 0 IntMap.empty 0 []
+
+newtype EntitiesT m a = EntitiesT {unEntitiesT :: StateT EntityCounter m a}
+  deriving (Functor, Applicative, Monad, MonadTrans, MonadIO)
+
+instance (Monad m) => MonadEntities (EntitiesT m) where
+  spawn = EntitiesT $ do
+    EntityCounter gen gens index free <- get
+    let (i, nextIndex, free') = case free of
+          (i' : rest) -> (i', index, rest)
+          [] -> (index, index + 1, [])
+        nextGeneration = gen + 1
+        gens' = IntMap.insert (fromIntegral nextGeneration) i gens
+    put $ EntityCounter nextGeneration gens' nextIndex free'
+    return $ mkEntity i gen
+  entities = Query $
+    EntitiesT $ do
+      EntityCounter _ gens _ _ <- get
+      let go (i, g) = Just $ mkEntity (fromIntegral i) g
+      return . map go $ IntMap.toList gens
+
+instance (PrimMonad m) => PrimMonad (EntitiesT m) where
+  type PrimState (EntitiesT m) = PrimState m
+  primitive = EntitiesT . lift . primitive
+  {-# INLINE primitive #-}
+
+runEntitiesT :: (Monad m) => EntitiesT m a -> EntityCounter -> m (a, EntityCounter)
+runEntitiesT (EntitiesT m) = runStateT m
+{-# INLINE runEntitiesT #-}
+
+class (Monad m) => MonadQuery c m | m -> c where
+  query :: Query m c
+
+class (Monad m) => MonadAccess c m | m -> c where
+  insert :: Entity -> c -> m ()
+  lookup :: Entity -> m (Maybe c)
+
+newtype AccessT c m a = AccessT {unAccessT :: StateT (SparseSet Word32 c) m a}
+  deriving (Functor, Applicative, Monad, MonadTrans, MonadIO)
+
+instance {-# OVERLAPPING #-} (Monad m) => MonadAccess c (AccessT c m) where
+  insert e = AccessT . modify . S.insert (entityIndex e)
+  lookup e = AccessT $ do
+    s <- get
+    return $ S.lookup s (entityIndex e)
+
+instance (MonadAccess c2 m) => MonadAccess c2 (AccessT c m) where
+  insert e = lift . insert e
+  lookup = lift . lookup
+
+instance {-# OVERLAPPING #-} (Monad m) => MonadQuery c (AccessT c m) where
+  query = Query . AccessT $ S.toList <$> get
+
+instance (MonadQuery c2 m) => MonadQuery c2 (AccessT c m) where
+  query = Query . lift $ unQuery query
+
+instance (MonadEntities m) => MonadEntities (AccessT c m) where
+  spawn = lift spawn
+  entities = Query . lift $ unQuery entities
+
+instance (PrimMonad m) => PrimMonad (AccessT c m) where
+  type PrimState (AccessT c m) = PrimState m
+  primitive = lift . primitive
+  {-# INLINE primitive #-}
+
+runAccessT :: (Monad m) => AccessT c m a -> SparseSet Word32 c -> m (a, SparseSet Word32 c)
+runAccessT (AccessT m) = runStateT m
+{-# INLINE runAccessT #-}
+
+newtype Query m a = Query {unQuery :: m [Maybe a]}
+  deriving (Functor)
+
+instance (Monad m) => Applicative (Query m) where
+  pure x = Query $ return [Just x]
+  Query f <*> Query x = Query $ do
+    fs <- f
+    zipWith (<*>) fs <$> x
+
+runQuery :: (Monad m) => Query m a -> m [a]
+runQuery (Query q) = catMaybes <$> q
+
+data ComponentRef s c = ComponentRef
+  { componentRefIndex :: Word32,
+    componentRefSparseSet :: MSparseSet s Word32 c,
+    unComponentRef :: c
+  }
+
+readComponentRef :: (PrimMonad m) => ComponentRef (PrimState m) c -> m c
+readComponentRef r = do
+  res <- MS.read (componentRefSparseSet r) (fromIntegral $ componentRefIndex r)
+  case res of
+    Just c -> return c
+    Nothing -> error "readComponentRef: impossible"
+
+writeComponentRef :: (PrimMonad m) => ComponentRef (PrimState m) c -> c -> m ()
+writeComponentRef r = MS.write (componentRefSparseSet r) (fromIntegral $ componentRefIndex r)
+
+newtype SystemT s c m a = System {unSystem :: ReaderT (MSparseSet s Word32 c) m a}
+  deriving (Functor, Applicative, Monad, MonadTrans, MonadIO)
+
+instance (MonadEntities m) => MonadEntities (SystemT s c m) where
+  spawn = lift spawn
+  entities = Query . lift $ unQuery entities
+
+instance {-# OVERLAPPING #-} (PrimMonad m, s ~ PrimState m) => MonadQuery (ComponentRef s c) (SystemT s c m) where
+  query = Query . System $ do
+    s <- ask
+    as <- MS.toList s
+    let go (i, c) = ComponentRef i s c
+    return $ fmap (fmap go) as
+
+instance (MonadQuery c2 m) => MonadQuery c2 (SystemT s c m) where
+  query = Query . lift $ unQuery query
+
+instance (PrimMonad m, PrimState m ~ s) => PrimMonad (SystemT s c m) where
+  type PrimState (SystemT s c m) = PrimState m
+  primitive = lift . primitive
+  {-# INLINE primitive #-}
+
+runSystemT :: (PrimMonad m) => SystemT (PrimState m) c m a -> MSparseSet (PrimState m) Word32 c -> m a
+runSystemT (System m) = runReaderT m
+{-# INLINE runSystemT #-}
