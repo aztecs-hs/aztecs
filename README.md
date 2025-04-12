@@ -22,89 +22,52 @@ providing patterns for data-oriented design and parallel processing.
 
 ```hs
 import Aztecs.ECS
-import Control.Monad
+import qualified Aztecs.ECS as ECS
 import Control.Monad.IO.Class
-import Data.Function
+import qualified Data.SparseSet as S
+import Data.SparseSet.Mutable (PrimMonad (..))
 
 newtype Position = Position Int deriving (Show)
 
-instance Component Position
+newtype Velocity = Velocity Int deriving (Show)
 
-newtype Velocity = Velocity Int
+setup ::
+  ( MonadEntities m,
+    MonadAccess Position m,
+    MonadAccess Velocity m,
+    MonadIO m
+  ) =>
+  m ()
+setup = do
+  e <- spawn
+  ECS.insert e $ Position 0
+  ECS.insert e $ Velocity 1
 
-instance Component Velocity
+move ::
+  ( MonadEntities m,
+    MonadQuery (ComponentRef (PrimState m) Position) m,
+    MonadQuery (ComponentRef (PrimState m) Velocity) m,
+    MonadIO m,
+    PrimMonad m
+  ) =>
+  m ()
+move = do
+  q <-
+    runQuery $
+      (,,)
+        <$> entities
+        <*> query
+        <*> query
+  mapM_ go q
+  where
+    go (e, pRef, vRef) = do
+      Velocity v <- readComponentRef vRef
+      Position p <- readComponentRef pRef
+      writeComponentRef pRef (Position $ p + v)
 
-move :: Query Position
-move = fetch & zipFetchMap (\(Velocity v) (Position p) -> Position $ p + v)
-
-run :: SystemT IO ()
-run = do
-  positions <- query move
-  liftIO $ print positions
-
-app :: AccessT IO ()
-app = do
-  _ <- spawn $ bundle (Position 0) <> bundle (Velocity 1)
-  forever $ system run
-
-main :: IO ()
-main = runAccessT_ app
+      p' <- readComponentRef pRef
+      liftIO $ print (e, p')
 ```
-
-## Scripting
-
-[`aztecs-script`](https://github.com/aztecs-hs/aztecs-script) aims to be a turing-complete query language that can be used
-for both scripting gameplay and controlling the ECS over a network.
-This package provides both fully-typed Haskell DSL for scripting as well as a low-level interpreter for the text-based scripting language.
-
-#### Haskell:
-
-```hs
-fetch @Position `as` #p <?> fetch @Velocity `as` #v `returning` #p :. #x :& #v :. #v
-```
-
-#### aztecs-script:
-
-```sql
-FETCH position AS p AND FETCH velocity AS v RETURNING (p.x, v.v)
-```
-
-## Packages
-
-- [`aztecs-hierarchy`](https://github.com/aztecs-hs/aztecs-hierarchy)
-
-  [![Package](https://img.shields.io/hackage/v/aztecs-hierarchy.svg)](https://hackage.haskell.org/package/aztecs-hierarchy)
-
-  Parent-child hierarchies.
-
-- [`aztecs-script`](https://github.com/aztecs-hs/aztecs-script)
-
-  [![Package](https://img.shields.io/hackage/v/aztecs-script.svg)](https://hackage.haskell.org/package/aztecs-script)
-
-  Aztecs scripting language.
-
-- [`aztecs-sdl`](https://github.com/aztecs-hs/aztecs-sdl)
-
-  [![Package](https://img.shields.io/hackage/v/aztecs-sdl.svg)](https://hackage.haskell.org/package/aztecs-sdl)
-
-  SDL window management and rendering support.
-
-- [`aztecs-sdl-image`](https://github.com/aztecs-hs/aztecs-sdl-image)
-
-  [![Package](https://img.shields.io/hackage/v/aztecs-sdl-image.svg)](https://hackage.haskell.org/package/aztecs-sdl-image)
-
-  SDL image and spritesheet rendering support.
-
-- [`aztecs-sdl-text`](https://github.com/aztecs-hs/aztecs-sdl-text)
-
-  [![Package](https://img.shields.io/hackage/v/aztecs-sdl-text.svg)](https://hackage.haskell.org/package/aztecs-sdl-text)
-
-  SDL text rendering support.
-
-## Benchmarks
-
-<img width=300 alt="Benchmark results:  (Aztecs 160us) (Apecs 772us)
-(Bevy	8us)" src="https://github.com/user-attachments/assets/2bd8603d-284e-4cd1-a6de-dba8df8a19cb"/>
 
 ## Inspiration
 

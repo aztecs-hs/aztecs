@@ -5,6 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE BangPatterns #-}
 
 module Aztecs.ECS where
 
@@ -152,8 +153,8 @@ instance (MonadEntities m) => MonadEntities (SystemT s c m) where
 
 instance {-# OVERLAPPING #-} (PrimMonad m, s ~ PrimState m) => MonadQuery (ComponentRef s c) (SystemT s c m) where
   query = Query . System $ do
-    s <- ask
-    as <- MS.toList s
+    !s <- ask
+    !as <- MS.toList s
     let go (i, c) = ComponentRef i s c
     return $ fmap (fmap go) as
 

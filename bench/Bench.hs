@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -7,7 +8,8 @@
 
 import Aztecs.ECS
 import qualified Aztecs.ECS as ECS
-import Control.DeepSeq (NFData)
+import Control.DeepSeq
+import Control.Monad
 import Control.Monad.Primitive
 import Criterion.Main
 import qualified Data.SparseSet as S
@@ -26,15 +28,10 @@ s ::
   ) =>
   m ()
 s = do
-  x <-
-    runQuery $
-      (,,)
-        <$> entities
-        <*> query @(ComponentRef (PrimState m) Position)
-        <*> query @(ComponentRef (PrimState m) Velocity)
-  mapM_ go x
+  q <- runQuery $ (,) <$> query <*> query
+  mapM_ go q
   where
-    go (_, pRef, vRef) = do
+    go (pRef, vRef) = do
       Velocity v <- readComponentRef vRef
       Position p <- readComponentRef pRef
       writeComponentRef pRef (Position $ p + v)
@@ -47,7 +44,7 @@ app ::
     MonadQuery Velocity m
   ) =>
   m ()
-app = do
+app = replicateM_ 10000 $ do
   e <- spawn
   ECS.insert e $ Position 0
   ECS.insert e $ Velocity 1
@@ -55,8 +52,8 @@ app = do
 main :: IO ()
 main = do
   (((_, ps), vs), es) <- runEntitiesT (runAccessT (runAccessT app S.empty) S.empty) emptyEntityCounter
-  ps' <- S.thaw ps
-  vs' <- S.thaw vs
+  !ps' <- S.thaw ps
+  !vs' <- S.thaw vs
 
   let run = do
         _ <- runEntitiesT (runSystemT (runSystemT s ps') vs') es

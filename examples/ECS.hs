@@ -1,6 +1,4 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Main where
 
@@ -14,8 +12,19 @@ newtype Position = Position Int deriving (Show)
 
 newtype Velocity = Velocity Int deriving (Show)
 
-s ::
-  forall m.
+setup ::
+  ( MonadEntities m,
+    MonadAccess Position m,
+    MonadAccess Velocity m,
+    MonadIO m
+  ) =>
+  m ()
+setup = do
+  e <- spawn
+  ECS.insert e $ Position 0
+  ECS.insert e $ Velocity 1
+
+move ::
   ( MonadEntities m,
     MonadQuery (ComponentRef (PrimState m) Position) m,
     MonadQuery (ComponentRef (PrimState m) Velocity) m,
@@ -23,14 +32,14 @@ s ::
     PrimMonad m
   ) =>
   m ()
-s = do
-  x <-
+move = do
+  q <-
     runQuery $
       (,,)
         <$> entities
-        <*> query @(ComponentRef (PrimState m) Position)
-        <*> query @(ComponentRef (PrimState m) Velocity)
-  mapM_ go x
+        <*> query
+        <*> query
+  mapM_ go q
   where
     go (e, pRef, vRef) = do
       Velocity v <- readComponentRef vRef
@@ -40,26 +49,10 @@ s = do
       p' <- readComponentRef pRef
       liftIO $ print (e, p')
 
-app ::
-  ( MonadEntities m,
-    MonadAccess Position m,
-    MonadAccess Velocity m,
-    MonadQuery Position m,
-    MonadQuery Velocity m,
-    MonadIO m
-  ) =>
-  m ()
-app = do
-  e <- spawn
-  ECS.insert e $ Position 0
-  ECS.insert e $ Velocity 1
-  x <- runQuery $ (,,) <$> entities <*> query @Position <*> query @Velocity
-  liftIO $ print x
-
 main :: IO ()
 main = do
-  (((_, ps), vs), es) <- runEntitiesT (runAccessT (runAccessT app S.empty) S.empty) emptyEntityCounter
+  (((_, ps), vs), es) <- runEntitiesT (runAccessT (runAccessT setup S.empty) S.empty) emptyEntityCounter
   vs' <- S.thaw vs
   ps' <- S.thaw ps
-  _ <- runEntitiesT (runSystemT (runSystemT s vs') ps') es
+  _ <- runEntitiesT (runSystemT (runSystemT move vs') ps') es
   return ()
