@@ -70,4 +70,6 @@ benchmark aztecs-bench
         base >=4.2 && <5,
         aztecs,
         criterion >=1,
-        deepseq >=1
+        deepseq >=1,
+        primitive >=0.6,
+        sparse-set

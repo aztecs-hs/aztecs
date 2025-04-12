@@ -3,3 +3,4 @@ packages:
     ../sparse-vector
 
 tests: True
+benchmarks: True
