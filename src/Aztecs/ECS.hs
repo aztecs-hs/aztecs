@@ -2,16 +2,23 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Aztecs.ECS where
 
+import Control.Monad.Primitive
+import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Data.Bits
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
-import Data.SparseSet.Strict (SparseSet)
-import qualified Data.SparseSet.Strict as S
+import Data.Maybe
+import Data.SparseSet (SparseSet)
+import qualified Data.SparseSet as S
+import Data.SparseSet.Mutable (MSparseSet)
+import qualified Data.SparseSet.Mutable as MS
 import Data.Word
 import Prelude hiding (lookup)
 
@@ -60,14 +67,21 @@ instance (Monad m) => MonadEntities (EntitiesT m) where
       let go (i, g) = Just $ mkEntity (fromIntegral i) g
       return . map go $ IntMap.toList gens
 
+instance (PrimMonad m) => PrimMonad (EntitiesT m) where
+  type PrimState (EntitiesT m) = PrimState m
+  primitive = EntitiesT . lift . primitive
+  {-# INLINE primitive #-}
+
 runEntitiesT :: (Monad m) => EntitiesT m a -> EntityCounter -> m (a, EntityCounter)
 runEntitiesT (EntitiesT m) = runStateT m
 {-# INLINE runEntitiesT #-}
 
+class (Monad m) => MonadQuery c m | m -> c where
+  query :: Query m c
+
 class (Monad m) => MonadAccess c m | m -> c where
   insert :: Entity -> c -> m ()
   lookup :: Entity -> m (Maybe c)
-  query :: Query m c
 
 newtype AccessT c m a = AccessT {unAccessT :: StateT (SparseSet Word32 c) m a}
   deriving (Functor, Applicative, Monad, MonadTrans, MonadIO)
@@ -77,22 +91,31 @@ instance {-# OVERLAPPING #-} (Monad m) => MonadAccess c (AccessT c m) where
   lookup e = AccessT $ do
     s <- get
     return $ S.lookup s (entityIndex e)
-  query = Query . AccessT $ S.toList <$> get
 
 instance (MonadAccess c2 m) => MonadAccess c2 (AccessT c m) where
   insert e = lift . insert e
   lookup = lift . lookup
-  query = Query . lift $ runQuery query
+
+instance {-# OVERLAPPING #-} (Monad m) => MonadQuery c (AccessT c m) where
+  query = Query . AccessT $ S.toList <$> get
+
+instance (MonadQuery c2 m) => MonadQuery c2 (AccessT c m) where
+  query = Query . lift $ unQuery query
 
 instance (MonadEntities m) => MonadEntities (AccessT c m) where
   spawn = lift spawn
-  entities = Query . lift $ runQuery entities
+  entities = Query . lift $ unQuery entities
+
+instance (PrimMonad m) => PrimMonad (AccessT c m) where
+  type PrimState (AccessT c m) = PrimState m
+  primitive = lift . primitive
+  {-# INLINE primitive #-}
 
 runAccessT :: (Monad m) => AccessT c m a -> SparseSet Word32 c -> m (a, SparseSet Word32 c)
 runAccessT (AccessT m) = runStateT m
 {-# INLINE runAccessT #-}
 
-newtype Query m a = Query {runQuery :: m [Maybe a]}
+newtype Query m a = Query {unQuery :: m [Maybe a]}
   deriving (Functor)
 
 instance (Monad m) => Applicative (Query m) where
@@ -100,3 +123,48 @@ instance (Monad m) => Applicative (Query m) where
   Query f <*> Query x = Query $ do
     fs <- f
     zipWith (<*>) fs <$> x
+
+runQuery :: (Monad m) => Query m a -> m [a]
+runQuery (Query q) = catMaybes <$> q
+
+data ComponentRef s c = ComponentRef
+  { componentRefIndex :: Word32,
+    componentRefSparseSet :: MSparseSet s Word32 c,
+    unComponentRef :: c
+  }
+
+readComponentRef :: (PrimMonad m) => ComponentRef (PrimState m) c -> m c
+readComponentRef r = do
+  res <- MS.read (componentRefSparseSet r) (fromIntegral $ componentRefIndex r)
+  case res of
+    Just c -> return c
+    Nothing -> error "readComponentRef: impossible"
+
+writeComponentRef :: (PrimMonad m) => ComponentRef (PrimState m) c -> c -> m ()
+writeComponentRef r = MS.write (componentRefSparseSet r) (fromIntegral $ componentRefIndex r)
+
+newtype SystemT s c m a = System {unSystem :: ReaderT (MSparseSet s Word32 c) m a}
+  deriving (Functor, Applicative, Monad, MonadTrans, MonadIO)
+
+instance (MonadEntities m) => MonadEntities (SystemT s c m) where
+  spawn = lift spawn
+  entities = Query . lift $ unQuery entities
+
+instance {-# OVERLAPPING #-} (PrimMonad m, s ~ PrimState m) => MonadQuery (ComponentRef s c) (SystemT s c m) where
+  query = Query . System $ do
+    s <- ask
+    as <- MS.toList s
+    let go (i, c) = ComponentRef i s c
+    return $ fmap (fmap go) as
+
+instance (MonadQuery c2 m) => MonadQuery c2 (SystemT s c m) where
+  query = Query . lift $ unQuery query
+
+instance (PrimMonad m, PrimState m ~ s) => PrimMonad (SystemT s c m) where
+  type PrimState (SystemT s c m) = PrimState m
+  primitive = lift . primitive
+  {-# INLINE primitive #-}
+
+runSystemT :: (PrimMonad m) => SystemT (PrimState m) c m a -> MSparseSet (PrimState m) Word32 c -> m a
+runSystemT (System m) = runReaderT m
+{-# INLINE runSystemT #-}

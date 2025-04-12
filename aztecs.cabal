@@ -33,6 +33,7 @@ library
         containers >=0.6,
         deepseq >=1,
         mtl >=2,
+        primitive >=0.6,
         sparse-set,
         stm >=2
 
