@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -5,7 +6,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE BangPatterns #-}
 
 module Aztecs.ECS where
 
@@ -99,9 +99,11 @@ instance (MonadAccess c2 m) => MonadAccess c2 (AccessT c m) where
 
 instance {-# OVERLAPPING #-} (Monad m) => MonadQuery c (AccessT c m) where
   query = Query . AccessT $ S.toList <$> get
+  {-# INLINE query #-}
 
 instance (MonadQuery c2 m) => MonadQuery c2 (AccessT c m) where
   query = Query . lift $ unQuery query
+  {-# INLINE query #-}
 
 instance (MonadEntities m) => MonadEntities (AccessT c m) where
   spawn = lift spawn
@@ -121,17 +123,20 @@ newtype Query m a = Query {unQuery :: m [Maybe a]}
 
 instance (Monad m) => Applicative (Query m) where
   pure x = Query $ return [Just x]
+  {-# INLINE pure #-}
   Query f <*> Query x = Query $ do
     fs <- f
     zipWith (<*>) fs <$> x
+  {-# INLINE (<*>) #-}
 
 runQuery :: (Monad m) => Query m a -> m [a]
 runQuery (Query q) = catMaybes <$> q
+{-# INLINE runQuery #-}
 
 data ComponentRef s c = ComponentRef
-  { componentRefIndex :: Word32,
-    componentRefSparseSet :: MSparseSet s Word32 c,
-    unComponentRef :: c
+  { componentRefIndex :: {-# UNPACK #-} !Word32,
+    componentRefSparseSet :: {-# UNPACK #-} !(MSparseSet s Word32 c),
+    unComponentRef :: !c
   }
 
 readComponentRef :: (PrimMonad m) => ComponentRef (PrimState m) c -> m c
@@ -140,16 +145,20 @@ readComponentRef r = do
   case res of
     Just c -> return c
     Nothing -> error "readComponentRef: impossible"
+{-# INLINE readComponentRef #-}
 
 writeComponentRef :: (PrimMonad m) => ComponentRef (PrimState m) c -> c -> m ()
 writeComponentRef r = MS.write (componentRefSparseSet r) (fromIntegral $ componentRefIndex r)
+{-# INLINE writeComponentRef #-}
 
 newtype SystemT s c m a = System {unSystem :: ReaderT (MSparseSet s Word32 c) m a}
   deriving (Functor, Applicative, Monad, MonadTrans, MonadIO)
 
 instance (MonadEntities m) => MonadEntities (SystemT s c m) where
   spawn = lift spawn
+  {-# INLINE spawn #-}
   entities = Query . lift $ unQuery entities
+  {-# INLINE entities #-}
 
 instance {-# OVERLAPPING #-} (PrimMonad m, s ~ PrimState m) => MonadQuery (ComponentRef s c) (SystemT s c m) where
   query = Query . System $ do
@@ -157,9 +166,11 @@ instance {-# OVERLAPPING #-} (PrimMonad m, s ~ PrimState m) => MonadQuery (Compo
     !as <- MS.toList s
     let go (i, c) = ComponentRef i s c
     return $ fmap (fmap go) as
+  {-# INLINE query #-}
 
 instance (MonadQuery c2 m) => MonadQuery c2 (SystemT s c m) where
   query = Query . lift $ unQuery query
+  {-# INLINE query #-}
 
 instance (PrimMonad m, PrimState m ~ s) => PrimMonad (SystemT s c m) where
   type PrimState (SystemT s c m) = PrimState m

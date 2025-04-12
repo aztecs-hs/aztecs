@@ -33,12 +33,7 @@ move ::
   ) =>
   m ()
 move = do
-  q <-
-    runQuery $
-      (,,)
-        <$> entities
-        <*> query
-        <*> query
+  q <- runQuery $ (,,) <$> entities <*> query <*> query
   mapM_ go q
   where
     go (e, pRef, vRef) = do
