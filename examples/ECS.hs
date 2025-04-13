@@ -38,10 +38,7 @@ move = do
   where
     go (e, pRef, vRef) = do
       Velocity v <- readComponentRef vRef
-      Position p <- readComponentRef pRef
-      writeComponentRef pRef (Position $ p + v)
-
-      p' <- readComponentRef pRef
+      p' <- modifyComponentRef (\(Position p) -> Position $ p + v) pRef
       liftIO $ print (e, p')
 
 main :: IO ()

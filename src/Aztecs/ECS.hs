@@ -151,6 +151,17 @@ writeComponentRef :: (PrimMonad m) => ComponentRef (PrimState m) c -> c -> m ()
 writeComponentRef r = MS.write (componentRefSparseSet r) (fromIntegral $ componentRefIndex r)
 {-# INLINE writeComponentRef #-}
 
+modifyComponentRef :: (PrimMonad m) => (c -> c) -> ComponentRef (PrimState m) c -> m c
+modifyComponentRef f r = do
+  res <- MS.read (componentRefSparseSet r) (fromIntegral $ componentRefIndex r)
+  case res of
+    Just c -> do
+      let c' = f c
+      MS.write (componentRefSparseSet r) (fromIntegral $ componentRefIndex r) c'
+      return c'
+    Nothing -> error "modifyComponentRef: impossible"
+{-# INLINE modifyComponentRef #-}
+
 newtype SystemT s c m a = System {unSystem :: ReaderT (MSparseSet s Word32 c) m a}
   deriving (Functor, Applicative, Monad, MonadTrans, MonadIO)
 

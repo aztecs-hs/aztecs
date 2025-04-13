@@ -33,8 +33,7 @@ move = do
   where
     go (pRef, vRef) = do
       Velocity v <- readComponentRef vRef
-      Position p <- readComponentRef pRef
-      writeComponentRef pRef (Position $ p + v)
+      void $ modifyComponentRef (\(Position p) -> Position $ p + v) pRef
 
 setup ::
   ( MonadEntities m,
