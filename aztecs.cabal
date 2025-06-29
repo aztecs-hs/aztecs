@@ -24,7 +24,15 @@ source-repository head
     location: https://github.com/aztecs-hs/aztecs.git
 
 library
-    exposed-modules:  Aztecs.ECS
+    exposed-modules:
+        Aztecs.ECS
+        Aztecs.ECS.Access
+        Aztecs.ECS.Access.Class
+        Aztecs.ECS.Entities
+        Aztecs.ECS.Entities.Class
+        Aztecs.ECS.Query
+        Aztecs.ECS.System
+        Aztecs.ECS.System.Class
     hs-source-dirs:   src
     default-language: Haskell2010
     ghc-options:      -Wall

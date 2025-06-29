@@ -21,8 +21,8 @@ newtype Position = Position Int deriving (Generic, NFData)
 newtype Velocity = Velocity Int
 
 move ::
-  ( MonadQuery (ComponentRef (PrimState m) Position) m,
-    MonadQuery (ComponentRef (PrimState m) Velocity) m,
+  ( MonadSystem (ComponentRef (PrimState m) Position) m,
+    MonadSystem (ComponentRef (PrimState m) Velocity) m,
     PrimMonad m
   ) =>
   m ()

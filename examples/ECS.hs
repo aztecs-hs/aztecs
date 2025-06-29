@@ -3,7 +3,11 @@
 module Main where
 
 import Aztecs.ECS
-import qualified Aztecs.ECS as ECS
+import Aztecs.ECS.Access
+import qualified Aztecs.ECS.Access as A
+import Aztecs.ECS.Entities
+import Aztecs.ECS.Query
+import Aztecs.ECS.System
 import Control.Monad.IO.Class
 import qualified Data.SparseSet as S
 import Data.SparseSet.Mutable (PrimMonad (..))
@@ -15,19 +19,18 @@ newtype Velocity = Velocity Int deriving (Show)
 setup ::
   ( MonadEntities m,
     MonadAccess Position m,
-    MonadAccess Velocity m,
-    MonadIO m
+    MonadAccess Velocity m
   ) =>
   m ()
 setup = do
   e <- spawn
-  ECS.insert e $ Position 0
-  ECS.insert e $ Velocity 1
+  A.insert e $ Position 0
+  A.insert e $ Velocity 1
 
 move ::
   ( MonadEntities m,
-    MonadQuery (ComponentRef (PrimState m) Position) m,
-    MonadQuery (ComponentRef (PrimState m) Velocity) m,
+    MonadSystem (ComponentRef (PrimState m) Position) m,
+    MonadSystem (ComponentRef (PrimState m) Velocity) m,
     MonadIO m,
     PrimMonad m
   ) =>
