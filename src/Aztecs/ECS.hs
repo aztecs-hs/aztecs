@@ -16,10 +16,10 @@ import Data.Bits
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
 import Data.Maybe
-import Data.SparseSet (SparseSet)
-import qualified Data.SparseSet as S
-import Data.SparseSet.Mutable (MSparseSet)
-import qualified Data.SparseSet.Mutable as MS
+import Data.SparseSet.Strict (SparseSet)
+import qualified Data.SparseSet.Strict as S
+import Data.SparseSet.Strict.Mutable (MSparseSet)
+import qualified Data.SparseSet.Strict.Mutable as MS
 import Data.Word
 import Prelude hiding (lookup)
 
@@ -141,15 +141,19 @@ data ComponentRef s c = ComponentRef
 
 readComponentRef :: (PrimMonad m) => ComponentRef (PrimState m) c -> m c
 readComponentRef r = do
-  res <- MS.read (componentRefSparseSet r) (fromIntegral $ componentRefIndex r)
+  res <- MS.unsafeRead (componentRefSparseSet r) (fromIntegral $ componentRefIndex r)
   case res of
     Just c -> return c
     Nothing -> error "readComponentRef: impossible"
 {-# INLINE readComponentRef #-}
 
 writeComponentRef :: (PrimMonad m) => ComponentRef (PrimState m) c -> c -> m ()
-writeComponentRef r = MS.write (componentRefSparseSet r) (fromIntegral $ componentRefIndex r)
+writeComponentRef r = MS.unsafeWrite (componentRefSparseSet r) (fromIntegral $ componentRefIndex r)
 {-# INLINE writeComponentRef #-}
+
+modifyComponentRef :: (PrimMonad m) => ComponentRef (PrimState m) c -> (c -> c) -> m ()
+modifyComponentRef r f = MS.unsafeModify (componentRefSparseSet r) (fromIntegral $ componentRefIndex r) f
+{-# INLINE modifyComponentRef #-}
 
 newtype SystemT s c m a = System {unSystem :: ReaderT (MSparseSet s Word32 c) m a}
   deriving (Functor, Applicative, Monad, MonadTrans, MonadIO)

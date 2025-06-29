@@ -1,2 +1,6 @@
+packages:
+    ../sparse-vector
+    ../sparse-set
+
 tests: True
 benchmarks: True

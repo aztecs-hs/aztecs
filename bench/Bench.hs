@@ -13,7 +13,7 @@ import Control.Monad
 import Control.Monad.Primitive
 import Control.Monad.ST
 import Criterion.Main
-import qualified Data.SparseSet as S
+import qualified Data.SparseSet.Strict as S
 import GHC.Generics
 
 newtype Position = Position Int deriving (Generic, NFData)
@@ -21,8 +21,7 @@ newtype Position = Position Int deriving (Generic, NFData)
 newtype Velocity = Velocity Int
 
 move ::
-  ( MonadEntities m,
-    MonadQuery (ComponentRef (PrimState m) Position) m,
+  ( MonadQuery (ComponentRef (PrimState m) Position) m,
     MonadQuery (ComponentRef (PrimState m) Velocity) m,
     PrimMonad m
   ) =>
@@ -33,15 +32,12 @@ move = do
   where
     go (pRef, vRef) = do
       Velocity v <- readComponentRef vRef
-      Position p <- readComponentRef pRef
-      writeComponentRef pRef (Position $ p + v)
+      modifyComponentRef pRef $ \(Position p) -> Position (p + v)
 
 setup ::
   ( MonadEntities m,
     MonadAccess Position m,
-    MonadAccess Velocity m,
-    MonadQuery Position m,
-    MonadQuery Velocity m
+    MonadAccess Velocity m
   ) =>
   m ()
 setup = replicateM_ 10000 $ do
@@ -51,10 +47,10 @@ setup = replicateM_ 10000 $ do
 
 main :: IO ()
 main = do
-  (((_, p), v), es) <- runEntitiesT (runAccessT (runAccessT setup S.empty) S.empty) emptyEntityCounter
+  (((_, p), v), _) <- runEntitiesT (runAccessT (runAccessT setup S.empty) S.empty) emptyEntityCounter
   let run ps vs = runST $ do
-        !ps' <- S.thaw ps
-        !vs' <- S.thaw vs
-        _ <- runEntitiesT (runSystemT (runSystemT move ps') vs') es
-        S.freeze ps'
-  defaultMain [bench "iter" $ nf (run p) v]
+        !ps' <- S.unsafeThaw ps
+        !vs' <- S.unsafeThaw vs
+        _ <- runSystemT (runSystemT move ps') vs'
+        S.unsafeFreeze ps'
+  defaultMain [bench "iter" $ whnf (run p) v]
