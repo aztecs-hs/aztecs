@@ -38,8 +38,8 @@ setup = do
 
 move ::
   ( MonadEntities m,
-    MonadSystem (ComponentRef (PrimState m) Position) m,
-    MonadSystem (ComponentRef (PrimState m) Velocity) m,
+    MonadSystem (W (PrimState m) Position) m,
+    MonadSystem (W (PrimState m) Velocity) m,
     MonadIO m,
     PrimMonad m
   ) =>
@@ -49,16 +49,16 @@ move = do
   mapM_ go q
   where
     go (e, pRef, vRef) = do
-      Velocity v <- readComponentRef vRef
-      Position p <- readComponentRef pRef
-      writeComponentRef pRef (Position $ p + v)
+      Velocity v <- readW vRef
+      Position p <- readW pRef
+      writeW pRef (Position $ p + v)
 
-      p' <- readComponentRef pRef
+      p' <- readW pRef
       liftIO $ print (e, p')
 
 main :: IO ()
 main = do
-  (((_, ps), vs), es) <- runEntitiesT (runAccessT (runAccessT setup S.empty) S.empty) emptyEntityCounter
+  (((_, ps), vs), es) <- runEntitiesT (runAccessT (runAccessT setup S.empty) S.empty) emptyEntities
   vs' <- S.thaw vs
   ps' <- S.thaw ps
   _ <- runEntitiesT (runSystemT (runSystemT move vs') ps') es

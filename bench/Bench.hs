@@ -7,7 +7,6 @@
 {-# LANGUAGE TypeApplications #-}
 
 import Aztecs.ECS
-import qualified Aztecs.ECS as ECS
 import Control.DeepSeq
 import Control.Monad
 import Control.Monad.Primitive
@@ -15,14 +14,19 @@ import Control.Monad.ST
 import Criterion.Main
 import qualified Data.SparseSet.Strict as S
 import GHC.Generics
+import Aztecs.ECS.System
+import Aztecs.ECS.Access
+import Aztecs.ECS.Entities
+import Aztecs.ECS.Query
+import qualified Aztecs.ECS.Access as A
 
 newtype Position = Position Int deriving (Generic, NFData)
 
 newtype Velocity = Velocity Int
 
 move ::
-  ( MonadSystem (ComponentRef (PrimState m) Position) m,
-    MonadSystem (ComponentRef (PrimState m) Velocity) m,
+  ( MonadSystem (W (PrimState m) Position) m,
+    MonadSystem (W (PrimState m) Velocity) m,
     PrimMonad m
   ) =>
   m ()
@@ -31,8 +35,8 @@ move = do
   mapM_ go q
   where
     go (pRef, vRef) = do
-      Velocity v <- readComponentRef vRef
-      modifyComponentRef pRef $ \(Position p) -> Position (p + v)
+      Velocity v <- readW vRef
+      modifyW pRef $ \(Position p) -> Position (p + v)
 
 setup ::
   ( MonadEntities m,
@@ -42,12 +46,12 @@ setup ::
   m ()
 setup = replicateM_ 10000 $ do
   e <- spawn
-  ECS.insert e $ Position 0
-  ECS.insert e $ Velocity 1
+  A.insert e $ Position 0
+  A.insert e $ Velocity 1
 
 main :: IO ()
 main = do
-  (((_, p), v), _) <- runEntitiesT (runAccessT (runAccessT setup S.empty) S.empty) emptyEntityCounter
+  (((_, p), v), _) <- runEntitiesT (runAccessT (runAccessT setup S.empty) S.empty) emptyEntities
   let run ps vs = runST $ do
         !ps' <- S.unsafeThaw ps
         !vs' <- S.unsafeThaw vs
