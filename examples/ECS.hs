@@ -19,6 +19,16 @@ main = do
   (e, w') <- W.spawn (42 :: Int) w
   w'' <- W.insert e (True :: Bool) w'
   print e
-  let q = W.query @_ @_ @_ @(Q '[Entity, R Int, R Bool]) w''
+  let q = W.query @_ @_ @(Q '[Entity, R Int, R Bool]) w''
   x <- runQuery q
   print x
+
+  w''' <- W.removeComponent @_ @_ @Int e w''
+  let q' = W.query @_ @_ @(Q '[Entity, R Bool]) w'''
+  x' <- runQuery q'
+  print ("After removing Int component:", x')
+
+  w'''' <- W.remove e w'''
+  let q'' = W.query @_ @_ @(Q '[Entity, R Bool]) w''''
+  x'' <- runQuery q''
+  print ("After removing entity:", x'')
