@@ -21,48 +21,26 @@ providing patterns for data-oriented design and parallel processing.
 - Modular design: Aztecs can be extended for a variety of use cases
 
 ```hs
-newtype Position = Position Int deriving (Show)
+import Aztecs.ECS
+import qualified Aztecs.ECS.World as W
 
-newtype Velocity = Velocity Int deriving (Show)
+newtype Position = Position Int
 
-setup ::
-  ( MonadEntities m,
-    MonadAccess Position m,
-    MonadAccess Velocity m
-  ) =>
-  m ()
-setup = do
-  e <- spawn
-  A.insert e $ Position 0
-  A.insert e $ Velocity 1
+newtype Velocity = Velocity Int
 
-move ::
-  ( MonadEntities m,
-    MonadSystem (W (PrimState m) Position) m,
-    MonadSystem (W (PrimState m) Velocity) m,
-    MonadIO m,
-    PrimMonad m
-  ) =>
-  m ()
-move = do
-  q <- runQuery $ (,,) <$> entities <*> query <*> query
-  mapM_ go q
+move :: (PrimMonad m) => Query m (R Position, W m Velocity) -> m ()
+move q = do
+  results <- runQuery q
+  mapM_ go results
   where
-    go (e, pRef, vRef) = do
-      Velocity v <- readW vRef
-      Position p <- readW pRef
-      writeW pRef (Position $ p + v)
-
-      p' <- readW pRef
-      liftIO $ print (e, p')
+    go (R (Position x), vRef) = modifyW vRef (\(Velocity v) -> Velocity (v + x))
 
 main :: IO ()
 main = do
-  (((_, ps), vs), es) <- runEntitiesT (runAccessT (runAccessT setup S.empty) S.empty) emptyEntities
-  vs' <- S.thaw vs
-  ps' <- S.thaw ps
-  _ <- runEntitiesT (runSystemT (runSystemT move vs') ps') es
-  return ()
+  w <- W.empty @_ @'[Position, Velocity]
+  (e, w') <- W.spawn (Position 0) w
+  w'' <- W.insert e (Velocity 1) w'
+  move (W.query w'')
 ```
 
 ## Inspiration
