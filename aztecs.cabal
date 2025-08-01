@@ -33,6 +33,7 @@ library
         Aztecs.ECS.R
         Aztecs.ECS.W
         Aztecs.ECS.World
+        Aztecs.ECS.System
     hs-source-dirs:   src
     default-language: Haskell2010
     ghc-options:      -Wall

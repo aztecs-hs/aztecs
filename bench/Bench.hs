@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -6,55 +7,37 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
-import Aztecs.ECS
+import Aztecs.ECS hiding (R)
+import qualified Aztecs.ECS as ECS
+import qualified Aztecs.ECS.World as W
 import Control.DeepSeq
 import Control.Monad
-import Control.Monad.Primitive
-import Control.Monad.ST
 import Criterion.Main
-import qualified Data.SparseSet.Strict as S
 import GHC.Generics
-import Aztecs.ECS.System
-import Aztecs.ECS.Access
-import Aztecs.ECS.Entities
-import Aztecs.ECS.Query
-import qualified Aztecs.ECS.Access as A
 
-newtype Position = Position Int deriving (Generic, NFData)
+newtype Position = Position Int deriving (Generic, NFData, Show)
 
-newtype Velocity = Velocity Int
+newtype Velocity = Velocity Int deriving (Generic, NFData, Show)
 
-move ::
-  ( MonadSystem (W (PrimState m) Position) m,
-    MonadSystem (W (PrimState m) Velocity) m,
-    PrimMonad m
-  ) =>
-  m ()
-move = do
-  q <- runQuery $ (,) <$> query <*> query
-  mapM_ go q
+move :: Query IO (W IO Position, ECS.R Velocity) -> IO ()
+move q = do
+  results <- runQuery q
+  mapM_ go results
   where
-    go (pRef, vRef) = do
-      Velocity v <- readW vRef
-      modifyW pRef $ \(Position p) -> Position (p + v)
+    go (posRef, ECS.R (Velocity v)) = do
+      Position oldPos <- readW posRef
+      writeW posRef (Position (oldPos + v))
 
-setup ::
-  ( MonadEntities m,
-    MonadAccess Position m,
-    MonadAccess Velocity m
-  ) =>
-  m ()
-setup = replicateM_ 10000 $ do
-  e <- spawn
-  A.insert e $ Position 0
-  A.insert e $ Velocity 1
+setup :: IO (W.World IO '[Position, Velocity])
+setup = do
+  w <- W.empty @_ @'[Position, Velocity]
+  foldM setupEntity w [1 :: Int .. 10000]
+  where
+    setupEntity w _ = do
+      (e, w') <- W.spawn (Position 0) w
+      W.insert e (Velocity 1) w'
 
 main :: IO ()
 main = do
-  (((_, p), v), _) <- runEntitiesT (runAccessT (runAccessT setup S.empty) S.empty) emptyEntities
-  let run ps vs = runST $ do
-        !ps' <- S.unsafeThaw ps
-        !vs' <- S.unsafeThaw vs
-        _ <- runSystemT (runSystemT move ps') vs'
-        S.unsafeFreeze ps'
-  defaultMain [bench "iter" $ whnf (run p) v]
+  !w <- setup
+  defaultMain [bench "iter" $ whnfIO (runSystem move w)]
