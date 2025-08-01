@@ -27,11 +27,13 @@ move q = do
     go (posRef, ECS.R (Velocity v)) = do
       Position oldPos <- readW posRef
       writeW posRef (Position (oldPos + v))
+    {-# INLINE go #-}
+{-# INLINE move #-}
 
 setup :: IO (W.World IO '[Position, Velocity])
 setup = do
   w <- W.empty @_ @'[Position, Velocity]
-  foldM setupEntity w [1 :: Int .. 10000]
+  foldM setupEntity w [0 :: Int .. 10000]
   where
     setupEntity w _ = do
       (e, w') <- W.spawn (Position 0) w

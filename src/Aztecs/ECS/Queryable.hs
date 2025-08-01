@@ -175,6 +175,7 @@ instance
         qa = queryable componentsA entitiesArg
         qb = queryable componentsB entitiesArg
      in (,) <$> qa <*> qb
+  {-# INLINE queryable #-}
 
 instance
   ( Queryable m a,

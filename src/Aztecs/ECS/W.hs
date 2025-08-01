@@ -41,3 +41,4 @@ instance (PrimMonad m, PrimState m ~ s, Functor m) => Queryable m (MkW s a) wher
     !as <- MS.toList s
     let go (i, _) = W i s
     return $ map (fmap go) as
+  {-# INLINE queryable #-}

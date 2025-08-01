@@ -122,3 +122,4 @@ query ::
   World m cs ->
   Query m a
 query w = queryable (subset @(AccessToComponents (QueryableAccess a)) (worldComponents w)) (worldEntities w)
+{-# INLINE query #-}

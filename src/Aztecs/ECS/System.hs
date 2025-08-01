@@ -48,6 +48,7 @@ class (PrimMonad m) => SystemInput m input where
 instance (PrimMonad m, Queryable m a) => SystemInput m (Query m a) where
   type SystemInputAccess (Query m a) = QueryableAccess a
   systemInput = query
+  {-# INLINE systemInput #-}
 
 instance (PrimMonad m) => SystemInput m () where
   type SystemInputAccess () = '[]
@@ -68,6 +69,7 @@ instance (PrimMonad m, SystemInput m input) => System m (input -> m ()) where
         ValidSystemInputAccess (SystemInputAccess input)
       )
   runSystem sys world = sys (systemInput world)
+  {-# INLINE runSystem #-}
 
 instance (PrimMonad m, SystemInput m input1, SystemInput m input2) => System m (input1 -> input2 -> m ()) where
   type
