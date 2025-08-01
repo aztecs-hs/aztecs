@@ -3,23 +3,26 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-import Aztecs.ECS hiding (R)
+import Aztecs.ECS
 import qualified Aztecs.ECS as ECS
 import qualified Aztecs.ECS.World as W
 import Control.DeepSeq
 import Control.Monad
 import Criterion.Main
-import GHC.Generics
+import GHC.Generics (Generic)
 
 newtype Position = Position Int deriving (Generic, NFData, Show)
 
 newtype Velocity = Velocity Int deriving (Generic, NFData, Show)
 
-move :: Query IO (W IO Position, ECS.R Velocity) -> IO ()
+move :: Query IO (W IO Position, R Velocity) -> IO ()
 move q = do
   results <- runQuery q
   mapM_ go results
@@ -29,6 +32,12 @@ move q = do
       writeW posRef (Position (oldPos + v))
     {-# INLINE go #-}
 {-# INLINE move #-}
+
+data MoveSystem = MoveSystem
+
+instance System IO MoveSystem where
+  type SystemInputs MoveSystem = Query IO (W IO Position, ECS.R Velocity)
+  runSystem MoveSystem q = move q
 
 setup :: IO (W.World IO '[Position, Velocity])
 setup = do
@@ -42,4 +51,4 @@ setup = do
 main :: IO ()
 main = do
   !w <- setup
-  defaultMain [bench "iter" $ whnfIO (runSystem move w)]
+  defaultMain [bench "iter" $ whnfIO (runSystemWithWorld MoveSystem w)]

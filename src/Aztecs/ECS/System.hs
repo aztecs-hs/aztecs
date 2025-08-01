@@ -14,12 +14,12 @@
 
 module Aztecs.ECS.System where
 
-import Aztecs.ECS.HSet (Subset)
-import Aztecs.ECS.Query (Query)
-import Aztecs.ECS.Queryable (AccessToComponents, Contains, If, Queryable, QueryableAccess, ValidAccess, WriteComponents, type (++))
-import Aztecs.ECS.World (World, query)
-import Control.Monad.Primitive (PrimMonad)
-import Data.Kind (Constraint, Type)
+import Aztecs.ECS.HSet
+import Aztecs.ECS.Query
+import Aztecs.ECS.Queryable
+import Aztecs.ECS.World
+import Control.Monad.Primitive
+import Data.Kind
 
 type family ValidSystemInputAccess (accesses :: [Type]) :: Constraint where
   ValidSystemInputAccess accesses =
@@ -37,60 +37,34 @@ type family HasDuplicateWrites (components :: [Type]) :: Bool where
     If (Contains c rest) 'True (HasDuplicateWrites rest)
 
 class (PrimMonad m) => SystemInput m input where
-  type SystemInputAccess input :: [Type]
+  type SystemAccess input :: [Type]
   systemInput ::
-    ( Subset (AccessToComponents (SystemInputAccess input)) cs,
-      ValidSystemInputAccess (SystemInputAccess input)
+    ( Subset (AccessToComponents (SystemAccess input)) cs,
+      ValidSystemInputAccess (SystemAccess input)
     ) =>
     World m cs ->
     input
 
 instance (PrimMonad m, Queryable m a) => SystemInput m (Query m a) where
-  type SystemInputAccess (Query m a) = QueryableAccess a
+  type SystemAccess (Query m a) = QueryableAccess a
   systemInput = query
   {-# INLINE systemInput #-}
 
 instance (PrimMonad m) => SystemInput m () where
-  type SystemInputAccess () = '[]
+  type SystemAccess () = '[]
   systemInput _ = ()
 
 class (PrimMonad m) => System m sys where
-  type SystemConstraints sys (cs :: [Type]) :: Constraint
-  runSystem :: (SystemConstraints sys cs) => sys -> World m cs -> m ()
+  type SystemInputs sys
+  runSystem :: sys -> SystemInputs sys -> m ()
 
-instance (PrimMonad m) => System m (m ()) where
-  type SystemConstraints (m ()) cs = ()
-  runSystem action _ = action
-
-instance (PrimMonad m, SystemInput m input) => System m (input -> m ()) where
-  type
-    SystemConstraints (input -> m ()) cs =
-      ( Subset (AccessToComponents (SystemInputAccess input)) cs,
-        ValidSystemInputAccess (SystemInputAccess input)
-      )
-  runSystem sys world = sys (systemInput world)
-  {-# INLINE runSystem #-}
-
-instance (PrimMonad m, SystemInput m input1, SystemInput m input2) => System m (input1 -> input2 -> m ()) where
-  type
-    SystemConstraints (input1 -> input2 -> m ()) cs =
-      ( Subset (AccessToComponents (SystemInputAccess input1)) cs,
-        Subset (AccessToComponents (SystemInputAccess input2)) cs,
-        ValidSystemInputAccess (SystemInputAccess input1),
-        ValidSystemInputAccess (SystemInputAccess input2),
-        NoOverlappingSystemWrites (SystemInputAccess input1 ++ SystemInputAccess input2)
-      )
-  runSystem sys world = sys (systemInput world) (systemInput world)
-
-instance (PrimMonad m, SystemInput m input1, SystemInput m input2, SystemInput m input3) => System m (input1 -> input2 -> input3 -> m ()) where
-  type
-    SystemConstraints (input1 -> input2 -> input3 -> m ()) cs =
-      ( Subset (AccessToComponents (SystemInputAccess input1)) cs,
-        Subset (AccessToComponents (SystemInputAccess input2)) cs,
-        Subset (AccessToComponents (SystemInputAccess input3)) cs,
-        ValidSystemInputAccess (SystemInputAccess input1),
-        ValidSystemInputAccess (SystemInputAccess input2),
-        ValidSystemInputAccess (SystemInputAccess input3),
-        NoOverlappingSystemWrites (SystemInputAccess input1 ++ SystemInputAccess input2 ++ SystemInputAccess input3)
-      )
-  runSystem sys world = sys (systemInput world) (systemInput world) (systemInput world)
+runSystemWithWorld ::
+  ( System m sys,
+    SystemInput m (SystemInputs sys),
+    Subset (AccessToComponents (SystemAccess (SystemInputs sys))) cs,
+    ValidSystemInputAccess (SystemAccess (SystemInputs sys))
+  ) =>
+  sys ->
+  World m cs ->
+  m ()
+runSystemWithWorld sys world = runSystem sys (systemInput world)
