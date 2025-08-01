@@ -17,7 +17,8 @@ main :: IO ()
 main = do
   w <- W.empty @_ @'[Int, Bool]
   (e, w') <- W.spawn (42 :: Int) w
+  w'' <- W.insert e (True :: Bool) w'
   print e
-  let q = W.query @_ @_ @_ @(Q '[Entity, R Int]) w'
+  let q = W.query @_ @_ @_ @(Q '[Entity, R Int, R Bool]) w''
   x <- runQuery q
   print x

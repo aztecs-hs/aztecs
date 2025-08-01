@@ -46,5 +46,13 @@ spawn c w = do
   let world' = w {worldComponents = cs, worldEntities = counter}
   return (newEntity, world')
 
+insert :: (AdjustM m (MSparseSet (PrimState m) Word32) c cs, PrimMonad m) => Entity -> c -> World (PrimState m) cs -> m (World (PrimState m) cs)
+insert entity c w = do
+  let go s = do
+        s' <- S.freeze s
+        S.thaw $ S.insert (entityIndex entity) c s'
+  cs <- HS.adjustM go $ worldComponents w
+  return $ w {worldComponents = cs}
+
 query :: (QueryTo (Components s cs) m a) => World s cs -> Query m a
 query w = queryTo (worldComponents w) (worldEntities w)
