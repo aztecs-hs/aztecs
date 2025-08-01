@@ -22,7 +22,9 @@ import Aztecs.ECS.HSet
 import Aztecs.ECS.Query
 import Data.Kind
 import Data.Maybe
+import qualified Data.Set as Set
 import Data.SparseSet.Strict.Mutable (MSparseSet, PrimMonad (..))
+import qualified Data.SparseSet.Strict.Mutable as MS
 import Data.Word
 import GHC.Generics
 import Prelude hiding (Read)
@@ -35,11 +37,29 @@ type family ReadComponents (accesses :: [Type]) :: [Type] where
   ReadComponents '[] = '[]
   ReadComponents (Read a ': rest) = a ': ReadComponents rest
   ReadComponents (Write a ': rest) = ReadComponents rest
+  ReadComponents (With a ': rest) = ReadComponents rest
+  ReadComponents (Without a ': rest) = ReadComponents rest
 
 type family WriteComponents (accesses :: [Type]) :: [Type] where
   WriteComponents '[] = '[]
   WriteComponents (Read a ': rest) = WriteComponents rest
   WriteComponents (Write a ': rest) = a ': WriteComponents rest
+  WriteComponents (With a ': rest) = WriteComponents rest
+  WriteComponents (Without a ': rest) = WriteComponents rest
+
+type family WithComponents (accesses :: [Type]) :: [Type] where
+  WithComponents '[] = '[]
+  WithComponents (Read a ': rest) = WithComponents rest
+  WithComponents (Write a ': rest) = WithComponents rest
+  WithComponents (With a ': rest) = a ': WithComponents rest
+  WithComponents (Without a ': rest) = WithComponents rest
+
+type family WithoutComponents (accesses :: [Type]) :: [Type] where
+  WithoutComponents '[] = '[]
+  WithoutComponents (Read a ': rest) = WithoutComponents rest
+  WithoutComponents (Write a ': rest) = WithoutComponents rest
+  WithoutComponents (With a ': rest) = WithoutComponents rest
+  WithoutComponents (Without a ': rest) = a ': WithoutComponents rest
 
 type family Contains (a :: Type) (list :: [Type]) :: Bool where
   Contains a '[] = 'False
@@ -81,9 +101,47 @@ data Read (a :: Type)
 
 data Write (a :: Type)
 
+data With (a :: Type) = With
+
+data Without (a :: Type) = Without
+
+instance (PrimMonad m, Functor m) => Queryable m (With a) where
+  type QueryableAccess (With a) = '[Aztecs.ECS.Queryable.With a]
+  queryable (HCons s HEmpty) entitiesArg = Query $ do
+    withComponent <- MS.toList s
+    let withComponentIndices = Set.fromList $ map fst $ catMaybes withComponent
+        allEntities = entities entitiesArg
+        result =
+          map
+            ( \e ->
+                if Set.member (entityIndex e) withComponentIndices
+                  then Just (With)
+                  else Nothing
+            )
+            allEntities
+    return result
+
+instance (PrimMonad m, Functor m) => Queryable m (Without a) where
+  type QueryableAccess (Without a) = '[Aztecs.ECS.Queryable.Without a]
+  queryable (HCons s HEmpty) entitiesArg = Query $ do
+    withComponent <- MS.toList s
+    let withComponentIndices = Set.fromList $ map fst $ catMaybes withComponent
+        allEntities = entities entitiesArg
+        result =
+          map
+            ( \e ->
+                if Set.member (entityIndex e) withComponentIndices
+                  then Nothing
+                  else Just (Without)
+            )
+            allEntities
+    return result
+
 type family AccessComponent (access :: Type) :: Type where
   AccessComponent (Read a) = a
   AccessComponent (Write a) = a
+  AccessComponent (With a) = a
+  AccessComponent (Without a) = a
 
 type family AccessToComponents (accesses :: [Type]) :: [Type] where
   AccessToComponents '[] = '[]
@@ -93,7 +151,6 @@ type Components s = HSet (ComponentStorage s)
 
 type ComponentStorage s = MSparseSet s Word32
 
--- Generic derivation support for Queryable
 type family GenericQueryableAccess (f :: Type -> Type) :: [Type] where
   GenericQueryableAccess (M1 _ _ f) = GenericQueryableAccess f
   GenericQueryableAccess (f :*: g) = GenericQueryableAccess f ++ GenericQueryableAccess g
@@ -175,7 +232,6 @@ instance
         qa = queryable componentsA entitiesArg
         qb = queryable componentsB entitiesArg
      in (,) <$> qa <*> qb
-  {-# INLINE queryable #-}
 
 instance
   ( Queryable m a,
