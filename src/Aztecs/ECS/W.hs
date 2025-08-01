@@ -8,7 +8,8 @@
 module Aztecs.ECS.W where
 
 import Aztecs.ECS.HSet
-import Aztecs.ECS.Query
+import Aztecs.ECS.Query (Query (..))
+import Aztecs.ECS.Queryable
 import Control.Monad.Primitive
 import Data.SparseSet.Strict.Mutable (MSparseSet)
 import qualified Data.SparseSet.Strict.Mutable as MS
@@ -32,9 +33,9 @@ modifyW :: (PrimMonad m) => W (PrimState m) c -> (c -> c) -> m ()
 modifyW r f = MS.unsafeModify (wSparseSet r) (fromIntegral $ wIndex r) f
 {-# INLINE modifyW #-}
 
-instance (PrimMonad m, PrimState m ~ s) => QueryItem s m (W s a) where
-  type QueryItemAccess (W s a) = '[Write a]
+instance (PrimMonad m, PrimState m ~ s, Functor m) => Queryable m (W s a) where
+  type QueryableAccess (W s a) = '[Write a]
   queryable (HCons s HEmpty) _ = Query $ do
     !as <- MS.toList s
     let go (i, _) = W i s
-    return $ fmap (fmap go) as
+    return $ map (fmap go) as

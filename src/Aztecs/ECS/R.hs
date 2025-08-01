@@ -9,7 +9,8 @@
 module Aztecs.ECS.R where
 
 import Aztecs.ECS.HSet
-import Aztecs.ECS.Query
+import Aztecs.ECS.Query (Query (..))
+import Aztecs.ECS.Queryable
 import Control.Monad.Primitive
 import qualified Data.SparseSet.Strict.Mutable as MS
 import Prelude hiding (Read, lookup)
@@ -17,9 +18,9 @@ import Prelude hiding (Read, lookup)
 newtype R a = R {unR :: a}
   deriving (Show, Eq, Functor)
 
-instance (PrimMonad m, PrimState m ~ s) => QueryItem s m (R a) where
-  type QueryItemAccess (R a) = '[Read a]
+instance (PrimMonad m, Functor m) => Queryable m (R a) where
+  type QueryableAccess (R a) = '[Read a]
   queryable (HCons s HEmpty) _ = Query $ do
     !as <- MS.toList s
     let go (_, c) = R c
-    return $ fmap (fmap go) as
+    return $ map (fmap go) as

@@ -29,12 +29,14 @@ import Aztecs.ECS.Entities
 import Aztecs.ECS.HSet hiding (empty)
 import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
+import Aztecs.ECS.Queryable
 import Control.Monad
 import Control.Monad.Primitive
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import Data.Proxy
 import qualified Data.SparseSet.Strict as S
 import Data.SparseSet.Strict.Mutable (MSparseSet)
 import Data.Typeable
@@ -114,5 +116,9 @@ remove entity w = do
       let entityComponents' = IntMap.delete entityIdx (worldEntityComponents w)
       return $ w {worldComponents = cs', worldEntityComponents = entityComponents'}
 
-query :: (QueryTo (Components (PrimState m) cs) m a, PrimMonad m) => World m cs -> Query m a
-query w = queryTo (worldComponents w) (worldEntities w)
+query ::
+  forall m a cs.
+  (Queryable m a, Subset (AccessToComponents (QueryableAccess a)) cs) =>
+  World m cs ->
+  Query m a
+query w = queryable (subset @(AccessToComponents (QueryableAccess a)) (worldComponents w)) (worldEntities w)
