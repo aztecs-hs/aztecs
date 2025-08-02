@@ -9,8 +9,6 @@ A modular game engine and [ECS](https://en.wikipedia.org/wiki/Entity_component_s
 An ECS is a modern approach to organizing your application state as a database,
 providing patterns for data-oriented design and parallel processing.
 
-[Aztecs: An Empirical Entity Component System (ECS) for Haskell](https://github.com/aztecs-hs/paper) [Draft]
-
 [Examples](https://github.com/aztecs-hs/examples)
 
 ## Features
@@ -55,5 +53,4 @@ main = do
 
 ## Inspiration
 
-Aztecs' approach to type-safety is inspired by [Bevy](https://github.com/bevyengine/bevy/),
-but with direct archetype-based storage similar to [Flecs](https://github.com/SanderMertens/flecs).
+Aztecs' approach to ECS is inspired by [Bevy](https://github.com/bevyengine/bevy/) and [Flecs](https://github.com/SanderMertens/flecs).
