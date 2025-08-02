@@ -32,8 +32,8 @@ library
         Aztecs.ECS.Query
         Aztecs.ECS.Queryable
         Aztecs.ECS.Queryable.Internal
-        Aztecs.ECS.R
-        Aztecs.ECS.W
+        Aztecs.ECS.Queryable.R
+        Aztecs.ECS.Queryable.W
         Aztecs.ECS.World
         Aztecs.ECS.System
 

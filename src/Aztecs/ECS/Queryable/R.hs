@@ -6,7 +6,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Aztecs.ECS.R where
+module Aztecs.ECS.Queryable.R where
 
 import Aztecs.ECS.HSet
 import Aztecs.ECS.Query (Query (..))

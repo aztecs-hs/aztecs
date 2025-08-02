@@ -9,7 +9,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Aztecs.ECS.W where
+module Aztecs.ECS.Queryable.W where
 
 import Aztecs.ECS.HSet
 import Aztecs.ECS.Query (Query (..))

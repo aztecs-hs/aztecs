@@ -3,8 +3,8 @@ module Aztecs.ECS
     module Aztecs.ECS.Entities,
     module Aztecs.ECS.Query,
     module Aztecs.ECS.Queryable,
-    module Aztecs.ECS.R,
-    module Aztecs.ECS.W,
+    module Aztecs.ECS.Queryable.R,
+    module Aztecs.ECS.Queryable.W,
     module Aztecs.ECS.World,
     module Aztecs.ECS.System,
     PrimMonad (..),
@@ -15,8 +15,8 @@ import Aztecs.ECS.Access
 import Aztecs.ECS.Entities
 import Aztecs.ECS.Query
 import Aztecs.ECS.Queryable
-import Aztecs.ECS.R
-import Aztecs.ECS.W
+import Aztecs.ECS.Queryable.R
+import Aztecs.ECS.Queryable.W
 import Aztecs.ECS.World
 import Aztecs.ECS.System
 import Control.Monad.Primitive
