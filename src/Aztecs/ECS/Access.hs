@@ -97,7 +97,7 @@ type family Append (xs :: [Type]) (ys :: [Type]) :: [Type] where
   Append '[] ys = ys
   Append (x ': xs) ys = x ': Append xs ys
 
-instance (PrimMonad m, Queryable m a) => Access cs m (Query m a) where
+instance (PrimMonad m, Queryable cs m a) => Access cs m (Query m a) where
   type AccessType (Query m a) = QueryableAccess a
   access = query
   {-# INLINE access #-}

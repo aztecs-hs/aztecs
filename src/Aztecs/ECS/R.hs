@@ -19,10 +19,10 @@ import Prelude hiding (Read, lookup)
 newtype R a = R {unR :: a}
   deriving (Show, Eq, Functor)
 
-instance (PrimMonad m, Functor m) => Queryable m (R a) where
+instance (PrimMonad m, Lookup a cs) => Queryable cs m (R a) where
   type QueryableAccess (R a) = '[Read a]
-  queryable (HCons s HEmpty) _ = Query $ do
-    !as <- MS.toList s
+  queryable cs _ = Query $ do
+    !as <- MS.toList $ lookup cs
     let go (_, c) = R c
     return $ map (fmap go) as
   {-# INLINE queryable #-}

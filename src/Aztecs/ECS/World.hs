@@ -119,8 +119,8 @@ remove entity w = do
 
 query ::
   forall m a cs.
-  (Queryable m a, Subset (AccessToComponents (QueryableAccess a)) cs) =>
+  (Queryable cs m a, Subset (AccessToComponents (QueryableAccess a)) cs) =>
   World m cs ->
   Query m a
-query w = queryable (subset @(AccessToComponents (QueryableAccess a)) (worldComponents w)) (worldEntities w)
+query w = queryable (worldComponents w) (worldEntities w)
 {-# INLINE query #-}
