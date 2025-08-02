@@ -11,7 +11,8 @@ module Aztecs.ECS
     module Aztecs.ECS.Queryable.W,
     PrimMonad (..),
     bundle,
-    Query(..),
+    Query (..),
+    System (..),
     ECS (..),
     AztecsT (..),
     runAztecsT_,
@@ -25,6 +26,7 @@ import Aztecs.ECS.Query
 import Aztecs.ECS.Queryable
 import Aztecs.ECS.Queryable.R
 import Aztecs.ECS.Queryable.W
+import Aztecs.ECS.System
 import Aztecs.ECS.World (World, bundle)
 import qualified Aztecs.ECS.World as W
 import Control.Monad.Primitive

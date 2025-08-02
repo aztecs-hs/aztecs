@@ -1,20 +1,15 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Main where
 
 import Aztecs.ECS
 import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.System (System (..))
 import qualified Aztecs.ECS.World as W
 import Control.Monad.IO.Class
-import Data.Kind
 
 newtype Position = Position Int
   deriving (Show, Eq)
@@ -22,17 +17,10 @@ newtype Position = Position Int
 newtype Velocity = Velocity Int
   deriving (Show, Eq)
 
-data MoveSystem (m :: Type -> Type) = MoveSystem
+data MoveSystem = MoveSystem
 
-instance
-  ( ECS m,
-    PrimMonad (Task m),
-    MonadIO (Task m),
-    t ~ (Task m)
-  ) =>
-  System t (MoveSystem m)
-  where
-  type SystemInputs (MoveSystem m) = Query (Task m) (W (Task m) Position, R Velocity)
+instance (PrimMonad m, MonadIO m) => System m MoveSystem where
+  type SystemInputs m MoveSystem = Query m (W m Position, R Velocity)
   runSystem MoveSystem q = do
     results <- Q.runQuery q
     mapM_ go results
@@ -50,4 +38,4 @@ main = do
   where
     go = do
       _ <- spawn (bundle (Position 0) <> bundle (Velocity 1))
-      runSystemWithWorld @(AztecsT '[Position, Velocity] IO) (MoveSystem @(AztecsT '[Position, Velocity] IO))
+      runSystemWithWorld MoveSystem

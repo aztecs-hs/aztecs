@@ -40,9 +40,9 @@ class ECS m where
 
   runSystemWithWorld ::
     ( System (Task m) sys,
-      Access (Components m) (Task m) (SystemInputs sys),
-      Subset (AccessToComponents (AccessType (SystemInputs sys))) (Components m),
-      ValidAccessInput (AccessType (SystemInputs sys)),
+      Access (Components m) (Task m) (SystemInputs (Task m) sys),
+      Subset (AccessToComponents (AccessType (SystemInputs (Task m) sys))) (Components m),
+      ValidAccessInput (AccessType (SystemInputs (Task m) sys)),
       Monad m
     ) =>
     sys ->
