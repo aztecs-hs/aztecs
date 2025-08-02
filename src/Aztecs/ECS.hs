@@ -50,21 +50,28 @@ instance (PrimMonad m) => ECS (AztecsT cs m) where
     (e, w') <- lift $ W.spawn b w
     put w'
     return e
+  {-# INLINE spawn #-}
   insert e b = AztecsT $ do
     w <- get
     w' <- lift $ W.insert e b w
     put w'
+  {-# INLINE insert #-}
   remove e = AztecsT $ do
     w <- get
     w' <- lift $ W.remove e w
     put w'
+  {-# INLINE remove #-}
   query = AztecsT $ do
     w <- get
     return $ W.query w
+  {-# INLINE query #-}
   task = AztecsT . lift
+  {-# INLINE task #-}
   access = AztecsT $ do
     w <- get
     return $ A.access w
+  {-# INLINE access #-}
 
 runAztecsT_ :: (Monad m) => AztecsT cs m a -> World m cs -> m a
 runAztecsT_ (AztecsT m) = evalStateT m
+{-# INLINE runAztecsT_ #-}

@@ -71,9 +71,9 @@ bundle c = Bundle $ \entity w -> do
   return w {worldComponents = cs, worldEntityComponents = entityComponents'}
 
 data World m cs = World
-  { worldComponents :: Components (PrimState m) cs,
-    worldEntities :: Entities,
-    worldEntityComponents :: IntMap (Map TypeRep (Components (PrimState m) cs -> m (Components (PrimState m) cs)))
+  { worldComponents :: !(Components (PrimState m) cs),
+    worldEntities :: {-# UNPACK #-} !Entities,
+    worldEntityComponents :: {-# UNPACK #-} !(IntMap (Map TypeRep (Components (PrimState m) cs -> m (Components (PrimState m) cs))))
   }
 
 empty :: (Monad m, Empty m (Components (PrimState m) cs)) => m (World m cs)

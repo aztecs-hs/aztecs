@@ -21,6 +21,7 @@ import Aztecs.ECS.World
 
 class System m sys where
   type SystemInputs m sys
+
   runSystem :: sys -> SystemInputs m sys -> m ()
 
 runSystemWithWorld ::

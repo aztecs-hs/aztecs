@@ -17,6 +17,7 @@ import Control.DeepSeq
 import Control.Monad
 import Criterion.Main
 import GHC.Generics (Generic)
+import Aztecs.ECS.Query
 
 newtype Position = Position Int deriving (Generic, NFData, Show)
 
@@ -36,7 +37,7 @@ move q = do
 data MoveSystem = MoveSystem
 
 instance System IO MoveSystem where
-  type SystemInputs MoveSystem = Query IO (W IO Position, ECS.R Velocity)
+  type SystemInputs IO MoveSystem = Query IO (W IO Position, ECS.R Velocity)
   runSystem MoveSystem q = move q
 
 setup :: IO (W.World IO '[Position, Velocity])
@@ -45,10 +46,11 @@ setup = do
   foldM setupEntity w [0 :: Int .. 10000]
   where
     setupEntity w _ = do
-      (e, w') <- W.spawn (Position 0) w
-      W.insert e (Velocity 1) w'
+      (_, w') <- W.spawn (bundle (Position 0) <> bundle (Velocity 1)) w
+      return w'
+    
 
 main :: IO ()
 main = do
   !w <- setup
-  defaultMain [bench "iter" $ whnfIO (runSystemWithWorld MoveSystem w)]
+  defaultMain [bench "iter" $ whnfIO (runAztecsT_ (runSystemWithWorld MoveSystem) w)]
