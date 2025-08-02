@@ -1,6 +1,6 @@
 cabal-version: 2.4
 name:          aztecs
-version:       0.12.0
+version:       0.13.0
 license:       BSD-3-Clause
 license-file:  LICENSE
 maintainer:    matt@hunzinger.me
