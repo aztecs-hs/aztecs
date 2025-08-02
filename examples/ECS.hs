@@ -25,12 +25,13 @@ instance System IO MoveSystem where
     mapM_ go results
     where
       go (posRef, R (Velocity v)) = do
-        Position pos <- readW posRef
-        writeW posRef $ Position (pos + v)
+        modifyW posRef $ \(Position p) -> Position (p + v)
+
+        p <- readW posRef
+        putStrLn $ "Moved to: " ++ show p
 
 main :: IO ()
 main = do
   w <- W.empty @_ @'[Position, Velocity]
-  (e, w') <- W.spawn (Position 0) w
-  w'' <- W.insert e (Velocity 1) w'
-  runSystemWithWorld MoveSystem w''
+  (_, w') <- W.spawn (bundle (Position 0) <> bundle (Velocity 1)) w
+  runSystemWithWorld MoveSystem w'

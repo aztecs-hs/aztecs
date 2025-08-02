@@ -15,7 +15,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Aztecs.ECS.World
-  ( World (..),
+  ( Bundle (..),
+    bundle,
+    World (..),
     empty,
     spawn,
     insert,
@@ -45,6 +47,29 @@ import Data.Typeable
 import Data.Word
 import Prelude hiding (Read, lookup)
 
+newtype Bundle cs m = Bundle {runBundle :: Entity -> World m cs -> m (World m cs)}
+
+instance (Monad m) => Semigroup (Bundle cs m) where
+  Bundle f <> Bundle g = Bundle $ \entity w -> f entity w >>= g entity
+
+instance (Monad m) => Monoid (Bundle cs m) where
+  mempty = Bundle $ \_ w -> return w
+
+bundle ::
+  forall cs m c.
+  (AdjustM m (MSparseSet (PrimState m) Word32) c cs, PrimMonad m, Typeable c) =>
+  c ->
+  Bundle cs m
+bundle c = Bundle $ \entity w -> do
+  let entityIdx = fromIntegral (entityIndex entity)
+      componentType = typeOf c
+      go s = do
+        s' <- S.freeze s
+        S.thaw $ S.insert (entityIndex entity) c s'
+  cs <- HS.adjustM go $ worldComponents w
+  let entityComponents' = IntMap.insertWith Map.union entityIdx (Map.singleton componentType (removeComponent' @m @c entity)) (worldEntityComponents w)
+  return w {worldComponents = cs, worldEntityComponents = entityComponents'}
+
 data World m cs = World
   { worldComponents :: Components (PrimState m) cs,
     worldEntities :: Entities,
@@ -56,19 +81,12 @@ empty = do
   cs <- HS.empty
   return $ World cs emptyEntities IntMap.empty
 
-spawn :: forall m c cs. (AdjustM m (MSparseSet (PrimState m) Word32) c cs, PrimMonad m, Typeable c) => c -> World m cs -> m (Entity, World m cs)
+spawn :: (Monad m) => Bundle cs m -> World m cs -> m (Entity, World m cs)
 spawn c w = do
   let (newEntity, counter) = mkEntityWithCounter (worldEntities w)
-      entityIdx = fromIntegral (entityIndex newEntity)
-      componentType = typeOf c
-      go s = do
-        s' <- S.freeze s
-        S.thaw $ S.insert (entityIndex newEntity) c s'
-
-  cs <- HS.adjustM go $ worldComponents w
-  let entityComponents' = IntMap.insertWith Map.union entityIdx (Map.singleton componentType (removeComponent' @m @c newEntity)) (worldEntityComponents w)
-      world' = w {worldComponents = cs, worldEntities = counter, worldEntityComponents = entityComponents'}
-  return (newEntity, world')
+      world' = w {worldEntities = counter}
+  world'' <- runBundle c newEntity world'
+  return (newEntity, world'')
 
 insert :: forall m c cs. (AdjustM m (MSparseSet (PrimState m) Word32) c cs, PrimMonad m, Typeable c) => Entity -> c -> World m cs -> m (World m cs)
 insert entity c w = do
