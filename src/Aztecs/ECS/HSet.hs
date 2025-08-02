@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -13,11 +14,17 @@
 
 module Aztecs.ECS.HSet
   ( HSet (..),
+    Run (..),
+    UnwrapSystem,
+    GetConstraints,
+    Before,
+    After,
     EmptyStorage (..),
     Empty (..),
     Lookup (..),
     AdjustM (..),
     Subset (..),
+    hcons,
   )
 where
 
@@ -25,11 +32,33 @@ import Data.Kind
 import Data.SparseSet.Strict.Mutable (MSparseSet, PrimMonad (PrimState))
 import qualified Data.SparseSet.Strict.Mutable as MS
 import Data.Word
+import Control.Monad.Identity (Identity (..))
 import Prelude hiding (lookup)
 
 data HSet f ts where
   HEmpty :: HSet f '[]
   HCons :: f t -> HSet f ts -> HSet f (t ': ts)
+
+-- Helper types for constraint declarations
+data Before (sys :: Type)
+data After (sys :: Type)
+
+-- Run wrapper for systems with their constraints
+data Run (constraints :: [Type]) (sys :: Type) where
+  Run :: sys -> Run constraints sys
+
+-- Helper type families (defined here to avoid circular dependencies)
+type family UnwrapSystem (runSys :: Type) :: Type where
+  UnwrapSystem (Run constraints sys) = sys
+  UnwrapSystem sys = sys
+
+type family GetConstraints (runSys :: Type) :: [Type] where
+  GetConstraints (Run constraints sys) = constraints
+  GetConstraints sys = '[]
+
+-- Show instance for Run
+instance (Show sys) => Show (Run constraints sys) where
+  show (Run sys) = "Run " ++ show sys
 
 instance (ShowHSet f ts) => Show (HSet f ts) where
   show = showHSet
@@ -103,3 +132,6 @@ instance
   where
   subset hset = HCons (lookup hset) (subset @ts hset)
   {-# INLINE subset #-}
+
+hcons :: (Applicative f) =>  t -> HSet f ts -> HSet f (t ': ts)
+hcons x xs = HCons (pure x) xs

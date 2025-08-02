@@ -24,6 +24,11 @@ class System m sys where
 
   runSystem :: sys -> SystemInputs m sys -> m ()
 
+-- Instance for Run-wrapped systems
+instance (System m sys) => System m (Run constraints sys) where
+  type SystemInputs m (Run constraints sys) = SystemInputs m sys
+  runSystem (Run sys) = runSystem sys
+
 runSystemWithWorld ::
   ( System m sys,
     Access cs m (SystemInputs m sys),

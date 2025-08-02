@@ -22,6 +22,7 @@ import Aztecs.ECS.Query
 import Aztecs.ECS.Queryable
 import Aztecs.ECS.Queryable.Internal
 import Aztecs.ECS.World
+import Control.Monad.Identity (IdentityT)
 import Control.Monad.Primitive
 import Data.Kind
 import GHC.Generics

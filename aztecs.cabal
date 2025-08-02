@@ -30,12 +30,15 @@ library
         Aztecs.ECS.Access.Internal
         Aztecs.ECS.Class
         Aztecs.ECS.Entities
+        Aztecs.ECS.Executor
         Aztecs.ECS.HSet
         Aztecs.ECS.Query
         Aztecs.ECS.Queryable
         Aztecs.ECS.Queryable.Internal
         Aztecs.ECS.Queryable.R
         Aztecs.ECS.Queryable.W
+        Aztecs.ECS.Schedule
+        Aztecs.ECS.Scheduler
         Aztecs.ECS.World
         Aztecs.ECS.System
 
@@ -56,6 +59,15 @@ executable ecs
     build-depends:
         base,
         aztecs
+
+executable scheduler
+    main-is:          examples/Scheduler.hs
+    default-language: Haskell2010
+    ghc-options:      -Wall
+    build-depends:
+        base,
+        aztecs,
+        mtl
 
 test-suite aztecs-test
     type:             exitcode-stdio-1.0

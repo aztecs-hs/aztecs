@@ -53,4 +53,4 @@ setup = do
 main :: IO ()
 main = do
   !w <- setup
-  defaultMain [bench "iter" $ whnfIO (runAztecsT_ (runSystemWithWorld MoveSystem) w)]
+  defaultMain [bench "iter" $ whnfIO (runSystemWithWorld MoveSystem w)]
