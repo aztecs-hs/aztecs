@@ -4,6 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UnboxedTuples #-}
 
 module Aztecs.ECS
   ( module Aztecs.ECS.Queryable,
