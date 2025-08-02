@@ -119,7 +119,7 @@ removeComponent' e components = do
         S.thaw $ S.delete (entityIndex e) s'
   HS.adjustM @m @(MSparseSet (PrimState m) Word32) @c removeGo components
 
-remove :: (PrimMonad m) => Entity -> World m cs -> m (World m cs)
+remove :: (Monad m) => Entity -> World m cs -> m (World m cs)
 remove entity w = do
   let entityIdx = fromIntegral (entityIndex entity)
   case IntMap.lookup entityIdx (worldEntityComponents w) of
@@ -129,10 +129,6 @@ remove entity w = do
       let entityComponents' = IntMap.delete entityIdx (worldEntityComponents w)
       return $ w {worldComponents = cs', worldEntityComponents = entityComponents'}
 
-query ::
-  forall m a cs.
-  (Queryable cs m a, Subset (AccessToComponents (QueryableAccess a)) cs) =>
-  World m cs ->
-  Query m a
+query :: (Queryable cs m a) => World m cs -> Query m a
 query w = queryable (worldComponents w) (worldEntities w)
 {-# INLINE query #-}

@@ -28,6 +28,7 @@ library
         Aztecs.ECS
         Aztecs.ECS.Access
         Aztecs.ECS.Access.Internal
+        Aztecs.ECS.Class
         Aztecs.ECS.Entities
         Aztecs.ECS.HSet
         Aztecs.ECS.Query

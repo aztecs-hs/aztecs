@@ -18,9 +18,8 @@ import Aztecs.ECS.Access.Internal
 import Aztecs.ECS.HSet
 import Aztecs.ECS.Queryable.Internal
 import Aztecs.ECS.World
-import Control.Monad.Primitive
 
-class (PrimMonad m) => System m sys where
+class System m sys where
   type SystemInputs sys
   runSystem :: sys -> SystemInputs sys -> m ()
 
