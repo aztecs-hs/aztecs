@@ -3,8 +3,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE UnboxedTuples #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Aztecs.ECS
   ( module Aztecs.ECS.Queryable,
@@ -13,6 +13,7 @@ module Aztecs.ECS
     PrimMonad (..),
     bundle,
     Query (..),
+    runQuery,
     System (..),
     ECS (..),
     AztecsT (..),

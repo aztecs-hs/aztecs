@@ -20,7 +20,6 @@ providing patterns for data-oriented design and parallel processing.
 
 ```hs
 import Aztecs.ECS
-import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.World as W
 import Control.Monad.IO.Class
 
@@ -35,7 +34,7 @@ data MoveSystem = MoveSystem
 instance (PrimMonad m, MonadIO m) => System m MoveSystem where
   type SystemInputs m MoveSystem = Query m (W m Position, R Velocity)
   runSystem MoveSystem q = do
-    results <- Q.runQuery q
+    results <- runQuery q
     mapM_ go results
     where
       go (posRef, R (Velocity v)) = do
@@ -51,7 +50,7 @@ main = do
   where
     go = do
       _ <- spawn (bundle (Position 0) <> bundle (Velocity 1))
-      runSystemWithWorld MoveSystem
+      system MoveSystem
 ```
 
 ## Inspiration

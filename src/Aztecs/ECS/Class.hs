@@ -38,7 +38,7 @@ class ECS m where
 
   task :: (Task m) a -> m a
 
-  runSystemWithWorld ::
+  system ::
     ( System (Task m) sys,
       Access (Components m) (Task m) (SystemInputs (Task m) sys),
       Subset (AccessToComponents (AccessType (SystemInputs (Task m) sys))) (Components m),
@@ -47,4 +47,4 @@ class ECS m where
     ) =>
     sys ->
     m ()
-  runSystemWithWorld sys = access >>= task . runSystem sys
+  system sys = access >>= task . runSystem sys
