@@ -11,6 +11,7 @@ module Aztecs.ECS.R where
 import Aztecs.ECS.HSet
 import Aztecs.ECS.Query (Query (..))
 import Aztecs.ECS.Queryable
+import Aztecs.ECS.Queryable.Internal
 import Control.Monad.Primitive
 import qualified Data.SparseSet.Strict.Mutable as MS
 import Prelude hiding (Read, lookup)

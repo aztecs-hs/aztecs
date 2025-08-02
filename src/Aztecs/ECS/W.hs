@@ -10,6 +10,7 @@ module Aztecs.ECS.W where
 import Aztecs.ECS.HSet
 import Aztecs.ECS.Query (Query (..))
 import Aztecs.ECS.Queryable
+import Aztecs.ECS.Queryable.Internal
 import Control.Monad.Primitive
 import Data.SparseSet.Strict.Mutable (MSparseSet)
 import qualified Data.SparseSet.Strict.Mutable as MS

@@ -42,6 +42,7 @@ import Data.SparseSet.Strict.Mutable (MSparseSet)
 import Data.Typeable
 import Data.Word
 import Prelude hiding (Read, lookup)
+import Aztecs.ECS.Queryable.Internal
 
 data World m cs = World
   { worldComponents :: Components (PrimState m) cs,

@@ -20,6 +20,7 @@ module Aztecs.ECS.Access where
 import Aztecs.ECS.HSet
 import Aztecs.ECS.Query
 import Aztecs.ECS.Queryable
+import Aztecs.ECS.Queryable.Internal
 import Aztecs.ECS.World
 import Control.Monad.Primitive
 import Data.Kind
