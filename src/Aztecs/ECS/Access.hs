@@ -58,6 +58,7 @@ class (PrimMonad m) => Access cs m a where
     World m cs ->
     a
   access = deriveAccess
+  {-# INLINE access #-}
 
 class GenericAccess cs m f where
   type GenericAccessType f :: [Type]
@@ -71,14 +72,17 @@ class GenericAccess cs m f where
 instance GenericAccess cs m U1 where
   type GenericAccessType U1 = '[]
   genericAccess _ = U1
+  {-# INLINE genericAccess #-}
 
 instance (Access cs m c) => GenericAccess cs m (K1 i c) where
   type GenericAccessType (K1 i c) = AccessType c
   genericAccess world = K1 (access world)
+  {-# INLINE genericAccess #-}
 
 instance (GenericAccess cs m f) => GenericAccess cs m (M1 i c f) where
   type GenericAccessType (M1 i c f) = GenericAccessType f
   genericAccess world = M1 (genericAccess world)
+  {-# INLINE genericAccess #-}
 
 instance
   ( GenericAccess cs m f,
@@ -92,6 +96,7 @@ instance
   where
   type GenericAccessType (f :*: g) = Append (GenericAccessType f) (GenericAccessType g)
   genericAccess world = genericAccess world :*: genericAccess world
+  {-# INLINE genericAccess #-}
 
 type family Append (xs :: [Type]) (ys :: [Type]) :: [Type] where
   Append '[] ys = ys
@@ -105,6 +110,7 @@ instance (PrimMonad m, Queryable cs m a) => Access cs m (Query m a) where
 instance (PrimMonad m) => Access cs m () where
   type AccessType () = '[]
   access _ = ()
+  {-# INLINE access #-}
 
 deriveAccess ::
   forall a m cs.
@@ -116,6 +122,7 @@ deriveAccess ::
   World m cs ->
   a
 deriveAccess world = to (genericAccess world)
+{-# INLINE deriveAccess #-}
 
 type family DeriveAccessType (rep :: Type -> Type) :: [Type] where
   DeriveAccessType rep = GenericAccessType rep

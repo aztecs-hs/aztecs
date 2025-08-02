@@ -30,10 +30,12 @@ import Aztecs.ECS.HSet hiding (empty)
 import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
 import Aztecs.ECS.Queryable
+import Aztecs.ECS.Queryable.Internal
 import Control.Monad
 import Control.Monad.Primitive
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
+import Data.Kind
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Proxy
@@ -42,7 +44,6 @@ import Data.SparseSet.Strict.Mutable (MSparseSet)
 import Data.Typeable
 import Data.Word
 import Prelude hiding (Read, lookup)
-import Aztecs.ECS.Queryable.Internal
 
 data World m cs = World
   { worldComponents :: Components (PrimState m) cs,
@@ -63,14 +64,9 @@ spawn c w = do
       go s = do
         s' <- S.freeze s
         S.thaw $ S.insert (entityIndex newEntity) c s'
-      removeFunc :: Components (PrimState m) cs -> m (Components (PrimState m) cs)
-      removeFunc components = do
-        let removeGo s = do
-              s' <- S.freeze s
-              S.thaw $ S.delete (entityIndex newEntity) s'
-        HS.adjustM @m @(MSparseSet (PrimState m) Word32) @c removeGo components
+
   cs <- HS.adjustM go $ worldComponents w
-  let entityComponents' = IntMap.insertWith Map.union entityIdx (Map.singleton componentType removeFunc) (worldEntityComponents w)
+  let entityComponents' = IntMap.insertWith Map.union entityIdx (Map.singleton componentType (removeComponent' @m @c newEntity)) (worldEntityComponents w)
       world' = w {worldComponents = cs, worldEntities = counter, worldEntityComponents = entityComponents'}
   return (newEntity, world')
 
@@ -81,14 +77,8 @@ insert entity c w = do
       go s = do
         s' <- S.freeze s
         S.thaw $ S.insert (entityIndex entity) c s'
-      removeFunc :: Components (PrimState m) cs -> m (Components (PrimState m) cs)
-      removeFunc components = do
-        let removeGo s = do
-              s' <- S.freeze s
-              S.thaw $ S.delete (entityIndex entity) s'
-        HS.adjustM @m @(MSparseSet (PrimState m) Word32) @c removeGo components
   cs <- HS.adjustM go $ worldComponents w
-  let entityComponents' = IntMap.insertWith Map.union entityIdx (Map.singleton componentType removeFunc) (worldEntityComponents w)
+  let entityComponents' = IntMap.insertWith Map.union entityIdx (Map.singleton componentType (removeComponent' @m @c entity)) (worldEntityComponents w)
   return $ w {worldComponents = cs, worldEntityComponents = entityComponents'}
 
 removeComponent ::
@@ -106,6 +96,18 @@ removeComponent entity w = do
   cs <- HS.adjustM @m @(MSparseSet (PrimState m) Word32) @c removeGo (worldComponents w)
   let entityComponents' = IntMap.adjust (Map.delete componentType) entityIdx (worldEntityComponents w)
   return $ w {worldComponents = cs, worldEntityComponents = entityComponents'}
+
+removeComponent' ::
+  forall m (c :: Type) cs.
+  (AdjustM m (MSparseSet (PrimState m) Word32) c cs, PrimMonad m) =>
+  Entity ->
+  Components (PrimState m) cs ->
+  m (Components (PrimState m) cs)
+removeComponent' e components = do
+  let removeGo s = do
+        s' <- S.freeze s
+        S.thaw $ S.delete (entityIndex e) s'
+  HS.adjustM @m @(MSparseSet (PrimState m) Word32) @c removeGo components
 
 remove :: (PrimMonad m) => Entity -> World m cs -> m (World m cs)
 remove entity w = do

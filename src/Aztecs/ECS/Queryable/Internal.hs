@@ -24,7 +24,7 @@ import Aztecs.ECS.Query
 import Data.Kind
 import Data.Maybe
 import qualified Data.Set as Set
-import Data.SparseSet.Strict.Mutable (MSparseSet, PrimMonad (..))
+import Data.SparseSet.Strict.Mutable
 import qualified Data.SparseSet.Strict.Mutable as MS
 import Data.Word
 import GHC.Generics
@@ -166,6 +166,7 @@ class GenericQueryable cs m (f :: Type -> Type) where
 
 instance (Monad m) => GenericQueryable s m U1 where
   genericQueryableRep _ _ = pure [Just U1]
+  {-# INLINE genericQueryableRep #-}
 
 instance
   ( Monad m,
@@ -178,12 +179,15 @@ instance
     fs <- genericQueryableRep components entitiesArg
     gs <- genericQueryableRep components entitiesArg
     return $ zipWith (\f g -> (:*:) <$> f <*> g) fs gs
+  {-# INLINE genericQueryableRep #-}
 
 instance (Functor m, GenericQueryable s m f) => GenericQueryable s m (M1 i c f) where
   genericQueryableRep components entitiesArg = map (fmap M1) <$> genericQueryableRep components entitiesArg
+  {-# INLINE genericQueryableRep #-}
 
 instance (Functor m, PrimMonad m, PrimState m ~ s, Queryable cs m a) => GenericQueryable cs m (K1 i a) where
   genericQueryableRep components entitiesArg = map (fmap K1) <$> unQuery (queryable components entitiesArg)
+  {-# INLINE genericQueryableRep #-}
 
 genericQueryable ::
   forall a cs m.
@@ -195,6 +199,7 @@ genericQueryable ::
   Entities ->
   m [Maybe a]
 genericQueryable components entitiesArg = map (fmap to) <$> genericQueryableRep components entitiesArg
+{-# INLINE genericQueryable #-}
 
 class (PrimMonad m) => Queryable cs m a where
   type QueryableAccess a :: [Type]
@@ -211,6 +216,7 @@ class (PrimMonad m) => Queryable cs m a where
     Entities ->
     Query m a
   queryable components entitiesArg = Query $ map (fmap to) <$> genericQueryableRep components entitiesArg
+  {-# INLINE queryable #-}
 
 instance (Functor m, Monad m, PrimMonad m) => Queryable cs m Entity where
   type QueryableAccess Entity = '[]

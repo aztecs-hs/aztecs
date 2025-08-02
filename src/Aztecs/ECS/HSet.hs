@@ -71,24 +71,29 @@ class Lookup (t :: Type) (ts :: [Type]) where
 
 instance {-# OVERLAPPING #-} Lookup t (t ': ts) where
   lookup (HCons x _) = x
+  {-# INLINE lookup #-}
 
 instance {-# OVERLAPPABLE #-} (Lookup t ts) => Lookup t (u ': ts) where
   lookup (HCons _ xs) = lookup xs
+  {-# INLINE lookup #-}
 
 class AdjustM m f t ts where
   adjustM :: (f t -> m (f t)) -> HSet f ts -> m (HSet f ts)
 
 instance {-# OVERLAPPING #-} (Applicative m) => AdjustM m f t (t ': ts) where
   adjustM f (HCons x xs) = HCons <$> f x <*> pure xs
+  {-# INLINE adjustM #-}
 
 instance {-# OVERLAPPABLE #-} (Functor m, AdjustM m f t ts) => AdjustM m f t (u ': ts) where
   adjustM f (HCons y xs) = HCons y <$> adjustM f xs
+  {-# INLINE adjustM #-}
 
 class Subset (subset :: [Type]) (superset :: [Type]) where
   subset :: HSet f superset -> HSet f subset
 
 instance Subset '[] superset where
   subset _ = HEmpty
+  {-# INLINE subset #-}
 
 instance
   ( Lookup t superset,
@@ -97,3 +102,4 @@ instance
   Subset (t ': ts) superset
   where
   subset hset = HCons (lookup hset) (subset @ts hset)
+  {-# INLINE subset #-}
