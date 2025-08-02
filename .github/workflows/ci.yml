@@ -79,6 +79,6 @@ jobs:
       - name: Install dependencies
         run: |
           cabal update
-          cabal install doctest --overwrite-policy=alway
+          cabal install doctest --overwrite-policy=always
       - name: Run doctests
         run: cabal repl --with-compiler=doctest
