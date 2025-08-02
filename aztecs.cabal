@@ -26,6 +26,7 @@ source-repository head
 library
     exposed-modules:
         Aztecs.ECS
+        Aztecs.ECS.Access
         Aztecs.ECS.Entities
         Aztecs.ECS.HSet
         Aztecs.ECS.Query

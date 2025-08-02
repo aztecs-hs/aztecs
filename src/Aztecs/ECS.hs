@@ -1,5 +1,6 @@
 module Aztecs.ECS
-  ( module Aztecs.ECS.Entities,
+  ( module Aztecs.ECS.Access,
+    module Aztecs.ECS.Entities,
     module Aztecs.ECS.Query,
     module Aztecs.ECS.Queryable,
     module Aztecs.ECS.R,
@@ -10,6 +11,7 @@ module Aztecs.ECS
   )
 where
 
+import Aztecs.ECS.Access
 import Aztecs.ECS.Entities
 import Aztecs.ECS.Query
 import Aztecs.ECS.Queryable

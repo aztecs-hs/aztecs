@@ -68,16 +68,11 @@ type family Contains (a :: Type) (list :: [Type]) :: Bool where
 
 type family HasOverlap (list1 :: [Type]) (list2 :: [Type]) :: Bool where
   HasOverlap '[] list2 = 'False
-  HasOverlap (a ': rest) list2 =
-    If (Contains a list2) 'True (HasOverlap rest list2)
-
-type family If (condition :: Bool) (then_ :: k) (else_ :: k) :: k where
-  If 'True then_ else_ = then_
-  If 'False then_ else_ = else_
+  HasOverlap (a ': rest) list2 = Or (Contains a list2) (HasOverlap rest list2)
 
 type family HasDuplicates (list :: [Type]) :: Bool where
   HasDuplicates '[] = 'False
-  HasDuplicates (a ': rest) = If (Contains a rest) 'True (HasDuplicates rest)
+  HasDuplicates (a ': rest) = Or (Contains a rest) (HasDuplicates rest)
 
 type family ValidateAccess (accesses :: [Type]) :: Bool where
   ValidateAccess accesses =
@@ -90,6 +85,11 @@ type family And (a :: Bool) (b :: Bool) :: Bool where
   And 'True 'False = 'False
   And 'False 'True = 'False
   And 'False 'False = 'False
+
+type family Or (a :: Bool) (b :: Bool) :: Bool where
+  Or 'True _ = 'True
+  Or 'False 'True = 'True
+  Or 'False 'False = 'False
 
 type family Not (b :: Bool) :: Bool where
   Not 'True = 'False
