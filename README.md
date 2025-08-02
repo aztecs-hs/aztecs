@@ -14,10 +14,8 @@ providing patterns for data-oriented design and parallel processing.
 [Examples](https://github.com/aztecs-hs/examples)
 
 ## Features
-
+- Type-safe: Queries and systems use fully type-checked access with compile-time gurantees
 - High-performance: Components are stored by their unique sets in archetypes
-- Dynamic components: Scripts and remote interfaces can create runtime-specified components
-- Type-safe DSL: Queries use `Applicative` syntax for compile-time gurantees
 - Modular design: Aztecs can be extended for a variety of use cases
 
 ```hs
