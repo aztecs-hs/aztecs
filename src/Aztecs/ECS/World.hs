@@ -88,16 +88,8 @@ spawn c w = do
   world'' <- runBundle c newEntity world'
   return (newEntity, world'')
 
-insert :: forall m c cs. (AdjustM m (MSparseSet (PrimState m) Word32) c cs, PrimMonad m, Typeable c) => Entity -> c -> World m cs -> m (World m cs)
-insert entity c w = do
-  let entityIdx = fromIntegral (entityIndex entity)
-      componentType = typeOf c
-      go s = do
-        s' <- S.freeze s
-        S.thaw $ S.insert (entityIndex entity) c s'
-  cs <- HS.adjustM go $ worldComponents w
-  let entityComponents' = IntMap.insertWith Map.union entityIdx (Map.singleton componentType (removeComponent' @m @c entity)) (worldEntityComponents w)
-  return $ w {worldComponents = cs, worldEntityComponents = entityComponents'}
+insert :: Entity -> Bundle cs m -> World m cs -> m (World m cs)
+insert entity b = runBundle b entity
 
 removeComponent ::
   forall m cs c.

@@ -17,6 +17,6 @@ import Aztecs.ECS.Query
 import Aztecs.ECS.Queryable
 import Aztecs.ECS.Queryable.R
 import Aztecs.ECS.Queryable.W
-import Aztecs.ECS.World
 import Aztecs.ECS.System
+import Aztecs.ECS.World
 import Control.Monad.Primitive
