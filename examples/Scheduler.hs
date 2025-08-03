@@ -36,7 +36,7 @@ data RenderSystem = RenderSystem
   deriving (Show)
 
 instance (PrimMonad m, MonadIO m) => System m MoveSystem where
-  type SystemInputs m MoveSystem = Query (W m Position, R Velocity)
+  type SystemIn m MoveSystem = Query (W m Position, R Velocity)
   runSystem MoveSystem q = do
     liftIO $ putStrLn "Running MoveSystem..."
     mapM_ go q
@@ -47,7 +47,7 @@ instance (PrimMonad m, MonadIO m) => System m MoveSystem where
         liftIO $ putStrLn $ "  Moved to position: " ++ show p
 
 instance (PrimMonad m, MonadIO m) => System m PhysicsSystem where
-  type SystemInputs m PhysicsSystem = Query (R Position, W m Velocity)
+  type SystemIn m PhysicsSystem = Query (R Position, W m Velocity)
   runSystem PhysicsSystem q = do
     liftIO $ putStrLn "Running PhysicsSystem..."
     mapM_ go q
@@ -58,7 +58,7 @@ instance (PrimMonad m, MonadIO m) => System m PhysicsSystem where
         liftIO $ putStrLn $ "  Applied physics at position " ++ show p ++ ", new velocity: " ++ show v
 
 instance (PrimMonad m, MonadIO m) => System m CombatSystem where
-  type SystemInputs m CombatSystem = Query (W m Health, R Damage)
+  type SystemIn m CombatSystem = Query (W m Health, R Damage)
 
   runSystem CombatSystem q = do
     liftIO $ putStrLn "Running CombatSystem..."
@@ -70,7 +70,7 @@ instance (PrimMonad m, MonadIO m) => System m CombatSystem where
         liftIO $ putStrLn $ "  Applied damage, remaining health: " ++ show h
 
 instance (PrimMonad m, MonadIO m) => System m RenderSystem where
-  type SystemInputs m RenderSystem = Query (R Position, R Health)
+  type SystemIn m RenderSystem = Query (R Position, R Health)
 
   runSystem RenderSystem q = do
     liftIO $ putStrLn "Running RenderSystem..."

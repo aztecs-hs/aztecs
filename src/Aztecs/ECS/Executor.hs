@@ -36,8 +36,8 @@ instance Execute' m (HSet '[]) where
 instance
   ( Monad m,
     System m sys,
-    Access m (SystemInputs m sys),
-    ValidAccessInput (AccessType (SystemInputs m sys))
+    Access m (SystemIn m sys),
+    ValidAccessInput (AccessType (SystemIn m sys))
   ) =>
   Execute' m (Identity sys)
   where
@@ -50,8 +50,8 @@ instance
 instance
   ( Monad m,
     System m sys,
-    Access m (SystemInputs m sys),
-    ValidAccessInput (AccessType (SystemInputs m sys)),
+    Access m (SystemIn m sys),
+    ValidAccessInput (AccessType (SystemIn m sys)),
     Execute' m (HSet systems)
   ) =>
   Execute' m (HSet (sys ': systems))

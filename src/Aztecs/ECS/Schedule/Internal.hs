@@ -27,8 +27,8 @@ class Schedule m s where
 
   schedule :: s -> Scheduled m s
 
-type family SystemInputsOf m sys :: [Type] where
-  SystemInputsOf m sys = AccessType (SystemInputs m sys)
+type family SystemInOf m sys :: [Type] where
+  SystemInOf m sys = AccessType (SystemIn m sys)
 
 type family HasInputOverlap (inputs1 :: [Type]) (inputs2 :: [Type]) :: Bool where
   HasInputOverlap inputs1 inputs2 =
@@ -46,7 +46,7 @@ type family GroupSystems m (systems :: [Type]) :: [[Type]] where
   GroupSystems m '[sys] = '[ '[sys]]
   GroupSystems m (sys1 ': sys2 ': rest) =
     If
-      (HasInputOverlap (SystemInputsOf m sys1) (SystemInputsOf m sys2))
+      (HasInputOverlap (SystemInOf m sys1) (SystemInOf m sys2))
       (GroupSystemsConflict m (sys1 ': sys2 ': rest))
       (GroupSystemsNoConflict m (sys1 ': sys2 ': rest))
 
@@ -69,7 +69,7 @@ type family CanAddSystemToGroup m (sys :: Type) (group :: [Type]) :: Bool where
   CanAddSystemToGroup m sys '[] = 'True
   CanAddSystemToGroup m sys (groupSys ': rest) =
     And
-      (Not (HasInputOverlap (SystemInputsOf m sys) (SystemInputsOf m groupSys)))
+      (Not (HasInputOverlap (SystemInOf m sys) (SystemInOf m groupSys)))
       (CanAddSystemToGroup m sys rest)
 
 type family AppendToGroup (sys :: Type) (group :: [Type]) :: [Type] where

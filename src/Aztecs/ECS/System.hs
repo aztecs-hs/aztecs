@@ -20,20 +20,20 @@ import Aztecs.ECS.HSet
 import Aztecs.ECS.Queryable.Internal
 
 class System m sys where
-  type SystemInputs m sys
+  type SystemIn m sys
 
-  runSystem :: sys -> SystemInputs m sys -> m ()
+  runSystem :: sys -> SystemIn m sys -> m ()
 
 instance (System m sys) => System m (Run constraints sys) where
-  type SystemInputs m (Run constraints sys) = SystemInputs m sys
+  type SystemIn m (Run constraints sys) = SystemIn m sys
   runSystem (Run sys) = runSystem sys
 
 system ::
   ( ECS m,
     Monad m,
     System (Task m) sys,
-    Access m (SystemInputs (Task m) sys),
-    ValidAccessInput (AccessType (SystemInputs (Task m) sys))
+    Access m (SystemIn (Task m) sys),
+    ValidAccessInput (AccessType (SystemIn (Task m) sys))
   ) =>
   sys ->
   m ()
