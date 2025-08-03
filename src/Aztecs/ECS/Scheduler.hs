@@ -6,7 +6,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverlappingInstances #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -18,12 +17,12 @@
 module Aztecs.ECS.Scheduler where
 
 import Aztecs.ECS.Access.Internal
+import Aztecs.ECS.Class
 import Aztecs.ECS.Executor
 import Aztecs.ECS.HSet
 import Aztecs.ECS.Queryable.Internal
 import Aztecs.ECS.Schedule
 import Aztecs.ECS.System
-import Aztecs.ECS.World
 import Control.Monad.Identity
 import Control.Monad.Primitive
 import Control.Monad.State
@@ -37,9 +36,9 @@ class Scheduler m s where
 
   buildSchedule :: HSet Identity (SchedulerInput m s) -> SchedulerOutput m s
 
-instance (PrimMonad m) => Access cs m (HSet Identity '[]) where
+instance (Applicative m, ECS m) => Access m (HSet Identity '[]) where
   type AccessType (HSet Identity '[]) = '[]
-  access _ = HEmpty
+  access = pure HEmpty
 
 instance
   ( AllSystems m systems,
@@ -268,17 +267,17 @@ instance
 executeSchedule ::
   forall m cs s.
   ( Scheduler m s,
-    Execute (World m cs) m (SchedulerOutput m s),
+    Execute m (SchedulerOutput m s),
     s ~ HSet Identity (SchedulerInput m s)
   ) =>
   s ->
-  ExecutorT (World m cs) m ()
+  ExecutorT m ()
 executeSchedule s = execute (buildSchedule @m @s s)
 
 runSchedule ::
   forall m cs s.
   ( Applicative m,
-    Execute (World m cs) m (SchedulerOutput m s),
+    Execute m (SchedulerOutput m s),
     s ~ HSet Identity (SchedulerInput m s),
     AllSystems m (SchedulerInput m s),
     ScheduleLevelsBuilder
@@ -287,21 +286,20 @@ runSchedule ::
       (SchedulerInput m s)
   ) =>
   s ->
-  World m cs ->
   m ()
-runSchedule s world = do
+runSchedule s = do
   runSystems (executeSchedule @m @cs @s s) $ \actions ->
-    sequenceA_ [action world | action <- actions]
+    sequenceA_ [action | action <- actions]
 
-instance (Applicative m) => Execute (World m cs) m (HSet (HSet Identity) '[]) where
+instance (Applicative m) => Execute m (HSet (HSet Identity) '[]) where
   execute HEmpty = pure ()
 
 instance
   ( Monad m,
-    Execute' (World m cs) m (HSet Identity level),
-    Execute (World m cs) m (HSet (HSet Identity) restLevels)
+    Execute' m (HSet Identity level),
+    Execute m (HSet (HSet Identity) restLevels)
   ) =>
-  Execute (World m cs) m (HSet (HSet Identity) (level ': restLevels))
+  Execute m (HSet (HSet Identity) (level ': restLevels))
   where
   execute (HCons level restLevels) = do
     ExecutorT $ \run -> run $ execute' level

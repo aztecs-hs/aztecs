@@ -7,12 +7,7 @@
 
 module Aztecs.ECS.Class (ECS (..)) where
 
-import Aztecs.ECS.Access.Internal hiding (access)
 import Aztecs.ECS.HSet
-import Aztecs.ECS.Query
-import Aztecs.ECS.Queryable
-import Aztecs.ECS.Queryable.Internal hiding (Components)
-import Aztecs.ECS.System
 import Data.Kind
 
 class ECS m where
@@ -27,24 +22,4 @@ class ECS m where
 
   remove :: Entity m -> m ()
 
-  query :: (Queryable (Components m) (Task m) a) => m (Query (Task m) a)
-
-  access ::
-    ( Access (Components m) (Task m) a,
-      ValidAccessInput (AccessType a),
-      Subset (AccessToComponents (AccessType a)) (Components m)
-    ) =>
-    m a
-
   task :: (Task m) a -> m a
-
-  system ::
-    ( System (Task m) sys,
-      Access (Components m) (Task m) (SystemInputs (Task m) sys),
-      Subset (AccessToComponents (AccessType (SystemInputs (Task m) sys))) (Components m),
-      ValidAccessInput (AccessType (SystemInputs (Task m) sys)),
-      Monad m
-    ) =>
-    sys ->
-    m ()
-  system sys = access >>= task . runSystem sys

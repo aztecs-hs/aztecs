@@ -19,9 +19,8 @@ newtype Velocity = Velocity Int
 data MoveSystem = MoveSystem
 
 instance (PrimMonad m, MonadIO m) => System m MoveSystem where
-  type SystemInputs m MoveSystem = Query m (W m Position, R Velocity)
+  type SystemInputs m MoveSystem = Query  (W m Position, R Velocity)
   runSystem MoveSystem q = do
-    results <- runQuery q
     mapM_ go results
     where
       go (posRef, R (Velocity v)) = do

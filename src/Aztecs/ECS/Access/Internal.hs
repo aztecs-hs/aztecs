@@ -17,6 +17,7 @@
 
 module Aztecs.ECS.Access.Internal where
 
+import Aztecs.ECS.Class
 import Aztecs.ECS.HSet
 import Aztecs.ECS.Query
 import Aztecs.ECS.Queryable
@@ -41,149 +42,126 @@ type family HasDuplicateWrites (components :: [Type]) :: Bool where
   HasDuplicateWrites '[] = 'False
   HasDuplicateWrites (c ': rest) = Or (Contains c rest) (HasDuplicateWrites rest)
 
-class (PrimMonad m) => Access cs m a where
+class (Functor m) => Access m a where
   type AccessType a :: [Type]
-  access ::
-    ( Subset (AccessToComponents (AccessType a)) cs,
-      ValidAccessInput (AccessType a)
-    ) =>
-    World m cs ->
-    a
+  access :: (ValidAccessInput (AccessType a)) => m a
   default access ::
     ( Generic a,
-      GenericAccess cs m (Rep a),
-      Subset (AccessToComponents (GenericAccessType (Rep a))) cs,
+      GenericAccess m (Rep a),
       ValidAccessInput (GenericAccessType (Rep a)),
       AccessType a ~ GenericAccessType (Rep a)
     ) =>
-    World m cs ->
-    a
+    m a
   access = deriveAccess
   {-# INLINE access #-}
 
-class GenericAccess cs m f where
+class GenericAccess m f where
   type GenericAccessType f :: [Type]
-  genericAccess ::
-    ( Subset (AccessToComponents (GenericAccessType f)) cs,
-      ValidAccessInput (GenericAccessType f)
-    ) =>
-    World m cs ->
-    f p
+  genericAccess :: (ValidAccessInput (GenericAccessType f)) => m (f p)
 
-instance GenericAccess cs m U1 where
+instance (Applicative m) => GenericAccess m U1 where
   type GenericAccessType U1 = '[]
-  genericAccess _ = U1
+  genericAccess = pure U1
   {-# INLINE genericAccess #-}
 
-instance (Access cs m c) => GenericAccess cs m (K1 i c) where
+instance (Access m c) => GenericAccess m (K1 i c) where
   type GenericAccessType (K1 i c) = AccessType c
-  genericAccess world = K1 (access world)
+  genericAccess = K1 <$> access
   {-# INLINE genericAccess #-}
 
-instance (GenericAccess cs m f) => GenericAccess cs m (M1 i c f) where
+instance (Functor m, GenericAccess m f) => GenericAccess m (M1 i c f) where
   type GenericAccessType (M1 i c f) = GenericAccessType f
-  genericAccess world = M1 (genericAccess world)
+  genericAccess = M1 <$> genericAccess
   {-# INLINE genericAccess #-}
 
 instance
-  ( GenericAccess cs m f,
-    GenericAccess cs m g,
-    Subset (AccessToComponents (GenericAccessType f)) cs,
+  ( Applicative m,
+    GenericAccess m f,
+    GenericAccess m g,
     ValidAccessInput (GenericAccessType f),
-    Subset (AccessToComponents (GenericAccessType g)) cs,
     ValidAccessInput (GenericAccessType g)
   ) =>
-  GenericAccess cs m (f :*: g)
+  GenericAccess m (f :*: g)
   where
   type GenericAccessType (f :*: g) = GenericAccessType f ++ GenericAccessType g
-  genericAccess world = genericAccess world :*: genericAccess world
+  genericAccess = (:*:) <$> genericAccess <*> genericAccess
   {-# INLINE genericAccess #-}
 
-instance (PrimMonad m, Queryable cs m a) => Access cs m (Query m a) where
-  type AccessType (Query m a) = QueryableAccess a
-  access = query
+instance (ECS m, Applicative m, Queryable m a) => Access m (Query a) where
+  type AccessType (Query a) = QueryableAccess a
+  access = queryable
   {-# INLINE access #-}
 
-instance (PrimMonad m) => Access cs m () where
+instance (Applicative m) => Access m () where
   type AccessType () = '[]
-  access _ = ()
+  access = pure ()
   {-# INLINE access #-}
 
 deriveAccess ::
   forall a m cs.
-  ( Generic a,
-    GenericAccess cs m (Rep a),
-    Subset (AccessToComponents (GenericAccessType (Rep a))) cs,
+  ( Functor m,
+    Generic a,
+    GenericAccess m (Rep a),
     ValidAccessInput (GenericAccessType (Rep a))
   ) =>
-  World m cs ->
-  a
-deriveAccess world = to (genericAccess world)
+  m a
+deriveAccess = to <$> genericAccess
 {-# INLINE deriveAccess #-}
 
 type family DeriveAccessType (rep :: Type -> Type) :: [Type] where
   DeriveAccessType rep = GenericAccessType rep
 
 instance
-  ( Access cs m a,
-    Access cs m b,
+  ( Applicative m,
+    Access m a,
+    Access m b,
     ValidAccessInput (AccessType a),
-    ValidAccessInput (AccessType b),
-    Subset (AccessToComponents (AccessType a)) cs,
-    Subset (AccessToComponents (AccessType b)) cs
+    ValidAccessInput (AccessType b)
   ) =>
-  Access cs m (a, b)
+  Access m (a, b)
   where
   type AccessType (a, b) = AccessType a ++ AccessType b
 
 instance
-  ( Access cs m a,
-    Access cs m b,
-    Access cs m c,
+  ( Applicative m,
+    Access m a,
+    Access m b,
+    Access m c,
     ValidAccessInput (AccessType a),
     ValidAccessInput (AccessType b),
     ValidAccessInput (AccessType c),
-    ValidAccessInput (AccessType b ++ AccessType c),
-    Subset (AccessToComponents (AccessType a)) cs,
-    Subset (AccessToComponents (AccessType b)) cs,
-    Subset (AccessToComponents (AccessType c)) cs,
-    Subset (AccessToComponents (AccessType b ++ AccessType c)) cs,
-    Subset (AccessToComponents (AccessType a ++ (AccessType b ++ AccessType c))) cs
+    ValidAccessInput (AccessType b ++ AccessType c)
   ) =>
-  Access cs m (a, b, c)
+  Access m (a, b, c)
   where
   type AccessType (a, b, c) = AccessType a ++ (AccessType b ++ AccessType c)
 
 instance
-  ( Access cs m a,
-    Access cs m b,
-    Access cs m c,
-    Access cs m d,
+  ( Applicative m,
+    Access m a,
+    Access m b,
+    Access m c,
+    Access m d,
     ValidAccessInput (AccessType a),
     ValidAccessInput (AccessType b),
     ValidAccessInput (AccessType c),
     ValidAccessInput (AccessType d),
     ValidAccessInput (AccessType a ++ AccessType b),
-    ValidAccessInput (AccessType c ++ AccessType d),
-    Subset (AccessToComponents (AccessType a)) cs,
-    Subset (AccessToComponents (AccessType b)) cs,
-    Subset (AccessToComponents (AccessType c)) cs,
-    Subset (AccessToComponents (AccessType d)) cs,
-    Subset (AccessToComponents (AccessType a ++ AccessType b)) cs,
-    Subset (AccessToComponents (AccessType c ++ AccessType d)) cs
+    ValidAccessInput (AccessType c ++ AccessType d)
   ) =>
-  Access cs m (a, b, c, d)
+  Access m (a, b, c, d)
   where
   type
     AccessType (a, b, c, d) =
       ((AccessType a ++ AccessType b) ++ (AccessType c ++ AccessType d))
 
 instance
-  ( Access cs m a,
-    Access cs m b,
-    Access cs m c,
-    Access cs m d,
-    Access cs m e,
+  ( Applicative m,
+    Access m a,
+    Access m b,
+    Access m c,
+    Access m d,
+    Access m e,
     ValidAccessInput (AccessType a),
     ValidAccessInput (AccessType b),
     ValidAccessInput (AccessType c),
@@ -191,31 +169,9 @@ instance
     ValidAccessInput (AccessType e),
     ValidAccessInput (AccessType a ++ AccessType b),
     ValidAccessInput ((AccessType c ++ (AccessType d ++ AccessType e))),
-    ValidAccessInput (AccessType d ++ AccessType e),
-    Subset (AccessToComponents (AccessType a)) cs,
-    Subset (AccessToComponents (AccessType b)) cs,
-    Subset (AccessToComponents (AccessType c)) cs,
-    Subset (AccessToComponents (AccessType d)) cs,
-    Subset (AccessToComponents (AccessType e)) cs,
-    Subset (AccessToComponents (AccessType a ++ AccessType b)) cs,
-    Subset
-      (AccessToComponents (AccessType d ++ AccessType e))
-      cs,
-    Subset
-      ( AccessToComponents
-          (AccessType c ++ (AccessType d ++ AccessType e))
-      )
-      cs,
-    Subset
-      ( AccessToComponents
-          ( ( (AccessType a ++ AccessType b)
-                ++ (AccessType c ++ (AccessType d ++ AccessType e))
-            )
-          )
-      )
-      cs
+    ValidAccessInput (AccessType d ++ AccessType e)
   ) =>
-  Access cs m (a, b, c, d, e)
+  Access m (a, b, c, d, e)
   where
   type
     AccessType (a, b, c, d, e) =
@@ -224,12 +180,13 @@ instance
       )
 
 instance
-  ( Access cs m a,
-    Access cs m b,
-    Access cs m c,
-    Access cs m d,
-    Access cs m e,
-    Access cs m f,
+  ( Applicative m,
+    Access m a,
+    Access m b,
+    Access m c,
+    Access m d,
+    Access m e,
+    Access m f,
     ValidAccessInput (AccessType a),
     ValidAccessInput (AccessType b),
     ValidAccessInput (AccessType c),
@@ -239,27 +196,9 @@ instance
     ValidAccessInput (AccessType e ++ AccessType f),
     ValidAccessInput (AccessType d ++ (AccessType e ++ AccessType f)),
     ValidAccessInput (AccessType a ++ (AccessType b ++ AccessType c)),
-    ValidAccessInput (AccessType b ++ AccessType c),
-    Subset (AccessToComponents (AccessType a)) cs,
-    Subset (AccessToComponents (AccessType b)) cs,
-    Subset (AccessToComponents (AccessType c)) cs,
-    Subset (AccessToComponents (AccessType d)) cs,
-    Subset (AccessToComponents (AccessType e)) cs,
-    Subset (AccessToComponents (AccessType f)) cs,
-    Subset (AccessToComponents (AccessType b ++ AccessType c)) cs,
-    Subset (AccessToComponents (AccessType e ++ AccessType f)) cs,
-    Subset
-      ( AccessToComponents
-          (AccessType a ++ (AccessType b ++ AccessType c))
-      )
-      cs,
-    Subset
-      ( AccessToComponents
-          (AccessType d ++ (AccessType e ++ AccessType f))
-      )
-      cs
+    ValidAccessInput (AccessType b ++ AccessType c)
   ) =>
-  Access cs m (a, b, c, d, e, f)
+  Access m (a, b, c, d, e, f)
   where
   type
     AccessType (a, b, c, d, e, f) =
@@ -268,13 +207,14 @@ instance
       )
 
 instance
-  ( Access cs m a,
-    Access cs m b,
-    Access cs m c,
-    Access cs m d,
-    Access cs m e,
-    Access cs m f,
-    Access cs m g,
+  ( Applicative m,
+    Access m a,
+    Access m b,
+    Access m c,
+    Access m d,
+    Access m e,
+    Access m f,
+    Access m g,
     ValidAccessInput (AccessType a),
     ValidAccessInput (AccessType b),
     ValidAccessInput (AccessType c),
@@ -286,29 +226,9 @@ instance
     ValidAccessInput (AccessType d ++ AccessType e),
     ValidAccessInput (AccessType f ++ AccessType g),
     ValidAccessInput (AccessType a ++ (AccessType b ++ AccessType c)),
-    ValidAccessInput ((AccessType d ++ AccessType e) ++ (AccessType f ++ AccessType g)),
-    Subset (AccessToComponents (AccessType a)) cs,
-    Subset (AccessToComponents (AccessType b)) cs,
-    Subset (AccessToComponents (AccessType c)) cs,
-    Subset (AccessToComponents (AccessType d)) cs,
-    Subset (AccessToComponents (AccessType e)) cs,
-    Subset (AccessToComponents (AccessType f)) cs,
-    Subset (AccessToComponents (AccessType g)) cs,
-    Subset (AccessToComponents (AccessType b ++ AccessType c)) cs,
-    Subset (AccessToComponents (AccessType d ++ AccessType e)) cs,
-    Subset (AccessToComponents (AccessType f ++ AccessType g)) cs,
-    Subset
-      ( AccessToComponents
-          (AccessType a ++ (AccessType b ++ AccessType c))
-      )
-      cs,
-    Subset
-      ( AccessToComponents
-          ((AccessType d ++ AccessType e) ++ (AccessType f ++ AccessType g))
-      )
-      cs
+    ValidAccessInput ((AccessType d ++ AccessType e) ++ (AccessType f ++ AccessType g))
   ) =>
-  Access cs m (a, b, c, d, e, f, g)
+  Access m (a, b, c, d, e, f, g)
   where
   type
     AccessType (a, b, c, d, e, f, g) =
@@ -317,14 +237,15 @@ instance
       )
 
 instance
-  ( Access cs m a,
-    Access cs m b,
-    Access cs m c,
-    Access cs m d,
-    Access cs m e,
-    Access cs m f,
-    Access cs m g,
-    Access cs m h,
+  ( Applicative m,
+    Access m a,
+    Access m b,
+    Access m c,
+    Access m d,
+    Access m e,
+    Access m f,
+    Access m g,
+    Access m h,
     ValidAccessInput (AccessType a),
     ValidAccessInput (AccessType b),
     ValidAccessInput (AccessType c),
@@ -338,31 +259,9 @@ instance
     ValidAccessInput (AccessType e ++ AccessType f),
     ValidAccessInput (AccessType g ++ AccessType h),
     ValidAccessInput ((AccessType a ++ AccessType b) ++ (AccessType c ++ AccessType d)),
-    ValidAccessInput ((AccessType e ++ AccessType f) ++ (AccessType g ++ AccessType h)),
-    Subset (AccessToComponents (AccessType a)) cs,
-    Subset (AccessToComponents (AccessType b)) cs,
-    Subset (AccessToComponents (AccessType c)) cs,
-    Subset (AccessToComponents (AccessType d)) cs,
-    Subset (AccessToComponents (AccessType e)) cs,
-    Subset (AccessToComponents (AccessType f)) cs,
-    Subset (AccessToComponents (AccessType g)) cs,
-    Subset (AccessToComponents (AccessType h)) cs,
-    Subset (AccessToComponents (AccessType a ++ AccessType b)) cs,
-    Subset (AccessToComponents (AccessType c ++ AccessType d)) cs,
-    Subset (AccessToComponents (AccessType e ++ AccessType f)) cs,
-    Subset (AccessToComponents (AccessType g ++ AccessType h)) cs,
-    Subset
-      ( AccessToComponents
-          ((AccessType a ++ AccessType b) ++ (AccessType c ++ AccessType d))
-      )
-      cs,
-    Subset
-      ( AccessToComponents
-          ((AccessType e ++ AccessType f) ++ (AccessType g ++ AccessType h))
-      )
-      cs
+    ValidAccessInput ((AccessType e ++ AccessType f) ++ (AccessType g ++ AccessType h))
   ) =>
-  Access cs m (a, b, c, d, e, f, g, h)
+  Access m (a, b, c, d, e, f, g, h)
   where
   type
     AccessType (a, b, c, d, e, f, g, h) =

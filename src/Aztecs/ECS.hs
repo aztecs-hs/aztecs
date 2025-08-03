@@ -1,5 +1,8 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
@@ -12,44 +15,53 @@
 
 module Aztecs.ECS
   ( module Aztecs.ECS.Queryable,
-    module Aztecs.ECS.Queryable.R,
-    module Aztecs.ECS.Queryable.W,
     module Aztecs.ECS.Schedule,
+    module Aztecs.ECS.Scheduler,
     PrimMonad (..),
     bundle,
     Query (..),
     runQuery,
     System (..),
-    runSystemWithWorld,
+    system,
     ECS (..),
     AztecsT (..),
     runAztecsT_,
-    runSchedule,
+    R (..),
+    W (..),
+    MkW (..),
+    readW,
+    writeW,
+    modifyW,
   )
 where
 
 import Aztecs.ECS.Access.Internal
 import qualified Aztecs.ECS.Access.Internal as A
 import Aztecs.ECS.Class
+import Aztecs.ECS.Entities
 import qualified Aztecs.ECS.Entities as E
 import Aztecs.ECS.Executor
-import Aztecs.ECS.HSet (HSet (..))
+import Aztecs.ECS.HSet (HSet (..), Lookup (..))
+import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
 import Aztecs.ECS.Queryable
 import Aztecs.ECS.Queryable.Internal
-import Aztecs.ECS.Queryable.R
-import Aztecs.ECS.Queryable.W
 import Aztecs.ECS.Schedule
-import Aztecs.ECS.Scheduler hiding (runSchedule)
+import Aztecs.ECS.Scheduler
 import qualified Aztecs.ECS.Scheduler as Scheduler
 import Aztecs.ECS.System
-import Aztecs.ECS.World (World, bundle)
+import Aztecs.ECS.World (ComponentStorage, bundle)
 import qualified Aztecs.ECS.World as W
 import Control.Monad.Identity
 import Control.Monad.Primitive
 import Control.Monad.State.Strict
+import Data.Maybe
+import qualified Data.Set as Set
+import qualified Data.SparseSet.Strict.Mutable as MS
+import Data.Word
+import Prelude hiding (Read, lookup)
 
-newtype AztecsT cs m a = AztecsT {unAztecsT :: StateT (World m cs) m a}
+newtype AztecsT cs m a = AztecsT {unAztecsT :: StateT (W.World m cs) m a}
   deriving (Functor, Applicative, Monad, MonadIO, PrimMonad)
 
 instance MonadTrans (AztecsT cs) where
@@ -77,35 +89,90 @@ instance (PrimMonad m) => ECS (AztecsT cs m) where
     w' <- lift $ W.remove e w
     put w'
   {-# INLINE remove #-}
-  query = AztecsT $ do
-    w <- get
-    return $ W.query w
-  {-# INLINE query #-}
-  task = AztecsT . lift
+  task = lift
   {-# INLINE task #-}
-  access = AztecsT $ do
-    w <- get
-    return $ A.access w
-  {-# INLINE access #-}
 
-runAztecsT_ :: (Monad m) => AztecsT cs m a -> World m cs -> m a
+runAztecsT_ :: (Monad m) => AztecsT cs m a -> W.World m cs -> m a
 runAztecsT_ (AztecsT m) = evalStateT m
 {-# INLINE runAztecsT_ #-}
 
-runSchedule ::
-  forall m cs s.
-  ( Scheduler m s,
-    Execute (World m cs) m (SchedulerOutput m s),
-    s ~ HSet Identity (SchedulerInput m s),
-    Monad m,
-    AllSystems m (SchedulerInput m s),
-    ScheduleLevelsBuilder
-      m
-      (TopologicalSort (BuildSystemGraph (SchedulerInput m s)))
-      (SchedulerInput m s)
-  ) =>
-  s ->
-  AztecsT cs m ()
-runSchedule s = AztecsT $ do
-  w <- get
-  lift $ Scheduler.runSchedule @m @cs s w
+newtype R a = R {unR :: a}
+  deriving (Show, Eq, Functor)
+
+instance (PrimMonad m, Lookup a cs) => Queryable (AztecsT cs m) (R a) where
+  type QueryableAccess (R a) = '[Read a]
+  queryable = AztecsT $ do
+    w <- get
+    !as <- lift $ MS.toList . lookup $ W.worldComponents w
+    let go (_, c) = R c
+    return . Query $ map (fmap go) as
+  {-# INLINE queryable #-}
+
+type W m a = MkW (PrimState m) a
+
+data MkW s c = W
+  { wIndex :: {-# UNPACK #-} !Word32,
+    wSparseSet :: {-# UNPACK #-} !(ComponentStorage s c)
+  }
+
+readW :: (PrimMonad m) => W m c -> m c
+readW r = MS.unsafeRead (wSparseSet r) (fromIntegral $ wIndex r)
+{-# INLINE readW #-}
+
+writeW :: (PrimMonad m) => W m c -> c -> m ()
+writeW r = MS.unsafeWrite (wSparseSet r) (fromIntegral $ wIndex r)
+{-# INLINE writeW #-}
+
+modifyW :: (PrimMonad m) => W m c -> (c -> c) -> m ()
+modifyW r f = MS.unsafeModify (wSparseSet r) (fromIntegral $ wIndex r) f
+{-# INLINE modifyW #-}
+
+instance (PrimMonad m, PrimState m ~ s, Lookup a cs) => Queryable (AztecsT cs m) (MkW s a) where
+  type QueryableAccess (MkW s a) = '[Write a]
+  queryable = AztecsT $ do
+    w <- get
+    let s = lookup @a $ W.worldComponents w
+    !as <- MS.toList s
+    let go (i, _) = W i s
+    return . Query $ map (fmap go) as
+  {-# INLINE queryable #-}
+
+instance (PrimMonad m) => Queryable (AztecsT cs m) E.Entity where
+  type QueryableAccess E.Entity = '[]
+  queryable = AztecsT $ do
+    w <- get
+    return . Query . map pure . E.entities $ W.worldEntities w
+
+instance (PrimMonad m, Lookup a cs) => Queryable (AztecsT cs m) (With a) where
+  type QueryableAccess (With a) = '[With a]
+  queryable = AztecsT $ do
+    w <- get
+    withComponent <- MS.toList $ HS.lookup @a $ W.worldComponents w
+    let withComponentIndices = Set.fromList $ map fst $ catMaybes withComponent
+        allEntities = entities $ W.worldEntities w
+        result =
+          map
+            ( \e ->
+                if Set.member (entityIndex e) withComponentIndices
+                  then Just (With)
+                  else Nothing
+            )
+            allEntities
+    return $ Query result
+
+instance (PrimMonad m, Lookup a cs) => Queryable (AztecsT cs m) (Without a) where
+  type QueryableAccess (Without a) = '[Without a]
+  queryable = AztecsT $ do
+    w <- get
+    withComponent <- MS.toList $ HS.lookup @a $ W.worldComponents w
+    let withComponentIndices = Set.fromList $ map fst $ catMaybes withComponent
+        allEntities = entities $ W.worldEntities w
+        result =
+          map
+            ( \e ->
+                if Set.member (entityIndex e) withComponentIndices
+                  then Nothing
+                  else Just (Without)
+            )
+            allEntities
+    return $ Query result

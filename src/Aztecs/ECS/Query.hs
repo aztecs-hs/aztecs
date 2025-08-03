@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -21,17 +22,15 @@ module Aztecs.ECS.Query where
 import Data.Maybe
 import Prelude hiding (Read)
 
-newtype Query m a = Query {unQuery :: m [Maybe a]}
-  deriving (Functor)
+newtype Query a = Query {unQuery :: [Maybe a]}
+  deriving (Functor, Foldable)
 
-instance (Monad m) => Applicative (Query m) where
-  pure x = Query $ return [Just x]
+instance Applicative Query where
+  pure x = Query $ [Just x]
   {-# INLINE pure #-}
-  Query f <*> Query x = Query $ do
-    fs <- f
-    zipWith (<*>) fs <$> x
+  Query f <*> Query x = Query $ zipWith (<*>) f x
   {-# INLINE (<*>) #-}
 
-runQuery :: (Monad m) => Query m a -> m [a]
-runQuery (Query q) = catMaybes <$> q
+runQuery :: Query a -> [a]
+runQuery (Query q) = catMaybes q
 {-# INLINE runQuery #-}

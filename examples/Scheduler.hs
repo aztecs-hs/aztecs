@@ -37,11 +37,10 @@ data RenderSystem = RenderSystem
   deriving (Show)
 
 instance (PrimMonad m, MonadIO m) => System m MoveSystem where
-  type SystemInputs m MoveSystem = Query m (W m Position, R Velocity)
+  type SystemInputs m MoveSystem = Query (W m Position, R Velocity)
   runSystem MoveSystem q = do
     liftIO $ putStrLn "Running MoveSystem..."
-    results <- runQuery q
-    mapM_ go results
+    mapM_ go q
     where
       go (posRef, R (Velocity v)) = do
         modifyW posRef $ \(Position p) -> Position (p + v)
@@ -49,11 +48,10 @@ instance (PrimMonad m, MonadIO m) => System m MoveSystem where
         liftIO $ putStrLn $ "  Moved to position: " ++ show p
 
 instance (PrimMonad m, MonadIO m) => System m PhysicsSystem where
-  type SystemInputs m PhysicsSystem = Query m (R Position, W m Velocity)
+  type SystemInputs m PhysicsSystem = Query (R Position, W m Velocity)
   runSystem PhysicsSystem q = do
     liftIO $ putStrLn "Running PhysicsSystem..."
-    results <- runQuery q
-    mapM_ go results
+    mapM_ go q
     where
       go (R (Position p), velRef) = do
         modifyW velRef $ \(Velocity v) -> Velocity (max 0 (v - 1))
@@ -61,11 +59,10 @@ instance (PrimMonad m, MonadIO m) => System m PhysicsSystem where
         liftIO $ putStrLn $ "  Applied physics at position " ++ show p ++ ", new velocity: " ++ show v
 
 instance (PrimMonad m, MonadIO m) => System m CombatSystem where
-  type SystemInputs m CombatSystem = Query m (W m Health, R Damage)
+  type SystemInputs m CombatSystem = Query (W m Health, R Damage)
   runSystem CombatSystem q = do
     liftIO $ putStrLn "Running CombatSystem..."
-    results <- runQuery q
-    mapM_ go results
+    mapM_ go q
     where
       go (healthRef, R (Damage d)) = do
         modifyW healthRef $ \(Health h) -> Health (max 0 (h - d))
@@ -73,11 +70,10 @@ instance (PrimMonad m, MonadIO m) => System m CombatSystem where
         liftIO $ putStrLn $ "  Applied damage, remaining health: " ++ show h
 
 instance (PrimMonad m, MonadIO m) => System m RenderSystem where
-  type SystemInputs m RenderSystem = Query m (R Position, R Health)
+  type SystemInputs m RenderSystem = Query (R Position, R Health)
   runSystem RenderSystem q = do
     liftIO $ putStrLn "Running RenderSystem..."
-    results <- runQuery q
-    mapM_ go results
+    mapM_ go q
     where
       go (R (Position p), R (Health h)) = do
         liftIO $ putStrLn $ "  Rendering entity at position " ++ show p ++ " with health " ++ show h

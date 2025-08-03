@@ -15,27 +15,26 @@
 module Aztecs.ECS.System where
 
 import Aztecs.ECS.Access.Internal
+import Aztecs.ECS.Class
 import Aztecs.ECS.HSet
 import Aztecs.ECS.Queryable.Internal
-import Aztecs.ECS.World
 
 class System m sys where
   type SystemInputs m sys
 
   runSystem :: sys -> SystemInputs m sys -> m ()
 
--- Instance for Run-wrapped systems
 instance (System m sys) => System m (Run constraints sys) where
   type SystemInputs m (Run constraints sys) = SystemInputs m sys
   runSystem (Run sys) = runSystem sys
 
-runSystemWithWorld ::
-  ( System m sys,
-    Access cs m (SystemInputs m sys),
-    Subset (AccessToComponents (AccessType (SystemInputs m sys))) cs,
-    ValidAccessInput (AccessType (SystemInputs m sys))
+system ::
+  ( ECS m,
+    Monad m,
+    System (Task m) sys,
+    Access m (SystemInputs (Task m) sys),
+    ValidAccessInput (AccessType (SystemInputs (Task m) sys))
   ) =>
   sys ->
-  World m cs ->
   m ()
-runSystemWithWorld sys world = runSystem sys (access world)
+system sys = access >>= task . runSystem sys

@@ -23,7 +23,8 @@ module Aztecs.ECS.World
     insert,
     removeComponent,
     remove,
-    query,
+    Components,
+    ComponentStorage,
   )
 where
 
@@ -69,6 +70,10 @@ bundle c = Bundle $ \entity w -> do
   cs <- HS.adjustM go $ worldComponents w
   let entityComponents' = IntMap.insertWith Map.union entityIdx (Map.singleton componentType (removeComponent' @m @c entity)) (worldEntityComponents w)
   return w {worldComponents = cs, worldEntityComponents = entityComponents'}
+
+type ComponentStorage s = MSparseSet s Word32
+
+type Components s = HSet (ComponentStorage s)
 
 data World m cs = World
   { worldComponents :: !(Components (PrimState m) cs),
@@ -128,7 +133,3 @@ remove entity w = do
       cs' <- foldr (<=<) return (Map.elems componentRemovalFunctions) (worldComponents w)
       let entityComponents' = IntMap.delete entityIdx (worldEntityComponents w)
       return $ w {worldComponents = cs', worldEntityComponents = entityComponents'}
-
-query :: (Queryable cs m a) => World m cs -> Query m a
-query w = queryable (worldComponents w) (worldEntities w)
-{-# INLINE query #-}
