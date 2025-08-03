@@ -61,6 +61,49 @@ import qualified Data.SparseSet.Strict.Mutable as MS
 import Data.Word
 import Prelude hiding (Read, lookup)
 
+newtype Commands cs m a = Commands
+  {unCommands :: m (a, AztecsT cs m ())}
+  deriving (Functor)
+
+instance (Monad m) => Applicative (Commands cs m) where
+  pure x = Commands $ pure (x, AztecsT $ pure ())
+  Commands mf <*> Commands mx = Commands $ do
+    (f, w1) <- mf
+    (x, w2) <- mx
+    return (f x, w1 >> w2)
+
+instance (Monad m) => Monad (Commands cs m) where
+  Commands mx >>= f = Commands $ do
+    (x, w1) <- mx
+    (y, w2) <- unCommands (f x)
+    return (y, w1 >> w2)
+
+instance MonadTrans (Commands cs) where
+  lift m = Commands $ do
+    x <- m
+    return (x, AztecsT $ pure ())
+
+instance (MonadIO m) => MonadIO (Commands cs m) where
+  liftIO io = Commands $ do
+    x <- liftIO io
+    return (x, AztecsT $ pure ())
+
+instance (PrimMonad m) => PrimMonad (Commands cs m) where
+  type PrimState (Commands cs m) = PrimState m
+  primitive f = Commands $ do
+    x <- primitive f
+    return (x, AztecsT $ pure ())
+
+queue :: (Applicative m) => AztecsT cs m () -> Commands cs m ()
+queue action = Commands $ pure ((), action)
+
+runCommands :: (Monad m) => Commands cs m a -> AztecsT cs m a
+runCommands (Commands m) = AztecsT $ do
+  w <- get
+  !(result, action) <- lift m
+  unAztecsT action
+  return result
+
 newtype AztecsT cs m a = AztecsT {unAztecsT :: StateT (W.World m cs) m a}
   deriving (Functor, Applicative, Monad, MonadIO, PrimMonad)
 
@@ -71,7 +114,7 @@ instance (PrimMonad m) => ECS (AztecsT cs m) where
   type Entity (AztecsT cs m) = E.Entity
   type Bundle (AztecsT cs m) = W.Bundle cs m
   type Components (AztecsT cs m) = cs
-  type Task (AztecsT cs m) = m
+  type Task (AztecsT cs m) = (Commands cs m)
 
   spawn b = AztecsT $ do
     w <- get
@@ -89,7 +132,7 @@ instance (PrimMonad m) => ECS (AztecsT cs m) where
     w' <- lift $ W.remove e w
     put w'
   {-# INLINE remove #-}
-  task = lift
+  task = runCommands
   {-# INLINE task #-}
 
 runAztecsT_ :: (Monad m) => AztecsT cs m a -> W.World m cs -> m a
