@@ -36,7 +36,9 @@ library
         Aztecs.ECS.Queryable
         Aztecs.ECS.Queryable.Internal
         Aztecs.ECS.Schedule
+        Aztecs.ECS.Schedule.Internal
         Aztecs.ECS.Scheduler
+        Aztecs.ECS.Scheduler.Internal
         Aztecs.ECS.World
         Aztecs.ECS.System
 
