@@ -10,19 +10,17 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Aztecs.World
-  ( Bundle (..),
-    bundle,
-    World (..),
+  ( World (..),
     empty,
-    spawn,
-    insert,
     removeComponent,
+    removeComponent',
     remove,
     Components,
     ComponentStorage,
   )
 where
 
+import Aztecs.ECS.Bundle
 import Aztecs.ECS.HSet hiding (empty)
 import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
@@ -43,29 +41,6 @@ import Data.Typeable
 import Data.Word
 import Prelude hiding (Read, lookup)
 
-newtype Bundle cs m = Bundle {runBundle :: Entity -> World m cs -> m (World m cs)}
-
-instance (Monad m) => Semigroup (Bundle cs m) where
-  Bundle f <> Bundle g = Bundle $ \entity w -> f entity w >>= g entity
-
-instance (Monad m) => Monoid (Bundle cs m) where
-  mempty = Bundle $ \_ w -> return w
-
-bundle ::
-  forall cs m c.
-  (AdjustM m (MSparseSet (PrimState m) Word32) c cs, PrimMonad m, Typeable c) =>
-  c ->
-  Bundle cs m
-bundle c = Bundle $ \entity w -> do
-  let entityIdx = fromIntegral (entityIndex entity)
-      componentType = typeOf c
-      go s = do
-        s' <- S.freeze s
-        S.thaw $ S.insert (entityIndex entity) c s'
-  cs <- HS.adjustM go $ worldComponents w
-  let entityComponents' = IntMap.insertWith Map.union entityIdx (Map.singleton componentType (removeComponent' @m @c entity)) (worldEntityComponents w)
-  return w {worldComponents = cs, worldEntityComponents = entityComponents'}
-
 type ComponentStorage s = MSparseSet s Word32
 
 type Components s = HSetT (ComponentStorage s)
@@ -80,16 +55,6 @@ empty :: (Monad m, Empty m (Components (PrimState m) cs)) => m (World m cs)
 empty = do
   cs <- HS.empty
   return $ World cs emptyEntities IntMap.empty
-
-spawn :: (Monad m) => Bundle cs m -> World m cs -> m (Entity, World m cs)
-spawn c w = do
-  let (newEntity, counter) = mkEntityWithCounter (worldEntities w)
-      world' = w {worldEntities = counter}
-  world'' <- runBundle c newEntity world'
-  return (newEntity, world'')
-
-insert :: Entity -> Bundle cs m -> World m cs -> m (World m cs)
-insert entity b = runBundle b entity
 
 removeComponent ::
   forall m cs c.

@@ -15,6 +15,7 @@ module Aztecs.Internal (AztecsT (..), runAztecsT_) where
 
 import Aztecs.ECS.Access.Internal
 import qualified Aztecs.ECS.Access.Internal as A
+import Aztecs.ECS.Bundle
 import Aztecs.ECS.Class
 import Aztecs.ECS.Commands
 import Aztecs.ECS.Executor
@@ -29,13 +30,16 @@ import qualified Aztecs.ECS.Scheduler as Scheduler
 import Aztecs.ECS.System
 import Aztecs.Entities
 import qualified Aztecs.Entities as E
-import Aztecs.World (ComponentStorage, bundle)
+import Aztecs.World (ComponentStorage)
 import qualified Aztecs.World as W
 import Control.Monad.Identity
 import Control.Monad.Primitive
 import Control.Monad.State.Strict
+import qualified Data.IntMap.Strict as IntMap
+import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.Set as Set
+import qualified Data.SparseSet.Strict as S
 import qualified Data.SparseSet.Strict.Mutable as MS
 import Data.Typeable
 import Data.Word
@@ -49,20 +53,17 @@ instance MonadTrans (AztecsT cs) where
 
 instance (PrimMonad m) => ECS (AztecsT cs m) where
   type Entity (AztecsT cs m) = E.Entity
-  type Bundle (AztecsT cs m) = W.Bundle cs m
   type Components (AztecsT cs m) = cs
   type Task (AztecsT cs m) = (Commands (AztecsT cs) m)
 
-  spawn b = AztecsT $ do
-    w <- get
-    (e, w') <- lift $ W.spawn b w
-    put w'
+  spawn b = do
+    w <- AztecsT $ get
+    let (e, counter) = mkEntityWithCounter (W.worldEntities w)
+    AztecsT $ put w {W.worldEntities = counter}
+    runBundle b e
     return e
   {-# INLINE spawn #-}
-  insert e b = AztecsT $ do
-    w <- get
-    w' <- lift $ W.insert e b w
-    put w'
+  insert e b = runBundle b e
   {-# INLINE insert #-}
   remove e = AztecsT $ do
     w <- get
@@ -73,10 +74,27 @@ instance (PrimMonad m) => ECS (AztecsT cs m) where
   {-# INLINE task #-}
 
 instance
-  (PrimMonad m, Typeable c, AdjustM m (ComponentStorage (PrimState m)) c cs) =>
+  ( PrimMonad m,
+    Typeable c,
+    AdjustM m (ComponentStorage (PrimState m)) c cs
+  ) =>
   Bundleable c (AztecsT cs m)
   where
-  bundle = W.bundle
+  bundle c = Bundle $ \entity -> do
+    w <- AztecsT $ get
+    let entityIdx = fromIntegral (entityIndex entity)
+        componentType = typeOf c
+        go s = do
+          s' <- S.freeze s
+          S.thaw $ S.insert (entityIndex entity) c s'
+    cs <- lift . HS.adjustM go $ W.worldComponents w
+    let entityComponents' =
+          IntMap.insertWith
+            Map.union
+            entityIdx
+            (Map.singleton componentType (W.removeComponent' @m @c entity))
+            (W.worldEntityComponents w)
+    AztecsT $ put w {W.worldComponents = cs, W.worldEntityComponents = entityComponents'}
 
 runAztecsT_ :: (Monad m) => AztecsT cs m a -> W.World m cs -> m a
 runAztecsT_ (AztecsT m) = evalStateT m

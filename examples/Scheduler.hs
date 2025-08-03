@@ -113,9 +113,9 @@ runSchedulerExample = do
   where
     go :: AztecsT '[Position, Velocity, Health, Damage] IO ()
     go = do
-      _ <- spawn (W.bundle (Position 0) <> W.bundle (Velocity 5) <> W.bundle (Health 100))
-      _ <- spawn (W.bundle (Position 10) <> W.bundle (Velocity 3) <> W.bundle (Health 75) <> W.bundle (Damage 10))
-      _ <- spawn (W.bundle (Position (-5)) <> W.bundle (Velocity 2) <> W.bundle (Health 50))
+      _ <- spawn (bundle (Position 0) <> bundle (Velocity 5) <> bundle (Health 100))
+      _ <- spawn (bundle (Position 10) <> bundle (Velocity 3) <> bundle (Health 75) <> bundle (Damage 10))
+      _ <- spawn (bundle (Position (-5)) <> bundle (Velocity 2) <> bundle (Health 50))
       runSchedule app
       return ()
 
@@ -126,9 +126,9 @@ runSchedulerExampleSmall = do
   where
     go :: AztecsT '[Position, Velocity, Health, Damage] IO ()
     go = do
-      _ <- spawn (W.bundle (Position 0) <> W.bundle (Velocity 5) <> W.bundle (Health 100))
-      _ <- spawn (W.bundle (Position 10) <> W.bundle (Velocity 3) <> W.bundle (Health 75) <> W.bundle (Damage 10))
-      _ <- spawn (W.bundle (Position (-5)) <> W.bundle (Velocity 2) <> W.bundle (Health 50))
+      _ <- spawn (bundle (Position 0) <> bundle (Velocity 5) <> bundle (Health 100))
+      _ <- spawn (bundle (Position 10) <> bundle (Velocity 3) <> bundle (Health 75) <> bundle (Damage 10))
+      _ <- spawn (bundle (Position (-5)) <> bundle (Velocity 2) <> bundle (Health 50))
       runSchedule appSmall
       return ()
 

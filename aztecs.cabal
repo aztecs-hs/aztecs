@@ -29,6 +29,7 @@ library
         Aztecs.ECS
         Aztecs.ECS.Access
         Aztecs.ECS.Access.Internal
+        Aztecs.ECS.Bundle
         Aztecs.ECS.Class
         Aztecs.ECS.Commands
         Aztecs.ECS.Executor

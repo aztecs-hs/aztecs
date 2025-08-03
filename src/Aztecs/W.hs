@@ -35,7 +35,7 @@ import Aztecs.ECS.System
 import Aztecs.Entities
 import qualified Aztecs.Entities as E
 import Aztecs.Internal
-import Aztecs.World (ComponentStorage, bundle)
+import Aztecs.World (ComponentStorage)
 import qualified Aztecs.World as W
 import Control.Monad.Identity
 import Control.Monad.Primitive

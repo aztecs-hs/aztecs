@@ -7,6 +7,7 @@
 
 module Aztecs.ECS.Class (ECS (..), Bundleable (..)) where
 
+import Aztecs.ECS.Bundle
 import Aztecs.ECS.HSet
 import Data.Kind
 
@@ -18,18 +19,15 @@ class ECS m where
   -- | Components that can be stored or accessed.
   type Components m :: [Type]
 
-  -- | Bundle of components that can be stored in an entity.
-  type Bundle m :: Type
-
   -- | Task monad for running systems.
   type Task m :: Type -> Type
 
   -- | Spawn a new entity with a `Bundle` of components.
-  spawn :: Bundle m -> m (Entity m)
+  spawn :: Bundle (Entity m) m -> m (Entity m)
 
   -- | Insert a `Bundle` of components into an existing entity
   -- (otherwise this will do nothing).
-  insert :: Entity m -> Bundle m -> m ()
+  insert :: Entity m -> Bundle (Entity m) m -> m ()
 
   -- | Remove an entity and its components.
   remove :: Entity m -> m ()
@@ -38,4 +36,4 @@ class ECS m where
   task :: (Task m) a -> m a
 
 class Bundleable c m where
-  bundle :: c -> Bundle m
+  bundle :: c -> Bundle (Entity m) m
