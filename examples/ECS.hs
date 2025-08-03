@@ -6,8 +6,8 @@
 
 module Main where
 
-import Aztecs.ECS
-import qualified Aztecs.ECS.World as W
+import Aztecs
+import qualified Aztecs.World as W
 import Control.Monad.IO.Class
 
 newtype Position = Position Int

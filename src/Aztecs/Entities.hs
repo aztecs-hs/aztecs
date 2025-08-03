@@ -1,4 +1,4 @@
-module Aztecs.ECS.Entities where
+module Aztecs.Entities where
 
 import Data.Bits
 import Data.IntMap (IntMap)

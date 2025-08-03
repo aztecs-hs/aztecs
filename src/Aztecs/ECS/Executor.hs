@@ -14,7 +14,7 @@ import Aztecs.ECS.Access.Internal
 import Aztecs.ECS.HSet (HSet (..), Subset)
 import Aztecs.ECS.Queryable.Internal
 import Aztecs.ECS.System
-import Aztecs.ECS.World
+import Aztecs.World
 import Control.Monad.Identity
 
 newtype ExecutorT m a = ExecutorT {runSystems :: ([m ()] -> m ()) -> m a}

@@ -6,9 +6,8 @@
 
 module Main where
 
-import Aztecs.ECS
-import Aztecs.ECS.HSet
-import qualified Aztecs.ECS.World as W
+import Aztecs
+import qualified Aztecs.World as W
 import Control.Monad.IO.Class
 import Control.Monad.Identity
 

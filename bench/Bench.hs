@@ -8,8 +8,8 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
-import Aztecs.ECS
-import qualified Aztecs.ECS.World as W
+import Aztecs
+import qualified Aztecs.World as W
 import Control.DeepSeq
 import Control.Monad
 import Control.Monad.IO.Class

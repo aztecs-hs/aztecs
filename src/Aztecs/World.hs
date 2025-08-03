@@ -14,7 +14,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Aztecs.ECS.World
+module Aztecs.World
   ( Bundle (..),
     bundle,
     World (..),
@@ -28,12 +28,12 @@ module Aztecs.ECS.World
   )
 where
 
-import Aztecs.ECS.Entities
 import Aztecs.ECS.HSet hiding (empty)
 import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
 import Aztecs.ECS.Queryable
 import Aztecs.ECS.Queryable.Internal
+import Aztecs.Entities
 import Control.Monad
 import Control.Monad.Primitive
 import Data.IntMap.Strict (IntMap)

@@ -18,7 +18,7 @@ providing patterns for data-oriented design and parallel processing.
 
 ```hs
 import Aztecs.ECS
-import qualified Aztecs.ECS.World as W
+import qualified Aztecs.World as W
 import Control.Monad.IO.Class
 
 newtype Position = Position Int

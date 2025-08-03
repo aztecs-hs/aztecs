@@ -13,23 +13,20 @@
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Aztecs.ECS
-  ( module Aztecs.ECS.Queryable,
-    module Aztecs.ECS.Schedule,
-    module Aztecs.ECS.Scheduler,
-    PrimMonad (..),
-    bundle,
-    Query (..),
-    runQuery,
-    System (..),
-    system,
-    ECS (..),
+module Aztecs.W
+  ( W (..),
+    MkW (..),
+    readW,
+    writeW,
+    modifyW,
   )
 where
 
 import Aztecs.ECS.Access.Internal
 import qualified Aztecs.ECS.Access.Internal as A
 import Aztecs.ECS.Class
+import Aztecs.Entities
+import qualified Aztecs.Entities as E
 import Aztecs.ECS.Executor
 import Aztecs.ECS.HSet (HSet (..), Lookup (..))
 import qualified Aztecs.ECS.HSet as HS
@@ -40,8 +37,6 @@ import Aztecs.ECS.Schedule
 import Aztecs.ECS.Scheduler
 import qualified Aztecs.ECS.Scheduler as Scheduler
 import Aztecs.ECS.System
-import Aztecs.Entities
-import qualified Aztecs.Entities as E
 import Aztecs.World (ComponentStorage, bundle)
 import qualified Aztecs.World as W
 import Control.Monad.Identity
@@ -52,3 +47,33 @@ import qualified Data.Set as Set
 import qualified Data.SparseSet.Strict.Mutable as MS
 import Data.Word
 import Prelude hiding (Read, lookup)
+import Aztecs.Internal
+
+type W m a = MkW (PrimState m) a
+
+data MkW s c = W
+  { wIndex :: {-# UNPACK #-} !Word32,
+    wSparseSet :: {-# UNPACK #-} !(ComponentStorage s c)
+  }
+
+readW :: (PrimMonad m) => W m c -> m c
+readW r = MS.unsafeRead (wSparseSet r) (fromIntegral $ wIndex r)
+{-# INLINE readW #-}
+
+writeW :: (PrimMonad m) => W m c -> c -> m ()
+writeW r = MS.unsafeWrite (wSparseSet r) (fromIntegral $ wIndex r)
+{-# INLINE writeW #-}
+
+modifyW :: (PrimMonad m) => W m c -> (c -> c) -> m ()
+modifyW r f = MS.unsafeModify (wSparseSet r) (fromIntegral $ wIndex r) f
+{-# INLINE modifyW #-}
+
+instance (PrimMonad m, PrimState m ~ s, Lookup a cs) => Queryable (AztecsT cs m) (MkW s a) where
+  type QueryableAccess (MkW s a) = '[Write a]
+  queryable = AztecsT $ do
+    w <- get
+    let s = lookup @a $ W.worldComponents w
+    !as <- MS.toList s
+    let go (i, _) = W i s
+    return . Query $ map (fmap go) as
+  {-# INLINE queryable #-}
