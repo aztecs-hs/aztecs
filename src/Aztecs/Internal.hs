@@ -13,28 +13,14 @@
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Aztecs.Internal
-  ( module Aztecs.ECS.Queryable,
-    module Aztecs.ECS.Schedule,
-    module Aztecs.ECS.Scheduler,
-    PrimMonad (..),
-    bundle,
-    Query (..),
-    runQuery,
-    System (..),
-    system,
-    ECS (..),
-    AztecsT (..),
-    runAztecsT_,
-  )
-where
+module Aztecs.Internal (AztecsT (..), runAztecsT_) where
 
 import Aztecs.ECS.Access.Internal
 import qualified Aztecs.ECS.Access.Internal as A
 import Aztecs.ECS.Class
 import Aztecs.ECS.Commands
 import Aztecs.ECS.Executor
-import Aztecs.ECS.HSet (HSetT (..), Lookup (..))
+import Aztecs.ECS.HSet (AdjustM, HSetT (..), Lookup (..))
 import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
 import Aztecs.ECS.Queryable
@@ -53,6 +39,7 @@ import Control.Monad.State.Strict
 import Data.Maybe
 import qualified Data.Set as Set
 import qualified Data.SparseSet.Strict.Mutable as MS
+import Data.Typeable
 import Data.Word
 import Prelude hiding (Read, lookup)
 
@@ -86,6 +73,13 @@ instance (PrimMonad m) => ECS (AztecsT cs m) where
   {-# INLINE remove #-}
   task = runCommands
   {-# INLINE task #-}
+
+instance
+  (PrimMonad m, Typeable c, AdjustM m (ComponentStorage (PrimState m)) c cs) =>
+  Bundleable (AztecsT cs m) c
+  where
+  bundle c = AztecsT $ do
+    return $ W.bundle c
 
 runAztecsT_ :: (Monad m) => AztecsT cs m a -> W.World m cs -> m a
 runAztecsT_ (AztecsT m) = evalStateT m

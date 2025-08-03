@@ -11,14 +11,14 @@ import Control.Monad.Trans
 newtype Commands t m a = Commands {unCommands :: m (a, t m ())}
   deriving (Functor)
 
-instance (MonadTrans t, Monad m) => Applicative (Commands t m) where
-  pure x = Commands $ pure (x, lift $ pure ())
+instance (Monad (t m), Monad m) => Applicative (Commands t m) where
+  pure x = Commands $ pure (x, pure ())
   Commands mf <*> Commands mx = Commands $ do
     (f, w1) <- mf
     (x, w2) <- mx
     return (f x, w1 >> w2)
 
-instance (MonadTrans t, Monad m) => Monad (Commands t m) where
+instance (Monad (t m), Monad m) => Monad (Commands t m) where
   Commands mx >>= f = Commands $ do
     (x, w1) <- mx
     (y, w2) <- unCommands (f x)
@@ -29,12 +29,12 @@ instance (MonadTrans t) => MonadTrans (Commands t) where
     x <- m
     return (x, lift $ pure ())
 
-instance (MonadTrans t, MonadIO m) => MonadIO (Commands t m) where
+instance (MonadTrans t, Monad (t m), MonadIO m) => MonadIO (Commands t m) where
   liftIO io = Commands $ do
     x <- liftIO io
     return (x, lift $ pure ())
 
-instance (MonadTrans t, PrimMonad m) => PrimMonad (Commands t m) where
+instance (MonadTrans t, Monad (t m), PrimMonad m) => PrimMonad (Commands t m) where
   type PrimState (Commands t m) = PrimState m
   primitive f = Commands $ do
     x <- primitive f

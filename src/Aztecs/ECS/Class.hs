@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Aztecs.ECS.Class (ECS (..)) where
+module Aztecs.ECS.Class (ECS (..), Bundleable (..)) where
 
 import Aztecs.ECS.HSet
 import Data.Kind
@@ -36,3 +36,6 @@ class ECS m where
 
   -- | Run a `Task`.
   task :: (Task m) a -> m a
+
+class Bundleable m c where
+  bundle :: c -> m (Bundle m)

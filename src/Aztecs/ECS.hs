@@ -14,17 +14,16 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Aztecs.ECS
-  ( module Aztecs.ECS.Commands,
+  ( module Aztecs.ECS.Class,
+    module Aztecs.ECS.Commands,
     module Aztecs.ECS.Queryable,
     module Aztecs.ECS.Schedule,
     module Aztecs.ECS.Scheduler,
     PrimMonad (..),
-    bundle,
     Query (..),
     runQuery,
     System (..),
     system,
-    ECS (..),
   )
 where
 
@@ -44,7 +43,7 @@ import qualified Aztecs.ECS.Scheduler as Scheduler
 import Aztecs.ECS.System
 import Aztecs.Entities
 import qualified Aztecs.Entities as E
-import Aztecs.World (ComponentStorage, bundle)
+import Aztecs.World (ComponentStorage)
 import qualified Aztecs.World as W
 import Control.Monad.Identity
 import Control.Monad.Primitive
