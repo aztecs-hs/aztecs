@@ -11,7 +11,7 @@
 module Aztecs.ECS.Executor where
 
 import Aztecs.ECS.Access.Internal
-import Aztecs.ECS.HSet (HSetT (..), Subset, HSet)
+import Aztecs.ECS.HSet (HSet, HSetT (..), Subset)
 import Aztecs.ECS.Queryable.Internal
 import Aztecs.ECS.System
 import Aztecs.World
@@ -57,11 +57,11 @@ instance
   Execute' m (HSet (sys ': systems))
   where
   execute' (HCons (Identity system) rest) =
-    [ do
+    ( do
         inputs <- access
         runSystem system inputs
-    ]
-      ++ execute' rest
+    )
+      : execute' rest
 
 class Execute m s where
   execute :: s -> ExecutorT m ()

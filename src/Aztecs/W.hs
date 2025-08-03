@@ -1,16 +1,13 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Aztecs.W
@@ -25,8 +22,6 @@ where
 import Aztecs.ECS.Access.Internal
 import qualified Aztecs.ECS.Access.Internal as A
 import Aztecs.ECS.Class
-import Aztecs.Entities
-import qualified Aztecs.Entities as E
 import Aztecs.ECS.Executor
 import Aztecs.ECS.HSet (HSetT (..), Lookup (..))
 import qualified Aztecs.ECS.HSet as HS
@@ -37,6 +32,9 @@ import Aztecs.ECS.Schedule
 import Aztecs.ECS.Scheduler
 import qualified Aztecs.ECS.Scheduler as Scheduler
 import Aztecs.ECS.System
+import Aztecs.Entities
+import qualified Aztecs.Entities as E
+import Aztecs.Internal
 import Aztecs.World (ComponentStorage, bundle)
 import qualified Aztecs.World as W
 import Control.Monad.Identity
@@ -47,7 +45,6 @@ import qualified Data.Set as Set
 import qualified Data.SparseSet.Strict.Mutable as MS
 import Data.Word
 import Prelude hiding (Read, lookup)
-import Aztecs.Internal
 
 type W m a = MkW (PrimState m) a
 
@@ -65,7 +62,7 @@ writeW r = MS.unsafeWrite (wSparseSet r) (fromIntegral $ wIndex r)
 {-# INLINE writeW #-}
 
 modifyW :: (PrimMonad m) => W m c -> (c -> c) -> m ()
-modifyW r f = MS.unsafeModify (wSparseSet r) (fromIntegral $ wIndex r) f
+modifyW r = MS.unsafeModify (wSparseSet r) (fromIntegral $ wIndex r)
 {-# INLINE modifyW #-}
 
 instance (PrimMonad m, PrimState m ~ s, Lookup a cs) => Queryable (AztecsT cs m) (MkW s a) where

@@ -1,20 +1,14 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Aztecs.ECS.Query where
@@ -26,7 +20,7 @@ newtype Query a = Query {unQuery :: [Maybe a]}
   deriving (Functor, Foldable)
 
 instance Applicative Query where
-  pure x = Query $ [Just x]
+  pure x = Query [Just x]
   {-# INLINE pure #-}
   Query f <*> Query x = Query $ zipWith (<*>) f x
   {-# INLINE (<*>) #-}

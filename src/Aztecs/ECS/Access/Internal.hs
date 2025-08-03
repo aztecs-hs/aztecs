@@ -2,15 +2,11 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -168,7 +164,7 @@ instance
     ValidAccessInput (AccessType d),
     ValidAccessInput (AccessType e),
     ValidAccessInput (AccessType a ++ AccessType b),
-    ValidAccessInput ((AccessType c ++ (AccessType d ++ AccessType e))),
+    ValidAccessInput (AccessType c ++ (AccessType d ++ AccessType e)),
     ValidAccessInput (AccessType d ++ AccessType e)
   ) =>
   Access m (a, b, c, d, e)

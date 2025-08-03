@@ -3,7 +3,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
@@ -97,7 +96,7 @@ instance
   Schedule m (HSetT (IdentityT m) (sys ': rest))
   where
   type Scheduled m (HSetT (IdentityT m) (sys ': rest)) = HSetT (HSetT (IdentityT m)) (GroupSystems m (sys ': rest))
-  schedule systems = compileGroups @m @(GroupSystems m (sys ': rest)) @(sys ': rest) systems
+  schedule = compileGroups @m @(GroupSystems m (sys ': rest)) @(sys ': rest)
 
 class AllSystems m systems
 

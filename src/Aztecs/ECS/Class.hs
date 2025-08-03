@@ -1,6 +1,6 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -37,5 +37,5 @@ class ECS m where
   -- | Run a `Task`.
   task :: (Task m) a -> m a
 
-class Bundleable m c where
-  bundle :: c -> m (Bundle m)
+class Bundleable c m where
+  bundle :: c -> Bundle m

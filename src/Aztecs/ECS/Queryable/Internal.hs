@@ -1,18 +1,14 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Aztecs.ECS.Queryable.Internal where
@@ -139,8 +135,7 @@ instance
   where
   genericQueryableRep = do
     fs <- genericQueryableRep
-    gs <- genericQueryableRep
-    return $ zipWith (\f g -> (:*:) <$> f <*> g) fs gs
+    zipWith (\f g -> (:*:) <$> f <*> g) fs <$> genericQueryableRep
   {-# INLINE genericQueryableRep #-}
 
 instance (Functor m, GenericQueryable m f) => GenericQueryable m (M1 i c f) where
@@ -148,7 +143,7 @@ instance (Functor m, GenericQueryable m f) => GenericQueryable m (M1 i c f) wher
   {-# INLINE genericQueryableRep #-}
 
 instance (Functor m, Queryable m a) => GenericQueryable m (K1 i a) where
-  genericQueryableRep = fmap (map (fmap K1)) (fmap unQuery queryable)
+  genericQueryableRep = fmap (map (fmap K1) . unQuery) queryable
   {-# INLINE genericQueryableRep #-}
 
 class Queryable m a where

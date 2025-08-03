@@ -1,10 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
@@ -14,7 +12,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Aztecs.ECS.Scheduler.Internal  where
+module Aztecs.ECS.Scheduler.Internal where
 
 import Aztecs.ECS.Access.Internal
 import Aztecs.ECS.Class
@@ -52,9 +50,9 @@ instance
   type SchedulerInput m (HSet systems) = systems
   type
     SchedulerOutput m (HSet systems) =
-      HSetT (HSet) (ScheduleLevels m (TopologicalSort (BuildSystemGraph systems)))
+      HSetT HSet (ScheduleLevels m (TopologicalSort (BuildSystemGraph systems)))
 
-  buildSchedule systems = scheduleSystemLevels @m @(TopologicalSort (BuildSystemGraph systems)) systems
+  buildSchedule = scheduleSystemLevels @m @(TopologicalSort (BuildSystemGraph systems))
 
 type family BuildSystemGraph (systems :: [Type]) :: DependencyGraph where
   BuildSystemGraph '[] = EmptyGraph
@@ -80,7 +78,7 @@ type family AddSystemToGraph (sys :: Type) (constraints :: [Type]) (graph :: Dep
   AddSystemToGraph sys (other ': rest) graph =
     AddSystemToGraph sys rest graph
 
-data DependencyGraph = EmptyGraph | Graph [Type] [(Type, Type)] [(Type)]
+data DependencyGraph = EmptyGraph | Graph [Type] [(Type, Type)] [Type]
 
 type family AddNode (sys :: Type) (graph :: DependencyGraph) :: DependencyGraph where
   AddNode sys EmptyGraph = Graph '[sys] '[] '[]
@@ -174,13 +172,13 @@ scheduleSystemLevels ::
     ScheduleLevelsBuilder m levels systems
   ) =>
   HSet systems ->
-  HSetT (HSet) (ScheduleLevels m levels)
+  HSetT HSet (ScheduleLevels m levels)
 scheduleSystemLevels = buildScheduleLevels @m @levels @systems
 
 class ScheduleLevelsBuilder (m :: Type -> Type) (levels :: [[Type]]) (systems :: [Type]) where
   buildScheduleLevels ::
     HSet systems ->
-    HSetT (HSet) (ScheduleLevels m levels)
+    HSetT HSet (ScheduleLevels m levels)
 
 instance ScheduleLevelsBuilder m '[] systems where
   buildScheduleLevels _ = HEmpty
@@ -211,7 +209,8 @@ instance
   where
   buildScheduleLevels originalSystems =
     HCons (reorderSystems @originalSystems @levelSystems1 originalSystems) $
-      HCons (reorderSystems @originalSystems @levelSystems2 originalSystems) $
+      HCons
+        (reorderSystems @originalSystems @levelSystems2 originalSystems)
         HEmpty
 
 class SystemReorderer (originalSystems :: [Type]) (targetSystems :: [Type]) where
@@ -289,17 +288,17 @@ runSchedule ::
   m ()
 runSchedule s = do
   runSystems (executeSchedule @m @cs @s s) $ \actions ->
-    sequenceA_ [action | action <- actions]
+    sequenceA_ actions
 
-instance (Applicative m) => Execute m (HSetT (HSet) '[]) where
+instance (Applicative m) => Execute m (HSetT HSet '[]) where
   execute HEmpty = pure ()
 
 instance
   ( Monad m,
     Execute' m (HSet level),
-    Execute m (HSetT (HSet) restLevels)
+    Execute m (HSetT HSet restLevels)
   ) =>
-  Execute m (HSetT (HSet) (level ': restLevels))
+  Execute m (HSetT HSet (level ': restLevels))
   where
   execute (HCons level restLevels) = do
     ExecutorT $ \run -> run $ execute' level

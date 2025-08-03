@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -9,7 +8,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -76,10 +74,9 @@ instance (PrimMonad m) => ECS (AztecsT cs m) where
 
 instance
   (PrimMonad m, Typeable c, AdjustM m (ComponentStorage (PrimState m)) c cs) =>
-  Bundleable (AztecsT cs m) c
+  Bundleable c (AztecsT cs m)
   where
-  bundle c = AztecsT $ do
-    return $ W.bundle c
+  bundle = W.bundle
 
 runAztecsT_ :: (Monad m) => AztecsT cs m a -> W.World m cs -> m a
 runAztecsT_ (AztecsT m) = evalStateT m
@@ -102,7 +99,7 @@ instance (PrimMonad m, Lookup a cs) => Queryable (AztecsT cs m) (With a) where
           map
             ( \e ->
                 if Set.member (entityIndex e) withComponentIndices
-                  then Just (With)
+                  then Just With
                   else Nothing
             )
             allEntities
@@ -120,7 +117,7 @@ instance (PrimMonad m, Lookup a cs) => Queryable (AztecsT cs m) (Without a) wher
             ( \e ->
                 if Set.member (entityIndex e) withComponentIndices
                   then Nothing
-                  else Just (Without)
+                  else Just Without
             )
             allEntities
     return $ Query result
@@ -128,6 +125,6 @@ instance (PrimMonad m, Lookup a cs) => Queryable (AztecsT cs m) (Without a) wher
 runCommands :: (Monad m) => Commands (AztecsT cs) m a -> AztecsT cs m a
 runCommands (Commands m) = AztecsT $ do
   w <- get
-  !(result, action) <- lift m
+  (result, action) <- lift m
   unAztecsT action
   return result

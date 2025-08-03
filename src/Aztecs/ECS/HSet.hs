@@ -4,7 +4,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -88,8 +87,7 @@ instance (Applicative m) => Empty m (HSetT f '[]) where
 instance (Monad m, EmptyStorage m (f t), Empty m (HSetT f ts)) => Empty m (HSetT f (t ': ts)) where
   empty = do
     xs <- emptyStorage
-    rest <- empty
-    pure (HCons xs rest)
+    HCons xs <$> empty
 
 type family Elem (t :: k) (ts :: [k]) :: Bool where
   Elem t '[] = 'False
@@ -135,7 +133,7 @@ instance
   {-# INLINE subset #-}
 
 hcons :: (Applicative f) => t -> HSetT f ts -> HSetT f (t ': ts)
-hcons x xs = HCons (pure x) xs
+hcons x = HCons (pure x)
 
 hempty :: HSetT f '[]
 hempty = HEmpty
