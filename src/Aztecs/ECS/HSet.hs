@@ -25,6 +25,7 @@ module Aztecs.ECS.HSet
     AdjustM (..),
     Subset (..),
     hcons,
+    hempty,
   )
 where
 
@@ -135,3 +136,6 @@ instance
 
 hcons :: (Applicative f) =>  t -> HSet f ts -> HSet f (t ': ts)
 hcons x xs = HCons (pure x) xs
+
+hempty :: HSet f '[]
+hempty = HEmpty

@@ -86,11 +86,11 @@ app ::
        Run '[] RenderSystem
      ]
 app =
-  hcons (Run MoveSystem) $
-    hcons (Run PhysicsSystem) $
-      hcons (Run CombatSystem) $
-        hcons (Run RenderSystem) $
-          HEmpty
+  hcons (Run MoveSystem)
+    . hcons (Run PhysicsSystem)
+    . hcons (Run CombatSystem)
+    . hcons (Run RenderSystem)
+    $ hempty
 
 appSmall ::
   HSet
@@ -100,10 +100,10 @@ appSmall ::
        Run '[] RenderSystem
      ]
 appSmall =
-  hcons (Run MoveSystem) $
-    hcons (Run PhysicsSystem) $
-      hcons (Run RenderSystem) $
-        HEmpty
+  hcons (Run MoveSystem)
+    . hcons (Run PhysicsSystem)
+    . hcons (Run RenderSystem)
+    $ hempty
 
 runSchedulerExample :: IO ()
 runSchedulerExample = do
