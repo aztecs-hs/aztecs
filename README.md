@@ -31,6 +31,7 @@ data MoveSystem = MoveSystem
 
 instance (PrimMonad m, MonadIO m) => System m MoveSystem where
   type SystemInputs m MoveSystem = Query (W m Position, R Velocity)
+
   runSystem _ = mapM_ go
     where
       go (posRef, R (Velocity v)) = do

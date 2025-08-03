@@ -59,6 +59,7 @@ instance (PrimMonad m, MonadIO m) => System m PhysicsSystem where
 
 instance (PrimMonad m, MonadIO m) => System m CombatSystem where
   type SystemInputs m CombatSystem = Query (W m Health, R Damage)
+
   runSystem CombatSystem q = do
     liftIO $ putStrLn "Running CombatSystem..."
     mapM_ go q
@@ -70,6 +71,7 @@ instance (PrimMonad m, MonadIO m) => System m CombatSystem where
 
 instance (PrimMonad m, MonadIO m) => System m RenderSystem where
   type SystemInputs m RenderSystem = Query (R Position, R Health)
+
   runSystem RenderSystem q = do
     liftIO $ putStrLn "Running RenderSystem..."
     mapM_ go q
