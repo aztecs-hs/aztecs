@@ -33,7 +33,7 @@ import Aztecs.ECS.Access.Internal
 import qualified Aztecs.ECS.Access.Internal as A
 import Aztecs.ECS.Class
 import Aztecs.ECS.Executor
-import Aztecs.ECS.HSet (HSet (..), Lookup (..))
+import Aztecs.ECS.HSet (HSetT (..), Lookup (..))
 import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
 import Aztecs.ECS.Queryable

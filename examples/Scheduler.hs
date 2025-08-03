@@ -79,7 +79,6 @@ instance (PrimMonad m, MonadIO m) => System m RenderSystem where
 
 app ::
   HSet
-    Identity
     '[ Run '[Before PhysicsSystem] MoveSystem,
        Run '[] PhysicsSystem,
        Run '[Before RenderSystem] CombatSystem,
@@ -93,7 +92,7 @@ app =
     $ hempty
 
 appSmall ::
-  HSet
+  HSetT
     Identity
     '[ Run '[After PhysicsSystem] MoveSystem,
        Run '[] PhysicsSystem,

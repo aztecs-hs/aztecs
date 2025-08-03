@@ -11,7 +11,7 @@
 module Aztecs.ECS.Executor where
 
 import Aztecs.ECS.Access.Internal
-import Aztecs.ECS.HSet (HSet (..), Subset)
+import Aztecs.ECS.HSet (HSetT (..), Subset, HSet)
 import Aztecs.ECS.Queryable.Internal
 import Aztecs.ECS.System
 import Aztecs.World
@@ -30,7 +30,7 @@ instance (Monad m) => Monad (ExecutorT m) where
 class Execute' m s where
   execute' :: s -> [m ()]
 
-instance Execute' m (HSet Identity '[]) where
+instance Execute' m (HSet '[]) where
   execute' _ = []
 
 instance
@@ -52,9 +52,9 @@ instance
     System m sys,
     Access m (SystemInputs m sys),
     ValidAccessInput (AccessType (SystemInputs m sys)),
-    Execute' m (HSet Identity systems)
+    Execute' m (HSet systems)
   ) =>
-  Execute' m (HSet Identity (sys ': systems))
+  Execute' m (HSet (sys ': systems))
   where
   execute' (HCons (Identity system) rest) =
     [ do
@@ -66,15 +66,15 @@ instance
 class Execute m s where
   execute :: s -> ExecutorT m ()
 
-instance (Applicative m) => Execute m (HSet Identity '[]) where
+instance (Applicative m) => Execute m (HSet '[]) where
   execute _ = pure ()
 
 instance
   ( Monad m,
     Execute' m (Identity systems),
-    Execute m (HSet Identity schedule)
+    Execute m (HSet schedule)
   ) =>
-  Execute m (HSet Identity (systems ': schedule))
+  Execute m (HSet (systems ': schedule))
   where
   execute (HCons system rest) = do
     ExecutorT $ \run -> run $ execute' system

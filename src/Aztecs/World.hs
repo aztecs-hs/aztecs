@@ -73,7 +73,7 @@ bundle c = Bundle $ \entity w -> do
 
 type ComponentStorage s = MSparseSet s Word32
 
-type Components s = HSet (ComponentStorage s)
+type Components s = HSetT (ComponentStorage s)
 
 data World m cs = World
   { worldComponents :: !(Components (PrimState m) cs),

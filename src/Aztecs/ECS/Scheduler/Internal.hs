@@ -34,10 +34,10 @@ class Scheduler m s where
   type SchedulerInput m s :: [Type]
   type SchedulerOutput m s :: Type
 
-  buildSchedule :: HSet Identity (SchedulerInput m s) -> SchedulerOutput m s
+  buildSchedule :: HSet (SchedulerInput m s) -> SchedulerOutput m s
 
-instance (Applicative m, ECS m) => Access m (HSet Identity '[]) where
-  type AccessType (HSet Identity '[]) = '[]
+instance (Applicative m, ECS m) => Access m (HSet '[]) where
+  type AccessType (HSet '[]) = '[]
   access = pure HEmpty
 
 instance
@@ -47,12 +47,12 @@ instance
     ScheduleLevels m levels ~ output,
     ScheduleLevelsBuilder m levels systems
   ) =>
-  Scheduler m (HSet Identity systems)
+  Scheduler m (HSet systems)
   where
-  type SchedulerInput m (HSet Identity systems) = systems
+  type SchedulerInput m (HSet systems) = systems
   type
-    SchedulerOutput m (HSet Identity systems) =
-      HSet (HSet Identity) (ScheduleLevels m (TopologicalSort (BuildSystemGraph systems)))
+    SchedulerOutput m (HSet systems) =
+      HSetT (HSet) (ScheduleLevels m (TopologicalSort (BuildSystemGraph systems)))
 
   buildSchedule systems = scheduleSystemLevels @m @(TopologicalSort (BuildSystemGraph systems)) systems
 
@@ -173,14 +173,14 @@ scheduleSystemLevels ::
   ( AllSystems m systems,
     ScheduleLevelsBuilder m levels systems
   ) =>
-  HSet Identity systems ->
-  HSet (HSet Identity) (ScheduleLevels m levels)
+  HSet systems ->
+  HSetT (HSet) (ScheduleLevels m levels)
 scheduleSystemLevels = buildScheduleLevels @m @levels @systems
 
 class ScheduleLevelsBuilder (m :: Type -> Type) (levels :: [[Type]]) (systems :: [Type]) where
   buildScheduleLevels ::
-    HSet Identity systems ->
-    HSet (HSet Identity) (ScheduleLevels m levels)
+    HSet systems ->
+    HSetT (HSet) (ScheduleLevels m levels)
 
 instance ScheduleLevelsBuilder m '[] systems where
   buildScheduleLevels _ = HEmpty
@@ -216,8 +216,8 @@ instance
 
 class SystemReorderer (originalSystems :: [Type]) (targetSystems :: [Type]) where
   reorderSystems ::
-    HSet Identity originalSystems ->
-    HSet Identity targetSystems
+    HSet originalSystems ->
+    HSet targetSystems
 
 instance SystemReorderer originalSystems '[] where
   reorderSystems _ = HEmpty
@@ -240,8 +240,8 @@ type family RemainingAfterExtract (targetSys :: Type) (systems :: [Type]) :: [Ty
 
 class ExtractFromHSet (targetSys :: Type) (systems :: [Type]) where
   extractFromHSet ::
-    HSet Identity systems ->
-    (Identity targetSys, HSet Identity (RemainingAfterExtract targetSys systems))
+    HSet systems ->
+    (Identity targetSys, HSet (RemainingAfterExtract targetSys systems))
 
 instance {-# OVERLAPPING #-} ExtractFromHSet sys (sys ': rest) where
   extractFromHSet (HCons sys rest) = (sys, rest)
@@ -268,7 +268,7 @@ executeSchedule ::
   forall m cs s.
   ( Scheduler m s,
     Execute m (SchedulerOutput m s),
-    s ~ HSet Identity (SchedulerInput m s)
+    s ~ HSet (SchedulerInput m s)
   ) =>
   s ->
   ExecutorT m ()
@@ -278,7 +278,7 @@ runSchedule ::
   forall m cs s.
   ( Applicative m,
     Execute m (SchedulerOutput m s),
-    s ~ HSet Identity (SchedulerInput m s),
+    s ~ HSet (SchedulerInput m s),
     AllSystems m (SchedulerInput m s),
     ScheduleLevelsBuilder
       m
@@ -291,15 +291,15 @@ runSchedule s = do
   runSystems (executeSchedule @m @cs @s s) $ \actions ->
     sequenceA_ [action | action <- actions]
 
-instance (Applicative m) => Execute m (HSet (HSet Identity) '[]) where
+instance (Applicative m) => Execute m (HSetT (HSet) '[]) where
   execute HEmpty = pure ()
 
 instance
   ( Monad m,
-    Execute' m (HSet Identity level),
-    Execute m (HSet (HSet Identity) restLevels)
+    Execute' m (HSet level),
+    Execute m (HSetT (HSet) restLevels)
   ) =>
-  Execute m (HSet (HSet Identity) (level ': restLevels))
+  Execute m (HSetT (HSet) (level ': restLevels))
   where
   execute (HCons level restLevels) = do
     ExecutorT $ \run -> run $ execute' level
