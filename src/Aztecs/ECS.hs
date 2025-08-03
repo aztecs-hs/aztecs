@@ -14,7 +14,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Aztecs.ECS
-  ( module Aztecs.ECS.Queryable,
+  ( module Aztecs.ECS.Commands,
+    module Aztecs.ECS.Queryable,
     module Aztecs.ECS.Schedule,
     module Aztecs.ECS.Scheduler,
     PrimMonad (..),
@@ -30,6 +31,7 @@ where
 import Aztecs.ECS.Access.Internal
 import qualified Aztecs.ECS.Access.Internal as A
 import Aztecs.ECS.Class
+import Aztecs.ECS.Commands
 import Aztecs.ECS.Executor
 import Aztecs.ECS.HSet (HSetT (..), Lookup (..))
 import qualified Aztecs.ECS.HSet as HS

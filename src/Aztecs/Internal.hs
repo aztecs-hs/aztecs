@@ -32,6 +32,7 @@ where
 import Aztecs.ECS.Access.Internal
 import qualified Aztecs.ECS.Access.Internal as A
 import Aztecs.ECS.Class
+import Aztecs.ECS.Commands
 import Aztecs.ECS.Executor
 import Aztecs.ECS.HSet (HSetT (..), Lookup (..))
 import qualified Aztecs.ECS.HSet as HS
@@ -65,7 +66,7 @@ instance (PrimMonad m) => ECS (AztecsT cs m) where
   type Entity (AztecsT cs m) = E.Entity
   type Bundle (AztecsT cs m) = W.Bundle cs m
   type Components (AztecsT cs m) = cs
-  type Task (AztecsT cs m) = (Commands cs m)
+  type Task (AztecsT cs m) = (Commands (AztecsT cs) m)
 
   spawn b = AztecsT $ do
     w <- get
@@ -130,43 +131,7 @@ instance (PrimMonad m, Lookup a cs) => Queryable (AztecsT cs m) (Without a) wher
             allEntities
     return $ Query result
 
-newtype Commands cs m a = Commands
-  {unCommands :: m (a, AztecsT cs m ())}
-  deriving (Functor)
-
-instance (Monad m) => Applicative (Commands cs m) where
-  pure x = Commands $ pure (x, AztecsT $ pure ())
-  Commands mf <*> Commands mx = Commands $ do
-    (f, w1) <- mf
-    (x, w2) <- mx
-    return (f x, w1 >> w2)
-
-instance (Monad m) => Monad (Commands cs m) where
-  Commands mx >>= f = Commands $ do
-    (x, w1) <- mx
-    (y, w2) <- unCommands (f x)
-    return (y, w1 >> w2)
-
-instance MonadTrans (Commands cs) where
-  lift m = Commands $ do
-    x <- m
-    return (x, AztecsT $ pure ())
-
-instance (MonadIO m) => MonadIO (Commands cs m) where
-  liftIO io = Commands $ do
-    x <- liftIO io
-    return (x, AztecsT $ pure ())
-
-instance (PrimMonad m) => PrimMonad (Commands cs m) where
-  type PrimState (Commands cs m) = PrimState m
-  primitive f = Commands $ do
-    x <- primitive f
-    return (x, AztecsT $ pure ())
-
-queue :: (Applicative m) => AztecsT cs m () -> Commands cs m ()
-queue action = Commands $ pure ((), action)
-
-runCommands :: (Monad m) => Commands cs m a -> AztecsT cs m a
+runCommands :: (Monad m) => Commands (AztecsT cs) m a -> AztecsT cs m a
 runCommands (Commands m) = AztecsT $ do
   w <- get
   !(result, action) <- lift m
