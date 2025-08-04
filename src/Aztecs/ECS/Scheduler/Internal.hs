@@ -18,15 +18,9 @@ import Aztecs.ECS.Access.Internal
 import Aztecs.ECS.Class
 import Aztecs.ECS.Executor
 import Aztecs.ECS.HSet
-import Aztecs.ECS.Queryable.Internal
 import Aztecs.ECS.Schedule.Internal
-import Aztecs.ECS.System
 import Control.Monad.Identity
-import Control.Monad.Primitive
-import Control.Monad.State
-import Data.Foldable
 import Data.Kind
-import Data.Proxy
 
 class Scheduler m s where
   type SchedulerInput m s :: [Type]
@@ -262,33 +256,6 @@ instance
   extractFromHSet (HCons other rest) =
     let (target, remaining) = extractFromHSet @targetSys @rest rest
      in (target, HCons other remaining)
-
-executeSchedule ::
-  forall m cs s.
-  ( Scheduler m s,
-    Execute m (SchedulerOutput m s),
-    s ~ HSet (SchedulerInput m s)
-  ) =>
-  s ->
-  ExecutorT m ()
-executeSchedule s = execute (buildSchedule @m @s s)
-
-runSchedule ::
-  forall m cs s.
-  ( Applicative m,
-    Execute m (SchedulerOutput m s),
-    s ~ HSet (SchedulerInput m s),
-    AllSystems m (SchedulerInput m s),
-    ScheduleLevelsBuilder
-      m
-      (TopologicalSort (BuildSystemGraph (SchedulerInput m s)))
-      (SchedulerInput m s)
-  ) =>
-  s ->
-  m ()
-runSchedule s = do
-  runSystems (executeSchedule @m @cs @s s) $ \actions ->
-    sequenceA_ actions
 
 instance (Applicative m) => Execute m (HSetT HSet '[]) where
   execute HEmpty = pure ()

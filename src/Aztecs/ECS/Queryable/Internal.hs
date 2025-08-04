@@ -17,10 +17,6 @@ import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
 import Data.Kind
 import Data.Maybe
-import qualified Data.Set as Set
-import Data.SparseSet.Strict.Mutable
-import qualified Data.SparseSet.Strict.Mutable as MS
-import Data.Word
 import GHC.Generics
 import Prelude hiding (Read)
 
