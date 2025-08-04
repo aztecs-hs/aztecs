@@ -9,76 +9,150 @@ on:
 permissions:
   contents: read
 
+env:
+  GHC_VERSION: "9.2.5"
+  CABAL_VERSION: "3.12"
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
-      - name: Cache
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Haskell
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: ${{ env.GHC_VERSION }}
+          cabal-version: ${{ env.CABAL_VERSION }}
+          enable-stack: false
+
+      - name: Configure cabal
+        run: |
+          cabal configure --enable-tests --enable-benchmarks
+          cabal freeze
+
+      - name: Cache cabal store
         uses: actions/cache@v4
-
         with:
-          path: |
-            ~/.cabal
-            dist-newstyle
-          key: ${{ runner.os }}-build-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}
+          path: ~/.cabal/store
+          key: ${{ runner.os }}-cabal-store-${{ env.GHC_VERSION }}-${{ hashFiles('cabal.project.freeze') }}
+          restore-keys: |
+            ${{ runner.os }}-cabal-store-${{ env.GHC_VERSION }}-
+            ${{ runner.os }}-cabal-store-
 
-      - uses: actions/checkout@v4
-      - uses: haskell-actions/setup@v2
+      - name: Cache dist-newstyle
+        uses: actions/cache@v4
         with:
-          ghc-version: "9.2.5"
-          cabal-version: "3.12"
+          path: dist-newstyle
+          key: ${{ runner.os }}-dist-${{ env.GHC_VERSION }}-${{ hashFiles('cabal.project.freeze') }}-${{ hashFiles('**/*.hs') }}
+          restore-keys: |
+            ${{ runner.os }}-dist-${{ env.GHC_VERSION }}-${{ hashFiles('cabal.project.freeze') }}-
+            ${{ runner.os }}-dist-${{ env.GHC_VERSION }}-
 
-      - name: Update the package index
+      - name: Update package index
         run: cabal update
-
-      - name: Run tests
-        run: cabal build
-  test:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Cache
-        uses: actions/cache@v4
-
-        with:
-          path: |
-            ~/.cabal
-            dist-newstyle
-          key: ${{ runner.os }}-build-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}
-
-      - uses: actions/checkout@v4
-      - uses: haskell-actions/setup@v2
-        with:
-          ghc-version: "9.2.5"
-          cabal-version: "3.12"
-
-      - name: Update the package index
-        run: cabal update
-
-      - name: Run tests
-        run: cabal test
-  doctest:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cabal
-            dist-newstyle
-          key: ${{ runner.os }}-doctest-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}
-
-      - uses: actions/checkout@v4
-      - uses: haskell-actions/setup@v2
-        with:
-          ghc-version: "9.2.5"
-          cabal-version: "3.12"
 
       - name: Install dependencies
+        run: cabal build --only-dependencies --enable-tests --enable-benchmarks
+
+      - name: Build project
+        run: cabal build --enable-tests --enable-benchmarks
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Haskell
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: ${{ env.GHC_VERSION }}
+          cabal-version: ${{ env.CABAL_VERSION }}
+          enable-stack: false
+
+      - name: Configure cabal
         run: |
-          cabal update
-          cabal install doctest --overwrite-policy=always
+          cabal configure --enable-tests --enable-benchmarks
+          cabal freeze
+
+      - name: Cache cabal store
+        uses: actions/cache@v4
+        with:
+          path: ~/.cabal/store
+          key: ${{ runner.os }}-cabal-store-${{ env.GHC_VERSION }}-${{ hashFiles('cabal.project.freeze') }}
+          restore-keys: |
+            ${{ runner.os }}-cabal-store-${{ env.GHC_VERSION }}-
+            ${{ runner.os }}-cabal-store-
+
+      - name: Cache dist-newstyle
+        uses: actions/cache@v4
+        with:
+          path: dist-newstyle
+          key: ${{ runner.os }}-dist-${{ env.GHC_VERSION }}-${{ hashFiles('cabal.project.freeze') }}-${{ hashFiles('**/*.hs') }}
+          restore-keys: |
+            ${{ runner.os }}-dist-${{ env.GHC_VERSION }}-${{ hashFiles('cabal.project.freeze') }}-
+            ${{ runner.os }}-dist-${{ env.GHC_VERSION }}-
+
+      - name: Update package index
+        run: cabal update
+
+      - name: Build dependencies
+        run: cabal build --only-dependencies --enable-tests
+
+      - name: Run tests
+        run: cabal test --test-show-details=streaming
+
+  doctest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Haskell
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: ${{ env.GHC_VERSION }}
+          cabal-version: ${{ env.CABAL_VERSION }}
+          enable-stack: false
+
+      - name: Configure cabal
+        run: |
+          cabal configure --enable-tests --enable-benchmarks
+          cabal freeze
+
+      - name: Cache cabal store
+        uses: actions/cache@v4
+        with:
+          path: ~/.cabal/store
+          key: ${{ runner.os }}-cabal-store-doctest-${{ env.GHC_VERSION }}-${{ hashFiles('cabal.project.freeze') }}
+          restore-keys: |
+            ${{ runner.os }}-cabal-store-doctest-${{ env.GHC_VERSION }}-
+            ${{ runner.os }}-cabal-store-${{ env.GHC_VERSION }}-
+            ${{ runner.os }}-cabal-store-
+
+      - name: Cache dist-newstyle
+        uses: actions/cache@v4
+        with:
+          path: dist-newstyle
+          key: ${{ runner.os }}-dist-doctest-${{ env.GHC_VERSION }}-${{ hashFiles('cabal.project.freeze') }}-${{ hashFiles('**/*.hs') }}
+          restore-keys: |
+            ${{ runner.os }}-dist-doctest-${{ env.GHC_VERSION }}-${{ hashFiles('cabal.project.freeze') }}-
+            ${{ runner.os }}-dist-doctest-${{ env.GHC_VERSION }}-
+
+      - name: Update package index
+        run: cabal update
+
+      - name: Install doctest
+        run: cabal install doctest --overwrite-policy=always --install-method=copy
+
       - name: Run doctests
         run: cabal repl --with-compiler=doctest
