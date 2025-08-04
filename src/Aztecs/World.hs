@@ -29,7 +29,6 @@ import Aztecs.Entities
 import Aztecs.Storage hiding (empty)
 import qualified Aztecs.Storage as Storage
 import Control.Monad
-import Control.Monad.Identity (Identity (..), IdentityT (..))
 import Control.Monad.Primitive
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap

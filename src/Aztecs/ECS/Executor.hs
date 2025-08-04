@@ -15,7 +15,6 @@ import Aztecs.ECS.HSet (HSet (..), Subset)
 import Aztecs.ECS.Queryable.Internal
 import Aztecs.ECS.System
 import Aztecs.World
-import Control.Monad.Identity
 
 newtype ExecutorT m a = ExecutorT {runSystems :: ([m ()] -> m ()) -> m a}
   deriving (Functor)
@@ -33,21 +32,23 @@ class Execute' m s where
 instance Execute' m (HSet '[]) where
   execute' _ = []
 
-instance
+instance 
+  {-# OVERLAPS #-}
   ( Monad m,
     System m sys,
     Access m (SystemIn m sys),
     ValidAccessInput (AccessType (SystemIn m sys))
   ) =>
-  Execute' m (Identity sys)
+  Execute' m (HSet '[sys])
   where
-  execute' (Identity system) =
+  execute' (HCons system HEmpty) =
     [ do
         inputs <- access
         runSystem system inputs
     ]
 
-instance
+instance 
+  {-# OVERLAPPABLE #-}
   ( Monad m,
     System m sys,
     Access m (SystemIn m sys),
@@ -70,7 +71,7 @@ instance (Applicative m) => Execute m (HSet '[]) where
   execute _ = pure ()
 
 instance
-  {-# OVERLAPPABLE #-}
+  {-# OVERLAPPING #-}
   ( Monad m,
     Execute' m systems,
     Execute m (HSet schedule)

@@ -24,11 +24,7 @@ module Aztecs.ECS.HSet
   )
 where
 
-import Control.Monad.Identity
 import Data.Kind
-import Data.SparseSet.Strict.Mutable (MSparseSet, PrimMonad (..))
-import qualified Data.SparseSet.Strict.Mutable as MS
-import Data.Word
 import Prelude hiding (lookup)
 
 data HSet ts where
@@ -53,10 +49,10 @@ type family GetConstraints (runSys :: Type) :: [Type] where
 instance (Show sys) => Show (Run constraints sys) where
   show (Run sys) = "Run " ++ show sys
 
-instance (ShowHSet  ts) => Show (HSet ts) where
+instance (ShowHSet ts) => Show (HSet ts) where
   show = showHSet
 
-class ShowHSet  ts where
+class ShowHSet ts where
   showHSet :: HSet ts -> String
 
 instance ShowHSet '[] where
@@ -81,10 +77,10 @@ instance {-# OVERLAPPABLE #-} (Lookup t ts) => Lookup t (u ': ts) where
   lookup (HCons _ xs) = lookup xs
   {-# INLINE lookup #-}
 
-class AdjustM m  t ts where
-  adjustM :: (t-> m t) -> HSet ts -> m (HSet ts)
+class AdjustM m t ts where
+  adjustM :: (t -> m t) -> HSet ts -> m (HSet ts)
 
-instance {-# OVERLAPPING #-} (Applicative m) => AdjustM m  t (t ': ts) where
+instance {-# OVERLAPPING #-} (Applicative m) => AdjustM m t (t ': ts) where
   adjustM f (HCons x xs) = HCons <$> f x <*> pure xs
   {-# INLINE adjustM #-}
 
@@ -102,4 +98,3 @@ instance Subset '[] superset where
 instance (Lookup t superset, Subset ts superset) => Subset (t ': ts) superset where
   subset hset = HCons (lookup hset) (subset @ts hset)
   {-# INLINE subset #-}
-

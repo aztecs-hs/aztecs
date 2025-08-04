@@ -19,7 +19,6 @@ import Aztecs.ECS.Query
 import Aztecs.Entities
 import Aztecs.R
 import Aztecs.W
-import Control.Monad.Identity
 import Control.Monad.Primitive
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
@@ -34,23 +33,17 @@ import Data.Word
 import Prelude hiding (lookup)
 
 class Storage m s where
-  type StorageR m s a :: Type
-  type StorageW m s a :: Type
-
   emptyStorage :: m (s a)
 
   insertStorage :: Entity -> a -> s a -> m (s a)
 
   removeStorage :: Entity -> s a -> m (s a)
 
-  queryStorageR :: s a -> m (Query (StorageR m s a))
+  queryStorageR :: s a -> m (Query (R a))
 
-  queryStorageW :: s a -> m (Query (StorageW m s a))
+  queryStorageW :: s a -> m (Query (W m a))
 
 instance (PrimMonad m, PrimState m ~ s) => Storage m (MSparseSet s Word32) where
-  type StorageR m (MSparseSet s Word32) a = R a
-  type StorageW m (MSparseSet s Word32) a = MkW s a
-
   emptyStorage = MS.empty
 
   insertStorage entity a s = do
@@ -70,7 +63,12 @@ instance (PrimMonad m, PrimState m ~ s) => Storage m (MSparseSet s Word32) where
 
   queryStorageW s = do
     !as <- MS.toList s
-    let go (i, _) = W i s
+    let go (i, _) =
+          W
+            { readW = MS.unsafeRead s (fromIntegral i),
+              writeW = \a -> MS.unsafeWrite s (fromIntegral i) a,
+              modifyW = \f -> MS.unsafeModify s (fromIntegral i) f
+            }
     return . Query $ map (fmap go) as
   {-# INLINE queryStorageW #-}
 

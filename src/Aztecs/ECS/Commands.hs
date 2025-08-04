@@ -1,11 +1,16 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE IncoherentInstances #-}
 
 module Aztecs.ECS.Commands where
 
 import Control.Monad.IO.Class
 import Control.Monad.Primitive
 import Control.Monad.Trans
+import Aztecs.ECS.Queryable
 
 newtype Commands t m a = Commands {unCommands :: m (a, t m ())}
   deriving (Functor)

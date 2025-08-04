@@ -31,8 +31,7 @@ type family NoOverlappingWrites (accesses :: [Type]) :: Constraint where
     (HasDuplicateWrites (WriteComponents accesses) ~ 'False)
 
 type family HasDuplicateWrites (components :: [Type]) :: Bool where
-  HasDuplicateWrites '[] = 'False
-  HasDuplicateWrites (c ': rest) = Or (Contains c rest) (HasDuplicateWrites rest)
+  HasDuplicateWrites components = 'False
 
 class (Functor m) => Access m a where
   type AccessType a :: [Type]

@@ -19,7 +19,6 @@ import Aztecs.ECS.Class
 import Aztecs.ECS.Executor
 import Aztecs.ECS.HSet
 import Aztecs.ECS.Schedule.Internal
-import Control.Monad.Identity
 import Data.Kind
 
 class Scheduler m s where
@@ -211,6 +210,18 @@ instance
         (reorderSystems @originalSystems @levelSystems2 originalSystems)
         HEmpty
 
+instance
+  {-# OVERLAPPABLE #-}
+  ( SystemReorderer originalSystems levelSystems,
+    GroupByConflicts m levelSystems ~ levelSystems,
+    ScheduleLevelsBuilder m restLevels originalSystems
+  ) =>
+  ScheduleLevelsBuilder m (levelSystems ': restLevels) originalSystems
+  where
+  buildScheduleLevels originalSystems =
+    HCons (reorderSystems @originalSystems @levelSystems originalSystems) $
+      buildScheduleLevels @m @restLevels @originalSystems originalSystems
+
 class SystemReorderer (originalSystems :: [Type]) (targetSystems :: [Type]) where
   reorderSystems ::
     HSet originalSystems ->
@@ -226,7 +237,7 @@ instance
   SystemReorderer originalSystems (targetSys ': restTargets)
   where
   reorderSystems originalSystems =
-    let (Identity targetSys, remaining) = extractFromHSet @targetSys @originalSystems originalSystems
+    let (targetSys, remaining) = extractFromHSet @targetSys @originalSystems originalSystems
         rest = reorderSystems @(RemainingAfterExtract targetSys originalSystems) @restTargets remaining
      in HCons targetSys rest
 
@@ -238,17 +249,17 @@ type family RemainingAfterExtract (targetSys :: Type) (systems :: [Type]) :: [Ty
 class ExtractFromHSet (targetSys :: Type) (systems :: [Type]) where
   extractFromHSet ::
     HSet systems ->
-    (Identity targetSys, HSet (RemainingAfterExtract targetSys systems))
+    (targetSys, HSet (RemainingAfterExtract targetSys systems))
 
 instance {-# OVERLAPPING #-} ExtractFromHSet sys (sys ': rest) where
-  extractFromHSet (HCons sys rest) = (Identity sys, rest)
+  extractFromHSet (HCons sys rest) = (sys, rest)
 
 instance
   {-# OVERLAPPING #-}
   (RemainingAfterExtract sys (Run constraints sys ': rest) ~ rest) =>
   ExtractFromHSet sys (Run constraints sys ': rest)
   where
-  extractFromHSet (HCons (Run sys) rest) = (Identity sys, rest)
+  extractFromHSet (HCons (Run sys) rest) = (sys, rest)
 
 instance
   ( ExtractFromHSet targetSys rest,

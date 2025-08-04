@@ -92,10 +92,10 @@ instance (PrimMonad m, MonadIO m) => System m RenderSystem where
 
 app ::
   HSet
-    '[ Run '[Before PhysicsSystem] MoveSystem,
-       Run '[] PhysicsSystem,
-       Run '[Before RenderSystem] CombatSystem,
-       Run '[] RenderSystem
+    '[ Run '[] MoveSystem,
+       Run '[After MoveSystem] PhysicsSystem,
+       Run '[After PhysicsSystem] CombatSystem,
+       Run '[After CombatSystem] RenderSystem
      ]
 app =
   HCons (Run MoveSystem) $
