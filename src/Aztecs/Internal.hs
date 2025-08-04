@@ -49,6 +49,7 @@ newtype AztecsT cs m a = AztecsT {unAztecsT :: StateT (W.World m cs) m a}
 
 instance MonadTrans (AztecsT cs) where
   lift = AztecsT . lift
+  {-# INLINE lift #-}
 
 instance (PrimMonad m) => ECS (AztecsT cs m) where
   type Entity (AztecsT cs m) = E.Entity
@@ -92,6 +93,7 @@ instance
             (Map.singleton componentType (W.removeComponent' @m @c entity))
             (W.worldEntityComponents w)
     AztecsT $ put w {W.worldComponents = cs, W.worldEntityComponents = entityComponents'}
+  {-# INLINE bundle #-}
 
 runAztecsT :: (Monad m) => AztecsT cs m a -> W.World m cs -> m (a, W.World m cs)
 runAztecsT (AztecsT m) = runStateT m
@@ -106,6 +108,7 @@ instance (PrimMonad m) => Queryable (AztecsT cs m) E.Entity where
   queryable = AztecsT $ do
     w <- get
     return . Query . map pure . E.entities $ W.worldEntities w
+  {-# INLINE queryable #-}
 
 instance
   ( PrimMonad m,
@@ -123,6 +126,7 @@ instance
         . HS.lookup @(ComponentStorage m a a)
         $ W.worldComponents w
     return . fmap (const With) $ withComponent
+  {-# INLINE queryable #-}
 
 instance
   ( PrimMonad m,
@@ -143,6 +147,7 @@ instance
           Just v -> Nothing
           Nothing -> Just Without
     return . Query $ fmap go cs
+  {-# INLINE queryable #-}
 
 runCommands :: (Monad m) => Commands (AztecsT cs) m a -> AztecsT cs m a
 runCommands (Commands m) = AztecsT $ do
@@ -150,6 +155,7 @@ runCommands (Commands m) = AztecsT $ do
   (result, action) <- lift m
   unAztecsT action
   return result
+{-# INLINE runCommands #-}
 
 instance
   ( PrimMonad m,

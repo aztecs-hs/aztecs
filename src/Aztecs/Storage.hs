@@ -45,6 +45,7 @@ class Storage m s where
 
 instance (PrimMonad m, PrimState m ~ s) => Storage m (MSparseSet s Word32) where
   emptyStorage = MS.empty
+  {-# INLINE emptyStorage #-}
 
   insertStorage entity a s = do
     s' <- S.freeze s
@@ -77,9 +78,11 @@ class Empty m a where
 
 instance (Applicative m) => Empty m (HSet '[]) where
   empty = pure HEmpty
+  {-# INLINE empty #-}
 
 instance (Monad m, Storage m s, Empty m (HSet ts)) => Empty m (HSet (s a ': ts)) where
   empty = do
     xs <- emptyStorage @m @s
     res <- empty
     return $ HCons xs res
+  {-# INLINE empty #-}

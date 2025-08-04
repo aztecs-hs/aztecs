@@ -51,15 +51,18 @@ instance (Show sys) => Show (Run constraints sys) where
 
 instance (ShowHSet ts) => Show (HSet ts) where
   show = showHSet
+  {-# INLINE show #-}
 
 class ShowHSet ts where
   showHSet :: HSet ts -> String
 
 instance ShowHSet '[] where
   showHSet _ = "HEmpty"
+  {-# INLINE showHSet #-}
 
 instance (Show t, ShowHSet ts) => ShowHSet (t ': ts) where
   showHSet (HCons x xs) = "HCons " ++ show x ++ " (" ++ showHSet xs ++ ")"
+  {-# INLINE showHSet #-}
 
 type family Elem (t :: k) (ts :: [k]) :: Bool where
   Elem t '[] = 'False

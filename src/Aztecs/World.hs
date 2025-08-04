@@ -63,12 +63,14 @@ empty :: (Monad m, Empty m (HSet (WorldComponents m cs))) => m (World m cs)
 empty = do
   cs <- Storage.empty
   return $ World cs emptyEntities IntMap.empty
+{-# INLINE empty #-}
 
 lookupStorage ::
   (Lookup (ComponentStorage m c c) (WorldComponents m cs)) =>
   World m cs ->
   ComponentStorage m c c
 lookupStorage = HS.lookup . worldComponents
+{-# INLINE lookupStorage #-}
 
 adjustStorage ::
   forall m cs c.
@@ -84,6 +86,7 @@ adjustStorage ::
 adjustStorage f w = do
   cs <- HS.adjustM @m @(ComponentStorage m c c) f (worldComponents w)
   return $ w {worldComponents = cs}
+{-# INLINE adjustStorage #-}
 
 removeComponent ::
   forall m cs c.
@@ -102,6 +105,7 @@ removeComponent entity w = do
   w' <- adjustStorage @_ @_ @c (removeStorage entity) w
   let entityComponents' = IntMap.adjust (Map.delete componentType) entityIdx (worldEntityComponents w)
   return $ w' {worldEntityComponents = entityComponents'}
+{-# INLINE removeComponent #-}
 
 removeComponent' ::
   forall m (c :: Type) cs.
@@ -114,6 +118,7 @@ removeComponent' e components = HS.adjustM @m @(SparseStorage m c) go components
     go s = do
       s' <- S.freeze s
       S.thaw (S.delete (entityIndex e) s')
+{-# INLINE removeComponent' #-}
 
 remove :: (Monad m) => Entity -> World m cs -> m (World m cs)
 remove entity w = do
@@ -124,3 +129,4 @@ remove entity w = do
       cs' <- foldr (<=<) return (Map.elems componentRemovalFunctions) (worldComponents w)
       let entityComponents' = IntMap.delete entityIdx (worldEntityComponents w)
       return $ w {worldComponents = cs', worldEntityComponents = entityComponents'}
+{-# INLINE remove #-}

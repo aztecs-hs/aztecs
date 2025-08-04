@@ -21,16 +21,20 @@ newtype ExecutorT m a = ExecutorT {runSystems :: ([m ()] -> m ()) -> m a}
 
 instance (Applicative m) => Applicative (ExecutorT m) where
   pure x = ExecutorT $ \_ -> pure x
+  {-# INLINE pure #-}
   ExecutorT f <*> ExecutorT g = ExecutorT $ \run -> f run <*> g run
+  {-# INLINE (<*>) #-}
 
 instance (Monad m) => Monad (ExecutorT m) where
   ExecutorT f >>= g = ExecutorT $ \run -> f run >>= \x -> runSystems (g x) run
+  {-# INLINE (>>=) #-}
 
 class Execute' m s where
   execute' :: s -> [m ()]
 
 instance Execute' m (HSet '[]) where
   execute' _ = []
+  {-# INLINE execute' #-}
 
 instance 
   {-# OVERLAPS #-}
@@ -46,6 +50,7 @@ instance
         inputs <- access
         runSystem system inputs
     ]
+  {-# INLINE execute' #-}
 
 instance 
   {-# OVERLAPPABLE #-}
@@ -63,12 +68,14 @@ instance
         runSystem system inputs
     )
       : execute' rest
+  {-# INLINE execute' #-}
 
 class Execute m s where
   execute :: s -> ExecutorT m ()
 
 instance (Applicative m) => Execute m (HSet '[]) where
   execute _ = pure ()
+  {-# INLINE execute #-}
 
 instance
   {-# OVERLAPPING #-}
@@ -81,3 +88,4 @@ instance
   execute (HCons system rest) = do
     ExecutorT $ \run -> run $ execute' system
     execute rest
+  {-# INLINE execute #-}

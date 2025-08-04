@@ -22,6 +22,7 @@ executeSchedule ::
   s ->
   ExecutorT m ()
 executeSchedule s = execute (buildSchedule @m @s s)
+{-# INLINE executeSchedule #-}
 
 runSchedule ::
   forall m cs s.
@@ -38,3 +39,4 @@ runSchedule ::
   m ()
 runSchedule s = runSystems (executeSchedule @m @cs @s s) $
   \actions -> sequenceA_ actions
+{-# INLINE runSchedule #-}
