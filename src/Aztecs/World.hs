@@ -9,7 +9,7 @@
 
 module Aztecs.World
   ( World (..),
-    WorldComponents(..),
+    WorldComponents (..),
     empty,
     removeComponent,
     removeComponent',
@@ -48,22 +48,44 @@ type family WorldComponents m (cs :: [Type]) :: [Type] where
   WorldComponents m '[] = '[]
   WorldComponents m (c ': cs) = ComponentStorage m c c ': WorldComponents m cs
 
+type WorldComponentSet m cs =
+  HSet (WorldComponents m cs)
+
+type WorldEntityComponents m cs =
+  IntMap (Map TypeRep (WorldComponentSet m cs -> m (WorldComponentSet m cs)))
+
 data World m cs = World
   { worldComponents :: !(HSet (WorldComponents m cs)),
     worldEntities :: {-# UNPACK #-} !Entities,
-    worldEntityComponents ::
-      {-# UNPACK #-} !( IntMap
-                          ( Map
-                              TypeRep
-                              (HSet (WorldComponents m cs) -> m (HSet (WorldComponents m cs)))
-                          )
-                      )
+    worldEntityComponents :: {-# UNPACK #-} !(WorldEntityComponents m cs)
   }
 
 empty :: (Monad m, Empty m (HSet (WorldComponents m cs))) => m (World m cs)
 empty = do
   cs <- Storage.empty
   return $ World cs emptyEntities IntMap.empty
+
+lookupStorage ::
+  (Lookup (ComponentStorage m c c) (WorldComponents m cs)) =>
+  World m cs ->
+  ComponentStorage m c c
+lookupStorage = runIdentity . HS.lookup . worldComponents
+
+adjustStorage ::
+  forall m cs c.
+  ( PrimMonad m,
+    Typeable c,
+    Component m c,
+    AdjustM m Identity (ComponentStorage m c c) (WorldComponents m cs),
+    Storage m (ComponentStorage m c)
+  ) =>
+  (ComponentStorage m c c -> m (ComponentStorage m c c)) ->
+  World m cs ->
+  m (World m cs)
+adjustStorage f w = do
+  let adjustGo (Identity s) = Identity <$> f s
+  cs <- HS.adjustM @m @Identity @(ComponentStorage m c c) adjustGo (worldComponents w)
+  return $ w {worldComponents = cs}
 
 removeComponent ::
   forall m cs c.
@@ -79,14 +101,9 @@ removeComponent ::
 removeComponent entity w = do
   let entityIdx = fromIntegral (entityIndex entity)
       componentType = typeRep (Proxy :: Proxy c)
-  cs <-
-    HS.adjustM @_ @_ @(ComponentStorage m c c)
-      ( \(Identity s) ->
-          Identity <$> removeStorage entity s
-      )
-      (worldComponents w)
+  w' <- adjustStorage @_ @_ @c (removeStorage entity) w
   let entityComponents' = IntMap.adjust (Map.delete componentType) entityIdx (worldEntityComponents w)
-  return $ w {worldComponents = cs, worldEntityComponents = entityComponents'}
+  return $ w' {worldEntityComponents = entityComponents'}
 
 removeComponent' ::
   forall m (c :: Type) cs.
