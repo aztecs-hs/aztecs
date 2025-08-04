@@ -9,7 +9,6 @@ module Main where
 import Aztecs
 import qualified Aztecs.World as W
 import Control.Monad.IO.Class
-import Control.Monad.Identity
 
 newtype Position = Position Int
   deriving (Show, Eq)
@@ -99,24 +98,23 @@ app ::
        Run '[] RenderSystem
      ]
 app =
-  hcons (Run MoveSystem)
-    . hcons (Run PhysicsSystem)
-    . hcons (Run CombatSystem)
-    . hcons (Run RenderSystem)
-    $ hempty
+  HCons (Run MoveSystem) $
+  HCons (Run PhysicsSystem) $
+  HCons (Run CombatSystem) $
+  HCons (Run RenderSystem) $
+  HEmpty
 
 appSmall ::
-  HSetT
-    Identity
+  HSet
     '[ Run '[After PhysicsSystem] MoveSystem,
        Run '[] PhysicsSystem,
        Run '[] RenderSystem
      ]
 appSmall =
-  hcons (Run MoveSystem)
-    . hcons (Run PhysicsSystem)
-    . hcons (Run RenderSystem)
-    $ hempty
+  HCons (Run MoveSystem) $
+  HCons (Run PhysicsSystem) $
+  HCons (Run RenderSystem) $
+  HEmpty
 
 runSchedulerExample :: IO ()
 runSchedulerExample = do

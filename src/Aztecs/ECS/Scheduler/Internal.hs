@@ -44,7 +44,7 @@ instance
   type SchedulerInput m (HSet systems) = systems
   type
     SchedulerOutput m (HSet systems) =
-      HSetT HSet (ScheduleLevels m (TopologicalSort (BuildSystemGraph systems)))
+      HSet (LevelsToNestedHSet (ScheduleLevels m (TopologicalSort (BuildSystemGraph systems))))
 
   buildSchedule = scheduleSystemLevels @m @(TopologicalSort (BuildSystemGraph systems))
 
@@ -166,13 +166,17 @@ scheduleSystemLevels ::
     ScheduleLevelsBuilder m levels systems
   ) =>
   HSet systems ->
-  HSetT HSet (ScheduleLevels m levels)
+  HSet (LevelsToNestedHSet (ScheduleLevels m levels))
 scheduleSystemLevels = buildScheduleLevels @m @levels @systems
+
+type family LevelsToNestedHSet (levels :: [[Type]]) :: [Type] where
+  LevelsToNestedHSet '[] = '[]
+  LevelsToNestedHSet (level ': rest) = HSet level ': LevelsToNestedHSet rest
 
 class ScheduleLevelsBuilder (m :: Type -> Type) (levels :: [[Type]]) (systems :: [Type]) where
   buildScheduleLevels ::
     HSet systems ->
-    HSetT HSet (ScheduleLevels m levels)
+    HSet (LevelsToNestedHSet (ScheduleLevels m levels))
 
 instance ScheduleLevelsBuilder m '[] systems where
   buildScheduleLevels _ = HEmpty
@@ -222,7 +226,7 @@ instance
   SystemReorderer originalSystems (targetSys ': restTargets)
   where
   reorderSystems originalSystems =
-    let (targetSys, remaining) = extractFromHSet @targetSys @originalSystems originalSystems
+    let (Identity targetSys, remaining) = extractFromHSet @targetSys @originalSystems originalSystems
         rest = reorderSystems @(RemainingAfterExtract targetSys originalSystems) @restTargets remaining
      in HCons targetSys rest
 
@@ -237,14 +241,14 @@ class ExtractFromHSet (targetSys :: Type) (systems :: [Type]) where
     (Identity targetSys, HSet (RemainingAfterExtract targetSys systems))
 
 instance {-# OVERLAPPING #-} ExtractFromHSet sys (sys ': rest) where
-  extractFromHSet (HCons sys rest) = (sys, rest)
+  extractFromHSet (HCons sys rest) = (Identity sys, rest)
 
 instance
   {-# OVERLAPPING #-}
   (RemainingAfterExtract sys (Run constraints sys ': rest) ~ rest) =>
   ExtractFromHSet sys (Run constraints sys ': rest)
   where
-  extractFromHSet (HCons (Identity (Run sys)) rest) = (Identity sys, rest)
+  extractFromHSet (HCons (Run sys) rest) = (Identity sys, rest)
 
 instance
   ( ExtractFromHSet targetSys rest,
@@ -257,15 +261,13 @@ instance
     let (target, remaining) = extractFromHSet @targetSys @rest rest
      in (target, HCons other remaining)
 
-instance (Applicative m) => Execute m (HSetT HSet '[]) where
-  execute HEmpty = pure ()
-
 instance
+  {-# OVERLAPPING #-}
   ( Monad m,
     Execute' m (HSet level),
-    Execute m (HSetT HSet restLevels)
+    Execute m (HSet restLevels)
   ) =>
-  Execute m (HSetT HSet (level ': restLevels))
+  Execute m (HSet (HSet level ': restLevels))
   where
   execute (HCons level restLevels) = do
     ExecutorT $ \run -> run $ execute' level

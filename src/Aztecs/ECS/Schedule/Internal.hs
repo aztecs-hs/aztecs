@@ -15,10 +15,9 @@
 module Aztecs.ECS.Schedule.Internal where
 
 import Aztecs.ECS.Access.Internal
-import Aztecs.ECS.HSet (HSetT (..), Run)
+import Aztecs.ECS.HSet (HSet (..), Run)
 import Aztecs.ECS.Queryable.Internal
 import Aztecs.ECS.System
-import Control.Monad.Identity
 import Data.Kind
 
 class Schedule m s where
@@ -78,14 +77,17 @@ type family If (condition :: Bool) (then_ :: k) (else_ :: k) :: k where
   If 'True then_ else_ = then_
   If 'False then_ else_ = else_
 
-instance Schedule m (HSetT (IdentityT m) '[]) where
-  type Scheduled m (HSetT (IdentityT m) '[]) = HSetT (HSetT (IdentityT m)) '[]
+type family GroupsToNestedHSet m (groups :: [[Type]]) :: [Type] where
+  GroupsToNestedHSet m '[] = '[]
+  GroupsToNestedHSet m (group ': rest) = HSet (MapToIdentityT m group) ': GroupsToNestedHSet m rest
+
+instance Schedule m (HSet '[]) where
+  type Scheduled m (HSet '[]) = HSet '[]
   schedule HEmpty = HEmpty
 
-instance (System m sys) => Schedule m (HSetT (IdentityT m) '[sys]) where
-  type Scheduled m (HSetT (IdentityT m) '[sys]) = HSetT (HSetT (IdentityT m)) (GroupSystems m '[sys])
-  schedule (HCons (IdentityT sys) HEmpty) =
-    HCons (HCons (IdentityT sys) HEmpty) HEmpty
+instance (System m sys) => Schedule m (HSet '[sys]) where
+  type Scheduled m (HSet '[sys]) = HSet (GroupsToNestedHSet m (GroupSystems m '[sys]))
+  schedule (HCons sys HEmpty) = HCons (HCons sys HEmpty) HEmpty
 
 instance
   ( System m sys,
@@ -93,9 +95,9 @@ instance
     rest ~ (sys2 ': rest'),
     CompileGroups m (GroupSystems m (sys ': rest)) (sys ': rest)
   ) =>
-  Schedule m (HSetT (IdentityT m) (sys ': rest))
+  Schedule m (HSet (sys ': rest))
   where
-  type Scheduled m (HSetT (IdentityT m) (sys ': rest)) = HSetT (HSetT (IdentityT m)) (GroupSystems m (sys ': rest))
+  type Scheduled m (HSet (sys ': rest)) = HSet (GroupsToNestedHSet m (GroupSystems m (sys ': rest)))
   schedule = compileGroups @m @(GroupSystems m (sys ': rest)) @(sys ': rest)
 
 class AllSystems m systems
@@ -107,7 +109,7 @@ instance (System m (Run constraints sys), AllSystems m rest) => AllSystems m (Ru
 instance {-# OVERLAPPABLE #-} (System m sys, AllSystems m rest) => AllSystems m (sys ': rest)
 
 class CompileGroups m (groups :: [[Type]]) (systems :: [Type]) where
-  compileGroups :: HSetT (IdentityT m) systems -> HSetT (HSetT (IdentityT m)) groups
+  compileGroups :: HSet systems -> HSet (GroupsToNestedHSet m groups)
 
 instance CompileGroups m '[] systems where
   compileGroups _ = HEmpty
@@ -123,23 +125,27 @@ instance
     HCons (compileGroup @m @group @systems systems) (compileGroups @m @rest @systems systems)
 
 class CompileGroup m (group :: [Type]) (systems :: [Type]) where
-  compileGroup :: HSetT (IdentityT m) systems -> HSetT (IdentityT m) group
+  compileGroup :: HSet systems -> HSet (MapToIdentityT m group)
+
+type family MapToIdentityT m (systems :: [Type]) :: [Type] where
+  MapToIdentityT m '[] = '[]
+  MapToIdentityT m (sys ': rest) = sys ': MapToIdentityT m rest
 
 instance CompileGroup m '[] systems where
   compileGroup _ = HEmpty
 
 instance (ExtractSystem m sys systems) => CompileGroup m '[sys] systems where
-  compileGroup systems = HCons (extractSystem @m @sys @systems systems) HEmpty
+  compileGroup systems = HCons ((extractSystem @m @sys @systems systems)) HEmpty
 
 instance
   (ExtractSystem m sys systems, CompileGroup m rest systems) =>
   CompileGroup m (sys ': rest) systems
   where
   compileGroup systems =
-    HCons (extractSystem @m @sys @systems systems) (compileGroup @m @rest @systems systems)
+    HCons ((extractSystem @m @sys @systems systems)) (compileGroup @m @rest @systems systems)
 
 class ExtractSystem m (sys :: Type) (systems :: [Type]) where
-  extractSystem :: HSetT (IdentityT m) systems -> IdentityT m sys
+  extractSystem :: HSet systems -> sys
 
 instance ExtractSystem m sys (sys ': rest) where
   extractSystem (HCons sys _) = sys
