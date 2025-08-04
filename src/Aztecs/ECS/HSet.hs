@@ -12,8 +12,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Aztecs.ECS.HSet
-  ( HSet,
-    HSetT (..),
+  ( HSet (..),
     Run (..),
     UnwrapSystem,
     GetConstraints,
@@ -22,8 +21,6 @@ module Aztecs.ECS.HSet
     Lookup (..),
     AdjustM (..),
     Subset (..),
-    hcons,
-    hempty,
   )
 where
 
@@ -34,11 +31,9 @@ import qualified Data.SparseSet.Strict.Mutable as MS
 import Data.Word
 import Prelude hiding (lookup)
 
-type HSet = HSetT Identity
-
-data HSetT f ts where
-  HEmpty :: HSetT f '[]
-  HCons :: f t -> HSetT f ts -> HSetT f (t ': ts)
+data HSet ts where
+  HEmpty :: HSet '[]
+  HCons :: t -> HSet ts -> HSet (t ': ts)
 
 data Before (sys :: Type)
 
@@ -58,19 +53,17 @@ type family GetConstraints (runSys :: Type) :: [Type] where
 instance (Show sys) => Show (Run constraints sys) where
   show (Run sys) = "Run " ++ show sys
 
-instance (ShowHSet f ts) => Show (HSetT f ts) where
+instance (ShowHSet  ts) => Show (HSet ts) where
   show = showHSet
 
-class ShowHSet f ts where
-  showHSet :: HSetT f ts -> String
+class ShowHSet  ts where
+  showHSet :: HSet ts -> String
 
-instance ShowHSet f '[] where
+instance ShowHSet '[] where
   showHSet _ = "HEmpty"
 
-instance (Show (f t), ShowHSet f ts) => ShowHSet f (t ': ts) where
+instance (Show t, ShowHSet ts) => ShowHSet (t ': ts) where
   showHSet (HCons x xs) = "HCons " ++ show x ++ " (" ++ showHSet xs ++ ")"
-
-
 
 type family Elem (t :: k) (ts :: [k]) :: Bool where
   Elem t '[] = 'False
@@ -78,7 +71,7 @@ type family Elem (t :: k) (ts :: [k]) :: Bool where
   Elem t (_ ': xs) = Elem t xs
 
 class Lookup (t :: Type) (ts :: [Type]) where
-  lookup :: HSetT f ts -> f t
+  lookup :: HSet ts -> t
 
 instance {-# OVERLAPPING #-} Lookup t (t ': ts) where
   lookup (HCons x _) = x
@@ -88,35 +81,25 @@ instance {-# OVERLAPPABLE #-} (Lookup t ts) => Lookup t (u ': ts) where
   lookup (HCons _ xs) = lookup xs
   {-# INLINE lookup #-}
 
-class AdjustM m f t ts where
-  adjustM :: (f t -> m (f t)) -> HSetT f ts -> m (HSetT f ts)
+class AdjustM m  t ts where
+  adjustM :: (t-> m t) -> HSet ts -> m (HSet ts)
 
-instance {-# OVERLAPPING #-} (Applicative m) => AdjustM m f t (t ': ts) where
+instance {-# OVERLAPPING #-} (Applicative m) => AdjustM m  t (t ': ts) where
   adjustM f (HCons x xs) = HCons <$> f x <*> pure xs
   {-# INLINE adjustM #-}
 
-instance {-# OVERLAPPABLE #-} (Functor m, AdjustM m f t ts) => AdjustM m f t (u ': ts) where
+instance {-# OVERLAPPABLE #-} (Functor m, AdjustM m t ts) => AdjustM m t (u ': ts) where
   adjustM f (HCons y xs) = HCons y <$> adjustM f xs
   {-# INLINE adjustM #-}
 
 class Subset (subset :: [Type]) (superset :: [Type]) where
-  subset :: HSetT f superset -> HSetT f subset
+  subset :: HSet superset -> HSet subset
 
 instance Subset '[] superset where
   subset _ = HEmpty
   {-# INLINE subset #-}
 
-instance
-  ( Lookup t superset,
-    Subset ts superset
-  ) =>
-  Subset (t ': ts) superset
-  where
+instance (Lookup t superset, Subset ts superset) => Subset (t ': ts) superset where
   subset hset = HCons (lookup hset) (subset @ts hset)
   {-# INLINE subset #-}
 
-hcons :: (Applicative f) => t -> HSetT f ts -> HSetT f (t ': ts)
-hcons x = HCons (pure x)
-
-hempty :: HSetT f '[]
-hempty = HEmpty

@@ -77,11 +77,11 @@ instance (PrimMonad m, PrimState m ~ s) => Storage m (MSparseSet s Word32) where
 class Empty m a where
   empty :: m a
 
-instance (Applicative m) => Empty m (HSetT f '[]) where
+instance (Applicative m) => Empty m (HSet '[]) where
   empty = pure HEmpty
 
 instance (Monad m, Storage m s, Empty m (HSet ts)) => Empty m (HSet (s a ': ts)) where
   empty = do
     xs <- emptyStorage @m @s
     res <- empty
-    return $ HCons (Identity xs) res
+    return $ HCons xs res

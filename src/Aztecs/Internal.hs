@@ -22,7 +22,7 @@ import Aztecs.Component (Component (ComponentStorage))
 import Aztecs.ECS.Bundle
 import Aztecs.ECS.Class
 import Aztecs.ECS.Commands
-import Aztecs.ECS.HSet (AdjustM, HSetT (..), Lookup (..))
+import Aztecs.ECS.HSet (AdjustM, HSet (..), Lookup (..))
 import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
 import Aztecs.ECS.Queryable.Internal
@@ -76,7 +76,7 @@ instance (PrimMonad m) => ECS (AztecsT cs m) where
 instance
   ( PrimMonad m,
     Typeable c,
-    AdjustM m Identity (SparseStorage m c) (WorldComponents m cs)
+    AdjustM m (SparseStorage m c) (WorldComponents m cs)
   ) =>
   Bundleable c (AztecsT cs m)
   where
@@ -84,8 +84,8 @@ instance
     w <- AztecsT $ get
     let entityIdx = fromIntegral (entityIndex entity)
         componentType = typeOf c
-        go (Identity s) = Identity <$> S.insertStorage entity c s
-    cs <- lift . HS.adjustM @_ @_ @(SparseStorage m c) go $ W.worldComponents w
+        go s = S.insertStorage entity c s
+    cs <- lift . HS.adjustM @_ @(SparseStorage m c) go $ W.worldComponents w
     let entityComponents' =
           IntMap.insertWith
             Map.union
@@ -121,7 +121,6 @@ instance
     withComponent <-
       lift
         . S.queryStorageR
-        . runIdentity
         . HS.lookup @(ComponentStorage m a a)
         $ W.worldComponents w
     return . fmap (const With) $ withComponent
@@ -139,7 +138,6 @@ instance
     (Query cs) <-
       lift
         . S.queryStorageR
-        . runIdentity
         . HS.lookup @(ComponentStorage m a a)
         $ W.worldComponents w
     let go m = case m of
@@ -165,7 +163,7 @@ instance
   type QueryableAccess (R a) = '[Read a]
   queryable = do
     w <- AztecsT $ get
-    S.queryStorageR . runIdentity . lookup @(ComponentStorage m a a) $ W.worldComponents w
+    S.queryStorageR . HS.lookup @(ComponentStorage m a a) $ W.worldComponents w
   {-# INLINE queryable #-}
 
 instance
@@ -180,5 +178,5 @@ instance
   type QueryableAccess (MkW s a) = '[Read a]
   queryable = do
     w <- AztecsT $ get
-    S.queryStorageW . runIdentity . lookup @(ComponentStorage m a a) $ W.worldComponents w
+    S.queryStorageW . HS.lookup @(ComponentStorage m a a) $ W.worldComponents w
   {-# INLINE queryable #-}
