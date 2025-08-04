@@ -84,10 +84,12 @@ type family GroupsToNestedHSet m (groups :: [[Type]]) :: [Type] where
 instance Schedule m (HSet '[]) where
   type Scheduled m (HSet '[]) = HSet '[]
   schedule HEmpty = HEmpty
+  {-# INLINE schedule #-}
 
 instance (System m sys) => Schedule m (HSet '[sys]) where
   type Scheduled m (HSet '[sys]) = HSet (GroupsToNestedHSet m (GroupSystems m '[sys]))
   schedule (HCons sys HEmpty) = HCons (HCons sys HEmpty) HEmpty
+  {-# INLINE schedule #-}
 
 instance
   ( System m sys,
@@ -99,6 +101,7 @@ instance
   where
   type Scheduled m (HSet (sys ': rest)) = HSet (GroupsToNestedHSet m (GroupSystems m (sys ': rest)))
   schedule = compileGroups @m @(GroupSystems m (sys ': rest)) @(sys ': rest)
+  {-# INLINE schedule #-}
 
 class AllSystems m systems
 
@@ -113,9 +116,11 @@ class CompileGroups m (groups :: [[Type]]) (systems :: [Type]) where
 
 instance CompileGroups m '[] systems where
   compileGroups _ = HEmpty
+  {-# INLINE compileGroups #-}
 
 instance (CompileGroup m group systems) => CompileGroups m '[group] systems where
   compileGroups systems = HCons (compileGroup @m @group @systems systems) HEmpty
+  {-# INLINE compileGroups #-}
 
 instance
   (CompileGroup m group systems, CompileGroups m rest systems) =>
@@ -123,6 +128,7 @@ instance
   where
   compileGroups systems =
     HCons (compileGroup @m @group @systems systems) (compileGroups @m @rest @systems systems)
+  {-# INLINE compileGroups #-}
 
 class CompileGroup m (group :: [Type]) (systems :: [Type]) where
   compileGroup :: HSet systems -> HSet (MapToIdentityT m group)
@@ -133,9 +139,11 @@ type family MapToIdentityT m (systems :: [Type]) :: [Type] where
 
 instance CompileGroup m '[] systems where
   compileGroup _ = HEmpty
+  {-# INLINE compileGroup #-}
 
 instance (ExtractSystem m sys systems) => CompileGroup m '[sys] systems where
   compileGroup systems = HCons ((extractSystem @m @sys @systems systems)) HEmpty
+  {-# INLINE compileGroup #-}
 
 instance
   (ExtractSystem m sys systems, CompileGroup m rest systems) =>
@@ -143,12 +151,15 @@ instance
   where
   compileGroup systems =
     HCons ((extractSystem @m @sys @systems systems)) (compileGroup @m @rest @systems systems)
+  {-# INLINE compileGroup #-}
 
 class ExtractSystem m (sys :: Type) (systems :: [Type]) where
   extractSystem :: HSet systems -> sys
 
 instance ExtractSystem m sys (sys ': rest) where
   extractSystem (HCons sys _) = sys
+  {-# INLINE extractSystem #-}
 
 instance (ExtractSystem m sys rest) => ExtractSystem m sys (other ': rest) where
   extractSystem (HCons _ rest) = extractSystem @m @sys @rest rest
+  {-# INLINE extractSystem #-}

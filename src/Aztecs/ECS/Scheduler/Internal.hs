@@ -19,7 +19,6 @@ import Aztecs.ECS.Class
 import Aztecs.ECS.Executor
 import Aztecs.ECS.HSet
 import Aztecs.ECS.Schedule.Internal
-import Control.Monad.Identity
 import Data.Kind
 
 class Scheduler m s where
@@ -31,6 +30,7 @@ class Scheduler m s where
 instance (Applicative m, ECS m) => Access m (HSet '[]) where
   type AccessType (HSet '[]) = '[]
   access = pure HEmpty
+  {-# INLINE access #-}
 
 instance
   ( AllSystems m systems,
@@ -47,6 +47,7 @@ instance
       HSet (LevelsToNestedHSet (ScheduleLevels m (TopologicalSort (BuildSystemGraph systems))))
 
   buildSchedule = scheduleSystemLevels @m @(TopologicalSort (BuildSystemGraph systems))
+  {-# INLINE buildSchedule #-}
 
 type family BuildSystemGraph (systems :: [Type]) :: DependencyGraph where
   BuildSystemGraph '[] = EmptyGraph
@@ -168,6 +169,7 @@ scheduleSystemLevels ::
   HSet systems ->
   HSet (LevelsToNestedHSet (ScheduleLevels m levels))
 scheduleSystemLevels = buildScheduleLevels @m @levels @systems
+{-# INLINE scheduleSystemLevels #-}
 
 type family LevelsToNestedHSet (levels :: [[Type]]) :: [Type] where
   LevelsToNestedHSet '[] = '[]
@@ -180,6 +182,7 @@ class ScheduleLevelsBuilder (m :: Type -> Type) (levels :: [[Type]]) (systems ::
 
 instance ScheduleLevelsBuilder m '[] systems where
   buildScheduleLevels _ = HEmpty
+  {-# INLINE buildScheduleLevels #-}
 
 instance
   ( GroupByConflicts m systems ~ systems
@@ -187,6 +190,7 @@ instance
   ScheduleLevelsBuilder m '[systems] systems
   where
   buildScheduleLevels systems = HCons systems HEmpty
+  {-# INLINE buildScheduleLevels #-}
 
 instance
   ( SystemReorderer originalSystems levelSystems,
@@ -196,6 +200,7 @@ instance
   where
   buildScheduleLevels originalSystems =
     HCons (reorderSystems @originalSystems @levelSystems originalSystems) HEmpty
+  {-# INLINE buildScheduleLevels #-}
 
 instance
   ( SystemReorderer originalSystems levelSystems1,
@@ -210,6 +215,20 @@ instance
       HCons
         (reorderSystems @originalSystems @levelSystems2 originalSystems)
         HEmpty
+  {-# INLINE buildScheduleLevels #-}
+
+instance
+  {-# OVERLAPPABLE #-}
+  ( SystemReorderer originalSystems levelSystems,
+    GroupByConflicts m levelSystems ~ levelSystems,
+    ScheduleLevelsBuilder m restLevels originalSystems
+  ) =>
+  ScheduleLevelsBuilder m (levelSystems ': restLevels) originalSystems
+  where
+  buildScheduleLevels originalSystems =
+    HCons (reorderSystems @originalSystems @levelSystems originalSystems) $
+      buildScheduleLevels @m @restLevels @originalSystems originalSystems
+  {-# INLINE buildScheduleLevels #-}
 
 class SystemReorderer (originalSystems :: [Type]) (targetSystems :: [Type]) where
   reorderSystems ::
@@ -218,6 +237,7 @@ class SystemReorderer (originalSystems :: [Type]) (targetSystems :: [Type]) wher
 
 instance SystemReorderer originalSystems '[] where
   reorderSystems _ = HEmpty
+  {-# INLINE reorderSystems #-}
 
 instance
   ( ExtractFromHSet targetSys originalSystems,
@@ -226,9 +246,10 @@ instance
   SystemReorderer originalSystems (targetSys ': restTargets)
   where
   reorderSystems originalSystems =
-    let (Identity targetSys, remaining) = extractFromHSet @targetSys @originalSystems originalSystems
+    let (targetSys, remaining) = extractFromHSet @targetSys @originalSystems originalSystems
         rest = reorderSystems @(RemainingAfterExtract targetSys originalSystems) @restTargets remaining
      in HCons targetSys rest
+  {-# INLINE reorderSystems #-}
 
 type family RemainingAfterExtract (targetSys :: Type) (systems :: [Type]) :: [Type] where
   RemainingAfterExtract sys (sys ': rest) = rest
@@ -238,17 +259,19 @@ type family RemainingAfterExtract (targetSys :: Type) (systems :: [Type]) :: [Ty
 class ExtractFromHSet (targetSys :: Type) (systems :: [Type]) where
   extractFromHSet ::
     HSet systems ->
-    (Identity targetSys, HSet (RemainingAfterExtract targetSys systems))
+    (targetSys, HSet (RemainingAfterExtract targetSys systems))
 
 instance {-# OVERLAPPING #-} ExtractFromHSet sys (sys ': rest) where
-  extractFromHSet (HCons sys rest) = (Identity sys, rest)
+  extractFromHSet (HCons sys rest) = (sys, rest)
+  {-# INLINE extractFromHSet #-}
 
 instance
   {-# OVERLAPPING #-}
   (RemainingAfterExtract sys (Run constraints sys ': rest) ~ rest) =>
   ExtractFromHSet sys (Run constraints sys ': rest)
   where
-  extractFromHSet (HCons (Run sys) rest) = (Identity sys, rest)
+  extractFromHSet (HCons (Run sys) rest) = (sys, rest)
+  {-# INLINE extractFromHSet #-}
 
 instance
   ( ExtractFromHSet targetSys rest,
@@ -260,6 +283,7 @@ instance
   extractFromHSet (HCons other rest) =
     let (target, remaining) = extractFromHSet @targetSys @rest rest
      in (target, HCons other remaining)
+  {-# INLINE extractFromHSet #-}
 
 instance
   {-# OVERLAPPING #-}
@@ -272,3 +296,4 @@ instance
   execute (HCons level restLevels) = do
     ExecutorT $ \run -> run $ execute' level
     execute restLevels
+  {-# INLINE execute #-}

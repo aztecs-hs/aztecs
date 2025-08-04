@@ -24,6 +24,7 @@ class System m sys where
 instance (System m sys) => System m (Run constraints sys) where
   type SystemIn m (Run constraints sys) = SystemIn m sys
   runSystem (Run sys) = runSystem sys
+  {-# INLINE runSystem #-}
 
 system ::
   ( ECS m,
@@ -34,3 +35,4 @@ system ::
   sys ->
   m ()
 system sys = access >>= task . runSystem sys
+{-# INLINE system #-}

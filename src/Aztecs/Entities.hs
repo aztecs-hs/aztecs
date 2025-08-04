@@ -13,12 +13,15 @@ instance Show Entity where
 
 mkEntity :: Word32 -> Word32 -> Entity
 mkEntity index generation = Entity $ (fromIntegral generation `shiftL` 32) .|. fromIntegral index
+{-# INLINE mkEntity #-}
 
 entityIndex :: Entity -> Word32
 entityIndex (Entity e) = fromIntegral (e .&. 0xFFFFFFFF)
+{-# INLINE entityIndex #-}
 
 entityGeneration :: Entity -> Word32
 entityGeneration (Entity e) = fromIntegral ((e `shiftR` 32) .&. 0xFFFFFFFF)
+{-# INLINE entityGeneration #-}
 
 data Entities = Entities
   { entitiesNextGeneration :: Word32,
@@ -29,6 +32,7 @@ data Entities = Entities
 
 emptyEntities :: Entities
 emptyEntities = Entities 0 IntMap.empty 0 []
+{-# INLINE emptyEntities #-}
 
 mkEntityWithCounter :: Entities -> (Entity, Entities)
 mkEntityWithCounter (Entities gen gens index free) =
@@ -38,8 +42,10 @@ mkEntityWithCounter (Entities gen gens index free) =
       nextGeneration = gen + 1
       gens' = IntMap.insert (fromIntegral i) gen gens
    in (mkEntity i gen, Entities nextGeneration gens' nextIndex free')
+{-# INLINE mkEntityWithCounter #-}
 
 entities :: Entities -> [Entity]
 entities (Entities _ gens _ _) = map go (IntMap.toList gens)
   where
     go (i, gen) = mkEntity (fromIntegral i) gen
+{-# INLINE entities #-}

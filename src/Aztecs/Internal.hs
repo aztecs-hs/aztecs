@@ -35,7 +35,6 @@ import qualified Aztecs.Storage as S
 import Aztecs.W
 import Aztecs.World (SparseStorage, WorldComponents)
 import qualified Aztecs.World as W
-import Control.Monad.Identity (Identity (..), runIdentity)
 import Control.Monad.Primitive
 import Control.Monad.State.Strict
 import qualified Data.IntMap.Strict as IntMap
@@ -50,6 +49,7 @@ newtype AztecsT cs m a = AztecsT {unAztecsT :: StateT (W.World m cs) m a}
 
 instance MonadTrans (AztecsT cs) where
   lift = AztecsT . lift
+  {-# INLINE lift #-}
 
 instance (PrimMonad m) => ECS (AztecsT cs m) where
   type Entity (AztecsT cs m) = E.Entity
@@ -93,6 +93,7 @@ instance
             (Map.singleton componentType (W.removeComponent' @m @c entity))
             (W.worldEntityComponents w)
     AztecsT $ put w {W.worldComponents = cs, W.worldEntityComponents = entityComponents'}
+  {-# INLINE bundle #-}
 
 runAztecsT :: (Monad m) => AztecsT cs m a -> W.World m cs -> m (a, W.World m cs)
 runAztecsT (AztecsT m) = runStateT m
@@ -107,6 +108,7 @@ instance (PrimMonad m) => Queryable (AztecsT cs m) E.Entity where
   queryable = AztecsT $ do
     w <- get
     return . Query . map pure . E.entities $ W.worldEntities w
+  {-# INLINE queryable #-}
 
 instance
   ( PrimMonad m,
@@ -124,6 +126,7 @@ instance
         . HS.lookup @(ComponentStorage m a a)
         $ W.worldComponents w
     return . fmap (const With) $ withComponent
+  {-# INLINE queryable #-}
 
 instance
   ( PrimMonad m,
@@ -144,6 +147,7 @@ instance
           Just v -> Nothing
           Nothing -> Just Without
     return . Query $ fmap go cs
+  {-# INLINE queryable #-}
 
 runCommands :: (Monad m) => Commands (AztecsT cs) m a -> AztecsT cs m a
 runCommands (Commands m) = AztecsT $ do
@@ -151,12 +155,12 @@ runCommands (Commands m) = AztecsT $ do
   (result, action) <- lift m
   unAztecsT action
   return result
+{-# INLINE runCommands #-}
 
 instance
   ( PrimMonad m,
     Lookup (ComponentStorage m a a) (WorldComponents m cs),
-    Storage (AztecsT cs m) (ComponentStorage m a),
-    StorageR (AztecsT cs m) (ComponentStorage m a) a ~ R a
+    Storage (AztecsT cs m) (ComponentStorage m a)
   ) =>
   Queryable (AztecsT cs m) (R a)
   where
@@ -170,13 +174,48 @@ instance
   ( PrimMonad m,
     PrimState m ~ s,
     Lookup (ComponentStorage m a a) (WorldComponents m cs),
-    Storage (AztecsT cs m) (ComponentStorage m a),
-    StorageW (AztecsT cs m) (ComponentStorage m a) a ~ MkW s a
+    Storage m (ComponentStorage m a)
   ) =>
-  Queryable (AztecsT cs m) (MkW s a)
+  Queryable (AztecsT cs m) (W (Commands (AztecsT cs) m) a)
   where
-  type QueryableAccess (MkW s a) = '[Read a]
-  queryable = do
-    w <- AztecsT $ get
-    S.queryStorageW . HS.lookup @(ComponentStorage m a a) $ W.worldComponents w
+  type QueryableAccess (W (Commands (AztecsT cs) m) a) = '[Write a]
+  queryable = AztecsT $ do
+    w <- get
+    Query results <-
+      lift
+        . S.queryStorageW
+        . HS.lookup @(ComponentStorage m a a)
+        $ W.worldComponents w
+    let liftToCommands m = Commands $ (\x -> (x, pure ())) <$> m
+        go (W r wf mf) =
+          W
+            (liftToCommands r)
+            (liftToCommands . wf)
+            (liftToCommands . mf)
+    return . Query $ map (fmap go) results
+  {-# INLINE queryable #-}
+
+-- Additional instance for direct AztecsT usage in scheduler
+instance
+  ( PrimMonad m,
+    PrimState m ~ s,
+    Lookup (ComponentStorage m a a) (WorldComponents m cs),
+    Storage m (ComponentStorage m a)
+  ) =>
+  Queryable (AztecsT cs m) (W (AztecsT cs m) a)
+  where
+  type QueryableAccess (W (AztecsT cs m) a) = '[Write a]
+  queryable = AztecsT $ do
+    w <- get
+    Query results <-
+      lift
+        . S.queryStorageW
+        . HS.lookup @(ComponentStorage m a a)
+        $ W.worldComponents w
+    let liftToAztecs (W r wf mf) =
+          W
+            (AztecsT $ lift r)
+            (AztecsT . lift . wf)
+            (AztecsT . lift . mf)
+    return . Query $ map (fmap liftToAztecs) results
   {-# INLINE queryable #-}
