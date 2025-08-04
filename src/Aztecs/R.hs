@@ -15,9 +15,9 @@ import qualified Aztecs.World as W
 import Control.Monad.Primitive
 import Control.Monad.State.Strict
 import qualified Data.SparseSet.Strict.Mutable as MS
-import Data.Word
 import Prelude hiding (Read, lookup)
 
+-- | Read-only 'Queryable' component access.
 newtype R a = R {unR :: a}
   deriving (Show, Eq, Functor)
 

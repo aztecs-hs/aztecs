@@ -34,7 +34,6 @@ import qualified Data.SparseSet.Strict as S
 import Data.SparseSet.Strict.Mutable (MSparseSet)
 import Data.Typeable
 import Data.Word
-import Prelude hiding (Read, lookup)
 
 type ComponentStorage s = MSparseSet s Word32
 
