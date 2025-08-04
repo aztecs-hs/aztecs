@@ -29,16 +29,17 @@ jobs:
           cabal-version: ${{ env.CABAL_VERSION }}
           enable-stack: false
 
+      - name: Update package index
+        run: cabal update
+
       - name: Configure cabal
-        run: |
-          cabal configure --enable-tests --enable-benchmarks
-          cabal freeze
+        run: cabal configure --enable-tests --enable-benchmarks
 
       - name: Cache cabal store
         uses: actions/cache@v4
         with:
           path: ~/.cabal/store
-          key: ${{ runner.os }}-cabal-store-${{ env.GHC_VERSION }}-${{ hashFiles('cabal.project.freeze') }}
+          key: ${{ runner.os }}-cabal-store-${{ env.GHC_VERSION }}-${{ hashFiles('**/*.cabal', '**/cabal.project') }}
           restore-keys: |
             ${{ runner.os }}-cabal-store-${{ env.GHC_VERSION }}-
             ${{ runner.os }}-cabal-store-
@@ -47,13 +48,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: dist-newstyle
-          key: ${{ runner.os }}-dist-${{ env.GHC_VERSION }}-${{ hashFiles('cabal.project.freeze') }}-${{ hashFiles('**/*.hs') }}
+          key: ${{ runner.os }}-dist-${{ env.GHC_VERSION }}-${{ hashFiles('**/*.cabal', '**/cabal.project*') }}
           restore-keys: |
-            ${{ runner.os }}-dist-${{ env.GHC_VERSION }}-${{ hashFiles('cabal.project.freeze') }}-
             ${{ runner.os }}-dist-${{ env.GHC_VERSION }}-
-
-      - name: Update package index
-        run: cabal update
 
       - name: Install dependencies
         run: cabal build --only-dependencies --enable-tests --enable-benchmarks
@@ -77,16 +74,17 @@ jobs:
           cabal-version: ${{ env.CABAL_VERSION }}
           enable-stack: false
 
+      - name: Update package index
+        run: cabal update
+
       - name: Configure cabal
-        run: |
-          cabal configure --enable-tests --enable-benchmarks
-          cabal freeze
+        run: cabal configure --enable-tests --enable-benchmarks
 
       - name: Cache cabal store
         uses: actions/cache@v4
         with:
           path: ~/.cabal/store
-          key: ${{ runner.os }}-cabal-store-${{ env.GHC_VERSION }}-${{ hashFiles('cabal.project.freeze') }}
+          key: ${{ runner.os }}-cabal-store-${{ env.GHC_VERSION }}-${{ hashFiles('**/*.cabal', '**/cabal.project') }}
           restore-keys: |
             ${{ runner.os }}-cabal-store-${{ env.GHC_VERSION }}-
             ${{ runner.os }}-cabal-store-
@@ -95,13 +93,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: dist-newstyle
-          key: ${{ runner.os }}-dist-${{ env.GHC_VERSION }}-${{ hashFiles('cabal.project.freeze') }}-${{ hashFiles('**/*.hs') }}
+          key: ${{ runner.os }}-dist-${{ env.GHC_VERSION }}-${{ hashFiles('**/*.cabal', '**/cabal.project*') }}
           restore-keys: |
-            ${{ runner.os }}-dist-${{ env.GHC_VERSION }}-${{ hashFiles('cabal.project.freeze') }}-
             ${{ runner.os }}-dist-${{ env.GHC_VERSION }}-
-
-      - name: Update package index
-        run: cabal update
 
       - name: Build dependencies
         run: cabal build --only-dependencies --enable-tests
@@ -124,16 +118,17 @@ jobs:
           cabal-version: ${{ env.CABAL_VERSION }}
           enable-stack: false
 
+      - name: Update package index
+        run: cabal update
+
       - name: Configure cabal
-        run: |
-          cabal configure --enable-tests --enable-benchmarks
-          cabal freeze
+        run: cabal configure --enable-tests --enable-benchmarks
 
       - name: Cache cabal store
         uses: actions/cache@v4
         with:
           path: ~/.cabal/store
-          key: ${{ runner.os }}-cabal-store-doctest-${{ env.GHC_VERSION }}-${{ hashFiles('cabal.project.freeze') }}
+          key: ${{ runner.os }}-cabal-store-doctest-${{ env.GHC_VERSION }}-${{ hashFiles('**/*.cabal', '**/cabal.project') }}
           restore-keys: |
             ${{ runner.os }}-cabal-store-doctest-${{ env.GHC_VERSION }}-
             ${{ runner.os }}-cabal-store-${{ env.GHC_VERSION }}-
@@ -143,13 +138,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: dist-newstyle
-          key: ${{ runner.os }}-dist-doctest-${{ env.GHC_VERSION }}-${{ hashFiles('cabal.project.freeze') }}-${{ hashFiles('**/*.hs') }}
+          key: ${{ runner.os }}-dist-doctest-${{ env.GHC_VERSION }}-${{ hashFiles('**/*.cabal', '**/cabal.project*') }}
           restore-keys: |
-            ${{ runner.os }}-dist-doctest-${{ env.GHC_VERSION }}-${{ hashFiles('cabal.project.freeze') }}-
             ${{ runner.os }}-dist-doctest-${{ env.GHC_VERSION }}-
-
-      - name: Update package index
-        run: cabal update
+            ${{ runner.os }}-dist-${{ env.GHC_VERSION }}-
 
       - name: Install doctest
         run: cabal install doctest --overwrite-policy=always --install-method=copy
