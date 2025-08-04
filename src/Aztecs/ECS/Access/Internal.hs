@@ -36,7 +36,7 @@ type family HasDuplicateWrites (components :: [Type]) :: Bool where
 
 class (Functor m) => Access m a where
   type AccessType a :: [Type]
-  access :: (ValidAccessInput (AccessType a)) => m a
+  access :: m a
   default access ::
     ( Generic a,
       GenericAccess m (Rep a),
@@ -108,7 +108,8 @@ instance
     Access m a,
     Access m b,
     ValidAccessInput (AccessType a),
-    ValidAccessInput (AccessType b)
+    ValidAccessInput (AccessType b),
+    ValidAccessInput (AccessType a ++ AccessType b)
   ) =>
   Access m (a, b)
   where
@@ -122,7 +123,8 @@ instance
     ValidAccessInput (AccessType a),
     ValidAccessInput (AccessType b),
     ValidAccessInput (AccessType c),
-    ValidAccessInput (AccessType b ++ AccessType c)
+    ValidAccessInput (AccessType b ++ AccessType c),
+    ValidAccessInput (AccessType a ++ (AccessType b ++ AccessType c))
   ) =>
   Access m (a, b, c)
   where
@@ -139,7 +141,11 @@ instance
     ValidAccessInput (AccessType c),
     ValidAccessInput (AccessType d),
     ValidAccessInput (AccessType a ++ AccessType b),
-    ValidAccessInput (AccessType c ++ AccessType d)
+    ValidAccessInput (AccessType c ++ AccessType d),
+    ValidAccessInput
+      ( (AccessType a ++ AccessType b)
+          ++ (AccessType c ++ AccessType d)
+      )
   ) =>
   Access m (a, b, c, d)
   where
@@ -161,7 +167,11 @@ instance
     ValidAccessInput (AccessType e),
     ValidAccessInput (AccessType a ++ AccessType b),
     ValidAccessInput (AccessType c ++ (AccessType d ++ AccessType e)),
-    ValidAccessInput (AccessType d ++ AccessType e)
+    ValidAccessInput (AccessType d ++ AccessType e),
+    ValidAccessInput
+      ( (AccessType a ++ AccessType b)
+          ++ (AccessType c ++ (AccessType d ++ AccessType e))
+      )
   ) =>
   Access m (a, b, c, d, e)
   where
@@ -188,7 +198,11 @@ instance
     ValidAccessInput (AccessType e ++ AccessType f),
     ValidAccessInput (AccessType d ++ (AccessType e ++ AccessType f)),
     ValidAccessInput (AccessType a ++ (AccessType b ++ AccessType c)),
-    ValidAccessInput (AccessType b ++ AccessType c)
+    ValidAccessInput (AccessType b ++ AccessType c),
+    ValidAccessInput
+      ( (AccessType a ++ (AccessType b ++ AccessType c))
+          ++ (AccessType d ++ (AccessType e ++ AccessType f))
+      )
   ) =>
   Access m (a, b, c, d, e, f)
   where
@@ -218,7 +232,11 @@ instance
     ValidAccessInput (AccessType d ++ AccessType e),
     ValidAccessInput (AccessType f ++ AccessType g),
     ValidAccessInput (AccessType a ++ (AccessType b ++ AccessType c)),
-    ValidAccessInput ((AccessType d ++ AccessType e) ++ (AccessType f ++ AccessType g))
+    ValidAccessInput ((AccessType d ++ AccessType e) ++ (AccessType f ++ AccessType g)),
+    ValidAccessInput
+      ( (AccessType a ++ (AccessType b ++ AccessType c))
+          ++ ((AccessType d ++ AccessType e) ++ (AccessType f ++ AccessType g))
+      )
   ) =>
   Access m (a, b, c, d, e, f, g)
   where
@@ -251,7 +269,11 @@ instance
     ValidAccessInput (AccessType e ++ AccessType f),
     ValidAccessInput (AccessType g ++ AccessType h),
     ValidAccessInput ((AccessType a ++ AccessType b) ++ (AccessType c ++ AccessType d)),
-    ValidAccessInput ((AccessType e ++ AccessType f) ++ (AccessType g ++ AccessType h))
+    ValidAccessInput ((AccessType e ++ AccessType f) ++ (AccessType g ++ AccessType h)),
+    ValidAccessInput
+      ( ((AccessType a ++ AccessType b) ++ (AccessType c ++ AccessType d))
+          ++ ((AccessType e ++ AccessType f) ++ (AccessType g ++ AccessType h))
+      )
   ) =>
   Access m (a, b, c, d, e, f, g, h)
   where

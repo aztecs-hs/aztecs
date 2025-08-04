@@ -29,8 +29,7 @@ system ::
   ( ECS m,
     Monad m,
     System (Task m) sys,
-    Access m (SystemIn (Task m) sys),
-    ValidAccessInput (AccessType (SystemIn (Task m) sys))
+    Access m (SystemIn (Task m) sys)
   ) =>
   sys ->
   m ()
