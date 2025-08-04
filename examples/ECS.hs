@@ -13,8 +13,14 @@ import Control.Monad.IO.Class
 newtype Position = Position Int
   deriving (Show, Eq)
 
+instance Component m Position where
+  type ComponentStorage m Position = SparseStorage m
+
 newtype Velocity = Velocity Int
   deriving (Show, Eq)
+
+instance Component m Velocity where
+  type ComponentStorage m Velocity = SparseStorage m
 
 data MoveSystem = MoveSystem
 

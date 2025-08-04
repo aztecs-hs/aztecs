@@ -19,8 +19,6 @@ module Aztecs.ECS.HSet
     GetConstraints,
     Before,
     After,
-    EmptyStorage (..),
-    Empty (..),
     Lookup (..),
     AdjustM (..),
     Subset (..),
@@ -72,22 +70,7 @@ instance ShowHSet f '[] where
 instance (Show (f t), ShowHSet f ts) => ShowHSet f (t ': ts) where
   showHSet (HCons x xs) = "HCons " ++ show x ++ " (" ++ showHSet xs ++ ")"
 
-class EmptyStorage m a where
-  emptyStorage :: m a
 
-instance (PrimMonad m, PrimState m ~ s) => EmptyStorage m (MSparseSet s Word32 a) where
-  emptyStorage = MS.empty
-
-class Empty m a where
-  empty :: m a
-
-instance (Applicative m) => Empty m (HSetT f '[]) where
-  empty = pure HEmpty
-
-instance (Monad m, EmptyStorage m (f t), Empty m (HSetT f ts)) => Empty m (HSetT f (t ': ts)) where
-  empty = do
-    xs <- emptyStorage
-    HCons xs <$> empty
 
 type family Elem (t :: k) (ts :: [k]) :: Bool where
   Elem t '[] = 'False

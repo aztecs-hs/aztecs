@@ -17,7 +17,13 @@ import GHC.Generics (Generic)
 
 newtype Position = Position Int deriving (Generic, NFData, Show)
 
+instance Component m Position where
+  type ComponentStorage m Position = SparseStorage m
+
 newtype Velocity = Velocity Int deriving (Generic, NFData, Show)
+
+instance Component m Velocity where
+  type ComponentStorage m Velocity = SparseStorage m
 
 data MoveSystem = MoveSystem
 

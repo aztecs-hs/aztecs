@@ -1,20 +1,24 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Aztecs.World
   ( World (..),
+    WorldComponents(..),
     empty,
     removeComponent,
     removeComponent',
     remove,
-    Components,
-    ComponentStorage,
+    SparseStorage,
   )
 where
 
+import Aztecs.Component
 import Aztecs.ECS.Bundle
 import Aztecs.ECS.HSet hiding (empty)
 import qualified Aztecs.ECS.HSet as HS
@@ -22,7 +26,10 @@ import Aztecs.ECS.Query
 import Aztecs.ECS.Queryable
 import Aztecs.ECS.Queryable.Internal
 import Aztecs.Entities
+import Aztecs.Storage hiding (empty)
+import qualified Aztecs.Storage as Storage
 import Control.Monad
+import Control.Monad.Identity (Identity (..), IdentityT (..))
 import Control.Monad.Primitive
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
@@ -35,48 +42,63 @@ import Data.SparseSet.Strict.Mutable (MSparseSet)
 import Data.Typeable
 import Data.Word
 
-type ComponentStorage s = MSparseSet s Word32
+type SparseStorage m = MSparseSet (PrimState m) Word32
 
-type Components s = HSetT (ComponentStorage s)
+type family WorldComponents m (cs :: [Type]) :: [Type] where
+  WorldComponents m '[] = '[]
+  WorldComponents m (c ': cs) = ComponentStorage m c c ': WorldComponents m cs
 
 data World m cs = World
-  { worldComponents :: !(Components (PrimState m) cs),
+  { worldComponents :: !(HSet (WorldComponents m cs)),
     worldEntities :: {-# UNPACK #-} !Entities,
-    worldEntityComponents :: {-# UNPACK #-} !(IntMap (Map TypeRep (Components (PrimState m) cs -> m (Components (PrimState m) cs))))
+    worldEntityComponents ::
+      {-# UNPACK #-} !( IntMap
+                          ( Map
+                              TypeRep
+                              (HSet (WorldComponents m cs) -> m (HSet (WorldComponents m cs)))
+                          )
+                      )
   }
 
-empty :: (Monad m, Empty m (Components (PrimState m) cs)) => m (World m cs)
+empty :: (Monad m, Empty m (HSet (WorldComponents m cs))) => m (World m cs)
 empty = do
-  cs <- HS.empty
+  cs <- Storage.empty
   return $ World cs emptyEntities IntMap.empty
 
 removeComponent ::
   forall m cs c.
-  (AdjustM m (MSparseSet (PrimState m) Word32) c cs, PrimMonad m, Typeable c) =>
+  ( AdjustM m Identity (ComponentStorage m c c) (WorldComponents m cs),
+    PrimMonad m,
+    Component m c,
+    Typeable c,
+    Storage m (ComponentStorage m c)
+  ) =>
   Entity ->
   World m cs ->
   m (World m cs)
 removeComponent entity w = do
   let entityIdx = fromIntegral (entityIndex entity)
       componentType = typeRep (Proxy :: Proxy c)
-      removeGo s = do
-        s' <- S.freeze s
-        S.thaw $ S.delete (entityIndex entity) s'
-  cs <- HS.adjustM @m @(MSparseSet (PrimState m) Word32) @c removeGo (worldComponents w)
+  cs <-
+    HS.adjustM @_ @_ @(ComponentStorage m c c)
+      ( \(Identity s) ->
+          Identity <$> removeStorage entity s
+      )
+      (worldComponents w)
   let entityComponents' = IntMap.adjust (Map.delete componentType) entityIdx (worldEntityComponents w)
   return $ w {worldComponents = cs, worldEntityComponents = entityComponents'}
 
 removeComponent' ::
   forall m (c :: Type) cs.
-  (AdjustM m (MSparseSet (PrimState m) Word32) c cs, PrimMonad m) =>
+  (AdjustM m Identity (SparseStorage m c) cs, PrimMonad m) =>
   Entity ->
-  Components (PrimState m) cs ->
-  m (Components (PrimState m) cs)
+  HSet cs ->
+  m (HSet cs)
 removeComponent' e components = do
-  let removeGo s = do
+  let removeGo (Identity s) = do
         s' <- S.freeze s
-        S.thaw $ S.delete (entityIndex e) s'
-  HS.adjustM @m @(MSparseSet (PrimState m) Word32) @c removeGo components
+        Identity <$> S.thaw (S.delete (entityIndex e) s')
+  HS.adjustM @m @Identity @(SparseStorage m c) removeGo components
 
 remove :: (Monad m) => Entity -> World m cs -> m (World m cs)
 remove entity w = do

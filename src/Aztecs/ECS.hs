@@ -28,5 +28,4 @@ import Aztecs.ECS.Queryable
 import Aztecs.ECS.Schedule
 import Aztecs.ECS.Scheduler
 import Aztecs.ECS.System
-import Aztecs.World (ComponentStorage)
 import Control.Monad.Primitive

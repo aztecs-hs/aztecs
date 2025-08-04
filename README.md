@@ -17,15 +17,21 @@ providing patterns for data-oriented design and parallel processing.
 - Modular design: Aztecs can be extended for a variety of use cases
 
 ```hs
-import Aztecs.ECS
+import Aztecs
 import qualified Aztecs.World as W
 import Control.Monad.IO.Class
 
 newtype Position = Position Int
   deriving (Show, Eq)
 
+instance Component m Position where
+  type ComponentStorage m Position = SparseStorage m
+
 newtype Velocity = Velocity Int
   deriving (Show, Eq)
+
+instance Component m Velocity where
+  type ComponentStorage m Velocity = SparseStorage m
 
 data MoveSystem = MoveSystem
 
