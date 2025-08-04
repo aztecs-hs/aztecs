@@ -69,27 +69,26 @@ lookupStorage ::
   (Lookup (ComponentStorage m c c) (WorldComponents m cs)) =>
   World m cs ->
   ComponentStorage m c c
-lookupStorage = runIdentity . HS.lookup . worldComponents
+lookupStorage = HS.lookup . worldComponents
 
 adjustStorage ::
   forall m cs c.
   ( PrimMonad m,
     Typeable c,
     Component m c,
-    AdjustM m Identity (ComponentStorage m c c) (WorldComponents m cs),
+    AdjustM m (ComponentStorage m c c) (WorldComponents m cs),
     Storage m (ComponentStorage m c)
   ) =>
   (ComponentStorage m c c -> m (ComponentStorage m c c)) ->
   World m cs ->
   m (World m cs)
 adjustStorage f w = do
-  let adjustGo (Identity s) = Identity <$> f s
-  cs <- HS.adjustM @m @Identity @(ComponentStorage m c c) adjustGo (worldComponents w)
+  cs <- HS.adjustM @m @(ComponentStorage m c c) f (worldComponents w)
   return $ w {worldComponents = cs}
 
 removeComponent ::
   forall m cs c.
-  ( AdjustM m Identity (ComponentStorage m c c) (WorldComponents m cs),
+  ( AdjustM m (ComponentStorage m c c) (WorldComponents m cs),
     PrimMonad m,
     Component m c,
     Typeable c,
@@ -107,15 +106,15 @@ removeComponent entity w = do
 
 removeComponent' ::
   forall m (c :: Type) cs.
-  (AdjustM m Identity (SparseStorage m c) cs, PrimMonad m) =>
+  (AdjustM m (SparseStorage m c) cs, PrimMonad m) =>
   Entity ->
   HSet cs ->
   m (HSet cs)
-removeComponent' e components = do
-  let removeGo (Identity s) = do
-        s' <- S.freeze s
-        Identity <$> S.thaw (S.delete (entityIndex e) s')
-  HS.adjustM @m @Identity @(SparseStorage m c) removeGo components
+removeComponent' e components = HS.adjustM @m @(SparseStorage m c) go components
+  where
+    go s = do
+      s' <- S.freeze s
+      S.thaw (S.delete (entityIndex e) s')
 
 remove :: (Monad m) => Entity -> World m cs -> m (World m cs)
 remove entity w = do

@@ -11,7 +11,7 @@
 module Aztecs.ECS.Executor where
 
 import Aztecs.ECS.Access.Internal
-import Aztecs.ECS.HSet (HSet, HSetT (..), Subset)
+import Aztecs.ECS.HSet (HSet (..), Subset)
 import Aztecs.ECS.Queryable.Internal
 import Aztecs.ECS.System
 import Aztecs.World
@@ -56,7 +56,7 @@ instance
   ) =>
   Execute' m (HSet (sys ': systems))
   where
-  execute' (HCons (Identity system) rest) =
+  execute' (HCons system rest) =
     ( do
         inputs <- access
         runSystem system inputs
@@ -70,8 +70,9 @@ instance (Applicative m) => Execute m (HSet '[]) where
   execute _ = pure ()
 
 instance
+  {-# OVERLAPPABLE #-}
   ( Monad m,
-    Execute' m (Identity systems),
+    Execute' m systems,
     Execute m (HSet schedule)
   ) =>
   Execute m (HSet (systems ': schedule))
