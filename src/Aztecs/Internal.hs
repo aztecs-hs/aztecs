@@ -1,17 +1,19 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Aztecs.Internal (AztecsT (..), runAztecsT_) where
+module Aztecs.Internal
+  ( AztecsT (..),
+    runAztecsT,
+    runAztecsT_,
+  )
+where
 
 import Aztecs.ECS.Bundle
 import Aztecs.ECS.Class
@@ -86,6 +88,10 @@ instance
             (Map.singleton componentType (W.removeComponent' @m @c entity))
             (W.worldEntityComponents w)
     AztecsT $ put w {W.worldComponents = cs, W.worldEntityComponents = entityComponents'}
+
+runAztecsT :: (Monad m) => AztecsT cs m a -> W.World m cs -> m (a, W.World m cs)
+runAztecsT (AztecsT m) = runStateT m
+{-# INLINE runAztecsT #-}
 
 runAztecsT_ :: (Monad m) => AztecsT cs m a -> W.World m cs -> m a
 runAztecsT_ (AztecsT m) = evalStateT m

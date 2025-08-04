@@ -11,7 +11,6 @@
 import Aztecs
 import qualified Aztecs.World as W
 import Control.DeepSeq
-import Control.Monad
 import Control.Monad.IO.Class
 import Criterion.Main
 import GHC.Generics (Generic)
@@ -32,11 +31,9 @@ instance (PrimMonad m, MonadIO m) => System m MoveSystem where
 setup :: IO (W.World IO '[Position, Velocity])
 setup = do
   w <- W.empty @_ @'[Position, Velocity]
-  foldM setupEntity w [0 :: Int .. 10000]
+  snd <$> runAztecsT (mapM setupEntity [0 :: Int .. 10000]) w
   where
-    setupEntity w _ = do
-      (_, w') <- W.spawn (bundle (Position 0) <> bundle (Velocity 1)) w
-      return w'
+    setupEntity _ = spawn (bundle (Position 0) <> bundle (Velocity 1))
 
 main :: IO ()
 main = do
