@@ -13,25 +13,25 @@ import Control.Monad.IO.Class
 newtype Position = Position Int
   deriving (Show, Eq)
 
-instance Component m Position where
+instance (Monad m) => Component m Position where
   type ComponentStorage m Position = SparseStorage m
 
 newtype Velocity = Velocity Int
   deriving (Show, Eq)
 
-instance Component m Velocity where
+instance (Monad m) => Component m Velocity where
   type ComponentStorage m Velocity = SparseStorage m
 
 newtype Health = Health Int
   deriving (Show, Eq)
 
-instance Component m Health where
+instance (Monad m) => Component m Health where
   type ComponentStorage m Health = SparseStorage m
 
 newtype Damage = Damage Int
   deriving (Show, Eq)
 
-instance Component m Damage where
+instance (Monad m) => Component m Damage where
   type ComponentStorage m Damage = SparseStorage m
 
 data MoveSystem = MoveSystem
