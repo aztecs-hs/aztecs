@@ -22,16 +22,11 @@ import GHC.Generics
 
 type family ValidAccessInput (accesses :: [Type]) :: Constraint where
   ValidAccessInput accesses =
-    ( ValidAccess accesses,
-      NoOverlappingWrites accesses
-    )
-
-type family NoOverlappingWrites (accesses :: [Type]) :: Constraint where
-  NoOverlappingWrites accesses =
-    (HasDuplicateWrites (WriteComponents accesses) ~ 'False)
+    (ValidAccess accesses, (HasDuplicateWrites (WriteComponents accesses) ~ 'False))
 
 type family HasDuplicateWrites (components :: [Type]) :: Bool where
-  HasDuplicateWrites components = 'False
+  HasDuplicateWrites '[] = 'False
+  HasDuplicateWrites (c ': rest) = Or (Contains c rest) (HasDuplicateWrites rest)
 
 class (Functor m) => Access m a where
   type AccessType a :: [Type]
