@@ -149,13 +149,6 @@ instance
     return . Query $ fmap go cs
   {-# INLINE queryable #-}
 
-runCommands :: (Monad m) => Commands (AztecsT cs) m a -> AztecsT cs m a
-runCommands (Commands m) = AztecsT $ do
-  w <- get
-  (result, action) <- lift m
-  unAztecsT action
-  return result
-{-# INLINE runCommands #-}
 
 instance
   ( PrimMonad m,
