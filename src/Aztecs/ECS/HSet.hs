@@ -13,11 +13,6 @@
 
 module Aztecs.ECS.HSet
   ( HSet (..),
-    Run (..),
-    UnwrapSystem,
-    GetConstraints,
-    Before,
-    After,
     Lookup (..),
     AdjustM (..),
     Subset (..),
@@ -30,24 +25,6 @@ import Prelude hiding (lookup)
 data HSet ts where
   HEmpty :: HSet '[]
   HCons :: t -> HSet ts -> HSet (t ': ts)
-
-data Before (sys :: Type)
-
-data After (sys :: Type)
-
-data Run (constraints :: [Type]) (sys :: Type) where
-  Run :: sys -> Run constraints sys
-
-type family UnwrapSystem (runSys :: Type) :: Type where
-  UnwrapSystem (Run constraints sys) = sys
-  UnwrapSystem sys = sys
-
-type family GetConstraints (runSys :: Type) :: [Type] where
-  GetConstraints (Run constraints sys) = constraints
-  GetConstraints sys = '[]
-
-instance (Show sys) => Show (Run constraints sys) where
-  show (Run sys) = "Run " ++ show sys
 
 instance (ShowHSet ts) => Show (HSet ts) where
   show = showHSet
