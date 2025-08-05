@@ -18,7 +18,7 @@ module Aztecs.World
   )
 where
 
-import Aztecs.Component
+import Aztecs.Component (Component(ComponentStorage, componentHooks), Hooks(..))
 import Aztecs.ECS.Bundle
 import Aztecs.ECS.HSet hiding (empty)
 import qualified Aztecs.ECS.HSet as HS
@@ -102,6 +102,9 @@ removeComponent ::
 removeComponent entity w = do
   let entityIdx = fromIntegral (entityIndex entity)
       componentType = typeRep (Proxy :: Proxy c)
+      hooks = componentHooks (Proxy :: Proxy c)
+  -- Run the onRemove hook first
+  onRemove hooks entity
   w' <- adjustStorage @_ @_ @c (removeStorage entity) w
   let entityComponents' = IntMap.adjust (Map.delete componentType) entityIdx (worldEntityComponents w)
   return $ w' {worldEntityComponents = entityComponents'}

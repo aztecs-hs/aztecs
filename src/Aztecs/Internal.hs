@@ -18,7 +18,7 @@ module Aztecs.Internal
   )
 where
 
-import Aztecs.Component (Component (ComponentStorage))
+import Aztecs.Component (Component (ComponentStorage, componentHooks), Hooks(..))
 import Aztecs.ECS.Bundle
 import Aztecs.ECS.Class
 import Aztecs.ECS.Commands
@@ -42,6 +42,7 @@ import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.Set as Set
 import Data.Typeable
+import Data.Proxy
 import Prelude hiding (Read, lookup)
 
 newtype AztecsT cs m a = AztecsT {unAztecsT :: StateT (W.World m cs) m a}
@@ -76,6 +77,7 @@ instance (PrimMonad m) => ECS (AztecsT cs m) where
 instance
   ( PrimMonad m,
     Typeable c,
+    Component m c,
     AdjustM m (SparseStorage m c) (WorldComponents m cs)
   ) =>
   Bundleable c (AztecsT cs m)
@@ -85,6 +87,7 @@ instance
     let entityIdx = fromIntegral (entityIndex entity)
         componentType = typeOf c
         go s = S.insertStorage entity c s
+        hooks = componentHooks (Proxy :: Proxy c)
     cs <- lift . HS.adjustM @_ @(SparseStorage m c) go $ W.worldComponents w
     let entityComponents' =
           IntMap.insertWith
@@ -93,6 +96,8 @@ instance
             (Map.singleton componentType (W.removeComponent' @m @c entity))
             (W.worldEntityComponents w)
     AztecsT $ put w {W.worldComponents = cs, W.worldEntityComponents = entityComponents'}
+    -- Run the onInsert hook
+    lift $ onInsert hooks entity
   {-# INLINE bundle #-}
 
 runAztecsT :: (Monad m) => AztecsT cs m a -> W.World m cs -> m (a, W.World m cs)
