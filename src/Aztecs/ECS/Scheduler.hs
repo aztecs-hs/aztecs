@@ -1,11 +1,18 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE GADTs #-}
 
-module Aztecs.ECS.Scheduler (Scheduler (..), runSchedule) where
+module Aztecs.ECS.Scheduler
+  ( Scheduler (..),
+    runSchedule,
+    Run (..),
+    Before (..),
+    After (..),
+  )
+where
 
 import Aztecs.ECS.Executor
 import Aztecs.ECS.HSet

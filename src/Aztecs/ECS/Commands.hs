@@ -3,14 +3,13 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE IncoherentInstances #-}
 
 module Aztecs.ECS.Commands where
 
+import Aztecs.ECS.Queryable
 import Control.Monad.IO.Class
 import Control.Monad.Primitive
 import Control.Monad.Trans
-import Aztecs.ECS.Queryable
 
 newtype Commands t m a = Commands {unCommands :: m (a, t m ())}
   deriving (Functor)
@@ -49,6 +48,13 @@ instance (MonadTrans t, Monad (t m), PrimMonad m) => PrimMonad (Commands t m) wh
     x <- primitive f
     return (x, lift $ pure ())
   {-# INLINE primitive #-}
+
+runCommands :: (MonadTrans t, Monad (t m), Monad m) => Commands (t) m a -> t m a
+runCommands (Commands m) = do
+  (result, action) <- lift m
+  action
+  return result
+{-# INLINE runCommands #-}
 
 queue :: (Applicative m) => t m () -> Commands t m ()
 queue action = Commands $ pure ((), action)

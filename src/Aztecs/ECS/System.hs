@@ -21,10 +21,6 @@ class System m sys where
 
   runSystem :: sys -> SystemIn m sys -> m ()
 
-instance (System m sys) => System m (Run constraints sys) where
-  type SystemIn m (Run constraints sys) = SystemIn m sys
-  runSystem (Run sys) = runSystem sys
-  {-# INLINE runSystem #-}
 
 system ::
   ( ECS m,

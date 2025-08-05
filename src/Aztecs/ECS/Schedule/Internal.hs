@@ -3,6 +3,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
@@ -15,7 +16,7 @@
 module Aztecs.ECS.Schedule.Internal where
 
 import Aztecs.ECS.Access.Internal
-import Aztecs.ECS.HSet (HSet (..), Run)
+import Aztecs.ECS.HSet
 import Aztecs.ECS.Queryable.Internal
 import Aztecs.ECS.System
 import Data.Kind
@@ -163,3 +164,26 @@ instance ExtractSystem m sys (sys ': rest) where
 instance (ExtractSystem m sys rest) => ExtractSystem m sys (other ': rest) where
   extractSystem (HCons _ rest) = extractSystem @m @sys @rest rest
   {-# INLINE extractSystem #-}
+
+data Before (sys :: Type)
+
+data After (sys :: Type)
+
+data Run (constraints :: [Type]) (sys :: Type) where
+  Run :: sys -> Run constraints sys
+
+type family UnwrapSystem (runSys :: Type) :: Type where
+  UnwrapSystem (Run constraints sys) = sys
+  UnwrapSystem sys = sys
+
+type family GetConstraints (runSys :: Type) :: [Type] where
+  GetConstraints (Run constraints sys) = constraints
+  GetConstraints sys = '[]
+
+instance (Show sys) => Show (Run constraints sys) where
+  show (Run sys) = "Run " ++ show sys
+
+instance (System m sys) => System m (Run constraints sys) where
+  type SystemIn m (Run constraints sys) = SystemIn m sys
+  runSystem (Run sys) = runSystem sys
+  {-# INLINE runSystem #-}

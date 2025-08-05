@@ -186,9 +186,7 @@ instance
     Queryable m c,
     Queryable m d,
     ValidAccess
-      ( (QueryableAccess a ++ QueryableAccess b)
-          ++ (QueryableAccess c ++ QueryableAccess d)
-      )
+      ((QueryableAccess a ++ QueryableAccess b) ++ (QueryableAccess c ++ QueryableAccess d))
   ) =>
   Queryable m (a, b, c, d)
   where
@@ -223,9 +221,7 @@ instance
     Queryable m f,
     ValidAccess
       ( (QueryableAccess a ++ (QueryableAccess b ++ QueryableAccess c))
-          ++ ( QueryableAccess d
-                 ++ (QueryableAccess e ++ QueryableAccess f)
-             )
+          ++ (QueryableAccess d ++ (QueryableAccess e ++ QueryableAccess f))
       )
   ) =>
   Queryable m (a, b, c, d, e, f)
@@ -233,9 +229,7 @@ instance
   type
     QueryableAccess (a, b, c, d, e, f) =
       ( (QueryableAccess a ++ (QueryableAccess b ++ QueryableAccess c))
-          ++ ( QueryableAccess d
-                 ++ (QueryableAccess e ++ QueryableAccess f)
-             )
+          ++ (QueryableAccess d ++ (QueryableAccess e ++ QueryableAccess f))
       )
 
 instance
@@ -249,9 +243,7 @@ instance
     Queryable m g,
     ValidAccess
       ( (QueryableAccess a ++ (QueryableAccess b ++ QueryableAccess c))
-          ++ ( (QueryableAccess d ++ QueryableAccess e)
-                 ++ (QueryableAccess f ++ QueryableAccess g)
-             )
+          ++ ((QueryableAccess d ++ QueryableAccess e) ++ (QueryableAccess f ++ QueryableAccess g))
       )
   ) =>
   Queryable m (a, b, c, d, e, f, g)
@@ -259,9 +251,7 @@ instance
   type
     QueryableAccess (a, b, c, d, e, f, g) =
       (QueryableAccess a ++ (QueryableAccess b ++ QueryableAccess c))
-        ++ ( (QueryableAccess d ++ QueryableAccess e)
-               ++ (QueryableAccess f ++ QueryableAccess g)
-           )
+        ++ ((QueryableAccess d ++ QueryableAccess e) ++ (QueryableAccess f ++ QueryableAccess g))
 
 instance
   ( Monad m,
@@ -274,21 +264,13 @@ instance
     Queryable m g,
     Queryable m h,
     ValidAccess
-      ( ( (QueryableAccess a ++ QueryableAccess b)
-            ++ (QueryableAccess c ++ QueryableAccess d)
-        )
-          ++ ( (QueryableAccess e ++ QueryableAccess f)
-                 ++ (QueryableAccess g ++ QueryableAccess h)
-             )
+      ( ((QueryableAccess a ++ QueryableAccess b) ++ (QueryableAccess c ++ QueryableAccess d))
+          ++ ((QueryableAccess e ++ QueryableAccess f) ++ (QueryableAccess g ++ QueryableAccess h))
       )
   ) =>
   Queryable m (a, b, c, d, e, f, g, h)
   where
   type
     QueryableAccess (a, b, c, d, e, f, g, h) =
-      ( (QueryableAccess a ++ QueryableAccess b)
-          ++ (QueryableAccess c ++ QueryableAccess d)
-      )
-        ++ ( (QueryableAccess e ++ QueryableAccess f)
-               ++ (QueryableAccess g ++ QueryableAccess h)
-           )
+      ((QueryableAccess a ++ QueryableAccess b) ++ (QueryableAccess c ++ QueryableAccess d))
+        ++ ((QueryableAccess e ++ QueryableAccess f) ++ (QueryableAccess g ++ QueryableAccess h))
