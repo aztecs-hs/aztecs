@@ -28,8 +28,8 @@ import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
 import Aztecs.ECS.Query.Internal
 import qualified Aztecs.ECS.Scheduler as Scheduler
-import Aztecs.Entities
-import qualified Aztecs.Entities as E
+import qualified Aztecs.Entity as E
+import qualified Aztecs.World.Entities as E
 import Aztecs.ECS.R
 import Aztecs.Storage
 import qualified Aztecs.Storage as S
@@ -60,7 +60,7 @@ instance (PrimMonad m) => ECS (AztecsT cs m) where
 
   spawn b = do
     w <- AztecsT $ get
-    let (e, counter) = mkEntityWithCounter (W.worldEntities w)
+    let (e, counter) = E.mkEntityWithCounter (W.worldEntities w)
     AztecsT $ put w {W.worldEntities = counter}
     runBundle b e
     return e
@@ -85,7 +85,7 @@ instance
   where
   bundle c = Bundle $ \entity -> do
     w <- AztecsT $ get
-    let entityIdx = fromIntegral (entityIndex entity)
+    let entityIdx = fromIntegral $ E.entityIndex entity
         componentType = typeOf c
         go s = S.insertStorage entity c s
         hooks = componentHooks (Proxy :: Proxy c)

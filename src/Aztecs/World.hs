@@ -26,7 +26,8 @@ import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
 import Aztecs.ECS.Query.Class
 import Aztecs.ECS.Query.Internal
-import Aztecs.Entities
+import Aztecs.Entity
+import Aztecs.World.Entities
 import Aztecs.Storage hiding (empty)
 import qualified Aztecs.Storage as Storage
 import Control.Monad
