@@ -17,8 +17,8 @@ import Aztecs.ECS.HSet hiding (empty)
 import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
 import Aztecs.Entities
-import Aztecs.R
-import Aztecs.W
+import Aztecs.ECS.R
+import Aztecs.ECS.W
 import Control.Monad.Primitive
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap

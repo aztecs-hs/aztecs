@@ -30,10 +30,10 @@ import Aztecs.ECS.Query.Internal
 import qualified Aztecs.ECS.Scheduler as Scheduler
 import Aztecs.Entities
 import qualified Aztecs.Entities as E
-import Aztecs.R
+import Aztecs.ECS.R
 import Aztecs.Storage
 import qualified Aztecs.Storage as S
-import Aztecs.W
+import Aztecs.ECS.W
 import Aztecs.World (SparseStorage, WorldComponents)
 import qualified Aztecs.World as W
 import Control.Monad.Primitive

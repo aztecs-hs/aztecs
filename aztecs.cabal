@@ -39,16 +39,16 @@ library
         Aztecs.ECS.Query
         Aztecs.ECS.Query.Class
         Aztecs.ECS.Query.Internal
+        Aztecs.ECS.R
         Aztecs.ECS.Schedule
         Aztecs.ECS.Schedule.Internal
         Aztecs.ECS.Scheduler
         Aztecs.ECS.Scheduler.Internal
         Aztecs.ECS.System
+        Aztecs.ECS.W
         Aztecs.Entities
         Aztecs.Internal
         Aztecs.Storage
-        Aztecs.R
-        Aztecs.W
         Aztecs.World
 
     hs-source-dirs:   src
