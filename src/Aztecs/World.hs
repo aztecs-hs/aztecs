@@ -18,8 +18,9 @@ module Aztecs.World
   )
 where
 
-import Aztecs.Component (Component(ComponentStorage, componentHooks), Hooks(..))
+import Aztecs.ECS.Component (Component (ComponentStorage, componentHooks), Hooks (..))
 import Aztecs.ECS.Bundle
+import qualified Aztecs.ECS.Class as ECS
 import Aztecs.ECS.HSet hiding (empty)
 import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
@@ -93,6 +94,7 @@ removeComponent ::
   ( AdjustM m (ComponentStorage m c c) (WorldComponents m cs),
     PrimMonad m,
     Component m c,
+    ECS.Entity m ~ Entity,
     Typeable c,
     Storage m (ComponentStorage m c)
   ) =>

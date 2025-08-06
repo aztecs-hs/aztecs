@@ -1,8 +1,10 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Main where
 
@@ -13,26 +15,29 @@ import Control.Monad.IO.Class
 newtype Position = Position Int
   deriving (Show, Eq)
 
-instance (MonadIO m) => Component m Position where
+instance (MonadIO m, Show (Entity m)) => Component m Position where
   type ComponentStorage m Position = SparseStorage m
 
-  -- Custom hooks that log when components are added/removed
   componentHooks _ =
     Hooks
-      { onInsert = \entity -> liftIO $ putStrLn $ "Position component inserted for " ++ show entity,
-        onRemove = \entity -> liftIO $ putStrLn $ "Position component removed for " ++ show entity
+      { onInsert = \entity ->
+          liftIO . putStrLn $ "Position component inserted for " ++ show entity,
+        onRemove = \entity ->
+          liftIO . putStrLn $ "Position component removed for " ++ show entity
       }
 
 newtype Velocity = Velocity Int
   deriving (Show, Eq)
 
-instance (MonadIO m) => Component m Velocity where
+instance (MonadIO m, Show (Entity m)) => Component m Velocity where
   type ComponentStorage m Velocity = SparseStorage m
 
   componentHooks _ =
     Hooks
-      { onInsert = \entity -> liftIO $ putStrLn $ "Velocity component inserted for " ++ show entity,
-        onRemove = \entity -> liftIO $ putStrLn $ "Velocity component removed for " ++ show entity
+      { onInsert = \entity ->
+          liftIO $ putStrLn $ "Velocity component inserted for " ++ show entity,
+        onRemove = \entity ->
+          liftIO $ putStrLn $ "Velocity component removed for " ++ show entity
       }
 
 data MoveSystem = MoveSystem

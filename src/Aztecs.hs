@@ -1,5 +1,5 @@
 module Aztecs
-  ( module Aztecs.Component,
+  ( module Aztecs.ECS.Component,
     module Aztecs.ECS,
     module Aztecs.Internal,
     module Aztecs.ECS.R,
@@ -13,7 +13,7 @@ module Aztecs
   )
 where
 
-import Aztecs.Component
+import Aztecs.ECS.Component
 import Aztecs.ECS
 import Aztecs.ECS.HSet
 import Aztecs.ECS.Query.Class

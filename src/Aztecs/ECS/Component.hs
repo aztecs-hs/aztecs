@@ -2,17 +2,17 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Aztecs.Component where
+module Aztecs.ECS.Component where
 
-import Aztecs.Entities (Entity)
+import Aztecs.ECS.Class
 import Data.Kind
 
 -- | Component lifecycle hooks.
 data Hooks m = Hooks
   { -- | Hook called when a component is inserted.
-    onInsert :: Entity -> m (),
+    onInsert :: Entity m -> m (),
     -- | Hook called when a component is removed.
-    onRemove :: Entity -> m ()
+    onRemove :: Entity m -> m ()
   }
 
 instance (Monad m) => Semigroup (Hooks m) where

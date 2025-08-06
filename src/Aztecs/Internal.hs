@@ -18,7 +18,7 @@ module Aztecs.Internal
   )
 where
 
-import Aztecs.Component (Component (ComponentStorage, componentHooks), Hooks (..))
+import Aztecs.ECS.Component (Component (ComponentStorage, componentHooks), Hooks (..))
 import Aztecs.ECS.Bundle
 import Aztecs.ECS.Bundle.Class
 import Aztecs.ECS.Class
@@ -78,7 +78,7 @@ instance (PrimMonad m) => ECS (AztecsT cs m) where
 instance
   ( PrimMonad m,
     Typeable c,
-    Component m c,
+    Component (AztecsT cs m) c,
     AdjustM m (SparseStorage m c) (WorldComponents m cs)
   ) =>
   Bundleable c (AztecsT cs m)
@@ -97,8 +97,7 @@ instance
             (Map.singleton componentType (W.removeComponent' @m @c entity))
             (W.worldEntityComponents w)
     AztecsT $ put w {W.worldComponents = cs, W.worldEntityComponents = entityComponents'}
-    -- Run the onInsert hook
-    lift $ onInsert hooks entity
+    onInsert hooks entity
   {-# INLINE bundle #-}
 
 runAztecsT :: (Monad m) => AztecsT cs m a -> W.World m cs -> m (a, W.World m cs)
