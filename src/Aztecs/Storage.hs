@@ -13,19 +13,13 @@
 
 module Aztecs.Storage (Storage (..), Empty (..)) where
 
-import Aztecs.ECS.HSet hiding (empty)
+import Aztecs.ECS.HSet
 import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
 import Aztecs.ECS.R
 import Aztecs.ECS.W
 import Aztecs.Entity
 import Control.Monad.Primitive
-import Data.IntMap.Strict (IntMap)
-import qualified Data.IntMap.Strict as IntMap
-import Data.Kind
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
-import Data.Proxy
 import qualified Data.SparseSet.Strict as S
 import Data.SparseSet.Strict.Mutable (MSparseSet)
 import qualified Data.SparseSet.Strict.Mutable as MS

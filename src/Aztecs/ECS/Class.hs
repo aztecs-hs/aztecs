@@ -1,14 +1,8 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Aztecs.ECS.Class (ECS (..)) where
 
 import Aztecs.ECS.Bundle
-import Aztecs.ECS.HSet
 import Data.Kind
 
 -- | Entity Component System (ECS) implementation.

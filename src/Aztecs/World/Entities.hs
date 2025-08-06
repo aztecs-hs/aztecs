@@ -1,7 +1,6 @@
 module Aztecs.World.Entities where
 
 import Aztecs.Entity
-import Data.Bits
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import Data.Word

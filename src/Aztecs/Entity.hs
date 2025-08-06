@@ -1,8 +1,6 @@
 module Aztecs.Entity where
 
 import Data.Bits
-import Data.IntMap (IntMap)
-import qualified Data.IntMap as IntMap
 import Data.Word
 
 newtype Entity = Entity {unEntity :: Word64}

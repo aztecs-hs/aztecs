@@ -4,7 +4,6 @@
 module Aztecs.ECS.Query where
 
 import Data.Maybe
-import Prelude hiding (Read)
 
 newtype Query a = Query {unQuery :: [Maybe a]}
   deriving (Functor, Foldable)
