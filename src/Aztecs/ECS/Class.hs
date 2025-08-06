@@ -16,9 +16,6 @@ class ECS m where
   -- | Entity identifier.
   type Entity m :: Type
 
-  -- | Components that can be stored or accessed.
-  type Components m :: [Type]
-
   -- | Task monad for running systems.
   type Task m :: Type -> Type
 

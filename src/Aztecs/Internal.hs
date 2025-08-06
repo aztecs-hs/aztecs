@@ -55,7 +55,6 @@ instance MonadTrans (AztecsT cs) where
 
 instance (PrimMonad m) => ECS (AztecsT cs m) where
   type Entity (AztecsT cs m) = E.Entity
-  type Components (AztecsT cs m) = cs
   type Task (AztecsT cs m) = (Commands (AztecsT cs) m)
 
   spawn b = do
