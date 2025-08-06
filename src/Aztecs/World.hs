@@ -23,8 +23,8 @@ import Aztecs.ECS.Bundle
 import Aztecs.ECS.HSet hiding (empty)
 import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
-import Aztecs.ECS.Queryable
-import Aztecs.ECS.Queryable.Internal
+import Aztecs.ECS.Query.Class
+import Aztecs.ECS.Query.Internal
 import Aztecs.Entities
 import Aztecs.Storage hiding (empty)
 import qualified Aztecs.Storage as Storage

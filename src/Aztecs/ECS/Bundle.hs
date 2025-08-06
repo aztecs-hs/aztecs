@@ -1,4 +1,4 @@
-module Aztecs.ECS.Bundle where
+module Aztecs.ECS.Bundle (Bundle (..)) where
 
 -- | Bundle of components that can be stored in an entity.
 newtype Bundle e m = Bundle {runBundle :: e -> m ()}

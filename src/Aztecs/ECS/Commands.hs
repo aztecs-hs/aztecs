@@ -6,7 +6,7 @@
 
 module Aztecs.ECS.Commands where
 
-import Aztecs.ECS.Queryable
+import Aztecs.ECS.Query.Class
 import Control.Monad.IO.Class
 import Control.Monad.Primitive
 import Control.Monad.Trans

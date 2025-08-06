@@ -31,13 +31,14 @@ library
         Aztecs.ECS.Access
         Aztecs.ECS.Access.Internal
         Aztecs.ECS.Bundle
+        Aztecs.ECS.Bundle.Class
         Aztecs.ECS.Class
         Aztecs.ECS.Commands
         Aztecs.ECS.Executor
         Aztecs.ECS.HSet
         Aztecs.ECS.Query
-        Aztecs.ECS.Queryable
-        Aztecs.ECS.Queryable.Internal
+        Aztecs.ECS.Query.Class
+        Aztecs.ECS.Query.Internal
         Aztecs.ECS.Schedule
         Aztecs.ECS.Schedule.Internal
         Aztecs.ECS.Scheduler

@@ -18,14 +18,15 @@ module Aztecs.Internal
   )
 where
 
-import Aztecs.Component (Component (ComponentStorage, componentHooks), Hooks(..))
+import Aztecs.Component (Component (ComponentStorage, componentHooks), Hooks (..))
 import Aztecs.ECS.Bundle
+import Aztecs.ECS.Bundle.Class
 import Aztecs.ECS.Class
 import Aztecs.ECS.Commands
 import Aztecs.ECS.HSet (AdjustM, HSet (..), Lookup (..))
 import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
-import Aztecs.ECS.Queryable.Internal
+import Aztecs.ECS.Query.Internal
 import qualified Aztecs.ECS.Scheduler as Scheduler
 import Aztecs.Entities
 import qualified Aztecs.Entities as E
@@ -40,9 +41,9 @@ import Control.Monad.State.Strict
 import qualified Data.IntMap.Strict as IntMap
 import qualified Data.Map.Strict as Map
 import Data.Maybe
+import Data.Proxy
 import qualified Data.Set as Set
 import Data.Typeable
-import Data.Proxy
 import Prelude hiding (Read, lookup)
 
 newtype AztecsT cs m a = AztecsT {unAztecsT :: StateT (W.World m cs) m a}
@@ -153,7 +154,6 @@ instance
           Nothing -> Just Without
     return . Query $ fmap go cs
   {-# INLINE queryable #-}
-
 
 instance
   ( PrimMonad m,

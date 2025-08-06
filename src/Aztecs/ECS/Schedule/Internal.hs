@@ -17,7 +17,7 @@ module Aztecs.ECS.Schedule.Internal where
 
 import Aztecs.ECS.Access.Internal
 import Aztecs.ECS.HSet
-import Aztecs.ECS.Queryable.Internal
+import Aztecs.ECS.Query.Internal
 import Aztecs.ECS.System
 import Data.Kind
 

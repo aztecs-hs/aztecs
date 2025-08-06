@@ -8,9 +8,11 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Aztecs.ECS
-  ( module Aztecs.ECS.Class,
+  ( module Aztecs.ECS.Bundle,
+    module Aztecs.ECS.Bundle.Class,
+    module Aztecs.ECS.Class,
     module Aztecs.ECS.Commands,
-    module Aztecs.ECS.Queryable,
+    module Aztecs.ECS.Query.Class,
     module Aztecs.ECS.Schedule,
     module Aztecs.ECS.Scheduler,
     PrimMonad (..),
@@ -21,10 +23,12 @@ module Aztecs.ECS
   )
 where
 
+import Aztecs.ECS.Bundle
+import Aztecs.ECS.Bundle.Class
 import Aztecs.ECS.Class
 import Aztecs.ECS.Commands
 import Aztecs.ECS.Query
-import Aztecs.ECS.Queryable
+import Aztecs.ECS.Query.Class
 import Aztecs.ECS.Schedule
 import Aztecs.ECS.Scheduler
 import Aztecs.ECS.System

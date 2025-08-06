@@ -6,7 +6,7 @@ module Aztecs
     module Aztecs.W,
     module Aztecs.Storage,
     module Aztecs.ECS.HSet,
-    module Aztecs.ECS.Queryable,
+    module Aztecs.ECS.Query.Class,
     module Aztecs.ECS.Schedule,
     module Aztecs.ECS.Scheduler,
     module Aztecs.World,
@@ -16,7 +16,7 @@ where
 import Aztecs.Component
 import Aztecs.ECS
 import Aztecs.ECS.HSet
-import Aztecs.ECS.Queryable
+import Aztecs.ECS.Query.Class
 import Aztecs.ECS.Schedule
 import Aztecs.ECS.Scheduler
 import Aztecs.Internal

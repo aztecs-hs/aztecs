@@ -11,7 +11,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Aztecs.ECS.Queryable.Internal where
+module Aztecs.ECS.Query.Internal where
 
 import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
