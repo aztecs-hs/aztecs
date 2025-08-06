@@ -49,7 +49,7 @@ instance (MonadTrans t, Monad (t m), PrimMonad m) => PrimMonad (Commands t m) wh
     return (x, lift $ pure ())
   {-# INLINE primitive #-}
 
-runCommands :: (MonadTrans t, Monad (t m), Monad m) => Commands (t) m a -> t m a
+runCommands :: (MonadTrans t, Monad (t m), Monad m) => Commands t m a -> t m a
 runCommands (Commands m) = do
   (result, action) <- lift m
   action

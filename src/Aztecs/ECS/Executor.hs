@@ -36,7 +36,7 @@ instance Execute' m (HSet '[]) where
   execute' _ = []
   {-# INLINE execute' #-}
 
-instance 
+instance
   {-# OVERLAPS #-}
   ( Monad m,
     System m sys,
@@ -52,7 +52,7 @@ instance
     ]
   {-# INLINE execute' #-}
 
-instance 
+instance
   {-# OVERLAPPABLE #-}
   ( Monad m,
     System m sys,

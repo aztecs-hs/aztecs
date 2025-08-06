@@ -143,7 +143,7 @@ instance CompileGroup m '[] systems where
   {-# INLINE compileGroup #-}
 
 instance (ExtractSystem m sys systems) => CompileGroup m '[sys] systems where
-  compileGroup systems = HCons ((extractSystem @m @sys @systems systems)) HEmpty
+  compileGroup systems = HCons (extractSystem @m @sys @systems systems) HEmpty
   {-# INLINE compileGroup #-}
 
 instance
@@ -151,7 +151,7 @@ instance
   CompileGroup m (sys ': rest) systems
   where
   compileGroup systems =
-    HCons ((extractSystem @m @sys @systems systems)) (compileGroup @m @rest @systems systems)
+    HCons (extractSystem @m @sys @systems systems) (compileGroup @m @rest @systems systems)
   {-# INLINE compileGroup #-}
 
 class ExtractSystem m (sys :: Type) (systems :: [Type]) where

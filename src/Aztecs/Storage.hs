@@ -16,9 +16,9 @@ module Aztecs.Storage (Storage (..), Empty (..)) where
 import Aztecs.ECS.HSet hiding (empty)
 import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
-import Aztecs.Entity
 import Aztecs.ECS.R
 import Aztecs.ECS.W
+import Aztecs.Entity
 import Control.Monad.Primitive
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
@@ -67,8 +67,8 @@ instance (PrimMonad m, PrimState m ~ s) => Storage m (MSparseSet s Word32) where
     let go (i, _) =
           W
             { readW = MS.unsafeRead s (fromIntegral i),
-              writeW = \a -> MS.unsafeWrite s (fromIntegral i) a,
-              modifyW = \f -> MS.unsafeModify s (fromIntegral i) f
+              writeW = MS.unsafeWrite s (fromIntegral i),
+              modifyW = MS.unsafeModify s (fromIntegral i)
             }
     return . Query $ map (fmap go) as
   {-# INLINE queryStorageW #-}
@@ -83,6 +83,5 @@ instance (Applicative m) => Empty m (HSet '[]) where
 instance (Monad m, Storage m s, Empty m (HSet ts)) => Empty m (HSet (s a ': ts)) where
   empty = do
     xs <- emptyStorage @m @s
-    res <- empty
-    return $ HCons xs res
+    HCons xs <$> empty
   {-# INLINE empty #-}

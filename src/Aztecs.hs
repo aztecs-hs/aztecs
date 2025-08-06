@@ -13,14 +13,14 @@ module Aztecs
   )
 where
 
-import Aztecs.ECS.Component
 import Aztecs.ECS
+import Aztecs.ECS.Component
 import Aztecs.ECS.HSet
 import Aztecs.ECS.Query.Class
+import Aztecs.ECS.R
 import Aztecs.ECS.Schedule
 import Aztecs.ECS.Scheduler
-import Aztecs.Internal
-import Aztecs.ECS.R
-import Aztecs.Storage
 import Aztecs.ECS.W
+import Aztecs.Internal
+import Aztecs.Storage
 import Aztecs.World (SparseStorage)

@@ -22,7 +22,7 @@ import GHC.Generics
 
 type family ValidAccessInput (accesses :: [Type]) :: Constraint where
   ValidAccessInput accesses =
-    (ValidAccess accesses, (HasDuplicateWrites (WriteComponents accesses) ~ 'False))
+    (ValidAccess accesses, HasDuplicateWrites (WriteComponents accesses) ~ 'False)
 
 type family HasDuplicateWrites (components :: [Type]) :: Bool where
   HasDuplicateWrites '[] = 'False

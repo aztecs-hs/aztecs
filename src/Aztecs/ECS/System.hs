@@ -21,7 +21,6 @@ class System m sys where
 
   runSystem :: sys -> SystemIn m sys -> m ()
 
-
 system ::
   ( ECS m,
     Monad m,
