@@ -1,23 +1,14 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Aztecs.ECS.Class (ECS (..)) where
 
 import Aztecs.ECS.Bundle
-import Aztecs.ECS.HSet
 import Data.Kind
 
 -- | Entity Component System (ECS) implementation.
 class ECS m where
   -- | Entity identifier.
   type Entity m :: Type
-
-  -- | Components that can be stored or accessed.
-  type Components m :: [Type]
 
   -- | Task monad for running systems.
   type Task m :: Type -> Type

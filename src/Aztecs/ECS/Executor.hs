@@ -4,17 +4,14 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Aztecs.ECS.Executor where
 
 import Aztecs.ECS.Access.Internal
-import Aztecs.ECS.HSet (HSet (..), Subset)
-import Aztecs.ECS.Query.Internal
+import Aztecs.ECS.HSet
 import Aztecs.ECS.System
-import Aztecs.World
 
 newtype ExecutorT m a = ExecutorT {runSystems :: ([m ()] -> m ()) -> m a}
   deriving (Functor)
@@ -45,11 +42,7 @@ instance
   ) =>
   Execute' m (HSet '[sys])
   where
-  execute' (HCons system HEmpty) =
-    [ do
-        inputs <- access
-        runSystem system inputs
-    ]
+  execute' (HCons system HEmpty) = [access >>= runSystem system]
   {-# INLINE execute' #-}
 
 instance
@@ -62,12 +55,7 @@ instance
   ) =>
   Execute' m (HSet (sys ': systems))
   where
-  execute' (HCons system rest) =
-    ( do
-        inputs <- access
-        runSystem system inputs
-    )
-      : execute' rest
+  execute' (HCons s rest) = (access >>= runSystem s) : execute' rest
   {-# INLINE execute' #-}
 
 class Execute m s where
@@ -79,10 +67,7 @@ instance (Applicative m) => Execute m (HSet '[]) where
 
 instance
   {-# OVERLAPPING #-}
-  ( Monad m,
-    Execute' m systems,
-    Execute m (HSet schedule)
-  ) =>
+  (Monad m, Execute' m systems, Execute m (HSet schedule)) =>
   Execute m (HSet (systems ': schedule))
   where
   execute (HCons system rest) = do

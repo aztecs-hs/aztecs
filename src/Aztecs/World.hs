@@ -18,14 +18,10 @@ module Aztecs.World
   )
 where
 
-import Aztecs.ECS.Bundle
 import qualified Aztecs.ECS.Class as ECS
-import Aztecs.ECS.Component (Component (ComponentStorage, componentHooks), Hooks (..))
-import Aztecs.ECS.HSet hiding (empty)
+import Aztecs.ECS.Component
+import Aztecs.ECS.HSet
 import qualified Aztecs.ECS.HSet as HS
-import Aztecs.ECS.Query
-import Aztecs.ECS.Query.Class
-import Aztecs.ECS.Query.Internal
 import Aztecs.Entity
 import Aztecs.Storage hiding (empty)
 import qualified Aztecs.Storage as Storage
@@ -119,7 +115,7 @@ removeComponent' ::
   Entity ->
   HSet cs ->
   m (HSet cs)
-removeComponent' e = HS.adjustM @m @(SparseStorage m c) go
+removeComponent' e components = HS.adjustM @m @(SparseStorage m c) go components
   where
     go s = do
       s' <- S.freeze s

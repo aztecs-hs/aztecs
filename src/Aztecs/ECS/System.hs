@@ -1,20 +1,11 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Aztecs.ECS.System where
 
 import Aztecs.ECS.Access.Internal
 import Aztecs.ECS.Class
-import Aztecs.ECS.HSet
-import Aztecs.ECS.Query.Internal
 
 class System m sys where
   type SystemIn m sys
