@@ -1,10 +1,10 @@
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -18,24 +18,24 @@ module Aztecs.Internal
   )
 where
 
-import Aztecs.ECS.Component (Component (ComponentStorage, componentHooks), Hooks (..))
 import Aztecs.ECS.Bundle
 import Aztecs.ECS.Bundle.Class
 import Aztecs.ECS.Class
 import Aztecs.ECS.Commands
+import Aztecs.ECS.Component (Component (ComponentStorage, componentHooks), Hooks (..))
 import Aztecs.ECS.HSet (AdjustM, HSet (..), Lookup (..))
 import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
 import Aztecs.ECS.Query.Internal
-import qualified Aztecs.ECS.Scheduler as Scheduler
-import qualified Aztecs.Entity as E
-import qualified Aztecs.World.Entities as E
 import Aztecs.ECS.R
+import qualified Aztecs.ECS.Scheduler as Scheduler
+import Aztecs.ECS.W
+import qualified Aztecs.Entity as E
 import Aztecs.Storage
 import qualified Aztecs.Storage as S
-import Aztecs.ECS.W
 import Aztecs.World (SparseStorage, WorldComponents)
 import qualified Aztecs.World as W
+import qualified Aztecs.World.Entities as E
 import Control.Monad.Primitive
 import Control.Monad.State.Strict
 import qualified Data.IntMap.Strict as IntMap
@@ -59,7 +59,7 @@ instance (PrimMonad m) => ECS (AztecsT cs m) where
   type Task (AztecsT cs m) = (Commands (AztecsT cs) m)
 
   spawn b = do
-    w <- AztecsT $ get
+    w <- AztecsT get
     let (e, counter) = E.mkEntityWithCounter (W.worldEntities w)
     AztecsT $ put w {W.worldEntities = counter}
     runBundle b e
@@ -84,10 +84,10 @@ instance
   Bundleable c (AztecsT cs m)
   where
   bundle c = Bundle $ \entity -> do
-    w <- AztecsT $ get
+    w <- AztecsT get
     let entityIdx = fromIntegral $ E.entityIndex entity
         componentType = typeOf c
-        go s = S.insertStorage entity c s
+        go = S.insertStorage entity c
         hooks = componentHooks (Proxy :: Proxy c)
     cs <- lift . HS.adjustM @_ @(SparseStorage m c) go $ W.worldComponents w
     let entityComponents' =
@@ -163,7 +163,7 @@ instance
   where
   type QueryableAccess (R a) = '[Read a]
   queryable = do
-    w <- AztecsT $ get
+    w <- AztecsT get
     S.queryStorageR . HS.lookup @(ComponentStorage m a a) $ W.worldComponents w
   {-# INLINE queryable #-}
 
@@ -183,7 +183,7 @@ instance
         . S.queryStorageW
         . HS.lookup @(ComponentStorage m a a)
         $ W.worldComponents w
-    let liftToCommands m = Commands $ (\x -> (x, pure ())) <$> m
+    let liftToCommands m = Commands $ (,pure ()) <$> m
         go (W r wf mf) =
           W
             (liftToCommands r)

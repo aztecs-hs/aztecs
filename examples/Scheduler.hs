@@ -99,10 +99,10 @@ app ::
      ]
 app =
   HCons (Run MoveSystem) $
-  HCons (Run PhysicsSystem) $
-  HCons (Run CombatSystem) $
-  HCons (Run RenderSystem) $
-  HEmpty
+    HCons (Run PhysicsSystem) $
+      HCons (Run CombatSystem) $
+        HCons (Run RenderSystem) $
+          HEmpty
 
 appSmall ::
   HSet
@@ -112,9 +112,9 @@ appSmall ::
      ]
 appSmall =
   HCons (Run MoveSystem) $
-  HCons (Run PhysicsSystem) $
-  HCons (Run RenderSystem) $
-  HEmpty
+    HCons (Run PhysicsSystem) $
+      HCons (Run RenderSystem) $
+        HEmpty
 
 runSchedulerExample :: IO ()
 runSchedulerExample = do
