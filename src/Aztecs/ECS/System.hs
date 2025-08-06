@@ -14,7 +14,7 @@ module Aztecs.ECS.System where
 import Aztecs.ECS.Access.Internal
 import Aztecs.ECS.Class
 import Aztecs.ECS.HSet
-import Aztecs.ECS.Queryable.Internal
+import Aztecs.ECS.Query.Internal
 
 class System m sys where
   type SystemIn m sys

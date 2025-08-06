@@ -8,7 +8,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Aztecs.R (R (..)) where
+module Aztecs.ECS.R (R (..)) where
 
 -- | Read-only 'Queryable' component access.
 newtype R a = R {unR :: a}

@@ -1,26 +1,26 @@
 module Aztecs
-  ( module Aztecs.Component,
+  ( module Aztecs.ECS.Component,
     module Aztecs.ECS,
     module Aztecs.Internal,
-    module Aztecs.R,
-    module Aztecs.W,
+    module Aztecs.ECS.R,
+    module Aztecs.ECS.W,
     module Aztecs.Storage,
     module Aztecs.ECS.HSet,
-    module Aztecs.ECS.Queryable,
+    module Aztecs.ECS.Query.Class,
     module Aztecs.ECS.Schedule,
     module Aztecs.ECS.Scheduler,
     module Aztecs.World,
   )
 where
 
-import Aztecs.Component
+import Aztecs.ECS.Component
 import Aztecs.ECS
 import Aztecs.ECS.HSet
-import Aztecs.ECS.Queryable
+import Aztecs.ECS.Query.Class
 import Aztecs.ECS.Schedule
 import Aztecs.ECS.Scheduler
 import Aztecs.Internal
-import Aztecs.R
+import Aztecs.ECS.R
 import Aztecs.Storage
-import Aztecs.W
+import Aztecs.ECS.W
 import Aztecs.World (SparseStorage)

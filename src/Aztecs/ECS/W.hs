@@ -1,4 +1,4 @@
-module Aztecs.W (W (..)) where
+module Aztecs.ECS.W (W (..)) where
 
 -- | Read-write 'Queryable' component access.
 data W m c = W

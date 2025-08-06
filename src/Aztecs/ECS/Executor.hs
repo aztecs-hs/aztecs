@@ -12,7 +12,7 @@ module Aztecs.ECS.Executor where
 
 import Aztecs.ECS.Access.Internal
 import Aztecs.ECS.HSet (HSet (..), Subset)
-import Aztecs.ECS.Queryable.Internal
+import Aztecs.ECS.Query.Internal
 import Aztecs.ECS.System
 import Aztecs.World
 

@@ -18,21 +18,22 @@ module Aztecs.Internal
   )
 where
 
-import Aztecs.Component (Component (ComponentStorage, componentHooks), Hooks(..))
+import Aztecs.ECS.Component (Component (ComponentStorage, componentHooks), Hooks (..))
 import Aztecs.ECS.Bundle
+import Aztecs.ECS.Bundle.Class
 import Aztecs.ECS.Class
 import Aztecs.ECS.Commands
 import Aztecs.ECS.HSet (AdjustM, HSet (..), Lookup (..))
 import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
-import Aztecs.ECS.Queryable.Internal
+import Aztecs.ECS.Query.Internal
 import qualified Aztecs.ECS.Scheduler as Scheduler
-import Aztecs.Entities
-import qualified Aztecs.Entities as E
-import Aztecs.R
+import qualified Aztecs.Entity as E
+import qualified Aztecs.World.Entities as E
+import Aztecs.ECS.R
 import Aztecs.Storage
 import qualified Aztecs.Storage as S
-import Aztecs.W
+import Aztecs.ECS.W
 import Aztecs.World (SparseStorage, WorldComponents)
 import qualified Aztecs.World as W
 import Control.Monad.Primitive
@@ -40,9 +41,9 @@ import Control.Monad.State.Strict
 import qualified Data.IntMap.Strict as IntMap
 import qualified Data.Map.Strict as Map
 import Data.Maybe
+import Data.Proxy
 import qualified Data.Set as Set
 import Data.Typeable
-import Data.Proxy
 import Prelude hiding (Read, lookup)
 
 newtype AztecsT cs m a = AztecsT {unAztecsT :: StateT (W.World m cs) m a}
@@ -59,7 +60,7 @@ instance (PrimMonad m) => ECS (AztecsT cs m) where
 
   spawn b = do
     w <- AztecsT $ get
-    let (e, counter) = mkEntityWithCounter (W.worldEntities w)
+    let (e, counter) = E.mkEntityWithCounter (W.worldEntities w)
     AztecsT $ put w {W.worldEntities = counter}
     runBundle b e
     return e
@@ -77,14 +78,14 @@ instance (PrimMonad m) => ECS (AztecsT cs m) where
 instance
   ( PrimMonad m,
     Typeable c,
-    Component m c,
+    Component (AztecsT cs m) c,
     AdjustM m (SparseStorage m c) (WorldComponents m cs)
   ) =>
   Bundleable c (AztecsT cs m)
   where
   bundle c = Bundle $ \entity -> do
     w <- AztecsT $ get
-    let entityIdx = fromIntegral (entityIndex entity)
+    let entityIdx = fromIntegral $ E.entityIndex entity
         componentType = typeOf c
         go s = S.insertStorage entity c s
         hooks = componentHooks (Proxy :: Proxy c)
@@ -96,8 +97,7 @@ instance
             (Map.singleton componentType (W.removeComponent' @m @c entity))
             (W.worldEntityComponents w)
     AztecsT $ put w {W.worldComponents = cs, W.worldEntityComponents = entityComponents'}
-    -- Run the onInsert hook
-    lift $ onInsert hooks entity
+    onInsert hooks entity
   {-# INLINE bundle #-}
 
 runAztecsT :: (Monad m) => AztecsT cs m a -> W.World m cs -> m (a, W.World m cs)
@@ -153,7 +153,6 @@ instance
           Nothing -> Just Without
     return . Query $ fmap go cs
   {-# INLINE queryable #-}
-
 
 instance
   ( PrimMonad m,

@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Aztecs.ECS.Class (ECS (..), Bundleable (..)) where
+module Aztecs.ECS.Class (ECS (..)) where
 
 import Aztecs.ECS.Bundle
 import Aztecs.ECS.HSet
@@ -34,6 +34,3 @@ class ECS m where
 
   -- | Run a `Task`.
   task :: (Task m) a -> m a
-
-class Bundleable c m where
-  bundle :: c -> Bundle (Entity m) m

@@ -26,29 +26,31 @@ source-repository head
 library
     exposed-modules:
         Aztecs
-        Aztecs.Component
         Aztecs.ECS
         Aztecs.ECS.Access
         Aztecs.ECS.Access.Internal
         Aztecs.ECS.Bundle
+        Aztecs.ECS.Bundle.Class
         Aztecs.ECS.Class
         Aztecs.ECS.Commands
+        Aztecs.ECS.Component
         Aztecs.ECS.Executor
         Aztecs.ECS.HSet
         Aztecs.ECS.Query
-        Aztecs.ECS.Queryable
-        Aztecs.ECS.Queryable.Internal
+        Aztecs.ECS.Query.Class
+        Aztecs.ECS.Query.Internal
+        Aztecs.ECS.R
         Aztecs.ECS.Schedule
         Aztecs.ECS.Schedule.Internal
         Aztecs.ECS.Scheduler
         Aztecs.ECS.Scheduler.Internal
         Aztecs.ECS.System
-        Aztecs.Entities
+        Aztecs.ECS.W
+        Aztecs.Entity
         Aztecs.Internal
         Aztecs.Storage
-        Aztecs.R
-        Aztecs.W
         Aztecs.World
+        Aztecs.World.Entities
 
     hs-source-dirs:   src
     default-language: Haskell2010

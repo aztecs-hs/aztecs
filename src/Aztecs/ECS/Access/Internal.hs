@@ -15,8 +15,8 @@ module Aztecs.ECS.Access.Internal where
 
 import Aztecs.ECS.Class
 import Aztecs.ECS.Query
-import Aztecs.ECS.Queryable
-import Aztecs.ECS.Queryable.Internal
+import Aztecs.ECS.Query.Class
+import Aztecs.ECS.Query.Internal
 import Data.Kind
 import GHC.Generics
 
