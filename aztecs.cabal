@@ -60,7 +60,9 @@ library
         deepseq >=1,
         mtl >=2,
         primitive >=0.6,
-        sparse-set >=0.2
+        sparse-set >=0.2,
+        sparse-vector >=0.2,
+        vector >=0.12
 
 executable ecs
     main-is:          examples/ECS.hs

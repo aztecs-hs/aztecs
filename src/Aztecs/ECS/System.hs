@@ -13,12 +13,11 @@ class System m sys where
   runSystem :: sys -> SystemIn m sys -> m ()
 
 system ::
-  ( ECS m,
-    Monad m,
-    System (Task m) sys,
-    Access m (SystemIn (Task m) sys)
+  ( Monad m,
+    System m sys,
+    Access m (SystemIn m sys)
   ) =>
   sys ->
   m ()
-system sys = access >>= task . runSystem sys
+system sys = access >>= runSystem sys
 {-# INLINE system #-}

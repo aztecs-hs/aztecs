@@ -15,6 +15,7 @@ import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
 import Data.Kind
 import Data.Maybe
+import qualified Data.Vector.Fusion.Stream.Monadic as SM
 import GHC.Generics
 import Prelude hiding (Read)
 
@@ -114,11 +115,11 @@ type family GenericQueryableAccess (f :: Type -> Type) :: [Type] where
   GenericQueryableAccess U1 = '[]
 
 class GenericQueryable m (f :: Type -> Type) where
-  genericQueryableRep :: m [Maybe (f p)]
+  genericQueryable :: m (Query m (f p))
 
 instance (Monad m) => GenericQueryable m U1 where
-  genericQueryableRep = pure [Just U1]
-  {-# INLINE genericQueryableRep #-}
+  genericQueryable = return $ Query 1 (SM.singleton (Just U1))
+  {-# INLINE genericQueryable #-}
 
 instance
   ( Monad m,
@@ -127,33 +128,34 @@ instance
   ) =>
   GenericQueryable m (f :*: g)
   where
-  genericQueryableRep = do
-    fs <- genericQueryableRep
-    zipWith (\f g -> (:*:) <$> f <*> g) fs <$> genericQueryableRep
-  {-# INLINE genericQueryableRep #-}
+  genericQueryable = do
+    Query sz1 s1 <- genericQueryable
+    Query sz2 s2 <- genericQueryable
+    return $ Query (min sz1 sz2) (SM.zipWith (\a b -> (:*:) <$> a <*> b) s1 s2)
+  {-# INLINE genericQueryable #-}
 
-instance (Functor m, GenericQueryable m f) => GenericQueryable m (M1 i c f) where
-  genericQueryableRep = map (fmap M1) <$> genericQueryableRep
-  {-# INLINE genericQueryableRep #-}
+instance (Monad m, GenericQueryable m f) => GenericQueryable m (M1 i c f) where
+  genericQueryable = fmap M1 <$> genericQueryable
+  {-# INLINE genericQueryable #-}
 
-instance (Functor m, Queryable m a) => GenericQueryable m (K1 i a) where
-  genericQueryableRep = fmap (map (fmap K1) . unQuery) queryable
-  {-# INLINE genericQueryableRep #-}
+instance (Monad m, Queryable m a) => GenericQueryable m (K1 i a) where
+  genericQueryable = fmap K1 <$> queryable
+  {-# INLINE genericQueryable #-}
 
 class Queryable m a where
   type QueryableAccess a :: [Type]
   type QueryableAccess a = GenericQueryableAccess (Rep a)
 
-  queryable :: m (Query a)
+  queryable :: m (Query m a)
   default queryable ::
-    ( Functor m,
+    ( Monad m,
       Generic a,
       GenericQueryable m (Rep a),
       QueryableAccess a ~ GenericQueryableAccess (Rep a),
       ValidAccess (QueryableAccess a)
     ) =>
-    m (Query a)
-  queryable = fmap (Query . map (fmap to)) genericQueryableRep
+    m (Query m a)
+  queryable = fmap to <$> genericQueryable
   {-# INLINE queryable #-}
 
 instance

@@ -19,6 +19,8 @@ module Aztecs.ECS
     PrimMonad (..),
     Query (..),
     runQuery,
+    mapQueryM_,
+    foldQuery,
     System (..),
     system,
   )
