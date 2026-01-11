@@ -21,8 +21,11 @@ import Aztecs.ECS.W
 import Aztecs.Entity
 import Control.Monad.Primitive
 import qualified Data.SparseSet.Strict as S
-import Data.SparseSet.Strict.Mutable (MSparseSet)
+import Data.SparseSet.Strict.Mutable (MSparseSet (..))
 import qualified Data.SparseSet.Strict.Mutable as MS
+import qualified Data.SparseVector.Strict.Mutable as MSV
+import Data.Vector.Fusion.Stream.Monadic (Step (..), Stream (..))
+import qualified Data.Vector.Strict.Mutable as MV
 import Data.Word
 import Prelude hiding (lookup)
 
@@ -33,9 +36,9 @@ class Storage m s where
 
   removeStorage :: Entity -> s a -> m (s a)
 
-  queryStorageR :: s a -> m (Query (R a))
+  queryStorageR :: s a -> m (Query m (R a))
 
-  queryStorageW :: s a -> m (Query (W m a))
+  queryStorageW :: s a -> m (Query m (W m a))
 
 instance (PrimMonad m, PrimState m ~ s) => Storage m (MSparseSet s Word32) where
   emptyStorage = MS.empty
@@ -52,19 +55,41 @@ instance (PrimMonad m, PrimState m ~ s) => Storage m (MSparseSet s Word32) where
   {-# INLINE removeStorage #-}
 
   queryStorageR s = do
-    s' <- S.freeze s
-    return . Query . fmap (fmap R) $ S.toList s'
+    let sparseVec = MSV.unMSparseVector (sparse s)
+        denseVec = dense s
+        !len = MV.length sparseVec
+        stream = Stream step 0
+        step !i
+          | i >= len = return Done
+          | otherwise = do
+              (!present, !denseIdx) <- MV.unsafeRead sparseVec i
+              if present
+                then do
+                  !val <- MV.unsafeRead denseVec (fromIntegral denseIdx)
+                  return $ Yield (Just (R val)) (i + 1)
+                else return $ Yield Nothing (i + 1)
+    return $ Query len stream
   {-# INLINE queryStorageR #-}
 
   queryStorageW s = do
-    !as <- MS.toList s
-    let go (i, _) =
-          W
-            { readW = MS.unsafeRead s (fromIntegral i),
-              writeW = MS.unsafeWrite s (fromIntegral i),
-              modifyW = MS.unsafeModify s (fromIntegral i)
-            }
-    return . Query $ map (fmap go) as
+    let sparseVec = MSV.unMSparseVector (sparse s)
+        !len = MV.length sparseVec
+        stream = Stream step 0
+        step !i
+          | i >= len = return Done
+          | otherwise = do
+              (!present, !denseIdx) <- MV.unsafeRead sparseVec i
+              if present
+                then do
+                  let w =
+                        W
+                          { readW = MS.unsafeRead s i,
+                            writeW = MS.unsafeWrite s i,
+                            modifyW = MS.unsafeModify s i
+                          }
+                  return $ Yield (Just w) (i + 1)
+                else return $ Yield Nothing (i + 1)
+    return $ Query len stream
   {-# INLINE queryStorageW #-}
 
 class Empty m a where

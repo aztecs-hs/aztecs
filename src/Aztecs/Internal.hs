@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -18,6 +19,7 @@ module Aztecs.Internal
   )
 where
 
+import Aztecs.ECS.Access.Internal (Access (..))
 import Aztecs.ECS.Bundle
 import Aztecs.ECS.Bundle.Class
 import Aztecs.ECS.Class
@@ -43,7 +45,14 @@ import qualified Data.Map.Strict as Map
 import Data.Maybe
 import Data.Proxy
 import qualified Data.Set as Set
+import Data.SparseSet.Strict.Mutable (MSparseSet (..))
+import qualified Data.SparseSet.Strict.Mutable as MS
+import qualified Data.SparseVector.Strict.Mutable as MSV
 import Data.Typeable
+import Data.Vector.Fusion.Stream.Monadic (Step (..), Stream (..))
+import qualified Data.Vector.Fusion.Stream.Monadic as SM
+import qualified Data.Vector.Strict.Mutable as MV
+import Data.Word (Word32)
 import Prelude hiding (Read, lookup)
 
 newtype AztecsT cs m a = AztecsT {unAztecsT :: StateT (W.World m cs) m a}
@@ -111,7 +120,9 @@ instance (PrimMonad m) => Queryable (AztecsT cs m) E.Entity where
   type QueryableAccess E.Entity = '[]
   queryable = AztecsT $ do
     w <- get
-    return . Query . map pure . E.entities $ W.worldEntities w
+    let es = E.entities $ W.worldEntities w
+        !len = length es
+    return $ Query len (SM.fromList (map Just es))
   {-# INLINE queryable #-}
 
 instance
@@ -124,12 +135,13 @@ instance
   type QueryableAccess (With a) = '[With a]
   queryable = AztecsT $ do
     w <- get
-    withComponent <-
+    Query sz s <-
       lift
         . S.queryStorageR
         . HS.lookup @(ComponentStorage m a a)
         $ W.worldComponents w
-    return . fmap (const With) $ withComponent
+    let liftedStream = SM.trans lift s
+    return $ Query sz (SM.map (fmap (const With)) liftedStream)
   {-# INLINE queryable #-}
 
 instance
@@ -142,28 +154,43 @@ instance
   type QueryableAccess (Without a) = '[Without a]
   queryable = AztecsT $ do
     w <- get
-    (Query cs) <-
+    (Query sz s) <-
       lift
         . S.queryStorageR
         . HS.lookup @(ComponentStorage m a a)
         $ W.worldComponents w
-    let go m = case m of
-          Just v -> Nothing
+    let flipMaybe m = case m of
+          Just _ -> Nothing
           Nothing -> Just Without
-    return . Query $ fmap go cs
+        liftedStream = SM.trans lift s
+    return $ Query sz (SM.map flipMaybe liftedStream)
   {-# INLINE queryable #-}
 
 instance
   ( PrimMonad m,
-    Lookup (ComponentStorage m a a) (WorldComponents m cs),
-    Storage (AztecsT cs m) (ComponentStorage m a)
+    PrimState m ~ s,
+    Lookup (MSparseSet s Word32 a) (WorldComponents m cs)
   ) =>
   Queryable (AztecsT cs m) (R a)
   where
   type QueryableAccess (R a) = '[Read a]
-  queryable = do
-    w <- AztecsT get
-    S.queryStorageR . HS.lookup @(ComponentStorage m a a) $ W.worldComponents w
+  queryable = AztecsT $ do
+    w <- get
+    let storage = HS.lookup @(MSparseSet s Word32 a) $ W.worldComponents w
+        sparseVec = MSV.unMSparseVector (sparse storage)
+        denseVec = dense storage
+        !len = MV.length sparseVec
+        stream = Stream step 0
+        step !i
+          | i >= len = return Done
+          | otherwise = do
+              (!present, !denseIdx) <- lift $ MV.unsafeRead sparseVec i
+              if present
+                then do
+                  !val <- lift $ MV.unsafeRead denseVec (fromIntegral denseIdx)
+                  return $ Yield (Just (R val)) (i + 1)
+                else return $ Yield Nothing (i + 1)
+    return $ Query len stream
   {-# INLINE queryable #-}
 
 instance
@@ -177,7 +204,7 @@ instance
   type QueryableAccess (W (Commands (AztecsT cs) m) a) = '[Write a]
   queryable = AztecsT $ do
     w <- get
-    Query results <-
+    Query sz s <-
       lift
         . S.queryStorageW
         . HS.lookup @(ComponentStorage m a a)
@@ -188,30 +215,37 @@ instance
             (liftToCommands r)
             (liftToCommands . wf)
             (liftToCommands . mf)
-    return . Query $ map (fmap go) results
+        liftedStream = SM.trans lift s
+    return $ Query sz (SM.map (fmap go) liftedStream)
   {-# INLINE queryable #-}
 
 -- Additional instance for direct AztecsT usage in scheduler
 instance
   ( PrimMonad m,
     PrimState m ~ s,
-    Lookup (ComponentStorage m a a) (WorldComponents m cs),
-    Storage m (ComponentStorage m a)
+    Lookup (MSparseSet s Word32 a) (WorldComponents m cs)
   ) =>
   Queryable (AztecsT cs m) (W (AztecsT cs m) a)
   where
   type QueryableAccess (W (AztecsT cs m) a) = '[Write a]
   queryable = AztecsT $ do
     w <- get
-    Query results <-
-      lift
-        . S.queryStorageW
-        . HS.lookup @(ComponentStorage m a a)
-        $ W.worldComponents w
-    let liftToAztecs (W r wf mf) =
-          W
-            (AztecsT $ lift r)
-            (AztecsT . lift . wf)
-            (AztecsT . lift . mf)
-    return . Query $ map (fmap liftToAztecs) results
+    let storage = HS.lookup @(MSparseSet s Word32 a) $ W.worldComponents w
+        sparseVec = MSV.unMSparseVector (sparse storage)
+        !len = MV.length sparseVec
+        stream = Stream step 0
+        step !i
+          | i >= len = return Done
+          | otherwise = do
+              (!present, !_denseIdx) <- lift $ MV.unsafeRead sparseVec i
+              if present
+                then do
+                  let !w' = W
+                        { readW = AztecsT $ lift $ MS.unsafeRead storage i,
+                          writeW = \val -> AztecsT $ lift $ MS.unsafeWrite storage i val,
+                          modifyW = \f -> AztecsT $ lift $ MS.unsafeModify storage i f
+                        }
+                  return $ Yield (Just w') (i + 1)
+                else return $ Yield Nothing (i + 1)
+    return $ Query len stream
   {-# INLINE queryable #-}

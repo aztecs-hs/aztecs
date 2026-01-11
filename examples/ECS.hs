@@ -25,9 +25,9 @@ instance (Monad m) => Component m Velocity where
 data MoveSystem = MoveSystem
 
 instance (PrimMonad m, MonadIO m) => System m MoveSystem where
-  type SystemIn m MoveSystem = Query (W m Position, R Velocity)
+  type SystemIn m MoveSystem = Query m (W m Position, R Velocity)
 
-  runSystem _ = mapM_ go
+  runSystem _ q = mapQueryM_ go q
     where
       go (posRef, R (Velocity v)) = do
         modifyW posRef $ \(Position p) -> Position (p + v)

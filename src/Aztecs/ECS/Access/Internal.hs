@@ -73,8 +73,8 @@ instance
   genericAccess = (:*:) <$> genericAccess <*> genericAccess
   {-# INLINE genericAccess #-}
 
-instance (ECS m, Applicative m, Queryable m a) => Access m (Query a) where
-  type AccessType (Query a) = QueryableAccess a
+instance (ECS m, Monad m, Queryable m a) => Access m (Query m a) where
+  type AccessType (Query m a) = QueryableAccess a
   access = queryable
   {-# INLINE access #-}
 
