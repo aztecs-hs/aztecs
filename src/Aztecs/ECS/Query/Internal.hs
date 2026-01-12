@@ -16,7 +16,6 @@ import qualified Aztecs.ECS.HSet as HS
 import Aztecs.ECS.Query
 import Data.Kind
 import Data.Maybe
-import qualified Data.Vector.Fusion.Stream.Monadic as SM
 import GHC.Generics
 import Prelude hiding (Read)
 
@@ -119,7 +118,7 @@ class GenericQueryable m s (f :: Type -> Type) where
   genericQueryable :: m (Query m s (f p))
 
 instance (Monad m) => GenericQueryable m s U1 where
-  genericQueryable = return $ Query 1 (SM.singleton (Just U1))
+  genericQueryable = return $ Query 1 (\_ -> return (Just U1))
   {-# INLINE genericQueryable #-}
 
 instance
@@ -130,9 +129,13 @@ instance
   GenericQueryable m s (f :*: g)
   where
   genericQueryable = do
-    Query sz1 s1 <- (genericQueryable :: m (Query m s (f p)))
-    Query sz2 s2 <- (genericQueryable :: m (Query m s (g p)))
-    return $ Query (min sz1 sz2) (SM.zipWith (\a b -> (:*:) <$> a <*> b) s1 s2)
+    Query sz1 f1 <- (genericQueryable :: m (Query m s (f p)))
+    Query sz2 f2 <- (genericQueryable :: m (Query m s (g p)))
+    let fetch i = do
+          ma <- f1 i
+          mb <- f2 i
+          return ((:*:) <$> ma <*> mb)
+    return $ Query (min sz1 sz2) fetch
   {-# INLINE genericQueryable #-}
 
 instance (Monad m, GenericQueryable m s f) => GenericQueryable m s (M1 i c f) where

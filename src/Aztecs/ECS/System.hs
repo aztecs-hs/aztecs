@@ -18,7 +18,6 @@ class (Monad m) => System m sys where
   type SystemIn m (s :: Type) sys :: Type
 
   -- | Run the system with a scoped query.
-  -- The Runner monad ensures that W operations cannot escape the scope.
   runSystem :: sys -> (forall s. Query m s (SystemIn m s sys) -> Runner s m ())
 
   withSystemIn ::

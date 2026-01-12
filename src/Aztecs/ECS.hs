@@ -18,10 +18,9 @@ module Aztecs.ECS
     module Aztecs.ECS.Scheduler,
     PrimMonad (..),
     Query (..),
-    withQuery,
-    runQuery,
     mapQueryM_,
-    foldQuery,
+    foldQueryM,
+    lookupQuery,
     System (..),
     system,
   )

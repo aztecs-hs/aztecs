@@ -25,7 +25,6 @@ import qualified Data.SparseSet.Strict as S
 import Data.SparseSet.Strict.Mutable (MSparseSet (..))
 import qualified Data.SparseSet.Strict.Mutable as MS
 import qualified Data.SparseVector.Strict.Mutable as MSV
-import Data.Vector.Fusion.Stream.Monadic (Step (..), Stream (..))
 import qualified Data.Vector.Strict.Mutable as MV
 import Data.Word
 import Prelude hiding (lookup)
@@ -61,38 +60,36 @@ instance (PrimMonad m, PrimState m ~ st) => Storage m (MSparseSet st Word32) whe
     let sparseVec = MSV.unMSparseVector (sparse s)
         denseVec = dense s
         !len = MV.length sparseVec
-        stream = Stream step 0
-        step !i
-          | i >= len = return Done
+        fetch !i
+          | fromIntegral i >= len = return Nothing
           | otherwise = do
-              (!present, !denseIdx) <- MV.unsafeRead sparseVec i
+              (!present, !denseIdx) <- MV.unsafeRead sparseVec (fromIntegral i)
               if present
                 then do
                   !val <- MV.unsafeRead denseVec (fromIntegral denseIdx)
-                  return $ Yield (Just (R val)) (i + 1)
-                else return $ Yield Nothing (i + 1)
-    return $ Query len stream
+                  return $ Just (R val)
+                else return Nothing
+    return $ Query len fetch
   {-# INLINE queryStorageR #-}
 
   queryStorageW s = do
     let sparseVec = MSV.unMSparseVector (sparse s)
         !len = MV.length sparseVec
-        stream = Stream step 0
-        step !i
-          | i >= len = return Done
+        fetch !i
+          | fromIntegral i >= len = return Nothing
           | otherwise = do
-              (!present, !denseIdx) <- MV.unsafeRead sparseVec i
+              (!present, !_denseIdx) <- MV.unsafeRead sparseVec (fromIntegral i)
               if present
                 then do
                   let w =
                         W
-                          { readW = Runner $ MS.unsafeRead s i,
-                            writeW = Runner . MS.unsafeWrite s i,
-                            modifyW = Runner . MS.unsafeModify s i
+                          { readW = Runner $ MS.unsafeRead s (fromIntegral i),
+                            writeW = Runner . MS.unsafeWrite s (fromIntegral i),
+                            modifyW = Runner . MS.unsafeModify s (fromIntegral i)
                           }
-                  return $ Yield (Just w) (i + 1)
-                else return $ Yield Nothing (i + 1)
-    return $ Query len stream
+                  return $ Just w
+                else return Nothing
+    return $ Query len fetch
   {-# INLINE queryStorageW #-}
 
 class Empty m a where

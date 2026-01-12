@@ -40,6 +40,7 @@ library
         Aztecs.ECS.Query.Class
         Aztecs.ECS.Query.Internal
         Aztecs.ECS.R
+        Aztecs.ECS.Runner
         Aztecs.ECS.Schedule
         Aztecs.ECS.Schedule.Internal
         Aztecs.ECS.Scheduler

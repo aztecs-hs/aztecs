@@ -3,55 +3,69 @@
 
 module Aztecs.ECS.Query
   ( Query (..),
-    withQuery,
-    runQuery,
     mapQueryM_,
-    foldQuery,
+    foldQueryM,
+    lookupQuery,
   )
 where
 
-import Aztecs.ECS.W (Runner (..))
-import Data.Vector.Fusion.Stream.Monadic (Step (..), Stream (..))
-import qualified Data.Vector.Fusion.Stream.Monadic as SM
+import Aztecs.ECS.W
+import Aztecs.Entity
+import Data.Word
 import GHC.Exts (SPEC (..))
 
+-- | Query into the World.
 data Query m s a = Query
-  { querySize :: {-# UNPACK #-} !Int,
-    queryStream :: Stream m (Maybe a)
+  { -- | Size of the query result
+    querySize :: !Int,
+    -- | Fetch function for single-entity lookup and iteration
+    fetchQuery :: !(Word32 -> m (Maybe a))
   }
 
 instance (Monad m) => Functor (Query m s) where
-  fmap f (Query sz s) = Query sz (SM.map (fmap f) s)
+  fmap f (Query sz fetch) = Query sz (\i -> fmap (fmap f) (fetch i))
   {-# INLINE fmap #-}
 
 instance (Monad m) => Applicative (Query m s) where
-  pure x = Query 1 (SM.singleton (Just x))
+  pure x = Query 1 (\_ -> return (Just x))
   {-# INLINE pure #-}
 
-  Query sz1 s1 <*> Query sz2 s2 =
+  Query sz1 f1 <*> Query sz2 f2 =
     let !sz = min sz1 sz2
-     in Query sz $ SM.zipWith (<*>) s1 s2
+        fetch i = do
+          mf <- f1 i
+          ma <- f2 i
+          return (mf <*> ma)
+     in Query sz fetch
   {-# INLINE (<*>) #-}
-withQuery :: (Monad m) => (forall s. Query m s a -> m b) -> Int -> Stream m (Maybe a) -> m b
-withQuery f sz stream = f (Query sz stream)
-{-# INLINE withQuery #-}
 
-runQuery :: (Monad m) => Query m s a -> m [a]
-runQuery (Query _ s) = SM.toList $ SM.catMaybes s
-{-# INLINE runQuery #-}
+-- | Lookup a single entity's query result.
+lookupQuery :: (Monad m) => Entity -> Query m s a -> m (Maybe a)
+lookupQuery entity (Query _ fetch) = fetch (entityIndex entity)
+{-# INLINE lookupQuery #-}
 
+-- | Map a function over all entities in the query.
 mapQueryM_ :: (Monad m) => (a -> Runner s m ()) -> Query m s a -> Runner s m ()
-mapQueryM_ f (Query _ (Stream step s0)) = go SPEC s0
+mapQueryM_ f (Query sz fetch) = go SPEC 0
   where
-    go !_ !s = Runner $ do
-      r <- step s
-      case r of
-        Yield (Just !a) !s' -> unsafeRunRunner (f a) >> unsafeRunRunner (go SPEC s')
-        Yield Nothing !s' -> unsafeRunRunner (go SPEC s')
-        Skip !s' -> unsafeRunRunner (go SPEC s')
-        Done -> return ()
+    go !_ !i
+      | i >= fromIntegral sz = Runner $ return ()
+      | otherwise = Runner $ do
+          ma <- fetch i
+          case ma of
+            Just !a -> unsafeRunRunner (f a) >> unsafeRunRunner (go SPEC (i + 1))
+            Nothing -> unsafeRunRunner (go SPEC (i + 1))
 {-# INLINE mapQueryM_ #-}
 
-foldQuery :: (Monad m) => (b -> a -> b) -> b -> Query m s a -> m b
-foldQuery f z (Query _ s) = SM.foldl' (\acc ma -> maybe acc (f acc) ma) z s
-{-# INLINE foldQuery #-}
+-- | Fold over all entities in the query.
+foldQueryM :: (Monad m) => (b -> a -> m b) -> b -> Query m s a -> m b
+foldQueryM f z (Query sz fetch) = go 0 z
+  where
+    go !i !acc
+      | i >= fromIntegral sz = return acc
+      | otherwise = do
+          ma <- fetch i
+          case ma of
+            Just !a -> f acc a >>= go (i + 1)
+            Nothing -> go (i + 1) acc
+{-# INLINE foldQueryM #-}
