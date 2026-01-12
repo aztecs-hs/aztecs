@@ -14,7 +14,6 @@
 
 module Aztecs.ECS.Schedule.Internal where
 
-import Aztecs.ECS.Access.Internal
 import Aztecs.ECS.HSet
 import Aztecs.ECS.Query.Internal
 import Aztecs.ECS.System
@@ -25,8 +24,9 @@ class Schedule m s where
 
   schedule :: s -> Scheduled m s
 
+-- | Get the access types for a system's query (using a dummy scope ()).
 type family SystemInOf m sys :: [Type] where
-  SystemInOf m sys = AccessType (SystemIn m sys)
+  SystemInOf m sys = QueryableAccess (SystemIn m () sys)
 
 type family HasInputOverlap (inputs1 :: [Type]) (inputs2 :: [Type]) :: Bool where
   HasInputOverlap inputs1 inputs2 =
@@ -183,6 +183,8 @@ instance (Show sys) => Show (Run constraints sys) where
   show (Run sys) = "Run " ++ show sys
 
 instance (System m sys) => System m (Run constraints sys) where
-  type SystemIn m (Run constraints sys) = SystemIn m sys
+  type SystemIn m s (Run constraints sys) = SystemIn m s sys
   runSystem (Run sys) = runSystem sys
   {-# INLINE runSystem #-}
+  withSystemIn (Run sys) = withSystemIn sys
+  {-# INLINE withSystemIn #-}

@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -36,11 +37,13 @@ class Storage m s where
 
   removeStorage :: Entity -> s a -> m (s a)
 
-  queryStorageR :: s a -> m (Query m (R a))
+  -- | Query storage for read access. The result works for any scope.
+  queryStorageR :: s a -> m (Query m scope (R scope a))
 
-  queryStorageW :: s a -> m (Query m (W m a))
+  -- | Query storage for write access. The result works for any scope.
+  queryStorageW :: s a -> m (Query m scope (W scope m a))
 
-instance (PrimMonad m, PrimState m ~ s) => Storage m (MSparseSet s Word32) where
+instance (PrimMonad m, PrimState m ~ st) => Storage m (MSparseSet st Word32) where
   emptyStorage = MS.empty
   {-# INLINE emptyStorage #-}
 
@@ -83,9 +86,9 @@ instance (PrimMonad m, PrimState m ~ s) => Storage m (MSparseSet s Word32) where
                 then do
                   let w =
                         W
-                          { readW = MS.unsafeRead s i,
-                            writeW = MS.unsafeWrite s i,
-                            modifyW = MS.unsafeModify s i
+                          { readW = Runner $ MS.unsafeRead s i,
+                            writeW = Runner . MS.unsafeWrite s i,
+                            modifyW = Runner . MS.unsafeModify s i
                           }
                   return $ Yield (Just w) (i + 1)
                 else return $ Yield Nothing (i + 1)

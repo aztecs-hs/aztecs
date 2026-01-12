@@ -116,7 +116,7 @@ runAztecsT_ :: (Monad m) => AztecsT cs m a -> W.World m cs -> m a
 runAztecsT_ (AztecsT m) = evalStateT m
 {-# INLINE runAztecsT_ #-}
 
-instance (PrimMonad m) => Queryable (AztecsT cs m) E.Entity where
+instance (PrimMonad m) => Queryable (AztecsT cs m) scope E.Entity where
   type QueryableAccess E.Entity = '[]
   queryable = AztecsT $ do
     w <- get
@@ -130,7 +130,7 @@ instance
     Lookup (ComponentStorage m a a) (WorldComponents m cs),
     Storage m (ComponentStorage m a)
   ) =>
-  Queryable (AztecsT cs m) (With a)
+  Queryable (AztecsT cs m) scope (With a)
   where
   type QueryableAccess (With a) = '[With a]
   queryable = AztecsT $ do
@@ -149,7 +149,7 @@ instance
     Lookup (ComponentStorage m a a) (WorldComponents m cs),
     Storage m (ComponentStorage m a)
   ) =>
-  Queryable (AztecsT cs m) (Without a)
+  Queryable (AztecsT cs m) scope (Without a)
   where
   type QueryableAccess (Without a) = '[Without a]
   queryable = AztecsT $ do
@@ -171,9 +171,9 @@ instance
     PrimState m ~ s,
     Lookup (MSparseSet s Word32 a) (WorldComponents m cs)
   ) =>
-  Queryable (AztecsT cs m) (R a)
+  Queryable (AztecsT cs m) scope (R scope a)
   where
-  type QueryableAccess (R a) = '[Read a]
+  type QueryableAccess (R scope a) = '[Read a]
   queryable = AztecsT $ do
     w <- get
     let storage = HS.lookup @(MSparseSet s Word32 a) $ W.worldComponents w
@@ -195,13 +195,13 @@ instance
 
 instance
   ( PrimMonad m,
-    PrimState m ~ s,
+    PrimState m ~ st,
     Lookup (ComponentStorage m a a) (WorldComponents m cs),
     Storage m (ComponentStorage m a)
   ) =>
-  Queryable (AztecsT cs m) (W (Commands (AztecsT cs) m) a)
+  Queryable (AztecsT cs m) scope (W scope (Commands (AztecsT cs) m) a)
   where
-  type QueryableAccess (W (Commands (AztecsT cs) m) a) = '[Write a]
+  type QueryableAccess (W scope (Commands (AztecsT cs) m) a) = '[Write a]
   queryable = AztecsT $ do
     w <- get
     Query sz s <-
@@ -209,12 +209,12 @@ instance
         . S.queryStorageW
         . HS.lookup @(ComponentStorage m a a)
         $ W.worldComponents w
-    let liftToCommands m = Commands $ (,pure ()) <$> m
+    let liftToCommands m = Commands $ (,pure ()) <$> unsafeRunRunner m
         go (W r wf mf) =
           W
-            (liftToCommands r)
-            (liftToCommands . wf)
-            (liftToCommands . mf)
+            (Runner $ liftToCommands r)
+            (Runner . liftToCommands . wf)
+            (Runner . liftToCommands . mf)
         liftedStream = SM.trans lift s
     return $ Query sz (SM.map (fmap go) liftedStream)
   {-# INLINE queryable #-}
@@ -222,15 +222,15 @@ instance
 -- Additional instance for direct AztecsT usage in scheduler
 instance
   ( PrimMonad m,
-    PrimState m ~ s,
-    Lookup (MSparseSet s Word32 a) (WorldComponents m cs)
+    PrimState m ~ st,
+    Lookup (MSparseSet st Word32 a) (WorldComponents m cs)
   ) =>
-  Queryable (AztecsT cs m) (W (AztecsT cs m) a)
+  Queryable (AztecsT cs m) scope (W scope (AztecsT cs m) a)
   where
-  type QueryableAccess (W (AztecsT cs m) a) = '[Write a]
+  type QueryableAccess (W scope (AztecsT cs m) a) = '[Write a]
   queryable = AztecsT $ do
     w <- get
-    let storage = HS.lookup @(MSparseSet s Word32 a) $ W.worldComponents w
+    let storage = HS.lookup @(MSparseSet st Word32 a) $ W.worldComponents w
         sparseVec = MSV.unMSparseVector (sparse storage)
         !len = MV.length sparseVec
         stream = Stream step 0
@@ -241,9 +241,9 @@ instance
               if present
                 then do
                   let !w' = W
-                        { readW = AztecsT $ lift $ MS.unsafeRead storage i,
-                          writeW = \val -> AztecsT $ lift $ MS.unsafeWrite storage i val,
-                          modifyW = \f -> AztecsT $ lift $ MS.unsafeModify storage i f
+                        { readW = Runner $ AztecsT $ lift $ MS.unsafeRead storage i,
+                          writeW = \val -> Runner $ AztecsT $ lift $ MS.unsafeWrite storage i val,
+                          modifyW = \f -> Runner $ AztecsT $ lift $ MS.unsafeModify storage i f
                         }
                   return $ Yield (Just w') (i + 1)
                 else return $ Yield Nothing (i + 1)

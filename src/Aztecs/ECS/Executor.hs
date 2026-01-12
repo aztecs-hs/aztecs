@@ -9,8 +9,8 @@
 
 module Aztecs.ECS.Executor where
 
-import Aztecs.ECS.Access.Internal
 import Aztecs.ECS.HSet
+import Aztecs.ECS.Query.Class (Queryable)
 import Aztecs.ECS.System
 
 newtype ExecutorT m a = ExecutorT {runSystems :: ([m ()] -> m ()) -> m a}
@@ -35,27 +35,23 @@ instance Execute' m (HSet '[]) where
 
 instance
   {-# OVERLAPS #-}
-  ( Monad m,
-    System m sys,
-    Access m (SystemIn m sys),
-    ValidAccessInput (AccessType (SystemIn m sys))
+  ( System m sys,
+    Queryable m () (SystemIn m () sys)
   ) =>
   Execute' m (HSet '[sys])
   where
-  execute' (HCons system HEmpty) = [access >>= runSystem system]
+  execute' (HCons sys HEmpty) = [withSystemIn sys (runSystem sys)]
   {-# INLINE execute' #-}
 
 instance
   {-# OVERLAPPABLE #-}
-  ( Monad m,
-    System m sys,
-    Access m (SystemIn m sys),
-    ValidAccessInput (AccessType (SystemIn m sys)),
+  ( System m sys,
+    Queryable m () (SystemIn m () sys),
     Execute' m (HSet systems)
   ) =>
   Execute' m (HSet (sys ': systems))
   where
-  execute' (HCons s rest) = (access >>= runSystem s) : execute' rest
+  execute' (HCons s rest) = withSystemIn s (runSystem s) : execute' rest
   {-# INLINE execute' #-}
 
 class Execute m s where

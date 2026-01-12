@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -114,97 +115,97 @@ type family GenericQueryableAccess (f :: Type -> Type) :: [Type] where
   GenericQueryableAccess (K1 _ a) = QueryableAccess a
   GenericQueryableAccess U1 = '[]
 
-class GenericQueryable m (f :: Type -> Type) where
-  genericQueryable :: m (Query m (f p))
+class GenericQueryable m s (f :: Type -> Type) where
+  genericQueryable :: m (Query m s (f p))
 
-instance (Monad m) => GenericQueryable m U1 where
+instance (Monad m) => GenericQueryable m s U1 where
   genericQueryable = return $ Query 1 (SM.singleton (Just U1))
   {-# INLINE genericQueryable #-}
 
 instance
   ( Monad m,
-    GenericQueryable m f,
-    GenericQueryable m g
+    GenericQueryable m s f,
+    GenericQueryable m s g
   ) =>
-  GenericQueryable m (f :*: g)
+  GenericQueryable m s (f :*: g)
   where
   genericQueryable = do
-    Query sz1 s1 <- genericQueryable
-    Query sz2 s2 <- genericQueryable
+    Query sz1 s1 <- (genericQueryable :: m (Query m s (f p)))
+    Query sz2 s2 <- (genericQueryable :: m (Query m s (g p)))
     return $ Query (min sz1 sz2) (SM.zipWith (\a b -> (:*:) <$> a <*> b) s1 s2)
   {-# INLINE genericQueryable #-}
 
-instance (Monad m, GenericQueryable m f) => GenericQueryable m (M1 i c f) where
-  genericQueryable = fmap M1 <$> genericQueryable
+instance (Monad m, GenericQueryable m s f) => GenericQueryable m s (M1 i c f) where
+  genericQueryable = fmap M1 <$> (genericQueryable :: m (Query m s (f p)))
   {-# INLINE genericQueryable #-}
 
-instance (Monad m, Queryable m a) => GenericQueryable m (K1 i a) where
+instance (Monad m, Queryable m s a) => GenericQueryable m s (K1 i a) where
   genericQueryable = fmap K1 <$> queryable
   {-# INLINE genericQueryable #-}
 
-class Queryable m a where
+class Queryable m s a where
   type QueryableAccess a :: [Type]
   type QueryableAccess a = GenericQueryableAccess (Rep a)
 
-  queryable :: m (Query m a)
+  queryable :: m (Query m s a)
   default queryable ::
     ( Monad m,
       Generic a,
-      GenericQueryable m (Rep a),
+      GenericQueryable m s (Rep a),
       QueryableAccess a ~ GenericQueryableAccess (Rep a),
       ValidAccess (QueryableAccess a)
     ) =>
-    m (Query m a)
+    m (Query m s a)
   queryable = fmap to <$> genericQueryable
   {-# INLINE queryable #-}
 
 instance
   ( Monad m,
-    Queryable m a,
-    Queryable m b,
+    Queryable m s a,
+    Queryable m s b,
     ValidAccess (QueryableAccess a ++ QueryableAccess b)
   ) =>
-  Queryable m (a, b)
+  Queryable m s (a, b)
   where
   type QueryableAccess (a, b) = QueryableAccess a ++ QueryableAccess b
 
 instance
   ( Monad m,
-    Queryable m a,
-    Queryable m b,
-    Queryable m c,
+    Queryable m s a,
+    Queryable m s b,
+    Queryable m s c,
     ValidAccess (QueryableAccess a ++ (QueryableAccess b ++ QueryableAccess c))
   ) =>
-  Queryable m (a, b, c)
+  Queryable m s (a, b, c)
   where
   type QueryableAccess (a, b, c) = QueryableAccess a ++ (QueryableAccess b ++ QueryableAccess c)
 
 instance
   ( Monad m,
-    Queryable m a,
-    Queryable m b,
-    Queryable m c,
-    Queryable m d,
+    Queryable m s a,
+    Queryable m s b,
+    Queryable m s c,
+    Queryable m s d,
     ValidAccess
       ((QueryableAccess a ++ QueryableAccess b) ++ (QueryableAccess c ++ QueryableAccess d))
   ) =>
-  Queryable m (a, b, c, d)
+  Queryable m s (a, b, c, d)
   where
   type QueryableAccess (a, b, c, d) = (QueryableAccess a ++ QueryableAccess b) ++ (QueryableAccess c ++ QueryableAccess d)
 
 instance
   ( Monad m,
-    Queryable m a,
-    Queryable m b,
-    Queryable m c,
-    Queryable m d,
-    Queryable m e,
+    Queryable m s a,
+    Queryable m s b,
+    Queryable m s c,
+    Queryable m s d,
+    Queryable m s e,
     ValidAccess
       ( (QueryableAccess a ++ QueryableAccess b)
           ++ (QueryableAccess c ++ (QueryableAccess d ++ QueryableAccess e))
       )
   ) =>
-  Queryable m (a, b, c, d, e)
+  Queryable m s (a, b, c, d, e)
   where
   type
     QueryableAccess (a, b, c, d, e) =
@@ -213,18 +214,18 @@ instance
 
 instance
   ( Monad m,
-    Queryable m a,
-    Queryable m b,
-    Queryable m c,
-    Queryable m d,
-    Queryable m e,
-    Queryable m f,
+    Queryable m s a,
+    Queryable m s b,
+    Queryable m s c,
+    Queryable m s d,
+    Queryable m s e,
+    Queryable m s f,
     ValidAccess
       ( (QueryableAccess a ++ (QueryableAccess b ++ QueryableAccess c))
           ++ (QueryableAccess d ++ (QueryableAccess e ++ QueryableAccess f))
       )
   ) =>
-  Queryable m (a, b, c, d, e, f)
+  Queryable m s (a, b, c, d, e, f)
   where
   type
     QueryableAccess (a, b, c, d, e, f) =
@@ -234,19 +235,19 @@ instance
 
 instance
   ( Monad m,
-    Queryable m a,
-    Queryable m b,
-    Queryable m c,
-    Queryable m d,
-    Queryable m e,
-    Queryable m f,
-    Queryable m g,
+    Queryable m s a,
+    Queryable m s b,
+    Queryable m s c,
+    Queryable m s d,
+    Queryable m s e,
+    Queryable m s f,
+    Queryable m s g,
     ValidAccess
       ( (QueryableAccess a ++ (QueryableAccess b ++ QueryableAccess c))
           ++ ((QueryableAccess d ++ QueryableAccess e) ++ (QueryableAccess f ++ QueryableAccess g))
       )
   ) =>
-  Queryable m (a, b, c, d, e, f, g)
+  Queryable m s (a, b, c, d, e, f, g)
   where
   type
     QueryableAccess (a, b, c, d, e, f, g) =
@@ -255,20 +256,20 @@ instance
 
 instance
   ( Monad m,
-    Queryable m a,
-    Queryable m b,
-    Queryable m c,
-    Queryable m d,
-    Queryable m e,
-    Queryable m f,
-    Queryable m g,
-    Queryable m h,
+    Queryable m s a,
+    Queryable m s b,
+    Queryable m s c,
+    Queryable m s d,
+    Queryable m s e,
+    Queryable m s f,
+    Queryable m s g,
+    Queryable m s h,
     ValidAccess
       ( ((QueryableAccess a ++ QueryableAccess b) ++ (QueryableAccess c ++ QueryableAccess d))
           ++ ((QueryableAccess e ++ QueryableAccess f) ++ (QueryableAccess g ++ QueryableAccess h))
       )
   ) =>
-  Queryable m (a, b, c, d, e, f, g, h)
+  Queryable m s (a, b, c, d, e, f, g, h)
   where
   type
     QueryableAccess (a, b, c, d, e, f, g, h) =

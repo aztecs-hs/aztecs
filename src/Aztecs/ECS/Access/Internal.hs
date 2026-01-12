@@ -6,16 +6,14 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Aztecs.ECS.Access.Internal where
 
-import Aztecs.ECS.Class
-import Aztecs.ECS.Query
-import Aztecs.ECS.Query.Class
 import Aztecs.ECS.Query.Internal
 import Data.Kind
 import GHC.Generics
@@ -28,70 +26,68 @@ type family HasDuplicateWrites (components :: [Type]) :: Bool where
   HasDuplicateWrites '[] = 'False
   HasDuplicateWrites (c ': rest) = Or (Contains c rest) (HasDuplicateWrites rest)
 
-class (Functor m) => Access m a where
+-- | Access class for types that can be accessed within a scoped context.
+class (Functor m) => Access m s a where
   type AccessType a :: [Type]
   access :: m a
   default access ::
+    forall.
     ( Generic a,
-      GenericAccess m (Rep a),
+      GenericAccess m s (Rep a),
       ValidAccessInput (GenericAccessType (Rep a)),
       AccessType a ~ GenericAccessType (Rep a)
     ) =>
     m a
-  access = deriveAccess
+  access = deriveAccess @a @m @s
   {-# INLINE access #-}
 
-class GenericAccess m f where
+class GenericAccess m s f where
   type GenericAccessType f :: [Type]
   genericAccess :: (ValidAccessInput (GenericAccessType f)) => m (f p)
 
-instance (Applicative m) => GenericAccess m U1 where
+instance (Applicative m) => GenericAccess m s U1 where
   type GenericAccessType U1 = '[]
   genericAccess = pure U1
   {-# INLINE genericAccess #-}
 
-instance (Access m c) => GenericAccess m (K1 i c) where
+instance forall m s c i. (Access m s c) => GenericAccess m s (K1 i c) where
   type GenericAccessType (K1 i c) = AccessType c
-  genericAccess = K1 <$> access
+  genericAccess = K1 <$> access @m @s @c
   {-# INLINE genericAccess #-}
 
-instance (Functor m, GenericAccess m f) => GenericAccess m (M1 i c f) where
+instance forall m s f i c. (Functor m, GenericAccess m s f) => GenericAccess m s (M1 i c f) where
   type GenericAccessType (M1 i c f) = GenericAccessType f
-  genericAccess = M1 <$> genericAccess
+  genericAccess = M1 <$> genericAccess @m @s @f
   {-# INLINE genericAccess #-}
 
 instance
+  forall m s f g.
   ( Applicative m,
-    GenericAccess m f,
-    GenericAccess m g,
+    GenericAccess m s f,
+    GenericAccess m s g,
     ValidAccessInput (GenericAccessType f),
     ValidAccessInput (GenericAccessType g)
   ) =>
-  GenericAccess m (f :*: g)
+  GenericAccess m s (f :*: g)
   where
   type GenericAccessType (f :*: g) = GenericAccessType f ++ GenericAccessType g
-  genericAccess = (:*:) <$> genericAccess <*> genericAccess
+  genericAccess = (:*:) <$> genericAccess @m @s @f <*> genericAccess @m @s @g
   {-# INLINE genericAccess #-}
 
-instance (ECS m, Monad m, Queryable m a) => Access m (Query m a) where
-  type AccessType (Query m a) = QueryableAccess a
-  access = queryable
-  {-# INLINE access #-}
-
-instance (Applicative m) => Access m () where
+instance (Applicative m) => Access m s () where
   type AccessType () = '[]
   access = pure ()
   {-# INLINE access #-}
 
 deriveAccess ::
-  forall a m cs.
+  forall a m s.
   ( Functor m,
     Generic a,
-    GenericAccess m (Rep a),
+    GenericAccess m s (Rep a),
     ValidAccessInput (GenericAccessType (Rep a))
   ) =>
   m a
-deriveAccess = to <$> genericAccess
+deriveAccess = to <$> genericAccess @m @s @(Rep a)
 {-# INLINE deriveAccess #-}
 
 type family DeriveAccessType (rep :: Type -> Type) :: [Type] where
@@ -99,37 +95,37 @@ type family DeriveAccessType (rep :: Type -> Type) :: [Type] where
 
 instance
   ( Applicative m,
-    Access m a,
-    Access m b,
+    Access m s a,
+    Access m s b,
     ValidAccessInput (AccessType a),
     ValidAccessInput (AccessType b),
     ValidAccessInput (AccessType a ++ AccessType b)
   ) =>
-  Access m (a, b)
+  Access m s (a, b)
   where
   type AccessType (a, b) = AccessType a ++ AccessType b
 
 instance
   ( Applicative m,
-    Access m a,
-    Access m b,
-    Access m c,
+    Access m s a,
+    Access m s b,
+    Access m s c,
     ValidAccessInput (AccessType a),
     ValidAccessInput (AccessType b),
     ValidAccessInput (AccessType c),
     ValidAccessInput (AccessType b ++ AccessType c),
     ValidAccessInput (AccessType a ++ (AccessType b ++ AccessType c))
   ) =>
-  Access m (a, b, c)
+  Access m s (a, b, c)
   where
   type AccessType (a, b, c) = AccessType a ++ (AccessType b ++ AccessType c)
 
 instance
   ( Applicative m,
-    Access m a,
-    Access m b,
-    Access m c,
-    Access m d,
+    Access m s a,
+    Access m s b,
+    Access m s c,
+    Access m s d,
     ValidAccessInput (AccessType a),
     ValidAccessInput (AccessType b),
     ValidAccessInput (AccessType c),
@@ -141,7 +137,7 @@ instance
           ++ (AccessType c ++ AccessType d)
       )
   ) =>
-  Access m (a, b, c, d)
+  Access m s (a, b, c, d)
   where
   type
     AccessType (a, b, c, d) =
@@ -149,11 +145,11 @@ instance
 
 instance
   ( Applicative m,
-    Access m a,
-    Access m b,
-    Access m c,
-    Access m d,
-    Access m e,
+    Access m s a,
+    Access m s b,
+    Access m s c,
+    Access m s d,
+    Access m s e,
     ValidAccessInput (AccessType a),
     ValidAccessInput (AccessType b),
     ValidAccessInput (AccessType c),
@@ -167,7 +163,7 @@ instance
           ++ (AccessType c ++ (AccessType d ++ AccessType e))
       )
   ) =>
-  Access m (a, b, c, d, e)
+  Access m s (a, b, c, d, e)
   where
   type
     AccessType (a, b, c, d, e) =
@@ -177,12 +173,12 @@ instance
 
 instance
   ( Applicative m,
-    Access m a,
-    Access m b,
-    Access m c,
-    Access m d,
-    Access m e,
-    Access m f,
+    Access m s a,
+    Access m s b,
+    Access m s c,
+    Access m s d,
+    Access m s e,
+    Access m s f,
     ValidAccessInput (AccessType a),
     ValidAccessInput (AccessType b),
     ValidAccessInput (AccessType c),
@@ -198,7 +194,7 @@ instance
           ++ (AccessType d ++ (AccessType e ++ AccessType f))
       )
   ) =>
-  Access m (a, b, c, d, e, f)
+  Access m s (a, b, c, d, e, f)
   where
   type
     AccessType (a, b, c, d, e, f) =
@@ -208,13 +204,13 @@ instance
 
 instance
   ( Applicative m,
-    Access m a,
-    Access m b,
-    Access m c,
-    Access m d,
-    Access m e,
-    Access m f,
-    Access m g,
+    Access m s a,
+    Access m s b,
+    Access m s c,
+    Access m s d,
+    Access m s e,
+    Access m s f,
+    Access m s g,
     ValidAccessInput (AccessType a),
     ValidAccessInput (AccessType b),
     ValidAccessInput (AccessType c),
@@ -232,7 +228,7 @@ instance
           ++ ((AccessType d ++ AccessType e) ++ (AccessType f ++ AccessType g))
       )
   ) =>
-  Access m (a, b, c, d, e, f, g)
+  Access m s (a, b, c, d, e, f, g)
   where
   type
     AccessType (a, b, c, d, e, f, g) =
@@ -242,14 +238,14 @@ instance
 
 instance
   ( Applicative m,
-    Access m a,
-    Access m b,
-    Access m c,
-    Access m d,
-    Access m e,
-    Access m f,
-    Access m g,
-    Access m h,
+    Access m s a,
+    Access m s b,
+    Access m s c,
+    Access m s d,
+    Access m s e,
+    Access m s f,
+    Access m s g,
+    Access m s h,
     ValidAccessInput (AccessType a),
     ValidAccessInput (AccessType b),
     ValidAccessInput (AccessType c),
@@ -269,7 +265,7 @@ instance
           ++ ((AccessType e ++ AccessType f) ++ (AccessType g ++ AccessType h))
       )
   ) =>
-  Access m (a, b, c, d, e, f, g, h)
+  Access m s (a, b, c, d, e, f, g, h)
   where
   type
     AccessType (a, b, c, d, e, f, g, h) =

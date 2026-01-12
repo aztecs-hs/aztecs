@@ -43,7 +43,7 @@ instance (MonadIO m, Show (Entity m)) => Component m Velocity where
 data MoveSystem = MoveSystem
 
 instance (PrimMonad m, MonadIO m) => System m MoveSystem where
-  type SystemIn m MoveSystem = Query m (W m Position, R Velocity)
+  type SystemIn m s MoveSystem = (W s m Position, R s Velocity)
 
   runSystem _ q = mapQueryM_ go q
     where
@@ -60,5 +60,5 @@ main = do
   where
     go = do
       e <- spawn (bundle (Position 0) <> bundle (Velocity 5))
-      system MoveSystem
+      withSystemIn MoveSystem (runSystem MoveSystem)
       return e

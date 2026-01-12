@@ -26,7 +26,7 @@ class Scheduler m s where
 
   buildSchedule :: HSet (SchedulerInput m s) -> SchedulerOutput m s
 
-instance (Applicative m, ECS m) => Access m (HSet '[]) where
+instance (Applicative m, ECS m) => Access m s (HSet '[]) where
   type AccessType (HSet '[]) = '[]
   access = pure HEmpty
   {-# INLINE access #-}
