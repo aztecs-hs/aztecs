@@ -4,12 +4,42 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [0.15.0](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.14.0..aztecs-v0.15.0) - 2026-1-17
+
+## Breaking changes
+
+- revert to `v0.9.0`-style archetypes but with new `Vector` storages
+
+## [0.14.0](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.13.0..aztecs-v0.14.0) - 2025-8-10
+
+## Breaking changes
+
+- remove `f` wrapper from `HSet` by @matthunz in https://github.com/aztecs-hs/aztecs/pull/44
+- make `W` generic over storages by @matthunz in https://github.com/aztecs-hs/aztecs/pull/47
+- `HasDuplicateWrites` and refactor by @matthunz in https://github.com/aztecs-hs/aztecs/pull/48
+- `Component` `Hooks` by @matthunz in https://github.com/aztecs-hs/aztecs/pull/49
+- make `Component` hooks generic and restructure modules by @matthunz in https://github.com/aztecs-hs/aztecs/pull/50
+
+# Refactors
+
+- pass lints and fmt by @matthunz in https://github.com/aztecs-hs/aztecs/pull/51
+- remove unused `Components` type family from ECS by @matthunz in https://github.com/aztecs-hs/aztecs/pull/52
+
+## CI
+
+- fix caching by @matthunz in https://github.com/aztecs-hs/aztecs/pull/45
+
+## [0.13.0](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.12.1..aztecs-v0.13.0) - 2025-8-2
+
+## Breaking changes
+
+- rewrite with lower-level sparse sets by @matthunz in https://github.com/aztecs-hs/aztecs/pull/43
+
 ## [0.12.0](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.11.1..aztecs-v0.12.0) - 2025-3-14
 
 ## Breaking changes
 
 - Remove requirement on `NFData` (435a8b5)
-
   - https://www.reddit.com/r/haskell/comments/1j57k50/comment/mgx23ad
 
 - Convenience functions to run pure and applicative queries (such as `query` and `queryT`) (11b384b)
@@ -27,7 +57,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## Breaking changes
 
 - Replace classes with interpreter pattern (77ed001) (a3c6db6) (9d9c4ca)
-
   - Combine query filters into queries (f1c9c55)
   - Query accum methods (ac3c0d8)
   - Concurrent systems (edaeffd)

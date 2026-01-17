@@ -1,45 +1,32 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
-
 module Main where
 
-import Aztecs
-import qualified Aztecs.World as W
+import Aztecs.ECS
+import qualified Aztecs.ECS.Access as A
+import qualified Aztecs.ECS.Query as Q
+import qualified Aztecs.ECS.System as S
 import Control.Monad.IO.Class
+import Data.Function ((&))
 
-newtype Position = Position Int
-  deriving (Show, Eq)
+newtype Position = Position Int deriving (Show)
 
-instance (Monad m) => Component m Position where
-  type ComponentStorage m Position = SparseStorage m
+instance Component Position
 
-newtype Velocity = Velocity Int
-  deriving (Show, Eq)
+newtype Velocity = Velocity Int deriving (Show)
 
-instance (Monad m) => Component m Velocity where
-  type ComponentStorage m Velocity = SparseStorage m
+instance Component Velocity
 
-data MoveSystem = MoveSystem
+move :: QueryT IO Position
+move = Q.fetch & Q.adjust (\(Velocity v) (Position p) -> Position $ p + v)
 
-instance (PrimMonad m, MonadIO m) => System m MoveSystem where
-  type SystemIn m MoveSystem = Query m (W m Position, R Velocity)
+run :: AccessT IO ()
+run = do
+  positions <- S.map move
+  liftIO $ print positions
 
-  runSystem _ q = mapQueryM_ go q
-    where
-      go (posRef, R (Velocity v)) = do
-        modifyW posRef $ \(Position p) -> Position (p + v)
-
-        p <- readW posRef
-        liftIO $ putStrLn $ "Moved to: " ++ show p
+app :: AccessT IO ()
+app = do
+  A.spawn_ $ bundle (Position 0) <> bundle (Velocity 1)
+  run
 
 main :: IO ()
-main = do
-  world <- W.empty @_ @'[Position, Velocity]
-  runAztecsT_ go world
-  where
-    go = do
-      _ <- spawn (bundle (Position 0) <> bundle (Velocity 1))
-      system MoveSystem
+main = runAccessT_ app

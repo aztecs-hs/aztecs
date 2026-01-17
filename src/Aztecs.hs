@@ -1,26 +1,7 @@
-module Aztecs
-  ( module Aztecs.ECS.Component,
-    module Aztecs.ECS,
-    module Aztecs.Internal,
-    module Aztecs.ECS.R,
-    module Aztecs.ECS.W,
-    module Aztecs.Storage,
-    module Aztecs.ECS.HSet,
-    module Aztecs.ECS.Query.Class,
-    module Aztecs.ECS.Schedule,
-    module Aztecs.ECS.Scheduler,
-    module Aztecs.World,
-  )
-where
+-- | Aztecs is a type-safe and friendly ECS for games and more.
+--
+-- An ECS is a modern approach to organizing your application state as a database,
+-- providing patterns for data-oriented design and parallel processing.
+module Aztecs (module Aztecs.ECS) where
 
 import Aztecs.ECS
-import Aztecs.ECS.Component
-import Aztecs.ECS.HSet
-import Aztecs.ECS.Query.Class
-import Aztecs.ECS.R
-import Aztecs.ECS.Schedule
-import Aztecs.ECS.Scheduler
-import Aztecs.ECS.W
-import Aztecs.Internal
-import Aztecs.Storage
-import Aztecs.World (SparseStorage)
