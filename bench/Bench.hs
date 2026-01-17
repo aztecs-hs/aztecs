@@ -1,47 +1,34 @@
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
 
-import Aztecs
-import qualified Aztecs.World as W
+import Aztecs.ECS
+import qualified Aztecs.ECS.Query as Q
+import Aztecs.ECS.World
+import qualified Aztecs.ECS.World as W
 import Control.DeepSeq
-import Control.Monad.IO.Class
 import Criterion.Main
-import GHC.Generics (Generic)
+import Data.Function
+import Data.Functor.Identity
+import Data.Vector (Vector)
+import GHC.Generics
 
-newtype Position = Position Int deriving (Generic, NFData, Show)
+newtype Position = Position Int deriving (Show, Generic, NFData)
 
-instance (Monad m) => Component m Position where
-  type ComponentStorage m Position = SparseStorage m
+instance Component Position
 
-newtype Velocity = Velocity Int deriving (Generic, NFData, Show)
+newtype Velocity = Velocity Int deriving (Show, Generic, NFData)
 
-instance (Monad m) => Component m Velocity where
-  type ComponentStorage m Velocity = SparseStorage m
+instance Component Velocity
 
-data MoveSystem = MoveSystem
+query :: Query Position
+query = Q.fetch & Q.adjust (\(Velocity v) (Position p) -> Position $ p + v)
 
-instance (PrimMonad m, MonadIO m) => System m MoveSystem where
-  type SystemIn m MoveSystem = Query m (W m Position, R Velocity)
-  runSystem _ q = mapQueryM_ go q
-    where
-      go (posRef, R (Velocity v)) =
-        modifyW posRef $ \(Position p) -> Position (p + v)
-
-setup :: IO (W.World IO '[Position, Velocity])
-setup = do
-  w <- W.empty @_ @'[Position, Velocity]
-  snd <$> runAztecsT (mapM setupEntity [0 :: Int .. 10000]) w
-  where
-    setupEntity _ = spawn (bundle (Position 0) <> bundle (Velocity 1))
+run :: Query Position -> World -> Vector Position
+run q = fst . runIdentity . Q.map q . entities
 
 main :: IO ()
 main = do
-  !w <- setup
-  defaultMain [bench "iter" . whnfIO $ runAztecsT_ (system MoveSystem) w]
+  let go wAcc = snd $ W.spawn (bundle (Position 0) <> bundle (Velocity 1)) wAcc
+      !w = foldr (const go) W.empty [0 :: Int .. 10000]
+  defaultMain [bench "iter" $ nf (run query) w]

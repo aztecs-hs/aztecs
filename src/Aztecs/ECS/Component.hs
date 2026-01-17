@@ -1,37 +1,41 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 
+-- |
+-- Module      : Aztecs.ECS.Component
+-- Copyright   : (c) Matt Hunzinger, 2025
+-- License     : BSD-style (see the LICENSE file in the distribution)
+--
+-- Maintainer  : matt@hunzinger.me
+-- Stability   : provisional
+-- Portability : non-portable (GHC extensions)
 module Aztecs.ECS.Component where
 
-import Aztecs.ECS.Class
-import Data.Kind
+import Aztecs.ECS.World.Storage
+import Data.Typeable
+import Data.Vector (Vector)
+import GHC.Generics
 
--- | Component lifecycle hooks.
-data Hooks m = Hooks
-  { -- | Hook called when a component is inserted.
-    onInsert :: Entity m -> m (),
-    -- | Hook called when a component is removed.
-    onRemove :: Entity m -> m ()
+-- | Unique component identifier.
+--
+-- @since 0.9
+newtype ComponentID = ComponentID
+  { -- | Unique integer identifier.
+    --
+    -- @since 0.9
+    unComponentId :: Int
   }
+  deriving (Eq, Ord, Show, Generic)
 
-instance (Monad m) => Semigroup (Hooks m) where
-  h1 <> h2 =
-    Hooks
-      { onInsert = \e -> onInsert h1 e >> onInsert h2 e,
-        onRemove = \e -> onRemove h1 e >> onRemove h2 e
-      }
+-- | Component that can be stored in the `World`.
+--
+-- @since 0.9
+class (Typeable a, Storage a (StorageT a)) => Component a where
+  -- | `Storage` of this component.
+  --
+  -- @since 0.9
+  type StorageT a
 
-instance (Monad m) => Monoid (Hooks m) where
-  mempty =
-    Hooks
-      { onInsert = \_ -> return (),
-        onRemove = \_ -> return ()
-      }
-
-class (Monad m) => Component m a where
-  type ComponentStorage (m :: Type -> Type) a :: Type -> Type
-
-  -- | Component lifecycle `Hooks`.
-  componentHooks :: proxy a -> Hooks m
-  componentHooks _ = mempty
+  type StorageT a = Vector a
