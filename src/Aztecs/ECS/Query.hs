@@ -38,9 +38,7 @@ module Aztecs.ECS.Query
   ( -- * Queries
     Query,
     QueryT (..),
-    QueryReaderF (..),
     QueryF (..),
-    DynamicQueryReaderF (..),
     DynamicQueryF (..),
 
     -- ** Running
@@ -77,7 +75,6 @@ where
 import Aztecs.ECS.Component
 import Aztecs.ECS.Query.Class
 import Aztecs.ECS.Query.Dynamic
-import Aztecs.ECS.Query.Reader.Class
 import Aztecs.ECS.World.Components (Components)
 import qualified Aztecs.ECS.World.Components as CS
 import Aztecs.ECS.World.Entities (Entities (..))
@@ -89,7 +86,6 @@ import Data.Vector (Vector)
 import GHC.Stack
 import Prelude hiding (all, id, map, mapM, reads)
 
--- | @since 0.10
 type Query = QueryT Identity
 
 -- | Query for matching entities.
@@ -101,7 +97,6 @@ newtype QueryT m a = Query
   }
   deriving (Functor)
 
--- | @since 0.10
 instance (Monad m) => Applicative (QueryT m) where
   pure a = Query (mempty,,pure a)
   {-# INLINE pure #-}
@@ -112,20 +107,7 @@ instance (Monad m) => Applicative (QueryT m) where
      in (cIdsG <> cIdsF, cs'', bQS <*> aQS)
   {-# INLINE (<*>) #-}
 
--- | @since 0.10
-instance (Monad m) => QueryReaderF (QueryT m) where
-  fetch :: forall a. (Component a) => QueryT m a
-  fetch = Query $ \cs ->
-    let !(cId, cs') = CS.insert @a cs in (ReadsWrites {reads = Set.singleton cId, writes = Set.empty}, cs', fetchDyn cId)
-  {-# INLINE fetch #-}
-
-  fetchMaybe :: forall a. (Component a) => QueryT m (Maybe a)
-  fetchMaybe = Query $ \cs ->
-    let !(cId, cs') = CS.insert @a cs in (ReadsWrites {reads = Set.singleton cId, writes = Set.empty}, cs', fetchMaybeDyn cId)
-  {-# INLINE fetchMaybe #-}
-
--- | @since 0.10
-instance (Monad m) => DynamicQueryReaderF (QueryT m) where
+instance (Monad m) => DynamicQueryF m (QueryT m) where
   entity = Query (mempty,,entity)
   {-# INLINE entity #-}
 
@@ -135,8 +117,6 @@ instance (Monad m) => DynamicQueryReaderF (QueryT m) where
   fetchMaybeDyn cId = Query (ReadsWrites {reads = Set.singleton cId, writes = Set.empty},,fetchMaybeDyn cId)
   {-# INLINE fetchMaybeDyn #-}
 
--- | @since 0.10
-instance (Monad m) => DynamicQueryF m (QueryT m) where
   adjustDyn f cId q = Query $ \cs ->
     let !(rws, cs', dynQ) = runQuery q cs
      in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', adjustDyn f cId dynQ)
@@ -157,8 +137,17 @@ instance (Monad m) => DynamicQueryF m (QueryT m) where
      in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', setDyn cId dynQ)
   {-# INLINE setDyn #-}
 
--- | @since 0.9
 instance (Monad m) => QueryF m (QueryT m) where
+  fetch :: forall a. (Component a) => QueryT m a
+  fetch = Query $ \cs ->
+    let !(cId, cs') = CS.insert @a cs in (ReadsWrites {reads = Set.singleton cId, writes = Set.empty}, cs', fetchDyn cId)
+  {-# INLINE fetch #-}
+
+  fetchMaybe :: forall a. (Component a) => QueryT m (Maybe a)
+  fetchMaybe = Query $ \cs ->
+    let !(cId, cs') = CS.insert @a cs in (ReadsWrites {reads = Set.singleton cId, writes = Set.empty}, cs', fetchMaybeDyn cId)
+  {-# INLINE fetchMaybe #-}
+
   adjust :: forall a b. (Component a) => (b -> a -> a) -> QueryT m b -> QueryT m a
   adjust f q = Query $ \cs ->
     let !(cId, cs') = CS.insert @a cs
@@ -202,11 +191,9 @@ data ReadsWrites = ReadsWrites
   }
   deriving (Show)
 
--- | @since 0.9
 instance Semigroup ReadsWrites where
   ReadsWrites r1 w1 <> ReadsWrites r2 w2 = ReadsWrites (r1 <> r2) (w1 <> w2)
 
--- | @since 0.9
 instance Monoid ReadsWrites where
   mempty = ReadsWrites mempty mempty
 
@@ -359,7 +346,6 @@ newtype QueryFilter = QueryFilter
     runQueryFilter :: Components -> (DynamicQueryFilter, Components)
   }
 
--- | @since 0.9
 instance Semigroup QueryFilter where
   a <> b =
     QueryFilter
@@ -369,7 +355,6 @@ instance Semigroup QueryFilter where
            in (withA' <> withB', cs'')
       )
 
--- | @since 0.9
 instance Monoid QueryFilter where
   mempty = QueryFilter (mempty,)
 

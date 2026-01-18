@@ -17,7 +17,6 @@ module Aztecs.ECS.Query.Dynamic
   ( -- * Dynamic queries
     DynamicQuery,
     DynamicQueryT (..),
-    DynamicQueryReaderF (..),
     DynamicQueryF (..),
 
     -- ** Running
@@ -39,7 +38,6 @@ where
 
 import Aztecs.ECS.Component
 import Aztecs.ECS.Query.Dynamic.Class
-import Aztecs.ECS.Query.Dynamic.Reader.Class
 import Aztecs.ECS.World.Archetype (Archetype)
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
@@ -66,7 +64,6 @@ newtype DynamicQueryT f a
   }
   deriving (Functor)
 
--- | @since 0.10
 instance (Applicative f) => Applicative (DynamicQueryT f) where
   pure a = DynamicQuery $ \arch -> pure (V.replicate (length $ A.entities arch) a, arch)
   {-# INLINE pure #-}
@@ -80,8 +77,7 @@ instance (Applicative f) => Applicative (DynamicQueryT f) where
        in (V.zipWith ($) bs as, arch' <> arch'')
   {-# INLINE (<*>) #-}
 
--- | @since 0.10
-instance (Applicative f) => DynamicQueryReaderF (DynamicQueryT f) where
+instance (Monad f) => DynamicQueryF f (DynamicQueryT f) where
   entity = DynamicQuery $ \arch -> pure (V.fromList . Set.toList $ A.entities arch, arch)
   {-# INLINE entity #-}
 
@@ -93,8 +89,6 @@ instance (Applicative f) => DynamicQueryReaderF (DynamicQueryT f) where
     Nothing -> pure (V.replicate (length $ A.entities arch) Nothing, arch)
   {-# INLINE fetchMaybeDyn #-}
 
--- | @since 0.10
-instance (Monad f) => DynamicQueryF f (DynamicQueryT f) where
   adjustDyn f cId q =
     DynamicQuery (fmap (\(bs, arch') -> A.zipWith bs f cId arch') . runDynQueryT q)
   {-# INLINE adjustDyn #-}
@@ -239,11 +233,9 @@ data DynamicQueryFilter = DynamicQueryFilter
     filterWithout :: !(Set ComponentID)
   }
 
--- | @since 0.9
 instance Semigroup DynamicQueryFilter where
   DynamicQueryFilter withA withoutA <> DynamicQueryFilter withB withoutB =
     DynamicQueryFilter (withA <> withB) (withoutA <> withoutB)
 
--- | @since 0.9
 instance Monoid DynamicQueryFilter where
   mempty = DynamicQueryFilter mempty mempty

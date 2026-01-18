@@ -54,17 +54,17 @@ describe "Aztecs.ECS.Hierarchy.update" $ do
 
 prop_queryEmpty :: Expectation
 prop_queryEmpty =
-  let res = fst $ Q.all (Q.fetch @_ @X) $ W.entities W.empty in V.toList res `shouldMatchList` []
+  let res = fst $ Q.all (Q.fetch @_ @_ @X) $ W.entities W.empty in V.toList res `shouldMatchList` []
 
 -- | Query all components from a list of `ComponentID`s.
 queryComponentIds ::
-  forall q a.
-  (Applicative q, DynamicQueryReaderF q, Component a) =>
+  forall m q a.
+  (Applicative q, DynamicQueryF m q, Component a) =>
   [ComponentID] ->
   q (EntityID, [a])
 queryComponentIds =
   let go cId qAcc = do
-        x' <- Q.fetchDyn @_ @a cId
+        x' <- Q.fetchDyn @_ @_ @a cId
         (e, xs) <- qAcc
         return (e, x' : xs)
    in foldr go ((,) <$> Q.entity <*> pure [])

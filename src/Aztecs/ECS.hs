@@ -63,9 +63,7 @@ module Aztecs.ECS
     EntityID,
     Query,
     QueryT,
-    QueryReaderF,
     QueryF,
-    DynamicQueryReaderF,
     DynamicQueryF,
     QueryFilter,
     with,
@@ -83,11 +81,9 @@ import Aztecs.ECS.Component (Component (..))
 import Aztecs.ECS.Entity (EntityID)
 import Aztecs.ECS.Query
   ( DynamicQueryF,
-    DynamicQueryReaderF,
     Query,
     QueryF,
     QueryFilter,
-    QueryReaderF,
     QueryT,
     with,
     without,

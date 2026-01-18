@@ -57,7 +57,6 @@ class (Typeable s, Typeable a) => Storage a s where
   zipWith_ :: (i -> a -> a) -> Vector i -> s -> s
   zipWith_ f is as = snd $ zipWith f is as
 
--- | @since 0.9
 instance (Typeable a) => Storage a (Vector a) where
   singleton a = V.singleton a
   {-# INLINE singleton #-}

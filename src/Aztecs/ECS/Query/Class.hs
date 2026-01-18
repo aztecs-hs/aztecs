@@ -17,23 +17,22 @@ import Control.Monad
 
 -- | Query functor.
 class (Applicative g, Functor f) => QueryF g f | f -> g where
+  -- | Fetch a `Component` by its type.
+  fetch :: (Component a) => f a
+
+  -- | Fetch a `Component` by its type, returning `Nothing` if it doesn't exist.
+  fetchMaybe :: (Component a) => f (Maybe a)
+  fetchMaybe = Just <$> fetch
+
   -- | Adjust a `Component` by its type.
-  --
-  -- @since 0.10
   adjust :: (Component a) => (b -> a -> a) -> f b -> f a
 
   -- | Adjust a `Component` by its type, ignoring any output.
-  --
-  -- @since 0.10
   adjust_ :: (Component a) => (b -> a -> a) -> f b -> f ()
   adjust_ f = void . adjust f
 
   -- | Adjust a `Component` by its type with some `Monad` @m@.
-  --
-  -- @since 0.10
   adjustM :: (Component a) => (b -> a -> g a) -> f b -> f a
 
   -- | Set a `Component` by its type.
-  --
-  -- @since 0.10
   set :: (Component a) => f a -> f a

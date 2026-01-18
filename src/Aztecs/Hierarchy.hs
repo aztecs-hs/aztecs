@@ -57,7 +57,6 @@ newtype Parent = Parent
   }
   deriving (Eq, Ord, Show, Generic)
 
--- | @since 0.9
 instance Component Parent
 
 -- | Parent internal state component.
@@ -66,7 +65,6 @@ instance Component Parent
 newtype ParentState = ParentState {unParentState :: EntityID}
   deriving (Show, Generic)
 
--- | @since 0.9
 instance Component ParentState
 
 -- | Children component.
@@ -75,14 +73,12 @@ instance Component ParentState
 newtype Children = Children {unChildren :: Set EntityID}
   deriving (Eq, Ord, Show, Semigroup, Monoid, Generic)
 
--- | @since 0.9
 instance Component Children
 
 -- | Child internal state component.
 newtype ChildState = ChildState {unChildState :: Set EntityID}
   deriving (Show, Generic)
 
--- | @since 0.9
 instance Component ChildState
 
 -- | Update the parent-child relationships.
@@ -90,8 +86,8 @@ instance Component ChildState
 -- @since 0.9
 update ::
   ( Applicative qr,
-    QueryReaderF qr,
-    DynamicQueryReaderF qr,
+    QueryF m qr,
+    DynamicQueryF m qr,
     MonadReaderSystem qr s,
     MonadAccess b m
   ) =>
@@ -100,13 +96,13 @@ update = do
   parents <- S.all $ do
     entity <- Q.entity
     parent <- Q.fetch
-    maybeParentState <- Q.fetchMaybe @_ @ParentState
+    maybeParentState <- Q.fetchMaybe @_ @_ @ParentState
     return (entity, unParent parent, maybeParentState)
 
   children <- S.all $ do
     entity <- Q.entity
     cs <- Q.fetch
-    maybeChildState <- Q.fetchMaybe @_ @ChildState
+    maybeChildState <- Q.fetchMaybe @_ @_ @ChildState
     return (entity, unChildren cs, maybeChildState)
 
   let go = do
@@ -166,11 +162,9 @@ data Hierarchy a = Node
   }
   deriving (Functor)
 
--- | @since 0.9
 instance Foldable Hierarchy where
   foldMap f n = f (nodeEntity n) <> foldMap (foldMap f) (nodeChildren n)
 
--- | @since 0.9
 instance Traversable Hierarchy where
   traverse f n =
     Node (nodeEntityId n) <$> f (nodeEntity n) <*> traverse (traverse f) (nodeChildren n)
@@ -205,7 +199,7 @@ mapWithAccum f b n = case f (nodeEntityId n) (nodeEntity n) b of
 --
 -- @since 0.9
 hierarchy ::
-  (Applicative q, QueryReaderF q, DynamicQueryReaderF q, MonadReaderSystem q s) =>
+  (Applicative q, QueryF m q, DynamicQueryF m q, MonadReaderSystem q s) =>
   EntityID ->
   q a ->
   s (Maybe (Hierarchy a))
@@ -223,7 +217,7 @@ hierarchy e q = do
 --
 -- @since 0.9
 hierarchies ::
-  (Applicative q, QueryReaderF q, DynamicQueryReaderF q, MonadReaderSystem q s) =>
+  (Applicative q, QueryF m q, DynamicQueryF m q, MonadReaderSystem q s) =>
   q a ->
   s (Vector (Hierarchy a))
 hierarchies q = do

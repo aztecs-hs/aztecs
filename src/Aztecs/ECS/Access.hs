@@ -42,7 +42,6 @@ import Control.Monad.Reader
 import Control.Monad.State.Strict
 import qualified Data.Foldable as F
 
--- | @since 0.9
 type Access = AccessT Identity
 
 -- | Access into the `World`.
@@ -51,7 +50,6 @@ type Access = AccessT Identity
 newtype AccessT m a = AccessT {unAccessT :: StateT World m a}
   deriving (Functor, Applicative, MonadFix, MonadIO)
 
--- | @since 0.9
 instance (Monad m) => Monad (AccessT m) where
   a >>= f = AccessT $ do
     !w <- get
@@ -71,7 +69,6 @@ runAccessT a = runStateT $ unAccessT a
 runAccessT_ :: (Functor m) => AccessT m a -> m a
 runAccessT_ a = fmap fst . runAccessT a $ W.empty
 
--- | @since 0.9
 instance (Monad m) => MonadAccess Bundle (AccessT m) where
   spawn b = AccessT $ do
     !w <- get
@@ -95,7 +92,6 @@ instance (Monad m) => MonadAccess Bundle (AccessT m) where
     let !(_, w') = W.despawn e w
     put w'
 
--- | @since 0.9
 instance (Monad m) => MonadReaderSystem (QueryT m) (AccessT m) where
   all q = AccessT $ do
     w <- get
@@ -112,7 +108,6 @@ instance (Monad m) => MonadReaderSystem (QueryT m) (AccessT m) where
             && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
     unAccessT $ filterDyn (Q.reads rws <> Q.writes rws) dynQ f'
 
--- | @since 0.9
 instance (Monad m) => MonadSystem (QueryT m) (AccessT m) where
   map q = AccessT $ do
     !w <- get
@@ -134,7 +129,6 @@ instance (Monad m) => MonadSystem (QueryT m) (AccessT m) where
             && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
     unAccessT $ filterMapDyn (Q.reads rws <> Q.writes rws) f' dynQ
 
--- | @since 0.9
 instance (Monad m) => MonadDynamicReaderSystem (DynamicQueryT m) (AccessT m) where
   allDyn cIds q = AccessT $ do
     !w <- get
@@ -143,7 +137,6 @@ instance (Monad m) => MonadDynamicReaderSystem (DynamicQueryT m) (AccessT m) whe
     !w <- get
     lift . Q.filterDyn cIds f q $ entities w
 
--- | @since 0.9
 instance (Monad m) => MonadDynamicSystem (DynamicQueryT m) (AccessT m) where
   mapDyn cIds q = AccessT $ do
     !w <- get

@@ -43,24 +43,20 @@ newtype Bundle = Bundle
     unBundle :: Components -> (Set ComponentID, Components, DynamicBundle)
   }
 
--- | @since 0.9
 instance Monoid Bundle where
   mempty = Bundle (Set.empty,,mempty)
 
--- | @since 0.9
 instance Semigroup Bundle where
   Bundle b1 <> Bundle b2 = Bundle $ \cs ->
     let (cIds1, cs', d1) = b1 cs
         (cIds2, cs'', d2) = b2 cs'
      in (cIds1 <> cIds2, cs'', d1 <> d2)
 
--- | @since 0.9
 instance MonoidBundle Bundle where
   bundle :: forall a. (Component a) => a -> Bundle
   bundle a = Bundle $ \cs ->
     let (cId, cs') = CS.insert @a cs in (Set.singleton cId, cs', dynBundle cId a)
 
--- | @since 0.9
 instance MonoidDynamicBundle Bundle where
   dynBundle cId c = Bundle (Set.singleton cId,,dynBundle cId c)
 

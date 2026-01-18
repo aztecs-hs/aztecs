@@ -53,7 +53,6 @@ data DynamicStorage = DynamicStorage
     fromAscVectorDyn' :: !(Vector Dynamic -> Dynamic)
   }
 
--- | @since 0.9
 instance Show DynamicStorage where
   show s = "DynamicStorage " ++ show (storageDyn s)
 
