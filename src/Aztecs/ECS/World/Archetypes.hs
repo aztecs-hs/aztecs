@@ -54,8 +54,6 @@ import GHC.Generics
 import Prelude hiding (all, lookup, map)
 
 -- | `Archetype` ID.
---
--- @since 0.9
 newtype ArchetypeID = ArchetypeID
   { -- | Unique integer identifier.
     --
@@ -65,8 +63,6 @@ newtype ArchetypeID = ArchetypeID
   deriving newtype (Eq, Ord, Show)
 
 -- | Node in `Archetypes`.
---
--- @since 0.9
 data Node = Node
   { -- | Unique set of `ComponentID`s of this `Node`.
     --
@@ -101,8 +97,6 @@ data Archetypes = Archetypes
   deriving (Show, Generic)
 
 -- | Empty `Archetypes`.
---
--- @since 0.9
 empty :: Archetypes
 empty =
   Archetypes
@@ -113,8 +107,6 @@ empty =
     }
 
 -- | Insert an archetype by its set of `ComponentID`s.
---
--- @since 0.9
 insertArchetype :: Set ComponentID -> Node -> Archetypes -> (ArchetypeID, Archetypes)
 insertArchetype cIds n arches =
   let aId = nextArchetypeId arches
@@ -128,29 +120,21 @@ insertArchetype cIds n arches =
       )
 
 -- | Adjust an `Archetype` by its `ArchetypeID`.
---
--- @since 0.9
 adjustArchetype :: ArchetypeID -> (Archetype -> Archetype) -> Archetypes -> Archetypes
 adjustArchetype aId f arches =
   arches {nodes = Map.adjust (\node -> node {nodeArchetype = f (nodeArchetype node)}) aId (nodes arches)}
 
 -- | Find `ArchetypeID`s containing a set of `ComponentID`s.
---
--- @since 0.9
 findArchetypeIds :: Set ComponentID -> Archetypes -> Set ArchetypeID
 findArchetypeIds cIds arches = case mapMaybe (\cId -> Map.lookup cId (componentIds arches)) (Set.elems cIds) of
   (aId : aIds') -> foldl' Set.intersection aId aIds'
   [] -> Set.empty
 
 -- | Lookup `Archetype`s containing a set of `ComponentID`s.
---
--- @since 0.9
 find :: Set ComponentID -> Archetypes -> Map ArchetypeID Node
 find cIds arches = Map.fromSet (\aId -> nodes arches Map.! aId) (findArchetypeIds cIds arches)
 
 -- | Map over `Archetype`s containing a set of `ComponentID`s.
---
--- @since 0.9
 map :: Set ComponentID -> (Archetype -> (a, Archetype)) -> Archetypes -> ([a], Archetypes)
 map cIds f arches =
   let go (acc, archAcc) aId =
@@ -161,20 +145,14 @@ map cIds f arches =
    in foldl' go ([], arches) $ findArchetypeIds cIds arches
 
 -- | Lookup an `ArchetypeID` by its set of `ComponentID`s.
---
--- @since 0.9
 lookupArchetypeId :: Set ComponentID -> Archetypes -> Maybe ArchetypeID
 lookupArchetypeId cIds arches = Map.lookup cIds (archetypeIds arches)
 
 -- | Lookup an `Archetype` by its `ArchetypeID`.
---
--- @since 0.9
 lookup :: ArchetypeID -> Archetypes -> Maybe Node
 lookup aId arches = Map.lookup aId (nodes arches)
 
 -- | Insert a component into an entity with its `ComponentID`.
---
--- @since 0.9
 insert ::
   EntityID ->
   ArchetypeID ->
@@ -211,8 +189,6 @@ insert e aId cIds b arches = case lookup aId arches of
   Nothing -> (Nothing, arches)
 
 -- | Remove a component from an entity with its `ComponentID`.
---
--- @since 0.9
 remove ::
   (Component a) =>
   EntityID ->

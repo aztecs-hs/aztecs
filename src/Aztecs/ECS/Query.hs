@@ -177,8 +177,6 @@ instance (Monad m) => QueryF m (QueryT m) where
   {-# INLINE set #-}
 
 -- | Reads and writes of a `Query`.
---
--- @since 0.9
 data ReadsWrites = ReadsWrites
   { -- | Component IDs being read.
     --
@@ -198,8 +196,6 @@ instance Monoid ReadsWrites where
   mempty = ReadsWrites mempty mempty
 
 -- | `True` if the reads and writes of two `Query`s overlap.
---
--- @since 0.9
 disjoint :: ReadsWrites -> ReadsWrites -> Bool
 disjoint a b =
   Set.disjoint (reads a) (writes b)
@@ -285,15 +281,11 @@ singleMaybeM' q es = do
 {-# INLINE singleMaybeM' #-}
 
 -- | Map all matched entities.
---
--- @since 0.9
 map :: Query o -> Entities -> (Vector o, Entities)
 map q = runIdentity . mapM q
 {-# INLINE map #-}
 
 -- | Map all matched entities.
---
--- @since 0.9
 mapM :: (Monad m) => QueryT m o -> Entities -> m (Vector o, Entities)
 mapM q es = do
   let !(rws, cs', dynQ) = runQuery q $ components es
@@ -303,15 +295,11 @@ mapM q es = do
 {-# INLINE mapM #-}
 
 -- | Map a single matched entity.
---
--- @since 0.9
 mapSingle :: (HasCallStack) => Query a -> Entities -> (a, Entities)
 mapSingle q = runIdentity . mapSingleM q
 {-# INLINE mapSingle #-}
 
 -- | Map a single matched entity.
---
--- @since 0.9
 mapSingleM :: (HasCallStack, Monad m) => QueryT m a -> Entities -> m (a, Entities)
 mapSingleM q es = do
   let !(rws, cs', dynQ) = runQuery q $ components es
@@ -321,15 +309,11 @@ mapSingleM q es = do
 {-# INLINE mapSingleM #-}
 
 -- | Map a single matched entity, or `Nothing`.
---
--- @since 0.9
 mapSingleMaybe :: Query a -> Entities -> (Maybe a, Entities)
 mapSingleMaybe q = runIdentity . mapSingleMaybeM q
 {-# INLINE mapSingleMaybe #-}
 
 -- | Map a single matched entity, or `Nothing`.
---
--- @since 0.9
 mapSingleMaybeM :: (Monad m) => QueryT m a -> Entities -> m (Maybe a, Entities)
 mapSingleMaybeM q es = do
   let !(rws, cs', dynQ) = runQuery q $ components es
@@ -339,8 +323,6 @@ mapSingleMaybeM q es = do
 {-# INLINE mapSingleMaybeM #-}
 
 -- | Filter for a `Query`.
---
--- @since 0.9
 newtype QueryFilter = QueryFilter
   { -- | Run a query filter.
     runQueryFilter :: Components -> (DynamicQueryFilter, Components)
@@ -359,15 +341,11 @@ instance Monoid QueryFilter where
   mempty = QueryFilter (mempty,)
 
 -- | Filter for entities containing this component.
---
--- @since 0.9
 with :: forall a. (Component a) => QueryFilter
 with = QueryFilter $ \cs ->
   let !(cId, cs') = CS.insert @a cs in (mempty {filterWith = Set.singleton cId}, cs')
 
 -- | Filter out entities containing this component.
---
--- @since 0.9
 without :: forall a. (Component a) => QueryFilter
 without = QueryFilter $ \cs ->
   let !(cId, cs') = CS.insert @a cs in (mempty {filterWithout = Set.singleton cId}, cs')

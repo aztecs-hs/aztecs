@@ -47,8 +47,6 @@ import qualified Data.Vector as V
 import GHC.Generics
 
 -- | Parent component.
---
--- @since 0.9
 newtype Parent = Parent
   { -- | Parent entity ID.
     --
@@ -60,16 +58,12 @@ newtype Parent = Parent
 instance Component Parent
 
 -- | Parent internal state component.
---
--- @since 0.9
 newtype ParentState = ParentState {unParentState :: EntityID}
   deriving (Show, Generic)
 
 instance Component ParentState
 
 -- | Children component.
---
--- @since 0.9
 newtype Children = Children {unChildren :: Set EntityID}
   deriving (Eq, Ord, Show, Semigroup, Monoid, Generic)
 
@@ -82,8 +76,6 @@ newtype ChildState = ChildState {unChildState :: Set EntityID}
 instance Component ChildState
 
 -- | Update the parent-child relationships.
---
--- @since 0.9
 update ::
   ( Applicative qr,
     QueryF m qr,
@@ -146,8 +138,6 @@ update = do
   return go
 
 -- | Hierarchy of entities.
---
--- @since 0.9
 data Hierarchy a = Node
   { -- | Entity ID.
     --
@@ -170,34 +160,24 @@ instance Traversable Hierarchy where
     Node (nodeEntityId n) <$> f (nodeEntity n) <*> traverse (traverse f) (nodeChildren n)
 
 -- | Convert a hierarchy to a vector of entity IDs and components.
---
--- @since 0.9
 toList :: Hierarchy a -> Vector (EntityID, a)
 toList n = V.singleton (nodeEntityId n, nodeEntity n) <> V.concatMap toList (V.fromList $ nodeChildren n)
 
 -- | Fold a hierarchy with a function that takes the entity ID, entity, and accumulator.
---
--- @since 0.9
 foldWithKey :: (EntityID -> a -> b -> b) -> Hierarchy a -> b -> b
 foldWithKey f n b = f (nodeEntityId n) (nodeEntity n) (foldr (foldWithKey f) b (nodeChildren n))
 
 -- | Map a hierarchy with a function that takes the entity ID and entity.
---
--- @since 0.9
 mapWithKey :: (EntityID -> a -> b) -> Hierarchy a -> Hierarchy b
 mapWithKey f n =
   Node (nodeEntityId n) (f (nodeEntityId n) (nodeEntity n)) (map (mapWithKey f) (nodeChildren n))
 
 -- | Map a hierarchy with a function that takes the entity ID, entity, and accumulator.
---
--- @since 0.9
 mapWithAccum :: (EntityID -> a -> b -> (c, b)) -> b -> Hierarchy a -> Hierarchy c
 mapWithAccum f b n = case f (nodeEntityId n) (nodeEntity n) b of
   (c, b') -> Node (nodeEntityId n) c (map (mapWithAccum f b') (nodeChildren n))
 
 -- | System to read a hierarchy of parents to children with the given query.
---
--- @since 0.9
 hierarchy ::
   (Applicative q, QueryF m q, DynamicQueryF m q, MonadReaderSystem q s) =>
   EntityID ->
@@ -214,8 +194,6 @@ hierarchy e q = do
   return $ hierarchy' e childMap
 
 -- | Build all hierarchies of parents to children, joined with the given query.
---
--- @since 0.9
 hierarchies ::
   (Applicative q, QueryF m q, DynamicQueryF m q, MonadReaderSystem q s) =>
   q a ->
@@ -235,8 +213,6 @@ hierarchies q = do
   return $ V.mapMaybe (`hierarchy'` childMap) roots
 
 -- | Build a hierarchy of parents to children.
---
--- @since 0.9
 hierarchy' :: EntityID -> Map EntityID (Set EntityID, a) -> Maybe (Hierarchy a)
 hierarchy' e childMap = case Map.lookup e childMap of
   Just (cs, a) ->

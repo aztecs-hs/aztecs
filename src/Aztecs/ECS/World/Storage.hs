@@ -17,8 +17,6 @@ import qualified Data.Vector as V
 import Prelude hiding (map, zipWith)
 
 -- | Component storage, containing zero or many components of the same type.
---
--- @since 0.9
 class (Typeable s, Typeable a) => Storage a s where
   -- | Storage with a single component.
   --

@@ -16,8 +16,7 @@ import Control.Monad
 
 -- | Dynamic query functor.
 class (Monad m, Functor f) => DynamicQueryF m f | f -> m where
-  -- \| Fetch the currently matched `EntityID`.
-
+  -- | Fetch the currently matched `EntityID`.
   entity :: f EntityID
 
   -- | Fetch a `Component` by its `ComponentID`.

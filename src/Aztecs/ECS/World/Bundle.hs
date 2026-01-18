@@ -34,8 +34,6 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 
 -- | Bundle of components.
---
--- @since 0.9
 newtype Bundle = Bundle
   { -- | Unwrap the bundle.
     --
@@ -61,8 +59,6 @@ instance MonoidDynamicBundle Bundle where
   dynBundle cId c = Bundle (Set.singleton cId,,dynBundle cId c)
 
 -- | Insert a bundle of components into an archetype.
---
--- @since 0.9
 runBundle :: Bundle -> Components -> EntityID -> Archetype -> (Components, Archetype)
 runBundle b cs eId arch =
   let !(_, cs', d) = unBundle b cs

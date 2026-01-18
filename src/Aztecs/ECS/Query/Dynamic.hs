@@ -220,8 +220,6 @@ singleMaybeDyn cIds q es =
       _ -> return Nothing
 
 -- | Dynamic query filter.
---
--- @since 0.9
 data DynamicQueryFilter = DynamicQueryFilter
   { -- | `ComponentID`s to include.
     --

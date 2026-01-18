@@ -47,8 +47,6 @@ import Prelude hiding (all, filter, id, map, (.))
 type System = SystemT STM
 
 -- | System to process queries in parallel.
---
--- @since 0.9
 newtype SystemT m a = SystemT
   { -- | Run a system on a collection of `Entities`.
     --
@@ -133,8 +131,6 @@ instance MonadDynamicReaderSystem DynamicQuery System where
     return $ V.allDyn q v
 
 -- | Convert a `QueryReaderT` to a `System`.
---
--- @since 0.9
 fromQueryReader :: Query a -> System (Set ComponentID, DynamicQuery a)
 fromQueryReader q = SystemT $ do
   wVar <- ask
@@ -144,8 +140,6 @@ fromQueryReader q = SystemT $ do
   lift $ stateTVar wVar go
 
 -- | Convert a `QueryT` to a `System`.
---
--- @since 0.9
 fromQuery :: QueryT STM a -> System (ReadsWrites, DynamicQueryT STM a)
 fromQuery q = SystemT $ do
   wVar <- ask

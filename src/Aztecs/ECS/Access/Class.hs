@@ -15,8 +15,6 @@ import Aztecs.ECS.Entity
 import Aztecs.ECS.World.Bundle.Class
 
 -- | Monadic access to a `World`.
---
--- @since 0.9
 class (MonoidBundle b, Monad m) => MonadAccess b m | m -> b where
   -- | Spawn an entity with a component.
   --

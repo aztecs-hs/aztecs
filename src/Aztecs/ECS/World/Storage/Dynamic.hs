@@ -32,8 +32,6 @@ import Data.Vector (Vector)
 import qualified Data.Vector as V
 
 -- | Dynamic storage of components.
---
--- @since 0.9
 data DynamicStorage = DynamicStorage
   { -- | Dynamic storage.
     --
@@ -57,8 +55,6 @@ instance Show DynamicStorage where
   show s = "DynamicStorage " ++ show (storageDyn s)
 
 -- | Create a dynamic storage from a storage.
---
--- @since 0.9
 dynStorage :: forall a s. (S.Storage a s) => s -> DynamicStorage
 dynStorage s =
   DynamicStorage
@@ -70,19 +66,13 @@ dynStorage s =
 {-# INLINE dynStorage #-}
 
 -- | Singleton dynamic storage.
---
--- @since 0.9
 singletonDyn :: Dynamic -> DynamicStorage -> DynamicStorage
 singletonDyn dyn s = s {storageDyn = singletonDyn' s dyn}
 
 -- | Convert from an ascending vector.
---
--- @since 0.9
 fromAscVectorDyn :: Vector Dynamic -> DynamicStorage -> DynamicStorage
 fromAscVectorDyn dyns s = s {storageDyn = fromAscVectorDyn' s dyns}
 
 -- | Convert this storage to an ascending vector.
---
--- @since 0.9
 toAscVectorDyn :: DynamicStorage -> Vector Dynamic
 toAscVectorDyn = toAscVectorDyn' <*> storageDyn

@@ -45,8 +45,6 @@ import qualified Data.Foldable as F
 type Access = AccessT Identity
 
 -- | Access into the `World`.
---
--- @since 0.9
 newtype AccessT m a = AccessT {unAccessT :: StateT World m a}
   deriving (Functor, Applicative, MonadFix, MonadIO)
 
@@ -58,14 +56,10 @@ instance (Monad m) => Monad (AccessT m) where
     unAccessT $ f a'
 
 -- | Run an `Access` on a `World`, returning the output and updated `World`.
---
--- @since 0.9
 runAccessT :: (Functor m) => AccessT m a -> World -> m (a, World)
 runAccessT a = runStateT $ unAccessT a
 
 -- | Run an `Access` on an empty `World`.
---
--- @since 0.9
 runAccessT_ :: (Functor m) => AccessT m a -> m a
 runAccessT_ a = fmap fst . runAccessT a $ W.empty
 
@@ -155,8 +149,6 @@ instance (Monad m) => MonadDynamicSystem (DynamicQueryT m) (AccessT m) where
     return as
 
 -- | Run a `System`.
---
--- @since 0.9
 system :: System a -> AccessT IO a
 system s = AccessT $ do
   !w <- get

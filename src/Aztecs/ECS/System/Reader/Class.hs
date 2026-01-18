@@ -17,8 +17,6 @@ import GHC.Stack
 import Prelude hiding (all)
 
 -- | Monadic reader system.
---
--- @since 0.9
 class (Monad m) => MonadReaderSystem q m | m -> q where
   -- | Match all entities with a query.
   --

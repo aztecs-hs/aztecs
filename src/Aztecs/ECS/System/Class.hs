@@ -16,8 +16,6 @@ import GHC.Stack
 import Prelude hiding (map)
 
 -- | Monadic system.
---
--- @since 0.9
 class (Monad m) => MonadSystem q m | m -> q where
   -- | Map all matching entities with a query.
   --
