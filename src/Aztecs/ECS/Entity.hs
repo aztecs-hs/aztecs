@@ -14,12 +14,8 @@ module Aztecs.ECS.Entity (EntityID (..)) where
 import GHC.Generics
 
 -- | Unique entity identifier.
---
--- @since 0.9
 newtype EntityID = EntityID
   { -- | Unique integer identifier.
-    --
-    -- @since 0.9
     unEntityId :: Int
   }
   deriving (Eq, Ord, Show, Generic)

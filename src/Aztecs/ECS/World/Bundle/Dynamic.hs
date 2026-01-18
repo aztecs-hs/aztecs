@@ -13,18 +13,13 @@ import Aztecs.ECS.World.Archetype
 import Aztecs.ECS.World.Bundle.Dynamic.Class
 
 -- | Dynamic bundle of components.
---
--- @since 0.9
 newtype DynamicBundle = DynamicBundle {runDynamicBundle :: EntityID -> Archetype -> Archetype}
 
--- | @since 0.9
 instance Semigroup DynamicBundle where
   DynamicBundle d1 <> DynamicBundle d2 = DynamicBundle $ \eId arch -> d2 eId (d1 eId arch)
 
--- | @since 0.9
 instance Monoid DynamicBundle where
   mempty = DynamicBundle $ \_ arch -> arch
 
--- | @since 0.9
 instance MonoidDynamicBundle DynamicBundle where
   dynBundle cId a = DynamicBundle $ \eId arch -> insertComponent eId cId a arch
