@@ -20,8 +20,6 @@ providing patterns for data-oriented design and parallel processing.
 module Main where
 
 import Aztecs.ECS
-import qualified Aztecs.ECS.Query as Q
-import qualified Aztecs.ECS.System as S
 import Control.Monad.IO.Class
 
 newtype Position = Position Int deriving (Show)
@@ -33,12 +31,12 @@ newtype Velocity = Velocity Int deriving (Show)
 instance Component Velocity
 
 move :: Query Position
-move = Q.adjust (\(Velocity v) (Position p) -> Position $ p + v) Q.fetch
+move = fetchMap (\(Velocity v) (Position p) -> Position $ p + v) fetch
 
 app :: AccessT IO ()
 app = do
   spawn_ $ bundle (Position 0) <> bundle (Velocity 1)
-  positions <- system $ S.map move
+  positions <- system $ query move
   liftIO $ print positions
 
 main :: IO ()
