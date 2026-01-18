@@ -32,7 +32,7 @@ import Aztecs.ECS.World.Components
 import Aztecs.ECS.World.Entities (Entities)
 import qualified Aztecs.ECS.World.Entities as E
 import Control.Monad.Identity (Identity (runIdentity))
-import Data.Foldable (foldlM)
+import Data.Foldable hiding (null)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)

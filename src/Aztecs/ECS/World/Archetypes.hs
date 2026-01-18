@@ -43,6 +43,7 @@ import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Bundle.Dynamic
 import Aztecs.ECS.World.Storage.Dynamic
 import Data.Dynamic
+import Data.Foldable hiding (find)
 import qualified Data.IntMap.Strict as IntMap
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
