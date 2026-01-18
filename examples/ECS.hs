@@ -1,11 +1,9 @@
 module Main where
 
 import Aztecs.ECS
-import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
 import Control.Monad.IO.Class
-import Data.Function ((&))
 
 newtype Position = Position Int deriving (Show)
 
@@ -16,12 +14,12 @@ newtype Velocity = Velocity Int deriving (Show)
 instance Component Velocity
 
 move :: Query Position
-move = Q.fetch & Q.adjust (\(Velocity v) (Position p) -> Position $ p + v)
+move = Q.adjust (\(Velocity v) (Position p) -> Position $ p + v) Q.fetch
 
 app :: AccessT IO ()
 app = do
-  A.spawn_ $ bundle (Position 0) <> bundle (Velocity 1)
-  positions <- A.system $ S.map move
+  spawn_ $ bundle (Position 0) <> bundle (Velocity 1)
+  positions <- system $ S.map move
   liftIO $ print positions
 
 main :: IO ()

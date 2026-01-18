@@ -50,11 +50,7 @@
 -- > main :: IO ()
 -- > main = runSystem_ $ setup >>> S.forever move
 module Aztecs.ECS
-  ( Access,
-    AccessT,
-    MonadAccess,
-    runAccessT,
-    runAccessT_,
+  ( module Aztecs.ECS.Access,
     Bundle,
     MonoidBundle (..),
     DynamicBundle,
