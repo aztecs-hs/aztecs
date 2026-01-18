@@ -16,22 +16,29 @@
 module Aztecs.ECS.Access
   ( Access,
     AccessT (..),
-    MonadAccess (..),
     runAccess,
     runAccessT,
     runAccessT_,
+    spawn,
+    spawn_,
+    insert,
+    lookup,
+    remove,
+    despawn,
     system,
     systemM,
   )
 where
 
-import Aztecs.ECS.Access.Class
+import Aztecs.ECS.Component
+import Aztecs.ECS.Entity
 import Aztecs.ECS.System (SystemT (..))
 import qualified Aztecs.ECS.System as S
 import Aztecs.ECS.World (World)
 import qualified Aztecs.ECS.World as W
 import Aztecs.ECS.World.Bundle
 import qualified Aztecs.ECS.World.Entities as E
+import Control.Monad
 import Control.Monad.Fix
 import Control.Monad.Identity
 import Control.Monad.State.Strict
@@ -54,28 +61,39 @@ runAccessT a = runStateT $ unAccessT a
 runAccessT_ :: (Functor m) => AccessT m a -> m a
 runAccessT_ a = fmap fst . runAccessT a $ W.empty
 
-instance (Monad m) => MonadAccess Bundle (AccessT m) where
-  spawn b = AccessT $ do
-    !w <- get
-    let !(e, w') = W.spawn b w
-    put w'
-    return e
-  insert e c = AccessT $ do
-    !w <- get
-    let !w' = W.insert e c w
-    put w'
-  lookup e = AccessT $ do
-    !w <- get
-    return $ W.lookup e w
-  remove e = AccessT $ do
-    !w <- get
-    let !(a, w') = W.remove e w
-    put w'
-    return a
-  despawn e = AccessT $ do
-    !w <- get
-    let !(_, w') = W.despawn e w
-    put w'
+spawn :: (Monad m) => Bundle -> AccessT m EntityID
+spawn b = AccessT $ do
+  !w <- get
+  let !(e, w') = W.spawn b w
+  put w'
+  return e
+
+spawn_ :: (Monad m) => Bundle -> AccessT m ()
+spawn_ = void . spawn
+
+insert :: (Monad m) => EntityID -> Bundle -> AccessT m ()
+insert e c = AccessT $ do
+  !w <- get
+  let !w' = W.insert e c w
+  put w'
+
+lookup :: (Monad m, Component a) => EntityID -> AccessT m (Maybe a)
+lookup e = AccessT $ do
+  !w <- get
+  return $ W.lookup e w
+
+remove :: (Monad m, Component a) => EntityID -> AccessT m (Maybe a)
+remove e = AccessT $ do
+  !w <- get
+  let !(a, w') = W.remove e w
+  put w'
+  return a
+
+despawn :: (Monad m) => EntityID -> AccessT m ()
+despawn e = AccessT $ do
+  !w <- get
+  let !(_, w') = W.despawn e w
+  put w'
 
 -- | Run a pure `System` on the `World`.
 system :: (Monad m) => S.System a -> AccessT m a
