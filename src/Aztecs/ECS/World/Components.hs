@@ -33,12 +33,8 @@ import Prelude hiding (lookup)
 -- | Component ID map.
 data Components = Components
   { -- | Map of component types to identifiers.
-    --
-    -- @since 0.9
     componentIds :: !(Map TypeRep ComponentID),
     -- | Next unique component identifier.
-    --
-    -- @since 0.9
     nextComponentId :: !ComponentID
   }
   deriving (Show, Generic)

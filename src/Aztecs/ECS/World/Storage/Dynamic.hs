@@ -34,20 +34,12 @@ import qualified Data.Vector as V
 -- | Dynamic storage of components.
 data DynamicStorage = DynamicStorage
   { -- | Dynamic storage.
-    --
-    -- @since 0.9
     storageDyn :: !Dynamic,
     -- | Singleton storage.
-    --
-    -- @since 0.9
     singletonDyn' :: !(Dynamic -> Dynamic),
     -- | Convert this storage to an ascending vector.
-    --
-    -- @since 0.9
     toAscVectorDyn' :: !(Dynamic -> Vector Dynamic),
     -- | Convert from an ascending vector.
-    --
-    -- @since 0.9
     fromAscVectorDyn' :: !(Vector Dynamic -> Dynamic)
   }
 

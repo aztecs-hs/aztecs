@@ -255,12 +255,8 @@ querySingleMaybeDynM cIds q es =
 -- | Dynamic query filter.
 data DynamicQueryFilter = DynamicQueryFilter
   { -- | `ComponentID`s to include.
-    --
-    -- @since 0.9
     filterWith :: !(Set ComponentID),
     -- | `ComponentID`s to exclude.
-    --
-    -- @since 0.9
     filterWithout :: !(Set ComponentID)
   }
 

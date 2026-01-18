@@ -35,8 +35,6 @@ import qualified Data.Set as Set
 -- | Bundle of components.
 newtype Bundle = Bundle
   { -- | Unwrap the bundle.
-    --
-    -- @since 0.9
     unBundle :: Components -> (Set ComponentID, Components, DynamicBundle)
   }
 

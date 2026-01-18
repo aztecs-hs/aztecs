@@ -43,8 +43,6 @@ import Prelude hiding (null)
 -- | View into a `World`, containing a subset of archetypes.
 newtype View = View
   { -- | Archetypes contained in this view.
-    --
-    -- @since 0.9
     viewArchetypes :: Map ArchetypeID Node
   }
   deriving (Show, Semigroup, Monoid)

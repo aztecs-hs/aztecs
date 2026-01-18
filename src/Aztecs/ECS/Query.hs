@@ -180,12 +180,8 @@ queryWriter f (Query g) = Query $ \cs ->
 -- | Reads and writes of a `Query`.
 data ReadsWrites = ReadsWrites
   { -- | Component IDs being read.
-    --
-    -- @since 0.9
     reads :: !(Set ComponentID),
     -- | Component IDs being written.
-    --
-    -- @since 0.9
     writes :: !(Set ComponentID)
   }
   deriving (Show)

@@ -49,8 +49,6 @@ import GHC.Generics
 -- | Parent component.
 newtype Parent = Parent
   { -- | Parent entity ID.
-    --
-    -- @since 0.9
     unParent :: EntityID
   }
   deriving (Eq, Ord, Show, Generic)
@@ -133,14 +131,10 @@ update = do
 -- | Hierarchy of entities.
 data Hierarchy a = Node
   { -- | Entity ID.
-    --
-    -- @since 0.9
     nodeEntityId :: EntityID,
     -- | Entity components.
     nodeEntity :: a,
     -- | Child nodes.
-    --
-    -- @since 0.9
     nodeChildren :: [Hierarchy a]
   }
   deriving (Functor)

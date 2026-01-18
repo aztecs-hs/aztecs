@@ -57,8 +57,6 @@ import Prelude hiding (all, lookup, map)
 -- | `Archetype` ID.
 newtype ArchetypeID = ArchetypeID
   { -- | Unique integer identifier.
-    --
-    -- @since 0.9
     unArchetypeId :: Int
   }
   deriving newtype (Eq, Ord, Show)
@@ -66,12 +64,8 @@ newtype ArchetypeID = ArchetypeID
 -- | Node in `Archetypes`.
 data Node = Node
   { -- | Unique set of `ComponentID`s of this `Node`.
-    --
-    -- @since 0.9
     nodeComponentIds :: !(Set ComponentID),
     -- | `Archetype` of this `Node`.
-    --
-    -- @since 0.9
     nodeArchetype :: !Archetype
   }
   deriving (Show, Generic)
@@ -79,20 +73,12 @@ data Node = Node
 -- | `Archetype` map.
 data Archetypes = Archetypes
   { -- | Archetype nodes in the map.
-    --
-    -- @since 0.9
     nodes :: !(Map ArchetypeID Node),
     -- | Mapping of unique `ComponentID` sets to `ArchetypeID`s.
-    --
-    -- @since 0.9
     archetypeIds :: !(Map (Set ComponentID) ArchetypeID),
     -- | Next unique `ArchetypeID`.
-    --
-    -- @since 0.9
     nextArchetypeId :: !ArchetypeID,
     -- | Mapping of `ComponentID`s to `ArchetypeID`s of `Archetypes` that contain them.
-    --
-    -- @since 0.9
     componentIds :: !(Map ComponentID (Set ArchetypeID))
   }
   deriving (Show, Generic)

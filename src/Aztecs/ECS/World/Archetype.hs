@@ -69,12 +69,8 @@ import Prelude hiding (map, zipWith)
 -- An archetype is guranteed to contain one of each stored component per entity.
 data Archetype = Archetype
   { -- | Component storages.
-    --
-    -- @since 0.9
     storages :: !(IntMap DynamicStorage),
     -- | Entities stored in this archetype.
-    --
-    -- @since 0.9
     entities :: !(Set EntityID)
   }
   deriving (Show, Generic)

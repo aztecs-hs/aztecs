@@ -21,8 +21,6 @@ import GHC.Generics
 -- | Unique component identifier.
 newtype ComponentID = ComponentID
   { -- | Unique integer identifier.
-    --
-    -- @since 0.9
     unComponentId :: Int
   }
   deriving (Eq, Ord, Show, Generic)

@@ -39,12 +39,8 @@ import Prelude hiding (lookup)
 -- | World of entities and their components.
 data World = World
   { -- | Entities and their components.
-    --
-    -- @since 0.9
     entities :: !Entities,
     -- | Next unique entity identifier.
-    --
-    -- @since 0.9
     nextEntityId :: !EntityID
   }
   deriving (Show, Generic)

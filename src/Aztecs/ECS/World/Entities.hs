@@ -50,16 +50,10 @@ import Prelude hiding (lookup)
 -- | World of entities and their components.
 data Entities = Entities
   { -- | Archetypes.
-    --
-    -- @since 0.9
     archetypes :: !Archetypes,
     -- | Components.
-    --
-    -- @since 0.9
     components :: !Components,
     -- | Entities and their archetype identifiers.
-    --
-    -- @since 0.9
     entities :: !(Map EntityID ArchetypeID)
   }
   deriving (Show, Generic)
