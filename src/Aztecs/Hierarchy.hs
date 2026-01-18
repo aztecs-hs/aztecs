@@ -35,7 +35,6 @@ where
 import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
-import qualified Aztecs.ECS.System as S
 import Control.Monad
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -76,22 +75,15 @@ newtype ChildState = ChildState {unChildState :: Set EntityID}
 instance Component ChildState
 
 -- | Update the parent-child relationships.
-update ::
-  ( Applicative qr,
-    QueryF m qr,
-    DynamicQueryF m qr,
-    MonadReaderSystem qr s,
-    MonadAccess b m
-  ) =>
-  s (m ())
+update :: Access ()
 update = do
-  parents <- S.all $ do
+  parents <- A.all $ do
     entity <- Q.entity
     parent <- Q.fetch
     maybeParentState <- Q.fetchMaybe @_ @_ @ParentState
     return (entity, unParent parent, maybeParentState)
 
-  children <- S.all $ do
+  children <- A.all $ do
     entity <- Q.entity
     cs <- Q.fetch
     maybeChildState <- Q.fetchMaybe @_ @_ @ChildState
@@ -135,7 +127,7 @@ update = do
                 mapM_ (\e -> A.insert e . bundle . Parent $ entity) children'
           )
           children
-  return go
+  go
 
 -- | Hierarchy of entities.
 data Hierarchy a = Node
@@ -179,12 +171,11 @@ mapWithAccum f b n = case f (nodeEntityId n) (nodeEntity n) b of
 
 -- | System to read a hierarchy of parents to children with the given query.
 hierarchy ::
-  (Applicative q, QueryF m q, DynamicQueryF m q, MonadReaderSystem q s) =>
   EntityID ->
-  q a ->
-  s (Maybe (Hierarchy a))
+  Query a ->
+  Access (Maybe (Hierarchy a))
 hierarchy e q = do
-  children <- S.all $ do
+  children <- A.all $ do
     entity <- Q.entity
     cs <- Q.fetch
     a <- q
@@ -195,12 +186,11 @@ hierarchy e q = do
 
 -- | Build all hierarchies of parents to children, joined with the given query.
 hierarchies ::
-  (Applicative q, QueryF m q, DynamicQueryF m q, MonadReaderSystem q s) =>
-  q a ->
-  s (Vector (Hierarchy a))
+  Query a ->
+  Access (Vector (Hierarchy a))
 hierarchies q = do
   children <-
-    S.all
+    A.all
       ( do
           entity <- Q.entity
           cs <- Q.fetch
@@ -209,7 +199,7 @@ hierarchies q = do
       )
 
   let childMap = Map.fromList $ V.toList children
-  roots <- S.filter Q.entity $ with @Children <> without @Parent
+  roots <- A.filter Q.entity $ with @Children <> without @Parent
   return $ V.mapMaybe (`hierarchy'` childMap) roots
 
 -- | Build a hierarchy of parents to children.

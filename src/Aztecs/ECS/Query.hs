@@ -250,7 +250,7 @@ singleM' :: (HasCallStack, Monad m) => QueryT m a -> Entities -> m (a, Component
 singleM' q es = do
   let !(rws, cs', dynQ) = runQuery q (E.components es)
       !cIds = reads rws <> writes rws
-  a <- singleDyn cIds dynQ es
+  a <- singleDynM cIds dynQ es
   return (a, cs')
 {-# INLINE singleM' #-}
 
@@ -276,7 +276,7 @@ singleMaybeM' :: (Monad m) => QueryT m a -> Entities -> m (Maybe a, Components)
 singleMaybeM' q es = do
   let !(rws, cs', dynQ) = runQuery q (E.components es)
       !cIds = reads rws <> writes rws
-  a <- singleMaybeDyn cIds dynQ es
+  a <- singleMaybeDynM cIds dynQ es
   return (a, cs')
 {-# INLINE singleMaybeM' #-}
 
@@ -290,7 +290,7 @@ mapM :: (Monad m) => QueryT m o -> Entities -> m (Vector o, Entities)
 mapM q es = do
   let !(rws, cs', dynQ) = runQuery q $ components es
       !cIds = reads rws <> writes rws
-  (as, es') <- mapDyn cIds dynQ es
+  (as, es') <- mapDynM cIds dynQ es
   return (as, es' {components = cs'})
 {-# INLINE mapM #-}
 
@@ -304,7 +304,7 @@ mapSingleM :: (HasCallStack, Monad m) => QueryT m a -> Entities -> m (a, Entitie
 mapSingleM q es = do
   let !(rws, cs', dynQ) = runQuery q $ components es
       !cIds = reads rws <> writes rws
-  (as, es') <- mapSingleDyn cIds dynQ es
+  (as, es') <- mapSingleDynM cIds dynQ es
   return (as, es' {components = cs'})
 {-# INLINE mapSingleM #-}
 
@@ -318,7 +318,7 @@ mapSingleMaybeM :: (Monad m) => QueryT m a -> Entities -> m (Maybe a, Entities)
 mapSingleMaybeM q es = do
   let !(rws, cs', dynQ) = runQuery q $ components es
       !cIds = reads rws <> writes rws
-  (as, es') <- mapSingleMaybeDyn cIds dynQ es
+  (as, es') <- mapSingleMaybeDynM cIds dynQ es
   return (as, es' {components = cs'})
 {-# INLINE mapSingleMaybeM #-}
 

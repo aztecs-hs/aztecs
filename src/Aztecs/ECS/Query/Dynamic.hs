@@ -24,12 +24,19 @@ module Aztecs.ECS.Query.Dynamic
     allDyn,
     allDynM,
     filterDyn,
+    filterDynM,
     singleDyn,
+    singleDynM,
     singleMaybeDyn,
+    singleMaybeDynM,
     mapDyn,
+    mapDynM,
     filterMapDyn,
+    filterMapDynM,
     mapSingleDyn,
+    mapSingleDynM,
     mapSingleMaybeDyn,
+    mapSingleMaybeDynM,
 
     -- * Dynamic query filters
     DynamicQueryFilter (..),
@@ -109,9 +116,72 @@ instance (Monad f) => DynamicQueryF f (DynamicQueryT f) where
 runDynQuery :: DynamicQuery a -> Archetype -> (Vector a, Archetype)
 runDynQuery q = runIdentity . runDynQueryT q
 
+-- | Match all entities.
+allDyn :: Set ComponentID -> DynamicQuery a -> Entities -> (Vector a)
+allDyn cIds q es = runIdentity $ allDynM cIds q es
+
+-- | Match all entities.
+allDynM :: (Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m (Vector a)
+allDynM cIds q es =
+  if Set.null cIds
+    then fst <$> runDynQueryT q A.empty {A.entities = Map.keysSet $ entities es}
+    else do
+      let go n = fst <$> runDynQueryT q (AS.nodeArchetype n)
+      results <- mapM go . Map.elems $ AS.find cIds $ archetypes es
+      return $ V.concat results
+
+filterDyn :: Set ComponentID -> DynamicQuery a -> (Node -> Bool) -> Entities -> (Vector a)
+filterDyn cIds q f = runIdentity . filterDynM cIds f q
+
+-- | Match all entities with a filter.
+filterDynM :: (Monad m) => Set ComponentID -> (Node -> Bool) -> DynamicQueryT m a -> Entities -> m (Vector a)
+filterDynM cIds f q es =
+  if Set.null cIds
+    then fst <$> runDynQueryT q A.empty {A.entities = Map.keysSet $ entities es}
+    else do
+      let go n = fst <$> runDynQueryT q (AS.nodeArchetype n)
+      results <- mapM go . Map.elems . Map.filter f $ AS.find cIds $ archetypes es
+      return $ V.concat results
+
+-- | Match a single entity.
+singleDyn :: (HasCallStack) => Set ComponentID -> DynamicQuery a -> Entities -> a
+singleDyn cIds q = runIdentity . singleDynM cIds q
+
+-- | Match a single entity.
+singleDynM :: (HasCallStack, Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m a
+singleDynM cIds q es = do
+  res <- singleMaybeDynM cIds q es
+  case res of
+    Just a -> return a
+    _ -> error "singleDyn: expected a single entity"
+
+-- | Match a single entity, or `Nothing`.
+singleMaybeDyn :: Set ComponentID -> DynamicQuery a -> Entities -> Maybe a
+singleMaybeDyn cIds q = runIdentity . singleMaybeDynM cIds q
+
+-- | Match a single entity, or `Nothing`.
+singleMaybeDynM :: (Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m (Maybe a)
+singleMaybeDynM cIds q es =
+  if Set.null cIds
+    then case Map.keys $ entities es of
+      [eId] -> do
+        (v, _) <- runDynQueryT q $ A.singleton eId
+        return $ if V.length v == 1 then Just (V.head v) else Nothing
+      _ -> return Nothing
+    else case Map.elems $ AS.find cIds $ archetypes es of
+      [n] -> do
+        (v, _) <- runDynQueryT q $ AS.nodeArchetype n
+        return $ if V.length v == 1 then Just (V.head v) else Nothing
+      _ -> return Nothing
+
 -- | Map all matched entities.
-mapDyn :: (Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m (Vector a, Entities)
-mapDyn cIds q es =
+mapDyn :: Set ComponentID -> DynamicQuery a -> Entities -> (Vector a, Entities)
+mapDyn cIds q = runIdentity . mapDynM cIds q
+{-# INLINE mapDyn #-}
+
+-- | Map all matched entities.
+mapDynM :: (Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m (Vector a, Entities)
+mapDynM cIds q es =
   let go = runDynQueryT q
    in if Set.null cIds
         then do
@@ -123,11 +193,15 @@ mapDyn cIds q es =
                 let !nodes = Map.insert aId n {nodeArchetype = arch' <> nodeArchetype n} . AS.nodes $ archetypes esAcc
                 return (as' V.++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}})
            in foldlM go' (V.empty, es) $ Map.toList . AS.find cIds $ archetypes es
-{-# INLINE mapDyn #-}
+{-# INLINE mapDynM #-}
+
+filterMapDyn :: Set ComponentID -> (Node -> Bool) -> DynamicQuery a -> Entities -> (Vector a, Entities)
+filterMapDyn cIds f q = runIdentity . filterMapDynM cIds f q
+{-# INLINE filterMapDyn #-}
 
 -- | Map all matched entities.
-filterMapDyn :: (Monad m) => Set ComponentID -> (Node -> Bool) -> DynamicQueryT m a -> Entities -> m (Vector a, Entities)
-filterMapDyn cIds f q es =
+filterMapDynM :: (Monad m) => Set ComponentID -> (Node -> Bool) -> DynamicQueryT m a -> Entities -> m (Vector a, Entities)
+filterMapDynM cIds f q es =
   let go = runDynQueryT q
    in if Set.null cIds
         then do
@@ -139,19 +213,25 @@ filterMapDyn cIds f q es =
                 let !nodes = Map.insert aId n {nodeArchetype = arch' <> nodeArchetype n} . AS.nodes $ archetypes esAcc
                 return (as' V.++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}})
            in foldlM go' (V.empty, es) $ Map.toList . Map.filter f . AS.find cIds $ archetypes es
-{-# INLINE filterMapDyn #-}
+{-# INLINE filterMapDynM #-}
+
+mapSingleDyn :: (HasCallStack) => Set ComponentID -> DynamicQuery a -> Entities -> (a, Entities)
+mapSingleDyn cIds q = runIdentity . mapSingleDynM cIds q
 
 -- | Map a single matched entity.
-mapSingleDyn :: (HasCallStack, Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m (a, Entities)
-mapSingleDyn cIds q es = do
-  res <- mapSingleMaybeDyn cIds q es
+mapSingleDynM :: (HasCallStack, Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m (a, Entities)
+mapSingleDynM cIds q es = do
+  res <- mapSingleMaybeDynM cIds q es
   return $ case res of
     (Just a, es') -> (a, es')
     _ -> error "mapSingleDyn: expected single matching entity"
 
+mapSingleMaybeDyn :: Set ComponentID -> DynamicQuery a -> Entities -> (Maybe a, Entities)
+mapSingleMaybeDyn cIds q = runIdentity . mapSingleMaybeDynM cIds q
+
 -- | Map a single matched entity, or @Nothing@.
-mapSingleMaybeDyn :: (Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m (Maybe a, Entities)
-mapSingleMaybeDyn cIds q es =
+mapSingleMaybeDynM :: (Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m (Maybe a, Entities)
+mapSingleMaybeDynM cIds q es =
   if Set.null cIds
     then case Map.keys $ entities es of
       [eId] -> do
@@ -170,54 +250,7 @@ mapSingleMaybeDyn cIds q es =
                  in (Just (V.head v), es {archetypes = (archetypes es) {AS.nodes = nodes}})
           _ -> (Nothing, es)
       _ -> pure (Nothing, es)
-{-# INLINE mapSingleMaybeDyn #-}
-
--- | Match all entities.
-allDyn :: Set ComponentID -> DynamicQuery a -> Entities -> (Vector a)
-allDyn cIds q es = runIdentity $ allDynM cIds q es
-
--- | Match all entities.
-allDynM :: (Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m (Vector a)
-allDynM cIds q es =
-  if Set.null cIds
-    then fst <$> runDynQueryT q A.empty {A.entities = Map.keysSet $ entities es}
-    else do
-      let go n = fst <$> runDynQueryT q (AS.nodeArchetype n)
-      results <- mapM go . Map.elems $ AS.find cIds $ archetypes es
-      return $ V.concat results
-
--- | Match all entities with a filter.
-filterDyn :: (Monad m) => Set ComponentID -> (Node -> Bool) -> DynamicQueryT m a -> Entities -> m (Vector a)
-filterDyn cIds f q es =
-  if Set.null cIds
-    then fst <$> runDynQueryT q A.empty {A.entities = Map.keysSet $ entities es}
-    else do
-      let go n = fst <$> runDynQueryT q (AS.nodeArchetype n)
-      results <- mapM go . Map.elems . Map.filter f $ AS.find cIds $ archetypes es
-      return $ V.concat results
-
--- | Match a single entity.
-singleDyn :: (HasCallStack, Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m a
-singleDyn cIds q es = do
-  res <- singleMaybeDyn cIds q es
-  case res of
-    Just a -> return a
-    _ -> error "singleDyn: expected a single entity"
-
--- | Match a single entity, or `Nothing`.
-singleMaybeDyn :: (Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m (Maybe a)
-singleMaybeDyn cIds q es =
-  if Set.null cIds
-    then case Map.keys $ entities es of
-      [eId] -> do
-        (v, _) <- runDynQueryT q $ A.singleton eId
-        return $ if V.length v == 1 then Just (V.head v) else Nothing
-      _ -> return Nothing
-    else case Map.elems $ AS.find cIds $ archetypes es of
-      [n] -> do
-        (v, _) <- runDynQueryT q $ AS.nodeArchetype n
-        return $ if V.length v == 1 then Just (V.head v) else Nothing
-      _ -> return Nothing
+{-# INLINE mapSingleMaybeDynM #-}
 
 -- | Dynamic query filter.
 data DynamicQueryFilter = DynamicQueryFilter
