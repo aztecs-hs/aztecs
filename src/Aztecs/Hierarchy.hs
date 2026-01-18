@@ -35,6 +35,7 @@ where
 import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
+import qualified Aztecs.ECS.System as S
 import Control.Monad
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -77,13 +78,13 @@ instance Component ChildState
 -- | Update the parent-child relationships.
 update :: Access ()
 update = do
-  parents <- A.all $ do
+  parents <- A.system . S.all $ do
     entity <- Q.entity
     parent <- Q.fetch
     maybeParentState <- Q.fetchMaybe @_ @_ @ParentState
     return (entity, unParent parent, maybeParentState)
 
-  children <- A.all $ do
+  children <- A.system . S.all $ do
     entity <- Q.entity
     cs <- Q.fetch
     maybeChildState <- Q.fetchMaybe @_ @_ @ChildState
@@ -175,7 +176,7 @@ hierarchy ::
   Query a ->
   Access (Maybe (Hierarchy a))
 hierarchy e q = do
-  children <- A.all $ do
+  children <- A.system . S.all $ do
     entity <- Q.entity
     cs <- Q.fetch
     a <- q
@@ -190,16 +191,14 @@ hierarchies ::
   Access (Vector (Hierarchy a))
 hierarchies q = do
   children <-
-    A.all
-      ( do
-          entity <- Q.entity
-          cs <- Q.fetch
-          a <- q
-          return (entity, (unChildren cs, a))
-      )
+    A.system . S.all $ do
+      entity <- Q.entity
+      cs <- Q.fetch
+      a <- q
+      return (entity, (unChildren cs, a))
 
   let childMap = Map.fromList $ V.toList children
-  roots <- A.filter Q.entity $ with @Children <> without @Parent
+  roots <- A.system $ S.filter Q.entity (with @Children <> without @Parent)
   return $ V.mapMaybe (`hierarchy'` childMap) roots
 
 -- | Build a hierarchy of parents to children.
