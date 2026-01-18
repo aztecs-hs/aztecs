@@ -25,14 +25,11 @@ class (Applicative g, Functor f) => QueryF g f | f -> g where
   fetchMaybe = Just <$> fetch
 
   -- | Adjust a `Component` by its type.
-  adjust :: (Component a) => (b -> a -> a) -> f b -> f a
+  fetchMap :: (Component a) => (b -> a -> a) -> f b -> f a
 
   -- | Adjust a `Component` by its type, ignoring any output.
-  adjust_ :: (Component a) => (b -> a -> a) -> f b -> f ()
-  adjust_ f = void . adjust f
+  fetchMap_ :: (Component a) => (b -> a -> a) -> f b -> f ()
+  fetchMap_ f = void . fetchMap f
 
   -- | Adjust a `Component` by its type with some `Monad` @m@.
-  adjustM :: (Component a) => (b -> a -> g a) -> f b -> f a
-
-  -- | Set a `Component` by its type.
-  set :: (Component a) => f a -> f a
+  fetchMapM :: (Component a) => (b -> a -> g a) -> f b -> f a

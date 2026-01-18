@@ -51,6 +51,7 @@
 -- > main = runSystem_ $ setup >>> S.forever move
 module Aztecs.ECS
   ( module Aztecs.ECS.Access,
+    module Aztecs.ECS.System,
     Bundle,
     MonoidBundle (..),
     DynamicBundle,
@@ -59,7 +60,7 @@ module Aztecs.ECS
     EntityID,
     Query,
     QueryT,
-    QueryF,
+    QueryF (..),
     DynamicQueryF,
     QueryFilter,
     with,
@@ -72,14 +73,7 @@ import Aztecs.ECS.Access
 import Aztecs.ECS.Component (Component (..))
 import Aztecs.ECS.Entity (EntityID)
 import Aztecs.ECS.Query
-  ( DynamicQueryF,
-    Query,
-    QueryF,
-    QueryFilter,
-    QueryT,
-    with,
-    without,
-  )
+import Aztecs.ECS.System
 import Aztecs.ECS.World (World)
 import Aztecs.ECS.World.Bundle (Bundle, MonoidBundle (..))
 import Aztecs.ECS.World.Bundle.Dynamic (DynamicBundle, MonoidDynamicBundle (..))

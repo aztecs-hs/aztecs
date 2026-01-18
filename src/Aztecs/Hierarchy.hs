@@ -78,13 +78,13 @@ instance Component ChildState
 -- | Update the parent-child relationships.
 update :: Access ()
 update = do
-  parents <- A.system . S.all $ do
+  parents <- A.system . S.readQuery $ do
     entity <- Q.entity
     parent <- Q.fetch
     maybeParentState <- Q.fetchMaybe @_ @_ @ParentState
     return (entity, unParent parent, maybeParentState)
 
-  children <- A.system . S.all $ do
+  children <- A.system . S.readQuery $ do
     entity <- Q.entity
     cs <- Q.fetch
     maybeChildState <- Q.fetchMaybe @_ @_ @ChildState
@@ -176,7 +176,7 @@ hierarchy ::
   Query a ->
   Access (Maybe (Hierarchy a))
 hierarchy e q = do
-  children <- A.system . S.all $ do
+  children <- A.system . S.readQuery $ do
     entity <- Q.entity
     cs <- Q.fetch
     a <- q
@@ -191,14 +191,14 @@ hierarchies ::
   Access (Vector (Hierarchy a))
 hierarchies q = do
   children <-
-    A.system . S.all $ do
+    A.system . S.readQuery $ do
       entity <- Q.entity
       cs <- Q.fetch
       a <- q
       return (entity, (unChildren cs, a))
 
   let childMap = Map.fromList $ V.toList children
-  roots <- A.system $ S.filter Q.entity (with @Children <> without @Parent)
+  roots <- A.system $ S.readQueryFiltered Q.entity (with @Children <> without @Parent)
   return $ V.mapMaybe (`hierarchy'` childMap) roots
 
 -- | Build a hierarchy of parents to children.

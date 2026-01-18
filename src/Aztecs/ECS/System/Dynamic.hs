@@ -70,20 +70,20 @@ data Op m a where
 
 -- | Run a query operation on entities.
 runOp :: (Monad m) => Set ComponentID -> Op m a -> Entities -> m (a, Entities)
-runOp cIds (QAll q) es = return (DQ.allDyn cIds q es, es)
+runOp cIds (QAll q) es = return (DQ.readQueryDyn cIds q es, es)
 runOp cIds (QAllM q) es = do
-  as <- DQ.allDynM cIds q es
+  as <- DQ.readQueryDynM cIds q es
   return (as, es)
-runOp cIds (QFilter q flt) es = return (DQ.filterDyn cIds q flt es, es)
+runOp cIds (QFilter q flt) es = return (DQ.readQueryFilteredDyn cIds q flt es, es)
 runOp cIds (QFilterM q flt) es = do
-  as <- DQ.filterDynM cIds flt q es
+  as <- DQ.readQueryFilteredDynM cIds flt q es
   return (as, es)
-runOp cIds (QMap q) es = return (DQ.mapDyn cIds q es)
-runOp cIds (QMapM q) es = DQ.mapDynM cIds q es
-runOp cIds (QMapSingleMaybe q) es = return (DQ.mapSingleMaybeDyn cIds q es)
-runOp cIds (QMapSingleMaybeM q) es = DQ.mapSingleMaybeDynM cIds q es
-runOp cIds (QFilterMap flt q) es = return (DQ.filterMapDyn cIds flt q es)
-runOp cIds (QFilterMapM flt q) es = DQ.filterMapDynM cIds flt q es
+runOp cIds (QMap q) es = return (DQ.queryDyn cIds q es)
+runOp cIds (QMapM q) es = DQ.queryDynM cIds q es
+runOp cIds (QMapSingleMaybe q) es = return (DQ.querySingleMaybeDyn cIds q es)
+runOp cIds (QMapSingleMaybeM q) es = DQ.querySingleMaybeDynM cIds q es
+runOp cIds (QFilterMap flt q) es = return (DQ.queryFilteredDyn cIds flt q es)
+runOp cIds (QFilterMapM flt q) es = DQ.queryFilteredDynM cIds flt q es
 {-# INLINE runOp #-}
 
 -- | Dynamic system.
