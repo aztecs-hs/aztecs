@@ -10,7 +10,7 @@
 -- Portability : non-portable (GHC extensions)
 module Aztecs.ECS.System.Reader.Class (MonadReaderSystem (..)) where
 
-import Aztecs.ECS.Query.Reader (QueryFilter (..))
+import Aztecs.ECS.Query (QueryFilter (..))
 import Data.Vector (Vector)
 import qualified Data.Vector as V
 import GHC.Stack

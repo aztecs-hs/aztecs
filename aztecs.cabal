@@ -35,9 +35,7 @@ library
         Aztecs.ECS.Query.Class
         Aztecs.ECS.Query.Dynamic
         Aztecs.ECS.Query.Dynamic.Class
-        Aztecs.ECS.Query.Dynamic.Reader
         Aztecs.ECS.Query.Dynamic.Reader.Class
-        Aztecs.ECS.Query.Reader
         Aztecs.ECS.Query.Reader.Class
         Aztecs.ECS.System
         Aztecs.ECS.System.Class

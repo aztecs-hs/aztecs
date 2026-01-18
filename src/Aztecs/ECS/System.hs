@@ -27,9 +27,7 @@ where
 import Aztecs.ECS.Component
 import Aztecs.ECS.Query
 import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.Query.Dynamic (DynamicQueryT)
-import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..))
-import Aztecs.ECS.Query.Reader
+import Aztecs.ECS.Query.Dynamic (DynamicQuery, DynamicQueryFilter (..), DynamicQueryT (..), runDynQuery)
 import Aztecs.ECS.System.Class
 import Aztecs.ECS.System.Dynamic.Class
 import Aztecs.ECS.System.Dynamic.Reader.Class
@@ -98,7 +96,7 @@ instance MonadSystem (QueryT STM) System where
     wVar <- ask
     let go w =
           let (rws, cs', dynQ) = runQuery q $ components w
-              (dynF, cs'') = runQueryFilter qf cs'
+              (dynF, cs'') = Q.runQueryFilter qf cs'
            in ((rws, dynQ, dynF), w {components = cs''})
     (rws, dynQ, dynF) <- lift $ stateTVar wVar go
     let f' n =
@@ -107,16 +105,16 @@ instance MonadSystem (QueryT STM) System where
     runSystemT $ filterMapDyn (Q.reads rws <> Q.writes rws) f' dynQ
 
 -- | @since 0.9
-instance MonadReaderSystem QueryReader System where
+instance MonadReaderSystem Query System where
   all q = SystemT $ do
     (cIds, dynQ) <- runSystemT $ fromQueryReader q
     runSystemT $ allDyn cIds dynQ
   filter q qf = SystemT $ do
     wVar <- ask
     let go w =
-          let (cIds, cs', dynQ) = runQueryReader q $ components w
-              (dynF, cs'') = runQueryFilter qf cs'
-           in ((cIds, dynQ, dynF), w {components = cs''})
+          let (rws, cs', dynQ) = runQuery q $ components w
+              (dynF, cs'') = Aztecs.ECS.Query.runQueryFilter qf cs'
+           in ((Q.reads rws <> Q.writes rws, dynQ, dynF), w {components = cs''})
     (cIds, dynQ, dynF) <- lift $ stateTVar wVar go
     let f' n =
           F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynF)
@@ -124,14 +122,14 @@ instance MonadReaderSystem QueryReader System where
     runSystemT $ filterDyn cIds dynQ f'
 
 -- | @since 0.9
-instance MonadDynamicReaderSystem DynamicQueryReader System where
+instance MonadDynamicReaderSystem DynamicQuery System where
   allDyn cIds q = SystemT $ do
     wVar <- ask
     w <- lift $ readTVar wVar
     let !v = V.view cIds $ archetypes w
     return $
       if V.null v
-        then runDynQueryReader q A.empty {A.entities = Map.keysSet $ entities w}
+        then fst $ runDynQuery q A.empty {A.entities = Map.keysSet $ entities w}
         else V.allDyn q v
   filterDyn cIds q f = SystemT $ do
     wVar <- ask
@@ -142,12 +140,12 @@ instance MonadDynamicReaderSystem DynamicQueryReader System where
 -- | Convert a `QueryReaderT` to a `System`.
 --
 -- @since 0.9
-fromQueryReader :: QueryReader a -> System (Set ComponentID, DynamicQueryReader a)
+fromQueryReader :: Query a -> System (Set ComponentID, DynamicQuery a)
 fromQueryReader q = SystemT $ do
   wVar <- ask
   let go w =
-        let (cIds, cs', dynQ) = runQueryReader q $ components w
-         in ((cIds, dynQ), w {components = cs'})
+        let (rws, cs', dynQ) = runQuery q $ components w
+         in ((Q.reads rws <> Q.writes rws, dynQ), w {components = cs'})
   lift $ stateTVar wVar go
 
 -- | Convert a `QueryT` to a `System`.

@@ -1,7 +1,9 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 -- |
 -- Module      : Aztecs.ECS.Access
@@ -22,13 +24,10 @@ module Aztecs.ECS.Access
 where
 
 import Aztecs.ECS.Access.Class
-import Aztecs.ECS.Query (QueryT (..))
+import Aztecs.ECS.Query
 import qualified Aztecs.ECS.Query as Q
-import Aztecs.ECS.Query.Dynamic (DynamicQueryT)
+import Aztecs.ECS.Query.Dynamic (DynamicQueryFilter (..), DynamicQueryT)
 import qualified Aztecs.ECS.Query.Dynamic as Q
-import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader)
-import qualified Aztecs.ECS.Query.Dynamic.Reader as Q
-import Aztecs.ECS.Query.Reader
 import Aztecs.ECS.System
 import Aztecs.ECS.World (World (..))
 import qualified Aztecs.ECS.World as W
@@ -97,21 +96,21 @@ instance (Monad m) => MonadAccess Bundle (AccessT m) where
     put w'
 
 -- | @since 0.9
-instance (Monad m) => MonadReaderSystem QueryReader (AccessT m) where
+instance (Monad m) => MonadReaderSystem (QueryT m) (AccessT m) where
   all q = AccessT $ do
     w <- get
-    let (cIds, cs, dynQ) = runQueryReader q . E.components $ entities w
+    let (rws, cs, dynQ) = runQuery q . E.components $ entities w
     put w {entities = (entities w) {E.components = cs}}
-    unAccessT $ allDyn cIds dynQ
+    unAccessT $ allDyn (Q.reads rws <> Q.writes rws) dynQ
   filter q f = AccessT $ do
     w <- get
-    let (cIds, cs, dynQ) = runQueryReader q . E.components $ entities w
+    let (rws, cs, dynQ) = runQuery q . E.components $ entities w
         (dynF, cs') = runQueryFilter f cs
     put w {entities = (entities w) {E.components = cs'}}
     let f' n =
           F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynF)
             && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
-    unAccessT $ filterDyn cIds dynQ f'
+    unAccessT $ filterDyn (Q.reads rws <> Q.writes rws) dynQ f'
 
 -- | @since 0.9
 instance (Monad m) => MonadSystem (QueryT m) (AccessT m) where
@@ -136,13 +135,13 @@ instance (Monad m) => MonadSystem (QueryT m) (AccessT m) where
     unAccessT $ filterMapDyn (Q.reads rws <> Q.writes rws) f' dynQ
 
 -- | @since 0.9
-instance (Monad m) => MonadDynamicReaderSystem DynamicQueryReader (AccessT m) where
+instance (Monad m) => MonadDynamicReaderSystem (DynamicQueryT m) (AccessT m) where
   allDyn cIds q = AccessT $ do
     !w <- get
-    return . Q.allDyn cIds q $ entities w
+    lift . Q.allDyn cIds q $ entities w
   filterDyn cIds q f = AccessT $ do
     !w <- get
-    return . Q.filterDyn cIds f q $ entities w
+    lift . Q.filterDyn cIds f q $ entities w
 
 -- | @since 0.9
 instance (Monad m) => MonadDynamicSystem (DynamicQueryT m) (AccessT m) where

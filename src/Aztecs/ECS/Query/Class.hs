@@ -3,7 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- |
--- Module      : Aztecs.ECS.Query.Reader.Class
+-- Module      : Aztecs.ECS.Query.Class
 -- Copyright   : (c) Matt Hunzinger, 2025
 -- License     : BSD-style (see the LICENSE file in the distribution)
 --

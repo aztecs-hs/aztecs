@@ -25,13 +25,13 @@ module Aztecs.ECS.View
   )
 where
 
-import Aztecs.ECS.Query.Dynamic (DynamicQueryT (..))
-import Aztecs.ECS.Query.Dynamic.Reader (DynamicQueryReader (..))
+import Aztecs.ECS.Query.Dynamic (DynamicQuery, DynamicQueryT (..))
 import Aztecs.ECS.World.Archetypes
 import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Components
 import Aztecs.ECS.World.Entities (Entities)
 import qualified Aztecs.ECS.World.Entities as E
+import Control.Monad.Identity (Identity (runIdentity))
 import Data.Foldable (foldlM)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -97,11 +97,11 @@ unview v es =
 -- | Query all matching entities in a `View`.
 --
 -- @since 0.9
-allDyn :: DynamicQueryReader a -> View -> Vector a
+allDyn :: DynamicQuery a -> View -> Vector a
 allDyn q v =
   foldl'
     ( \acc n ->
-        let as = runDynQueryReader q $ nodeArchetype n
+        let (as, _) = runIdentity . runDynQueryT q $ nodeArchetype n
          in as V.++ acc
     )
     V.empty
@@ -110,7 +110,7 @@ allDyn q v =
 -- | Query all matching entities in a `View`.
 --
 -- @since 0.9
-singleDyn :: DynamicQueryReader a -> View -> Maybe a
+singleDyn :: DynamicQuery a -> View -> Maybe a
 singleDyn q v = case allDyn q v of
   as | V.length as == 1 -> Just (V.head as)
   _ -> Nothing
@@ -123,7 +123,7 @@ mapDyn q v = do
   (as, arches) <-
     foldlM
       ( \(acc, archAcc) (aId, n) -> do
-          (as', arch') <- runDynQuery q $ nodeArchetype n
+          (as', arch') <- runDynQueryT q $ nodeArchetype n
           return (as' V.++ acc, Map.insert aId (n {nodeArchetype = arch'}) archAcc)
       )
       (V.empty, Map.empty)

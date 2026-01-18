@@ -63,7 +63,6 @@ module Aztecs.ECS
     EntityID,
     Query,
     QueryT,
-    QueryReader,
     QueryReaderF,
     QueryF,
     DynamicQueryReaderF,
@@ -93,7 +92,6 @@ import Aztecs.ECS.Query
     with,
     without,
   )
-import Aztecs.ECS.Query.Reader (QueryReader)
 import Aztecs.ECS.System
 import Aztecs.ECS.World (World)
 import Aztecs.ECS.World.Bundle (Bundle, MonoidBundle (..))
