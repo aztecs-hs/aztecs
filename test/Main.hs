@@ -54,7 +54,7 @@ describe "Aztecs.ECS.Hierarchy.update" $ do
 
 prop_queryEmpty :: Expectation
 prop_queryEmpty =
-  let res = fst $ Q.readQuery (Q.fetch @_ @_ @X) $ W.entities W.empty in V.toList res `shouldMatchList` []
+  let res = fst $ Q.readQuery (Q.fetch @_ @X) $ W.entities W.empty in V.toList res `shouldMatchList` []
 
 -- | Query all components from a list of `ComponentID`s.
 queryComponentIds ::

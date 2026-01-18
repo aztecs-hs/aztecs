@@ -53,14 +53,18 @@ module Aztecs.ECS
   ( module Aztecs.ECS.Access,
     module Aztecs.ECS.System,
     Bundle,
-    MonoidBundle (..),
+    bundle,
     DynamicBundle,
     MonoidDynamicBundle (..),
     Component (..),
     EntityID,
     Query,
     QueryT,
-    QueryF (..),
+    fetch,
+    fetchMaybe,
+    fetchMap,
+    fetchMap_,
+    fetchMapM,
     DynamicQueryF,
     QueryFilter,
     with,
@@ -75,5 +79,5 @@ import Aztecs.ECS.Entity (EntityID)
 import Aztecs.ECS.Query
 import Aztecs.ECS.System
 import Aztecs.ECS.World (World)
-import Aztecs.ECS.World.Bundle (Bundle, MonoidBundle (..))
+import Aztecs.ECS.World.Bundle (Bundle, bundle)
 import Aztecs.ECS.World.Bundle.Dynamic (DynamicBundle, MonoidDynamicBundle (..))

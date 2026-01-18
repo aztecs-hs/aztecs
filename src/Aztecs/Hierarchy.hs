@@ -81,13 +81,13 @@ update = do
   parents <- A.system . S.readQuery $ do
     entity <- Q.entity
     parent <- Q.fetch
-    maybeParentState <- Q.fetchMaybe @_ @_ @ParentState
+    maybeParentState <- Q.fetchMaybe @_ @ParentState
     return (entity, unParent parent, maybeParentState)
 
   children <- A.system . S.readQuery $ do
     entity <- Q.entity
     cs <- Q.fetch
-    maybeChildState <- Q.fetchMaybe @_ @_ @ChildState
+    maybeChildState <- Q.fetchMaybe @_ @ChildState
     return (entity, unChildren cs, maybeChildState)
 
   let go = do

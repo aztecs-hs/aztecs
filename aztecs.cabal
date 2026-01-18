@@ -28,11 +28,9 @@ library
         Aztecs
         Aztecs.ECS
         Aztecs.ECS.Access
-        Aztecs.ECS.Access.Class
         Aztecs.ECS.Component
         Aztecs.ECS.Entity
         Aztecs.ECS.Query
-        Aztecs.ECS.Query.Class
         Aztecs.ECS.Query.Dynamic
         Aztecs.ECS.Query.Dynamic.Class
         Aztecs.ECS.System
@@ -42,7 +40,6 @@ library
         Aztecs.ECS.World.Archetype
         Aztecs.ECS.World.Archetypes
         Aztecs.ECS.World.Bundle
-        Aztecs.ECS.World.Bundle.Class
         Aztecs.ECS.World.Bundle.Dynamic
         Aztecs.ECS.World.Bundle.Dynamic.Class
         Aztecs.ECS.World.Components

@@ -38,8 +38,14 @@ module Aztecs.ECS.Query
   ( -- * Queries
     Query,
     QueryT (..),
-    QueryF (..),
     DynamicQueryF (..),
+
+    -- ** Operations
+    fetch,
+    fetchMaybe,
+    fetchMap,
+    fetchMap_,
+    fetchMapM,
 
     -- ** Running
     readQuery,
@@ -73,7 +79,6 @@ module Aztecs.ECS.Query
 where
 
 import Aztecs.ECS.Component
-import Aztecs.ECS.Query.Class
 import Aztecs.ECS.Query.Dynamic
 import Aztecs.ECS.World.Components (Components)
 import qualified Aztecs.ECS.World.Components as CS
@@ -131,26 +136,25 @@ instance (Monad m) => DynamicQueryF m (QueryT m) where
      in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', setDyn cId dynQ)
   {-# INLINE setDyn #-}
 
-instance (Monad m) => QueryF m (QueryT m) where
-  fetch :: forall a. (Component a) => QueryT m a
-  fetch = queryReader @_ @a fetchDyn
-  {-# INLINE fetch #-}
+fetch :: forall m a. (Monad m, Component a) => QueryT m a
+fetch = queryReader @_ @a fetchDyn
+{-# INLINE fetch #-}
 
-  fetchMaybe :: forall a. (Component a) => QueryT m (Maybe a)
-  fetchMaybe = queryReader @_ @a fetchMaybeDyn
-  {-# INLINE fetchMaybe #-}
+fetchMaybe :: forall m a. (Monad m, Component a) => QueryT m (Maybe a)
+fetchMaybe = queryReader @_ @a fetchMaybeDyn
+{-# INLINE fetchMaybe #-}
 
-  fetchMap :: forall a b. (Component a) => (b -> a -> a) -> QueryT m b -> QueryT m a
-  fetchMap f = queryWriter @_ @a $ adjustDyn f
-  {-# INLINE fetchMap #-}
+fetchMap :: forall m a b. (Monad m, Component a) => (b -> a -> a) -> QueryT m b -> QueryT m a
+fetchMap f = queryWriter @_ @a $ adjustDyn f
+{-# INLINE fetchMap #-}
 
-  fetchMap_ :: forall a b. (Component a) => (b -> a -> a) -> QueryT m b -> QueryT m ()
-  fetchMap_ f = queryWriter @_ @a $ adjustDyn_ f
-  {-# INLINE fetchMap_ #-}
+fetchMap_ :: forall m a b. (Monad m, Component a) => (b -> a -> a) -> QueryT m b -> QueryT m ()
+fetchMap_ f = queryWriter @_ @a $ adjustDyn_ f
+{-# INLINE fetchMap_ #-}
 
-  fetchMapM :: forall a b. (Component a, Monad m) => (b -> a -> m a) -> QueryT m b -> QueryT m a
-  fetchMapM f = queryWriter @_ @a $ adjustDynM f
-  {-# INLINE fetchMapM #-}
+fetchMapM :: forall m a b. (Monad m, Component a) => (b -> a -> m a) -> QueryT m b -> QueryT m a
+fetchMapM f = queryWriter @_ @a $ adjustDynM f
+{-# INLINE fetchMapM #-}
 
 dynQueryReader :: (ComponentID -> DynamicQueryT m a) -> ComponentID -> QueryT m a
 dynQueryReader f cId = Query (ReadsWrites {reads = Set.singleton cId, writes = Set.empty},,f cId)
