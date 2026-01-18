@@ -36,6 +36,7 @@ library
         Aztecs.ECS.Query.Dynamic
         Aztecs.ECS.Query.Dynamic.Class
         Aztecs.ECS.System
+        Aztecs.ECS.System.Dynamic
         Aztecs.ECS.View
         Aztecs.ECS.World
         Aztecs.ECS.World.Archetype
