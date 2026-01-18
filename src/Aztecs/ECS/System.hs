@@ -172,11 +172,11 @@ readQueryDynM :: Set ComponentID -> DynamicQueryT m a -> SystemT m (Vector a)
 readQueryDynM cIds q = SystemT (,DS.allM cIds q)
 
 -- | Match all entities with a dynamic query and filter.
-readQueryFilteredDyn :: Set ComponentID -> DynamicQuery a -> (Node -> Bool) -> SystemT Identity (Vector a)
+readQueryFilteredDyn :: Set ComponentID -> DynamicQuery a -> (Node Identity -> Bool) -> SystemT Identity (Vector a)
 readQueryFilteredDyn cIds q f = SystemT (,DS.filter cIds q f)
 
 -- | Match all entities with a dynamic query and filter.
-readQueryFilteredDynM :: Set ComponentID -> DynamicQueryT m a -> (Node -> Bool) -> SystemT m (Vector a)
+readQueryFilteredDynM :: Set ComponentID -> DynamicQueryT m a -> (Node m -> Bool) -> SystemT m (Vector a)
 readQueryFilteredDynM cIds q f = SystemT (,DS.filterM cIds q f)
 
 -- | Map all entities with a dynamic query.
@@ -196,9 +196,9 @@ querySingleMaybeDynM :: Set ComponentID -> DynamicQueryT m a -> SystemT m (Maybe
 querySingleMaybeDynM cIds q = SystemT (,DS.mapSingleMaybeM cIds q)
 
 -- | Filter and map all entities with a dynamic query.
-queryFilteredDyn :: Set ComponentID -> (Node -> Bool) -> DynamicQuery a -> SystemT Identity (Vector a)
+queryFilteredDyn :: Set ComponentID -> (Node Identity -> Bool) -> DynamicQuery a -> SystemT Identity (Vector a)
 queryFilteredDyn cIds f q = SystemT (,DS.filterMap cIds f q)
 
 -- | Filter and map all entities with a dynamic query.
-queryFilteredDynM :: Set ComponentID -> (Node -> Bool) -> DynamicQueryT m a -> SystemT m (Vector a)
+queryFilteredDynM :: Set ComponentID -> (Node m -> Bool) -> DynamicQueryT m a -> SystemT m (Vector a)
 queryFilteredDynM cIds f q = SystemT (,DS.filterMapM cIds f q)

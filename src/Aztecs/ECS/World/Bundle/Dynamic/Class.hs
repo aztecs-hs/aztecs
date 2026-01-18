@@ -1,3 +1,7 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 -- |
 -- Module      : Aztecs.ECS.World.Bundle.Dynamic.Class
 -- Copyright   : (c) Matt Hunzinger, 2025
@@ -11,8 +15,8 @@ module Aztecs.ECS.World.Bundle.Dynamic.Class (MonoidDynamicBundle (..)) where
 import Aztecs.ECS.Component
 
 -- | Monoid bundle of dynamic components.
-class MonoidDynamicBundle a where
+class MonoidDynamicBundle m a where
   -- | Add a component to the bundle by its `ComponentID`.
   --
   -- @since 0.9
-  dynBundle :: (Component c) => ComponentID -> c -> a
+  dynBundle :: (Component m c) => ComponentID -> c -> a

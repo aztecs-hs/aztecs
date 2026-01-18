@@ -1,3 +1,7 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 -- |
 -- Module      : Aztecs.ECS.World.Bundle.Dynamic
 -- Copyright   : (c) Matt Hunzinger, 2025
@@ -6,20 +10,36 @@
 -- Maintainer  : matt@hunzinger.me
 -- Stability   : provisional
 -- Portability : non-portable (GHC extensions)
-module Aztecs.ECS.World.Bundle.Dynamic (DynamicBundle (..), MonoidDynamicBundle (..)) where
+module Aztecs.ECS.World.Bundle.Dynamic (DynamicBundleT (..), DynamicBundle, MonoidDynamicBundle (..)) where
 
 import Aztecs.ECS.Entity
 import Aztecs.ECS.World.Archetype
 import Aztecs.ECS.World.Bundle.Dynamic.Class
+import Control.Monad.Identity
 
 -- | Dynamic bundle of components.
-newtype DynamicBundle = DynamicBundle {runDynamicBundle :: EntityID -> Archetype -> Archetype}
+data DynamicBundleT m = DynamicBundleT
+  { -- | Insert components into an archetype.
+    runDynamicBundle :: EntityID -> Archetype m -> (Archetype m, m ()),
+    -- | Run the on-insert hooks for all components.
+    runOnInsert :: m ()
+  }
 
-instance Semigroup DynamicBundle where
-  DynamicBundle d1 <> DynamicBundle d2 = DynamicBundle $ \eId arch -> d2 eId (d1 eId arch)
+-- | Pure dynamic bundle.
+type DynamicBundle = DynamicBundleT Identity
 
-instance Monoid DynamicBundle where
-  mempty = DynamicBundle $ \_ arch -> arch
+instance (Monad m) => Semigroup (DynamicBundleT m) where
+  DynamicBundleT d1 h1 <> DynamicBundleT d2 h2 =
+    DynamicBundleT
+      ( \eId arch ->
+          let (arch', hook1) = d1 eId arch
+              (arch'', hook2) = d2 eId arch'
+           in (arch'', hook1 >> hook2)
+      )
+      (h1 >> h2)
 
-instance MonoidDynamicBundle DynamicBundle where
-  dynBundle cId a = DynamicBundle $ \eId arch -> insertComponent eId cId a arch
+instance (Monad m) => Monoid (DynamicBundleT m) where
+  mempty = DynamicBundleT (\_ arch -> (arch, return ())) (return ())
+
+instance (Monad m) => MonoidDynamicBundle m (DynamicBundleT m) where
+  dynBundle cId a = DynamicBundleT (\eId arch -> insertComponent eId cId a arch) (return ())

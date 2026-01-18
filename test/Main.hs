@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -13,6 +14,7 @@ import Aztecs
 import Aztecs.ECS.Component (ComponentID (ComponentID))
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.World as W
+import Data.Functor.Identity
 import qualified Data.Vector as V
 import Data.Word
 import GHC.Generics
@@ -21,15 +23,15 @@ import Test.QuickCheck
 
 newtype X = X Int deriving (Eq, Show, Arbitrary, Generic)
 
-instance Component X
+instance Component Identity X
 
 newtype Y = Y Int deriving (Eq, Show, Arbitrary, Generic)
 
-instance Component Y
+instance Component Identity Y
 
 newtype Z = Z Int deriving (Eq, Show, Arbitrary, Generic)
 
-instance Component Z
+instance Component Identity Z
 
 main :: IO ()
 main = hspec $ do
@@ -59,7 +61,7 @@ prop_queryEmpty =
 -- | Query all components from a list of `ComponentID`s.
 queryComponentIds ::
   forall m q a.
-  (Applicative q, DynamicQueryF m q, Component a) =>
+  (Applicative q, DynamicQueryF m q, Component Identity a) =>
   [ComponentID] ->
   q (EntityID, [a])
 queryComponentIds =

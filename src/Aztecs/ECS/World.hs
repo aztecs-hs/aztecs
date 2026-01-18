@@ -37,16 +37,16 @@ import GHC.Generics
 import Prelude hiding (lookup)
 
 -- | World of entities and their components.
-data World = World
+data World m = World
   { -- | Entities and their components.
-    entities :: !Entities,
+    entities :: !(Entities m),
     -- | Next unique entity identifier.
     nextEntityId :: !EntityID
   }
   deriving (Show, Generic)
 
 -- | Empty `World`.
-empty :: World
+empty :: World m
 empty =
   World
     { entities = E.empty,
@@ -54,31 +54,34 @@ empty =
     }
 
 -- | Spawn a `Bundle` into the `World`.
-spawn :: Bundle -> World -> (EntityID, World)
-spawn b w =
+spawn :: (Monad m) => BundleT m -> World m -> m (EntityID, World m)
+spawn b w = do
   let e = nextEntityId w
-   in (e, w {entities = E.spawn e b $ entities w, nextEntityId = EntityID $ unEntityId e + 1})
+  es' <- E.spawn e b $ entities w
+  return (e, w {entities = es', nextEntityId = EntityID $ unEntityId e + 1})
 
 -- | Spawn an empty entity.
-spawnEmpty :: World -> (EntityID, World)
+spawnEmpty :: World m -> (EntityID, World m)
 spawnEmpty w = let e = nextEntityId w in (e, w {nextEntityId = EntityID $ unEntityId e + 1})
 
 -- | Insert a `Bundle` into an entity.
-insert :: EntityID -> Bundle -> World -> World
-insert e c w = w {entities = E.insert e c (entities w)}
+insert :: (Monad m) => EntityID -> BundleT m -> World m -> m (World m)
+insert e c w = do
+  es' <- E.insert e c (entities w)
+  return w {entities = es'}
 
 -- | Lookup a component in an entity.
-lookup :: forall a. (Component a) => EntityID -> World -> Maybe a
+lookup :: forall m a. (Component m a) => EntityID -> World m -> Maybe a
 lookup e w = E.lookup e $ entities w
 
 -- | Remove a component from an entity.
-remove :: forall a. (Component a) => EntityID -> World -> (Maybe a, World)
+remove :: forall m a. (Component m a) => EntityID -> World m -> (Maybe a, World m)
 remove e w = let (a, es) = E.remove e (entities w) in (a, w {entities = es})
 
 -- | Remove a component from an entity with its `ComponentID`.
-removeWithId :: forall a. (Component a) => EntityID -> ComponentID -> World -> (Maybe a, World)
+removeWithId :: forall m a. (Component m a) => EntityID -> ComponentID -> World m -> (Maybe a, World m)
 removeWithId e cId w = let (a, es) = E.removeWithId e cId (entities w) in (a, w {entities = es})
 
 -- | Despawn an entity, returning its components.
-despawn :: EntityID -> World -> (IntMap Dynamic, World)
+despawn :: EntityID -> World m -> (IntMap Dynamic, World m)
 despawn e w = let (a, es) = E.despawn e (entities w) in (a, w {entities = es})

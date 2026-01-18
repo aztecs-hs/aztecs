@@ -41,6 +41,7 @@ import Aztecs.ECS.Query.Dynamic (DynamicQuery, DynamicQueryT)
 import qualified Aztecs.ECS.Query.Dynamic as DQ
 import Aztecs.ECS.World.Archetypes (Node (..))
 import Aztecs.ECS.World.Entities (Entities)
+import Control.Monad.Identity
 import Data.Set (Set)
 import Data.Vector (Vector)
 import Prelude hiding (all, filter, map, mapM)
@@ -48,28 +49,28 @@ import Prelude hiding (all, filter, map, mapM)
 -- | Query operation.
 data Op m a where
   -- | All entities matching a dynamic query.
-  QAll :: DynamicQuery a -> Op m (Vector a)
+  QAll :: DynamicQuery a -> Op Identity (Vector a)
   -- | All entities matching a dynamic query.
   QAllM :: DynamicQueryT m a -> Op m (Vector a)
   -- | Filtered entities matching a dynamic query.
-  QFilter :: DynamicQuery a -> (Node -> Bool) -> Op m (Vector a)
+  QFilter :: DynamicQuery a -> (Node Identity -> Bool) -> Op Identity (Vector a)
   -- | Filtered entities matching a dynamic query.
-  QFilterM :: DynamicQueryT m a -> (Node -> Bool) -> Op m (Vector a)
+  QFilterM :: DynamicQueryT m a -> (Node m -> Bool) -> Op m (Vector a)
   -- | Map entities matching a dynamic query.
-  QMap :: DynamicQuery a -> Op m (Vector a)
+  QMap :: DynamicQuery a -> Op Identity (Vector a)
   -- | Map entities matching a dynamic query.
   QMapM :: DynamicQueryT m a -> Op m (Vector a)
   -- | Map single entity matching a dynamic query.
-  QMapSingleMaybe :: DynamicQuery a -> Op m (Maybe a)
+  QMapSingleMaybe :: DynamicQuery a -> Op Identity (Maybe a)
   -- | Map single entity matching a dynamic query.
   QMapSingleMaybeM :: DynamicQueryT m a -> Op m (Maybe a)
   -- | Filter and map entities matching a dynamic query.
-  QFilterMap :: (Node -> Bool) -> DynamicQuery a -> Op m (Vector a)
+  QFilterMap :: (Node Identity -> Bool) -> DynamicQuery a -> Op Identity (Vector a)
   -- | Filter and map entities matching a dynamic query.
-  QFilterMapM :: (Node -> Bool) -> DynamicQueryT m a -> Op m (Vector a)
+  QFilterMapM :: (Node m -> Bool) -> DynamicQueryT m a -> Op m (Vector a)
 
 -- | Run a query operation on entities.
-runOp :: (Monad m) => Set ComponentID -> Op m a -> Entities -> m (a, Entities)
+runOp :: (Monad m) => Set ComponentID -> Op m a -> Entities m -> m (a, Entities m)
 runOp cIds (QAll q) es = return (DQ.readQueryDyn cIds q es, es)
 runOp cIds (QAllM q) es = do
   as <- DQ.readQueryDynM cIds q es
@@ -112,7 +113,7 @@ instance Applicative (DynamicSystemT m) where
   {-# INLINE (<*>) #-}
 
 -- | Run a dynamic system on entities, returning results and updated entities.
-runDynamicSystemT :: (Monad m) => DynamicSystemT m a -> Entities -> m (a, Entities)
+runDynamicSystemT :: (Monad m) => DynamicSystemT m a -> Entities m -> m (a, Entities m)
 runDynamicSystemT (Pure a) es = return (a, es)
 runDynamicSystemT (Map f s) es = do
   (b, es') <- runDynamicSystemT s es
@@ -124,7 +125,7 @@ runDynamicSystemT (Ap sf sa) es = do
 runDynamicSystemT (Op cIds op) es = runOp cIds op es
 {-# INLINE runDynamicSystemT #-}
 
-all :: Set ComponentID -> DynamicQuery a -> DynamicSystemT m (Vector a)
+all :: Set ComponentID -> DynamicQuery a -> DynamicSystemT Identity (Vector a)
 all cIds q = Op cIds (QAll q)
 {-# INLINE all #-}
 
@@ -132,15 +133,15 @@ allM :: Set ComponentID -> DynamicQueryT m a -> DynamicSystemT m (Vector a)
 allM cIds q = Op cIds (QAllM q)
 {-# INLINE allM #-}
 
-filter :: Set ComponentID -> DynamicQuery a -> (Node -> Bool) -> DynamicSystemT m (Vector a)
+filter :: Set ComponentID -> DynamicQuery a -> (Node Identity -> Bool) -> DynamicSystemT Identity (Vector a)
 filter cIds q flt = Op cIds (QFilter q flt)
 {-# INLINE filter #-}
 
-filterM :: Set ComponentID -> DynamicQueryT m a -> (Node -> Bool) -> DynamicSystemT m (Vector a)
+filterM :: Set ComponentID -> DynamicQueryT m a -> (Node m -> Bool) -> DynamicSystemT m (Vector a)
 filterM cIds q flt = Op cIds (QFilterM q flt)
 {-# INLINE filterM #-}
 
-map :: Set ComponentID -> DynamicQuery a -> DynamicSystemT m (Vector a)
+map :: Set ComponentID -> DynamicQuery a -> DynamicSystemT Identity (Vector a)
 map cIds q = Op cIds (QMap q)
 {-# INLINE map #-}
 
@@ -148,7 +149,7 @@ mapM :: Set ComponentID -> DynamicQueryT m a -> DynamicSystemT m (Vector a)
 mapM cIds q = Op cIds (QMapM q)
 {-# INLINE mapM #-}
 
-mapSingleMaybe :: Set ComponentID -> DynamicQuery a -> DynamicSystemT m (Maybe a)
+mapSingleMaybe :: Set ComponentID -> DynamicQuery a -> DynamicSystemT Identity (Maybe a)
 mapSingleMaybe cIds q = Op cIds (QMapSingleMaybe q)
 {-# INLINE mapSingleMaybe #-}
 
@@ -156,10 +157,10 @@ mapSingleMaybeM :: Set ComponentID -> DynamicQueryT m a -> DynamicSystemT m (May
 mapSingleMaybeM cIds q = Op cIds (QMapSingleMaybeM q)
 {-# INLINE mapSingleMaybeM #-}
 
-filterMap :: Set ComponentID -> (Node -> Bool) -> DynamicQuery a -> DynamicSystemT m (Vector a)
+filterMap :: Set ComponentID -> (Node Identity -> Bool) -> DynamicQuery a -> DynamicSystemT Identity (Vector a)
 filterMap cIds flt q = Op cIds (QFilterMap flt q)
 {-# INLINE filterMap #-}
 
-filterMapM :: Set ComponentID -> (Node -> Bool) -> DynamicQueryT m a -> DynamicSystemT m (Vector a)
+filterMapM :: Set ComponentID -> (Node m -> Bool) -> DynamicQueryT m a -> DynamicSystemT m (Vector a)
 filterMapM cIds flt q = Op cIds (QFilterMapM flt q)
 {-# INLINE filterMapM #-}

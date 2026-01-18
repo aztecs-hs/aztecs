@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -- |
@@ -26,10 +27,13 @@ newtype ComponentID = ComponentID
   deriving (Eq, Ord, Show, Generic)
 
 -- | Component that can be stored in the `World`.
-class (Typeable a, Storage a (StorageT a)) => Component a where
+class (Monad m, Typeable a, Storage a (StorageT a)) => Component m a where
   -- | `Storage` of this component.
   --
   -- @since 0.9
   type StorageT a
 
   type StorageT a = Vector a
+
+  componentOnInsert :: a -> m ()
+  componentOnInsert _ = return ()

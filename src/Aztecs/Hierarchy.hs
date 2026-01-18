@@ -3,7 +3,9 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- |
 -- Module      : Aztecs.Asset.AssetServer
@@ -37,6 +39,7 @@ import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
 import Control.Monad
+import Control.Monad.Identity
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
@@ -53,25 +56,25 @@ newtype Parent = Parent
   }
   deriving (Eq, Ord, Show, Generic)
 
-instance Component Parent
+instance Component Identity Parent
 
 -- | Parent internal state component.
 newtype ParentState = ParentState {unParentState :: EntityID}
   deriving (Show, Generic)
 
-instance Component ParentState
+instance Component Identity ParentState
 
 -- | Children component.
 newtype Children = Children {unChildren :: Set EntityID}
   deriving (Eq, Ord, Show, Semigroup, Monoid, Generic)
 
-instance Component Children
+instance Component Identity Children
 
 -- | Child internal state component.
 newtype ChildState = ChildState {unChildState :: Set EntityID}
   deriving (Show, Generic)
 
-instance Component ChildState
+instance Component Identity ChildState
 
 -- | Update the parent-child relationships.
 update :: Access ()
@@ -192,7 +195,7 @@ hierarchies q = do
       return (entity, (unChildren cs, a))
 
   let childMap = Map.fromList $ V.toList children
-  roots <- A.system $ S.readQueryFiltered Q.entity (with @Children <> without @Parent)
+  roots <- A.system $ S.readQueryFiltered Q.entity (with @Identity @Children <> without @Identity @Parent)
   return $ V.mapMaybe (`hierarchy'` childMap) roots
 
 -- | Build a hierarchy of parents to children.
