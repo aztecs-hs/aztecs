@@ -16,8 +16,6 @@ import Aztecs.ECS.Component
 import Control.Monad
 
 -- | Query functor.
---
--- @since 0.10
 class (Applicative g, Functor f) => QueryF g f | f -> g where
   -- | Adjust a `Component` by its type.
   --

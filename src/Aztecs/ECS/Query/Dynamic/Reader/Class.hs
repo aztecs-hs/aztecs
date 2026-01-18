@@ -12,8 +12,6 @@ import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
 
 -- | Dynamic query reader functor.
---
--- @since 0.10
 class (Functor f) => DynamicQueryReaderF f where
   -- | Fetch the currently matched `EntityID`.
   --

@@ -14,8 +14,6 @@ import Aztecs.ECS.Component
 import Control.Monad
 
 -- | Dynamic query functor.
---
--- @since 0.10
 class (Monad m, Functor f) => DynamicQueryF m f | f -> m where
   -- | Adjust a `Component` by its `ComponentID`.
   --

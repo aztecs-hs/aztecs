@@ -23,6 +23,7 @@ module Aztecs.ECS.Query.Dynamic
     -- ** Running
     runDynQuery,
     allDyn,
+    allDynM,
     filterDyn,
     singleDyn,
     singleMaybeDyn,
@@ -56,8 +57,6 @@ import GHC.Stack
 type DynamicQuery = DynamicQueryT Identity
 
 -- | Dynamic query for components by ID.
---
--- @since 0.10
 newtype DynamicQueryT f a
   = DynamicQuery
   { -- | Run a dynamic query.
@@ -117,8 +116,6 @@ runDynQuery :: DynamicQuery a -> Archetype -> (Vector a, Archetype)
 runDynQuery q = runIdentity . runDynQueryT q
 
 -- | Map all matched entities.
---
--- @since 0.10
 mapDyn :: (Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m (Vector a, Entities)
 mapDyn cIds q es =
   let go = runDynQueryT q
@@ -135,8 +132,6 @@ mapDyn cIds q es =
 {-# INLINE mapDyn #-}
 
 -- | Map all matched entities.
---
--- @since 0.10
 filterMapDyn :: (Monad m) => Set ComponentID -> (Node -> Bool) -> DynamicQueryT m a -> Entities -> m (Vector a, Entities)
 filterMapDyn cIds f q es =
   let go = runDynQueryT q
@@ -153,8 +148,6 @@ filterMapDyn cIds f q es =
 {-# INLINE filterMapDyn #-}
 
 -- | Map a single matched entity.
---
--- @since 0.10
 mapSingleDyn :: (HasCallStack, Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m (a, Entities)
 mapSingleDyn cIds q es = do
   res <- mapSingleMaybeDyn cIds q es
@@ -163,8 +156,6 @@ mapSingleDyn cIds q es = do
     _ -> error "mapSingleDyn: expected single matching entity"
 
 -- | Map a single matched entity, or @Nothing@.
---
--- @since 0.10
 mapSingleMaybeDyn :: (Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m (Maybe a, Entities)
 mapSingleMaybeDyn cIds q es =
   if Set.null cIds
@@ -188,10 +179,12 @@ mapSingleMaybeDyn cIds q es =
 {-# INLINE mapSingleMaybeDyn #-}
 
 -- | Match all entities.
---
--- @since 0.10
-allDyn :: (Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m (Vector a)
-allDyn cIds q es =
+allDyn :: Set ComponentID -> DynamicQuery a -> Entities -> (Vector a)
+allDyn cIds q es = runIdentity $ allDynM cIds q es
+
+-- | Match all entities.
+allDynM :: (Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m (Vector a)
+allDynM cIds q es =
   if Set.null cIds
     then fst <$> runDynQueryT q A.empty {A.entities = Map.keysSet $ entities es}
     else do
@@ -200,8 +193,6 @@ allDyn cIds q es =
       return $ V.concat results
 
 -- | Match all entities with a filter.
---
--- @since 0.10
 filterDyn :: (Monad m) => Set ComponentID -> (Node -> Bool) -> DynamicQueryT m a -> Entities -> m (Vector a)
 filterDyn cIds f q es =
   if Set.null cIds
@@ -212,8 +203,6 @@ filterDyn cIds f q es =
       return $ V.concat results
 
 -- | Match a single entity.
---
--- @since 0.10
 singleDyn :: (HasCallStack, Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m a
 singleDyn cIds q es = do
   res <- singleMaybeDyn cIds q es
@@ -222,8 +211,6 @@ singleDyn cIds q es = do
     _ -> error "singleDyn: expected a single entity"
 
 -- | Match a single entity, or `Nothing`.
---
--- @since 0.10
 singleMaybeDyn :: (Monad m) => Set ComponentID -> DynamicQueryT m a -> Entities -> m (Maybe a)
 singleMaybeDyn cIds q es =
   if Set.null cIds

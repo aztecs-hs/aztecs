@@ -138,7 +138,7 @@ instance (Monad m) => MonadSystem (QueryT m) (AccessT m) where
 instance (Monad m) => MonadDynamicReaderSystem (DynamicQueryT m) (AccessT m) where
   allDyn cIds q = AccessT $ do
     !w <- get
-    lift . Q.allDyn cIds q $ entities w
+    lift . Q.allDynM cIds q $ entities w
   filterDyn cIds q f = AccessT $ do
     !w <- get
     lift . Q.filterDyn cIds f q $ entities w

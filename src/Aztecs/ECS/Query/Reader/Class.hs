@@ -11,8 +11,6 @@ module Aztecs.ECS.Query.Reader.Class (QueryReaderF (..)) where
 import Aztecs.ECS.Component
 
 -- | Query reader functor.
---
--- @since 0.10
 class (Functor f) => QueryReaderF f where
   -- | Fetch a `Component` by its type.
   --
