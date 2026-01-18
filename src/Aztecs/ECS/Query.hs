@@ -111,25 +111,19 @@ instance (Monad m) => DynamicQueryF m (QueryT m) where
   entity = Query (mempty,,entity)
   {-# INLINE entity #-}
 
-  fetchDyn cId = Query (ReadsWrites {reads = Set.singleton cId, writes = Set.empty},,fetchDyn cId)
+  fetchDyn = dynQueryReader fetchDyn
   {-# INLINE fetchDyn #-}
 
-  fetchMaybeDyn cId = Query (ReadsWrites {reads = Set.singleton cId, writes = Set.empty},,fetchMaybeDyn cId)
+  fetchMaybeDyn = dynQueryReader fetchMaybeDyn
   {-# INLINE fetchMaybeDyn #-}
 
-  adjustDyn f cId q = Query $ \cs ->
-    let !(rws, cs', dynQ) = runQuery q cs
-     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', adjustDyn f cId dynQ)
+  adjustDyn f = dynQueryWriter $ adjustDyn f
   {-# INLINE adjustDyn #-}
 
-  adjustDyn_ f cId q = Query $ \cs ->
-    let !(rws, cs', dynQ) = runQuery q cs
-     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', adjustDyn_ f cId dynQ)
+  adjustDyn_ f = dynQueryWriter $ adjustDyn_ f
   {-# INLINE adjustDyn_ #-}
 
-  adjustDynM f cId q = Query $ \cs ->
-    let !(rws, cs', dynQ) = runQuery q cs
-     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', adjustDynM f cId dynQ)
+  adjustDynM f = dynQueryWriter $ adjustDynM f
   {-# INLINE adjustDynM #-}
 
   setDyn cId q = Query $ \cs ->
@@ -139,42 +133,49 @@ instance (Monad m) => DynamicQueryF m (QueryT m) where
 
 instance (Monad m) => QueryF m (QueryT m) where
   fetch :: forall a. (Component a) => QueryT m a
-  fetch = Query $ \cs ->
-    let !(cId, cs') = CS.insert @a cs in (ReadsWrites {reads = Set.singleton cId, writes = Set.empty}, cs', fetchDyn cId)
+  fetch = queryReader @_ @a fetchDyn
   {-# INLINE fetch #-}
 
   fetchMaybe :: forall a. (Component a) => QueryT m (Maybe a)
-  fetchMaybe = Query $ \cs ->
-    let !(cId, cs') = CS.insert @a cs in (ReadsWrites {reads = Set.singleton cId, writes = Set.empty}, cs', fetchMaybeDyn cId)
+  fetchMaybe = queryReader @_ @a fetchMaybeDyn
   {-# INLINE fetchMaybe #-}
 
   adjust :: forall a b. (Component a) => (b -> a -> a) -> QueryT m b -> QueryT m a
-  adjust f q = Query $ \cs ->
-    let !(cId, cs') = CS.insert @a cs
-        !(rws, cs'', dynQ) = runQuery q cs'
-     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs'', adjustDyn f cId dynQ)
+  adjust f = queryWriter @_ @a $ adjustDyn f
   {-# INLINE adjust #-}
 
   adjust_ :: forall a b. (Component a) => (b -> a -> a) -> QueryT m b -> QueryT m ()
-  adjust_ f q = Query $ \cs ->
-    let !(cId, cs') = CS.insert @a cs
-        !(rws, cs'', dynQ) = runQuery q cs'
-     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs'', adjustDyn_ f cId dynQ)
+  adjust_ f = queryWriter @_ @a $ adjustDyn_ f
   {-# INLINE adjust_ #-}
 
   adjustM :: forall a b. (Component a, Monad m) => (b -> a -> m a) -> QueryT m b -> QueryT m a
-  adjustM f q = Query $ \cs ->
-    let !(cId, cs') = CS.insert @a cs
-        !(rws, cs'', dynQ) = runQuery q cs'
-     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs'', adjustDynM f cId dynQ)
+  adjustM f = queryWriter @_ @a $ adjustDynM f
   {-# INLINE adjustM #-}
 
   set :: forall a. (Component a) => QueryT m a -> QueryT m a
-  set q = Query $ \cs ->
-    let !(cId, cs') = CS.insert @a cs
-        !(rws, cs'', dynQ) = runQuery q cs'
-     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs'', setDyn cId dynQ)
+  set = queryWriter @_ @a setDyn
   {-# INLINE set #-}
+
+dynQueryReader :: (ComponentID -> DynamicQueryT m a) -> ComponentID -> QueryT m a
+dynQueryReader f cId = Query (ReadsWrites {reads = Set.singleton cId, writes = Set.empty},,f cId)
+{-# INLINE dynQueryReader #-}
+
+dynQueryWriter :: (ComponentID -> DynamicQueryT m a -> DynamicQueryT m b) -> ComponentID -> QueryT m a -> QueryT m b
+dynQueryWriter f cId q = Query $ \cs ->
+  let !(rws, cs', dynQ) = runQuery q cs
+   in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', f cId dynQ)
+
+queryReader :: forall m a b. (Component a) => (ComponentID -> DynamicQueryT m b) -> QueryT m b
+queryReader f = Query $ \cs ->
+  let !(cId, cs') = CS.insert @a cs in (ReadsWrites {reads = Set.singleton cId, writes = Set.empty}, cs', f cId)
+{-# INLINE queryReader #-}
+
+queryWriter :: forall m a b c. (Component a) => (ComponentID -> DynamicQueryT m b -> DynamicQueryT m c) -> QueryT m b -> QueryT m c
+queryWriter f (Query g) = Query $ \cs ->
+  let !(rws, cs', dynQ) = g cs
+      !(cId, cs'') = CS.insert @a cs'
+   in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs'', f cId dynQ)
+{-# INLINE queryWriter #-}
 
 -- | Reads and writes of a `Query`.
 data ReadsWrites = ReadsWrites
