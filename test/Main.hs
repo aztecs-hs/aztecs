@@ -1,6 +1,7 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
@@ -23,15 +24,15 @@ import Test.QuickCheck
 
 newtype X = X Int deriving (Eq, Show, Arbitrary, Generic)
 
-instance Component Identity X
+instance (Monad m) => Component m X
 
 newtype Y = Y Int deriving (Eq, Show, Arbitrary, Generic)
 
-instance Component Identity Y
+instance (Monad m) => Component m Y
 
 newtype Z = Z Int deriving (Eq, Show, Arbitrary, Generic)
 
-instance Component Identity Z
+instance (Monad m) => Component m Z
 
 main :: IO ()
 main = hspec $ do
@@ -61,7 +62,7 @@ prop_queryEmpty =
 -- | Query all components from a list of `ComponentID`s.
 queryComponentIds ::
   forall m q a.
-  (Applicative q, DynamicQueryF m q, Component Identity a) =>
+  (Applicative q, DynamicQueryF m q, Component m a) =>
   [ComponentID] ->
   q (EntityID, [a])
 queryComponentIds =
@@ -73,37 +74,38 @@ queryComponentIds =
 
 prop_queryDyn :: [[X]] -> Expectation
 prop_queryDyn xs =
-  let spawner xs' (acc, wAcc) =
+  let spawner :: [X] -> ([(EntityID, [(X, ComponentID)])], World Identity) -> ([(EntityID, [(X, ComponentID)])], World Identity)
+      spawner xs' (acc, wAcc) =
         let spawner' x (bAcc, cAcc, idAcc) =
-              ( dynBundle (ComponentID idAcc) x <> bAcc,
+              ( dynBundle @Identity (ComponentID idAcc) x <> bAcc,
                 (x, ComponentID idAcc) : cAcc,
                 idAcc + 1
               )
             (b, cs, _) = foldr spawner' (mempty, [], 0) xs'
-            (e, wAcc') = W.spawn b wAcc
+            (e, wAcc') = runIdentity $ W.spawn b wAcc
          in ((e, cs) : acc, wAcc')
       (es, w) = foldr spawner ([], W.empty) xs
       go (e, cs) = do
-        let q = queryComponentIds $ map snd cs
+        let q = queryComponentIds @Identity $ map snd cs
             (res, _) = Q.readQuery q $ W.entities w
         return $ V.toList res `shouldContain` [(e, map fst cs)]
    in mapM_ go es
 
 prop_queryTypedComponent :: [X] -> Expectation
 prop_queryTypedComponent xs = do
-  let w = foldr (\x -> snd . W.spawn (bundle x)) W.empty xs
+  let w = foldr (\x -> snd . runIdentity . W.spawn (bundle x)) W.empty xs
       (res, _) = Q.readQuery Q.fetch $ W.entities w
   V.toList res `shouldMatchList` xs
 
 prop_queryTwoTypedComponents :: [(X, Y)] -> Expectation
 prop_queryTwoTypedComponents xys = do
-  let w = foldr (\(x, y) -> snd . W.spawn (bundle x <> bundle y)) W.empty xys
+  let w = foldr (\(x, y) -> snd . runIdentity . W.spawn (bundle x <> bundle y)) W.empty xys
       (res, _) = Q.readQuery ((,) <$> Q.fetch <*> Q.fetch) $ W.entities w
   V.toList res `shouldMatchList` xys
 
 prop_queryThreeTypedComponents :: [(X, Y, Z)] -> Expectation
 prop_queryThreeTypedComponents xyzs = do
-  let w = foldr (\(x, y, z) -> snd . W.spawn (bundle x <> bundle y <> bundle z)) W.empty xyzs
+  let w = foldr (\(x, y, z) -> snd . runIdentity . W.spawn (bundle x <> bundle y <> bundle z)) W.empty xyzs
       q = do
         x <- Q.fetch
         y <- Q.fetch
@@ -114,13 +116,13 @@ prop_queryThreeTypedComponents xyzs = do
 
 prop_querySingle :: Expectation
 prop_querySingle =
-  let (_, w) = W.spawn (bundle $ X 1) W.empty
+  let (_, w) = runIdentity $ W.spawn (bundle $ X 1) W.empty
       (res, _) = Q.readQuerySingle Q.fetch $ W.entities w
    in res `shouldBe` X 1
 
 prop_queryMapSingle :: Word8 -> Expectation
 prop_queryMapSingle n =
-  let (_, w) = W.spawn (bundle $ X 0) W.empty
+  let (_, w) = runIdentity $ W.spawn (bundle $ X 0) W.empty
       q = Q.fetchMap (\_ (X x) -> X $ x + 1) (pure ())
       w' = foldr (\_ es -> snd $ Q.querySingle q es) (W.entities w) [1 .. n]
       (res, _) = Q.readQuerySingle Q.fetch w'

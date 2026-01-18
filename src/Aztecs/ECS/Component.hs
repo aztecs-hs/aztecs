@@ -37,3 +37,6 @@ class (Monad m, Typeable a, Storage a (StorageT a)) => Component m a where
 
   componentOnInsert :: a -> m ()
   componentOnInsert _ = return ()
+
+  componentOnRemove :: a -> m ()
+  componentOnRemove _ = return ()

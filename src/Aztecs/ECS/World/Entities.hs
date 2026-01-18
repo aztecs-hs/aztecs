@@ -162,22 +162,23 @@ lookup e w = do
   !node <- AS.lookup aId $ archetypes w
   A.lookupComponent e cId $ nodeArchetype node
 
--- | Insert a component into an entity.
-remove :: forall m a. (Component m a) => EntityID -> Entities m -> (Maybe a, Entities m)
+-- | Remove a component from an entity.
+remove :: forall m a. (Component m a) => EntityID -> Entities m -> m (Maybe a, Entities m)
 remove e w =
   let !(cId, components') = CS.insert @a @m (components w)
    in removeWithId e cId w {components = components'}
 
 -- | Remove a component from an entity with its `ComponentID`.
-removeWithId :: forall m a. (Component m a) => EntityID -> ComponentID -> Entities m -> (Maybe a, Entities m)
+removeWithId :: forall m a. (Component m a) => EntityID -> ComponentID -> Entities m -> m (Maybe a, Entities m)
 removeWithId e cId w = case Map.lookup e (entities w) of
-  Just aId ->
-    let (res, as) = AS.remove @m @a e aId cId $ archetypes w
+  Just aId -> do
+    let (res, as, hook) = AS.remove @m @a e aId cId $ archetypes w
         (maybeA, es) = case res of
           Just (a, nextAId) -> (Just a, Map.insert e nextAId (entities w))
           Nothing -> (Nothing, entities w)
-     in (maybeA, w {archetypes = as, entities = es})
-  Nothing -> (Nothing, w)
+    hook
+    return (maybeA, w {archetypes = as, entities = es})
+  Nothing -> return (Nothing, w)
 
 -- | Despawn an entity, returning its components.
 despawn :: EntityID -> Entities m -> (IntMap Dynamic, Entities m)

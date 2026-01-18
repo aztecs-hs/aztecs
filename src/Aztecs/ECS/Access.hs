@@ -88,7 +88,7 @@ lookup e = AccessT $ do
 remove :: forall m a. (Monad m, Component m a) => EntityID -> AccessT m (Maybe a)
 remove e = AccessT $ do
   !w <- get
-  let !(a, w') = W.remove @m e w
+  (a, w') <- lift $ W.remove @m e w
   put w'
   return a
 

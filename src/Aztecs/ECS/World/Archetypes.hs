@@ -196,7 +196,7 @@ remove ::
   ArchetypeID ->
   ComponentID ->
   Archetypes m ->
-  (Maybe (a, ArchetypeID), Archetypes m)
+  (Maybe (a, ArchetypeID), Archetypes m, m ())
 remove e aId cId arches = case lookup aId arches of
   Just node -> case lookupArchetypeId (Set.delete cId (nodeComponentIds node)) arches of
     Just nextAId ->
@@ -208,8 +208,11 @@ remove e aId cId arches = case lookup aId arches of
              in archAcc {storages = IntMap.adjust adjustStorage itemCId (storages archAcc)}
           go nextNode =
             nextNode {nodeArchetype = foldl' go' (nodeArchetype nextNode) (IntMap.toList cs')}
-       in ( (,nextAId) <$> (a >>= fromDynamic),
-            arches' {nodes = Map.adjust go nextAId (nodes arches')}
+          maybeA = a >>= fromDynamic
+          hook = maybe (return ()) componentOnRemove maybeA
+       in ( (,nextAId) <$> maybeA,
+            arches' {nodes = Map.adjust go nextAId (nodes arches')},
+            hook
           )
     Nothing ->
       let !(cs, arch') = A.removeStorages e (nodeArchetype node)
@@ -224,7 +227,10 @@ remove e aId cId arches = case lookup aId arches of
           removeDyn s =
             let (res, dyns) = Map.updateLookupWithKey (\_ _ -> Nothing) e . Map.fromAscList . zip (Set.toList $ entities arch') . V.toList $ toAscVectorDyn s
              in (res, fromAscVectorDyn . V.fromList $ Map.elems dyns)
-       in ( (,nextAId) <$> (a >>= (\a' -> fst (removeDyn a') >>= fromDynamic)),
-            arches' {nodes = Map.insert aId node' (nodes arches')}
+          maybeA = a >>= (\a' -> fst (removeDyn a') >>= fromDynamic)
+          hook = maybe (return ()) componentOnRemove maybeA
+       in ( (,nextAId) <$> maybeA,
+            arches' {nodes = Map.insert aId node' (nodes arches')},
+            hook
           )
-  Nothing -> (Nothing, arches)
+  Nothing -> (Nothing, arches, return ())
