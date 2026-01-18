@@ -18,8 +18,6 @@ import qualified Data.Vector as V
 import GHC.Stack
 
 -- | Monadic dynamic reader system.
---
--- @since 0.9
 class (Monad m) => MonadDynamicReaderSystem q m | m -> q where
   -- | Match all entities with a query.
   --

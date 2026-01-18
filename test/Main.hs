@@ -13,7 +13,6 @@ import Aztecs
 import Aztecs.ECS.Component (ComponentID (ComponentID))
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.World as W
-import Data.Functor.Identity (Identity (runIdentity))
 import qualified Data.Vector as V
 import Data.Word
 import GHC.Generics
@@ -55,17 +54,17 @@ describe "Aztecs.ECS.Hierarchy.update" $ do
 
 prop_queryEmpty :: Expectation
 prop_queryEmpty =
-  let res = fst $ Q.all (Q.fetch @_ @X) $ W.entities W.empty in V.toList res `shouldMatchList` []
+  let res = fst $ Q.all (Q.fetch @_ @_ @X) $ W.entities W.empty in V.toList res `shouldMatchList` []
 
 -- | Query all components from a list of `ComponentID`s.
 queryComponentIds ::
-  forall q a.
-  (Applicative q, DynamicQueryReaderF q, Component a) =>
+  forall m q a.
+  (Applicative q, DynamicQueryF m q, Component a) =>
   [ComponentID] ->
   q (EntityID, [a])
 queryComponentIds =
   let go cId qAcc = do
-        x' <- Q.fetchDyn @_ @a cId
+        x' <- Q.fetchDyn @_ @_ @a cId
         (e, xs) <- qAcc
         return (e, x' : xs)
    in foldr go ((,) <$> Q.entity <*> pure [])
@@ -121,7 +120,7 @@ prop_queryMapSingle :: Word8 -> Expectation
 prop_queryMapSingle n =
   let (_, w) = W.spawn (bundle $ X 0) W.empty
       q = Q.adjust (\_ (X x) -> X $ x + 1) (pure ())
-      w' = foldr (\_ es -> snd . runIdentity $ Q.mapSingle q es) (W.entities w) [1 .. n]
+      w' = foldr (\_ es -> snd $ Q.mapSingle q es) (W.entities w) [1 .. n]
       (res, _) = Q.single Q.fetch w'
    in res `shouldBe` X (fromIntegral n)
 

@@ -9,7 +9,6 @@ import qualified Aztecs.ECS.World as W
 import Control.DeepSeq
 import Criterion.Main
 import Data.Function
-import Data.Functor.Identity
 import Data.Vector (Vector)
 import GHC.Generics
 
@@ -25,7 +24,7 @@ query :: Query Position
 query = Q.fetch & Q.adjust (\(Velocity v) (Position p) -> Position $ p + v)
 
 run :: Query Position -> World -> Vector Position
-run q = fst . runIdentity . Q.map q . entities
+run q = fst . Q.map q . entities
 
 main :: IO ()
 main = do

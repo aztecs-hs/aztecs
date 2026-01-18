@@ -10,14 +10,12 @@
 -- Portability : non-portable (GHC extensions)
 module Aztecs.ECS.System.Class (MonadSystem (..)) where
 
-import Aztecs.ECS.Query.Reader (QueryFilter (..))
+import Aztecs.ECS.Query (QueryFilter (..))
 import Data.Vector (Vector)
 import GHC.Stack
 import Prelude hiding (map)
 
 -- | Monadic system.
---
--- @since 0.9
 class (Monad m) => MonadSystem q m | m -> q where
   -- | Map all matching entities with a query.
   --

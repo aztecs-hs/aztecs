@@ -17,8 +17,6 @@ import Data.Vector (Vector)
 import GHC.Stack
 
 -- | Monadic dynamic system.
---
--- @since 0.9
 class (Monad m) => MonadDynamicSystem q m | m -> q where
   -- | Map all matching entities with a query.
   --

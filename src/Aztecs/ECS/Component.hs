@@ -19,8 +19,6 @@ import Data.Vector (Vector)
 import GHC.Generics
 
 -- | Unique component identifier.
---
--- @since 0.9
 newtype ComponentID = ComponentID
   { -- | Unique integer identifier.
     --
@@ -30,8 +28,6 @@ newtype ComponentID = ComponentID
   deriving (Eq, Ord, Show, Generic)
 
 -- | Component that can be stored in the `World`.
---
--- @since 0.9
 class (Typeable a, Storage a (StorageT a)) => Component a where
   -- | `Storage` of this component.
   --

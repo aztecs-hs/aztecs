@@ -31,8 +31,6 @@ import GHC.Generics
 import Prelude hiding (lookup)
 
 -- | Component ID map.
---
--- @since 0.9
 data Components = Components
   { -- | Map of component types to identifiers.
     --
@@ -46,8 +44,6 @@ data Components = Components
   deriving (Show, Generic)
 
 -- | Empty `Components`.
---
--- @since 0.9
 empty :: Components
 empty =
   Components
@@ -56,22 +52,16 @@ empty =
     }
 
 -- | Lookup a component ID by type.
---
--- @since 0.9
 lookup :: forall a. (Typeable a) => Components -> Maybe ComponentID
 lookup cs = Map.lookup (typeOf (Proxy @a)) (componentIds cs)
 
 -- | Insert a component ID by type, if it does not already exist.
---
--- @since 0.9
 insert :: forall a. (Component a) => Components -> (ComponentID, Components)
 insert cs = case lookup @a cs of
   Just cId -> (cId, cs)
   Nothing -> insert' @a cs
 
 -- | Insert a component ID by type.
---
--- @since 0.9
 insert' :: forall c. (Component c) => Components -> (ComponentID, Components)
 insert' cs =
   let !cId = nextComponentId cs
