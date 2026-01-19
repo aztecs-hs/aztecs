@@ -128,7 +128,7 @@ prop_querySingle =
 prop_queryMapSingle :: Word8 -> Expectation
 prop_queryMapSingle n =
   let (_, w, _) = W.spawn (bundle $ X 0) W.empty
-      q = Q.fetchMap (\_ (X x) -> X $ x + 1) (pure ())
+      q = Q.fetchMap $ \(X x) -> X $ x + 1
       w' = foldr (\_ es -> (\(_, es', _) -> es') . runIdentity $ Q.querySingle q es) (W.entities w) [1 .. n]
       (res, _) = runIdentity $ Q.readQuerySingle Q.fetch w'
    in res `shouldBe` X (fromIntegral n)

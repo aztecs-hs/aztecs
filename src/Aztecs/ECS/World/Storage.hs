@@ -40,6 +40,12 @@ class (Typeable s, Typeable a) => Storage a s where
   zipWith_ :: (i -> a -> a) -> Vector i -> s -> s
   zipWith_ f is as = snd $ zipWith f is as
 
+  -- | Map a function with some input over all components, returning a tuple result and updated storage.
+  zipWithAccum :: (i -> a -> (o, a)) -> Vector i -> s -> (Vector (o, a), s)
+
+  -- | Map a monadic function with some input over all components, returning a tuple result and updated storage.
+  zipWithAccumM :: (Monad m) => (i -> a -> m (o, a)) -> Vector i -> s -> m (Vector (o, a), s)
+
 instance (Typeable a) => Storage a (Vector a) where
   singleton a = V.singleton a
   {-# INLINE singleton #-}
@@ -61,3 +67,15 @@ instance (Typeable a) => Storage a (Vector a) where
 
   zipWithM f is as = (\as' -> (as', as')) <$> V.zipWithM f is as
   {-# INLINE zipWithM #-}
+
+  zipWithAccum f is as =
+    let pairs = V.zipWith f is as
+        as' = V.map snd pairs
+     in (pairs, as')
+  {-# INLINE zipWithAccum #-}
+
+  zipWithAccumM f is as = do
+    pairs <- V.zipWithM f is as
+    let as' = V.map snd pairs
+    return (pairs, as')
+  {-# INLINE zipWithAccumM #-}

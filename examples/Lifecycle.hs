@@ -14,7 +14,7 @@ instance Component IO X where
   componentOnRemove e x = liftIO . putStrLn $ "remove " ++ show e ++ ": " ++ show x
 
 addTen :: Query IO X
-addTen = fetchMap (\_ (X n) -> X (n + 10)) (pure ())
+addTen = fetchMap (\(X n) -> X (n + 10))
 
 app :: Access IO ()
 app = do

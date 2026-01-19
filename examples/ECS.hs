@@ -16,7 +16,9 @@ newtype Velocity = Velocity Int deriving (Show)
 instance (Monad m) => Component m Velocity
 
 move :: (Monad m) => Query m Position
-move = fetchMap (\(Velocity v) (Position p) -> Position $ p + v) fetch
+move = fetchMapWith go fetch
+  where
+    go (Velocity v) (Position p) = Position $ p + v
 
 app :: Access IO ()
 app = do
