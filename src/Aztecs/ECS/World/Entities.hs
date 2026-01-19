@@ -25,7 +25,7 @@ module Aztecs.ECS.World.Entities
   )
 where
 
-import Aztecs.ECS.Access.Internal (AccessT)
+import Aztecs.ECS.Access.Internal (Access)
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
 import qualified Aztecs.ECS.World.Archetype as A
@@ -54,7 +54,7 @@ empty =
     }
 
 -- | Spawn a `Bundle`. Returns the updated entities and the onInsert hook to run.
-spawn :: (Monad m) => EntityID -> BundleT m -> Entities m -> (Entities m, AccessT m ())
+spawn :: (Monad m) => EntityID -> BundleT m -> Entities m -> (Entities m, Access m ())
 spawn eId b w =
   let (cIds, components', dynB) = unBundle b (components w)
    in case AS.lookupArchetypeId cIds (archetypes w) of
@@ -95,7 +95,7 @@ spawnWithArchetypeId ::
   ArchetypeID ->
   DynamicBundleT m ->
   Entities m ->
-  (Entities m, AccessT m ())
+  (Entities m, Access m ())
 spawnWithArchetypeId e aId b w =
   let f n =
         let (arch', hook) = runDynamicBundle b e ((nodeArchetype n) {A.entities = Set.insert e . A.entities $ nodeArchetype n})
@@ -116,13 +116,13 @@ spawnWithArchetypeId e aId b w =
       )
 
 -- | Insert a component into an entity. Returns the updated entities and the onInsert hook.
-insert :: (Monad m) => EntityID -> BundleT m -> Entities m -> (Entities m, AccessT m ())
+insert :: (Monad m) => EntityID -> BundleT m -> Entities m -> (Entities m, Access m ())
 insert e b w =
   let !(cIds, components', dynB) = unBundle b (components w)
    in insertDyn e cIds dynB w {components = components'}
 
 -- | Insert a component into an entity with its `ComponentID`. Returns the updated entities and the onInsert hook.
-insertDyn :: (Monad m) => EntityID -> Set ComponentID -> DynamicBundleT m -> Entities m -> (Entities m, AccessT m ())
+insertDyn :: (Monad m) => EntityID -> Set ComponentID -> DynamicBundleT m -> Entities m -> (Entities m, Access m ())
 insertDyn e cIds b w = case Map.lookup e $ entities w of
   Just aId ->
     let (maybeNextAId, arches, hook) = AS.insert e aId cIds b $ archetypes w
@@ -147,13 +147,13 @@ lookup e w = do
   A.lookupComponent e cId $ nodeArchetype node
 
 -- | Remove a component from an entity. Returns the component (if found), updated entities, and the onRemove hook.
-remove :: forall m a. (Component m a) => EntityID -> Entities m -> (Maybe a, Entities m, AccessT m ())
+remove :: forall m a. (Component m a) => EntityID -> Entities m -> (Maybe a, Entities m, Access m ())
 remove e w =
   let !(cId, components') = CS.insert @a @m (components w)
    in removeWithId e cId w {components = components'}
 
 -- | Remove a component from an entity with its `ComponentID`. Returns the component (if found), updated entities, and the onRemove hook.
-removeWithId :: forall m a. (Component m a) => EntityID -> ComponentID -> Entities m -> (Maybe a, Entities m, AccessT m ())
+removeWithId :: forall m a. (Component m a) => EntityID -> ComponentID -> Entities m -> (Maybe a, Entities m, Access m ())
 removeWithId e cId w = case Map.lookup e (entities w) of
   Just aId ->
     let (res, as, hook) = AS.remove @m @a e aId cId $ archetypes w

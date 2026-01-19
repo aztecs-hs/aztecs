@@ -26,7 +26,7 @@ module Aztecs.ECS.World.Bundle
   )
 where
 
-import Aztecs.ECS.Access.Internal (AccessT)
+import Aztecs.ECS.Access.Internal (Access)
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
 import Aztecs.ECS.World.Archetype
@@ -63,7 +63,7 @@ instance (Monad m) => MonoidDynamicBundle m (BundleT m) where
   dynBundle cId c = BundleT (Set.singleton cId,,dynBundle @m cId c)
 
 -- | Insert a bundle of components into an archetype.
-runBundle :: (Monad m) => BundleT m -> Components -> EntityID -> Archetype m -> (Components, Archetype m, AccessT m ())
+runBundle :: (Monad m) => BundleT m -> Components -> EntityID -> Archetype m -> (Components, Archetype m, Access m ())
 runBundle b cs eId arch =
   let !(_, cs', d) = unBundle b cs
       !(arch', hook) = runDynamicBundle d eId arch

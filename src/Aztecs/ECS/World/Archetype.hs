@@ -40,7 +40,7 @@ module Aztecs.ECS.World.Archetype
   )
 where
 
-import Aztecs.ECS.Access.Internal (AccessT)
+import Aztecs.ECS.Access.Internal (Access)
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
 import Aztecs.ECS.World.Archetype.Internal (Archetype (..), empty)
@@ -97,7 +97,7 @@ lookupComponentsAscMaybe cId arch = S.toAscVector @a @(StorageT a) <$> lookupSto
 -- This assumes the archetype contains one of each stored component per entity.
 -- Returns the updated archetype and the onInsert hook to run.
 insertComponent ::
-  forall m a. (Component m a) => EntityID -> ComponentID -> a -> Archetype m -> (Archetype m, AccessT m ())
+  forall m a. (Component m a) => EntityID -> ComponentID -> a -> Archetype m -> (Archetype m, Access m ())
 insertComponent e cId c arch =
   let !storage =
         S.fromAscVector @a @(StorageT a) . V.fromList . Map.elems . Map.insert e c $ lookupComponents cId arch
@@ -110,7 +110,7 @@ member cId = IntMap.member (unComponentId cId) . storages
 -- | Zip a vector of components with a function and a component storage.
 -- Returns the result vector, updated archetype, and the onChange hooks to run.
 zipWith ::
-  forall m a c. (Monad m, Component m c) => Vector a -> (a -> c -> c) -> ComponentID -> Archetype m -> (Vector c, Archetype m, AccessT m ())
+  forall m a c. (Monad m, Component m c) => Vector a -> (a -> c -> c) -> ComponentID -> Archetype m -> (Vector c, Archetype m, Access m ())
 zipWith as f cId arch =
   let go maybeDyn = case maybeDyn of
         Just dyn -> case fromDynamic $ storageDyn dyn of
@@ -129,7 +129,7 @@ zipWith as f cId arch =
 -- | Zip a vector of components with a monadic function and a component storage.
 -- Returns the result vector, updated archetype, and the onChange hooks to run.
 zipWithM ::
-  forall m a c. (Monad m, Component m c) => Vector a -> (a -> c -> m c) -> ComponentID -> Archetype m -> m (Vector c, Archetype m, AccessT m ())
+  forall m a c. (Monad m, Component m c) => Vector a -> (a -> c -> m c) -> ComponentID -> Archetype m -> m (Vector c, Archetype m, Access m ())
 zipWithM as f cId arch = do
   let go maybeDyn = case maybeDyn of
         Just dyn -> case fromDynamic $ storageDyn dyn of
@@ -149,7 +149,7 @@ zipWithM as f cId arch = do
 -- | Zip a vector of components with a function and a component storage.
 -- Returns the updated archetype and the onChange hooks to run.
 zipWith_ ::
-  forall m a c. (Monad m, Component m c) => Vector a -> (a -> c -> c) -> ComponentID -> Archetype m -> (Archetype m, AccessT m ())
+  forall m a c. (Monad m, Component m c) => Vector a -> (a -> c -> c) -> ComponentID -> Archetype m -> (Archetype m, Access m ())
 zipWith_ as f cId arch =
   let maybeStorage = case IntMap.lookup (unComponentId cId) $ storages arch of
         Just dyn -> case fromDynamic $ storageDyn dyn of

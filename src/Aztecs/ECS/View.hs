@@ -25,8 +25,8 @@ module Aztecs.ECS.View
   )
 where
 
-import Aztecs.ECS.Access.Internal (AccessT)
-import Aztecs.ECS.Query.Dynamic (DynamicQuery, DynamicQueryT (..))
+import Aztecs.ECS.Access.Internal (Access)
+import Aztecs.ECS.Query.Dynamic (DynamicQuery (..))
 import Aztecs.ECS.World.Archetypes
 import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Components
@@ -82,29 +82,29 @@ unview v es =
     }
 
 -- | Query all matching entities in a `View`.
-allDyn :: DynamicQuery a -> View Identity -> Vector a
+allDyn :: DynamicQuery Identity a -> View Identity -> Vector a
 allDyn q v =
   foldl'
     ( \acc n ->
-        let (as, _, _) = runIdentity . runDynQueryT q $ nodeArchetype n
+        let (as, _, _) = runIdentity . runDynQuery q $ nodeArchetype n
          in as V.++ acc
     )
     V.empty
     (viewArchetypes v)
 
 -- | Query all matching entities in a `View`.
-singleDyn :: DynamicQuery a -> View Identity -> Maybe a
+singleDyn :: DynamicQuery Identity a -> View Identity -> Maybe a
 singleDyn q v = case allDyn q v of
   as | V.length as == 1 -> Just (V.head as)
   _ -> Nothing
 
 -- | Map all matching entities in a `View`. Returns the results, updated view, and hooks to run.
-mapDyn :: (Monad m) => DynamicQueryT m a -> View m -> m (Vector a, View m, AccessT m ())
+mapDyn :: (Monad m) => DynamicQuery m a -> View m -> m (Vector a, View m, Access m ())
 mapDyn q v = do
   (as, arches, hooks) <-
     foldlM
       ( \(acc, archAcc, hooksAcc) (aId, n) -> do
-          (as', arch', hook) <- runDynQueryT q $ nodeArchetype n
+          (as', arch', hook) <- runDynQuery q $ nodeArchetype n
           return (as' V.++ acc, Map.insert aId (n {nodeArchetype = arch'}) archAcc, hooksAcc >> hook)
       )
       (V.empty, Map.empty, return ())
@@ -112,7 +112,7 @@ mapDyn q v = do
   return (as, View arches, hooks)
 
 -- | Map a single matching entity in a `View`. Returns the result, updated view, and hooks to run.
-mapSingleDyn :: (Monad m) => DynamicQueryT m a -> View m -> m (Maybe a, View m, AccessT m ())
+mapSingleDyn :: (Monad m) => DynamicQuery m a -> View m -> m (Maybe a, View m, Access m ())
 mapSingleDyn q v = do
   (as, arches, hooks) <- mapDyn q v
   return $ case as of

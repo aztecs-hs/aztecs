@@ -8,20 +8,20 @@
 -- Maintainer  : matt@hunzinger.me
 -- Stability   : provisional
 -- Portability : non-portable (GHC extensions)
-module Aztecs.ECS.Access.Internal (AccessT (..), runAccessTWith, evalAccessT) where
+module Aztecs.ECS.Access.Internal (Access (..), runAccessWith, evalAccess) where
 
 import Aztecs.ECS.World.Internal (World)
 import Control.Monad.Fix
 import Control.Monad.State
 
 -- | Access into a `World`.
-newtype AccessT m a = AccessT {unAccessT :: StateT (World m) m a}
+newtype Access m a = Access {unAccess :: StateT (World m) m a}
   deriving (Functor, Applicative, Monad, MonadFix, MonadIO)
 
--- | Run an `AccessT` with a given `World`, returning the result and updated world.
-runAccessTWith :: AccessT m a -> World m -> m (a, World m)
-runAccessTWith a = runStateT (unAccessT a)
+-- | Run an `Access` with a given `World`, returning the result and updated world.
+runAccessWith :: Access m a -> World m -> m (a, World m)
+runAccessWith a = runStateT (unAccess a)
 
--- | Run an `AccessT` with a given `World`, returning only the result.
-evalAccessT :: (Monad m) => AccessT m a -> World m -> m a
-evalAccessT a = evalStateT (unAccessT a)
+-- | Run an `Access` with a given `World`, returning only the result.
+evalAccess :: (Monad m) => Access m a -> World m -> m a
+evalAccess a = evalStateT (unAccess a)

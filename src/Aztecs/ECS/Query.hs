@@ -37,8 +37,7 @@
 -- > move = (,) <$> Q.fetch <*> Q.fetch >>> arr (\(Position p, Velocity v) -> Position $ p + v) >>> Q.set
 module Aztecs.ECS.Query
   ( -- * Queries
-    Query,
-    QueryT (..),
+    Query (..),
     DynamicQueryF (..),
 
     -- ** Operations
@@ -51,22 +50,13 @@ module Aztecs.ECS.Query
     -- ** Running
     readQuery,
     readQuery',
-    readQueryM,
-    readQueryM',
     readQuerySingle,
     readQuerySingle',
-    readQuerySingleM,
-    readQuerySingleM',
     readQuerySingleMaybe,
     readQuerySingleMaybe',
-    readQuerySingleMaybeM,
-    readQuerySingleMaybeM',
     query,
-    queryM,
     querySingle,
-    querySingleM,
     querySingleMaybe,
-    querySingleMaybeM,
 
     -- * Filters
     QueryFilter (..),
@@ -79,32 +69,29 @@ module Aztecs.ECS.Query
   )
 where
 
-import Aztecs.ECS.Access.Internal (AccessT)
+import Aztecs.ECS.Access.Internal (Access)
 import Aztecs.ECS.Component
 import Aztecs.ECS.Query.Dynamic
 import Aztecs.ECS.World.Components (Components)
 import qualified Aztecs.ECS.World.Components as CS
 import Aztecs.ECS.World.Entities (Entities (..))
 import qualified Aztecs.ECS.World.Entities as E
-import Control.Monad.Identity
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Vector (Vector)
 import GHC.Stack
 import Prelude hiding (all, id, map, mapM, reads)
 
-type Query = QueryT Identity
-
 -- | Query for matching entities.
-newtype QueryT m a = Query
-  { -- | Run a query, producing a `DynamicQueryT`.
+newtype Query m a = Query
+  { -- | Run a query, producing a `DynamicQuery`.
     --
     -- @since 0.10
-    runQuery :: Components -> (ReadsWrites, Components, DynamicQueryT m a)
+    runQuery :: Components -> (ReadsWrites, Components, DynamicQuery m a)
   }
   deriving (Functor)
 
-instance (Monad m) => Applicative (QueryT m) where
+instance (Monad m) => Applicative (Query m) where
   pure a = Query (mempty,,pure a)
   {-# INLINE pure #-}
 
@@ -114,7 +101,7 @@ instance (Monad m) => Applicative (QueryT m) where
      in (cIdsG <> cIdsF, cs'', bQS <*> aQS)
   {-# INLINE (<*>) #-}
 
-instance (Monad m) => DynamicQueryF m (QueryT m) where
+instance (Monad m) => DynamicQueryF m (Query m) where
   entity = Query (mempty,,entity)
   {-# INLINE entity #-}
 
@@ -138,41 +125,41 @@ instance (Monad m) => DynamicQueryF m (QueryT m) where
      in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', setDyn cId dynQ)
   {-# INLINE setDyn #-}
 
-fetch :: forall m a. (Monad m, Component m a) => QueryT m a
+fetch :: forall m a. (Monad m, Component m a) => Query m a
 fetch = queryReader @m @a fetchDyn
 {-# INLINE fetch #-}
 
-fetchMaybe :: forall m a. (Monad m, Component m a) => QueryT m (Maybe a)
+fetchMaybe :: forall m a. (Monad m, Component m a) => Query m (Maybe a)
 fetchMaybe = queryReader @m @a fetchMaybeDyn
 {-# INLINE fetchMaybe #-}
 
-fetchMap :: forall m a b. (Monad m, Component m a) => (b -> a -> a) -> QueryT m b -> QueryT m a
+fetchMap :: forall m a b. (Monad m, Component m a) => (b -> a -> a) -> Query m b -> Query m a
 fetchMap f = queryWriter @m @a $ adjustDyn f
 {-# INLINE fetchMap #-}
 
-fetchMap_ :: forall m a b. (Monad m, Component m a) => (b -> a -> a) -> QueryT m b -> QueryT m ()
+fetchMap_ :: forall m a b. (Monad m, Component m a) => (b -> a -> a) -> Query m b -> Query m ()
 fetchMap_ f = queryWriter @m @a $ adjustDyn_ f
 {-# INLINE fetchMap_ #-}
 
-fetchMapM :: forall m a b. (Monad m, Component m a) => (b -> a -> m a) -> QueryT m b -> QueryT m a
+fetchMapM :: forall m a b. (Monad m, Component m a) => (b -> a -> m a) -> Query m b -> Query m a
 fetchMapM f = queryWriter @m @a $ adjustDynM f
 {-# INLINE fetchMapM #-}
 
-dynQueryReader :: (ComponentID -> DynamicQueryT m a) -> ComponentID -> QueryT m a
+dynQueryReader :: (ComponentID -> DynamicQuery m a) -> ComponentID -> Query m a
 dynQueryReader f cId = Query (ReadsWrites {reads = Set.singleton cId, writes = Set.empty},,f cId)
 {-# INLINE dynQueryReader #-}
 
-dynQueryWriter :: (ComponentID -> DynamicQueryT m a -> DynamicQueryT m b) -> ComponentID -> QueryT m a -> QueryT m b
+dynQueryWriter :: (ComponentID -> DynamicQuery m a -> DynamicQuery m b) -> ComponentID -> Query m a -> Query m b
 dynQueryWriter f cId q = Query $ \cs ->
   let !(rws, cs', dynQ) = runQuery q cs
    in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', f cId dynQ)
 
-queryReader :: forall m a b. (Component m a) => (ComponentID -> DynamicQueryT m b) -> QueryT m b
+queryReader :: forall m a b. (Component m a) => (ComponentID -> DynamicQuery m b) -> Query m b
 queryReader f = Query $ \cs ->
   let !(cId, cs') = CS.insert @a @m cs in (ReadsWrites {reads = Set.singleton cId, writes = Set.empty}, cs', f cId)
 {-# INLINE queryReader #-}
 
-queryWriter :: forall m a b c. (Component m a) => (ComponentID -> DynamicQueryT m b -> DynamicQueryT m c) -> QueryT m b -> QueryT m c
+queryWriter :: forall m a b c. (Component m a) => (ComponentID -> DynamicQuery m b -> DynamicQuery m c) -> Query m b -> Query m c
 queryWriter f (Query g) = Query $ \cs ->
   let !(rws, cs', dynQ) = g cs
       !(cId, cs'') = CS.insert @a @m cs'
@@ -202,124 +189,79 @@ disjoint a b =
     || Set.disjoint (writes b) (writes a)
 
 -- | Match all entities.
-readQuery :: Query a -> Entities Identity -> (Vector a, Entities Identity)
-readQuery q es = let (as, cs) = readQuery' q es in (as, es {E.components = cs})
+readQuery :: (Monad m) => Query m a -> Entities m -> m (Vector a, Entities m)
+readQuery q es = do
+  (as, cs) <- readQuery' q es
+  return (as, es {E.components = cs})
 {-# INLINE readQuery #-}
 
 -- | Match all entities.
-readQuery' :: Query a -> Entities Identity -> (Vector a, Components)
-readQuery' es = runIdentity . readQueryM' es
-{-# INLINE readQuery' #-}
-
--- | Match all entities.
-readQueryM :: (Monad m) => QueryT m a -> Entities m -> m (Vector a, Entities m)
-readQueryM q es = do
-  (as, cs) <- readQueryM' q es
-  return (as, es {E.components = cs})
-{-# INLINE readQueryM #-}
-
--- | Match all entities.
-readQueryM' :: (Monad m) => QueryT m a -> Entities m -> m (Vector a, Components)
-readQueryM' q es = do
+readQuery' :: (Monad m) => Query m a -> Entities m -> m (Vector a, Components)
+readQuery' q es = do
   let !(rws, cs', dynQ) = runQuery q (E.components es)
       !cIds = reads rws <> writes rws
-  as <- readQueryDynM cIds dynQ es
+  as <- readQueryDyn cIds dynQ es
   return (as, cs')
-{-# INLINE readQueryM' #-}
+{-# INLINE readQuery' #-}
 
 -- | Match a single entity.
-readQuerySingle :: (HasCallStack) => Query a -> Entities Identity -> (a, Entities Identity)
-readQuerySingle q es = let (a, cs) = readQuerySingle' q es in (a, es {E.components = cs})
+readQuerySingle :: (HasCallStack, Monad m) => Query m a -> Entities m -> m (a, Entities m)
+readQuerySingle q es = do
+  (a, cs) <- readQuerySingle' q es
+  return (a, es {E.components = cs})
 {-# INLINE readQuerySingle #-}
 
 -- | Match a single entity.
-readQuerySingle' :: (HasCallStack) => Query a -> Entities Identity -> (a, Components)
-readQuerySingle' q = runIdentity . readQuerySingleM' q
+readQuerySingle' :: (HasCallStack, Monad m) => Query m a -> Entities m -> m (a, Components)
+readQuerySingle' q es = do
+  let !(rws, cs', dynQ) = runQuery q (E.components es)
+      !cIds = reads rws <> writes rws
+  a <- readQuerySingleDyn cIds dynQ es
+  return (a, cs')
 {-# INLINE readQuerySingle' #-}
 
 -- | Match a single entity.
-readQuerySingleM :: (HasCallStack, Monad m) => QueryT m a -> Entities m -> m (a, Entities m)
-readQuerySingleM q es = do
-  (a, cs) <- readQuerySingleM' q es
+readQuerySingleMaybe :: (Monad m) => Query m a -> Entities m -> m (Maybe a, Entities m)
+readQuerySingleMaybe q es = do
+  (a, cs) <- readQuerySingleMaybe' q es
   return (a, es {E.components = cs})
-{-# INLINE readQuerySingleM #-}
-
--- | Match a single entity.
-readQuerySingleM' :: (HasCallStack, Monad m) => QueryT m a -> Entities m -> m (a, Components)
-readQuerySingleM' q es = do
-  let !(rws, cs', dynQ) = runQuery q (E.components es)
-      !cIds = reads rws <> writes rws
-  a <- readQuerySingleDynM cIds dynQ es
-  return (a, cs')
-{-# INLINE readQuerySingleM' #-}
-
--- | Match a single entity.
-readQuerySingleMaybe :: Query a -> Entities Identity -> (Maybe a, Entities Identity)
-readQuerySingleMaybe q es = let (a, cs) = readQuerySingleMaybe' q es in (a, es {E.components = cs})
 {-# INLINE readQuerySingleMaybe #-}
 
 -- | Match a single entity.
-readQuerySingleMaybe' :: Query a -> Entities Identity -> (Maybe a, Components)
-readQuerySingleMaybe' q = runIdentity . readQuerySingleMaybeM' q
-{-# INLINE readQuerySingleMaybe' #-}
-
--- | Match a single entity.
-readQuerySingleMaybeM :: (Monad m) => QueryT m a -> Entities m -> m (Maybe a, Entities m)
-readQuerySingleMaybeM q es = do
-  (a, cs) <- readQuerySingleMaybeM' q es
-  return (a, es {E.components = cs})
-{-# INLINE readQuerySingleMaybeM #-}
-
--- | Match a single entity.
-readQuerySingleMaybeM' :: (Monad m) => QueryT m a -> Entities m -> m (Maybe a, Components)
-readQuerySingleMaybeM' q es = do
+readQuerySingleMaybe' :: (Monad m) => Query m a -> Entities m -> m (Maybe a, Components)
+readQuerySingleMaybe' q es = do
   let !(rws, cs', dynQ) = runQuery q (E.components es)
       !cIds = reads rws <> writes rws
-  a <- readQuerySingleMaybeDynM cIds dynQ es
+  a <- readQuerySingleMaybeDyn cIds dynQ es
   return (a, cs')
-{-# INLINE readQuerySingleMaybeM' #-}
+{-# INLINE readQuerySingleMaybe' #-}
 
 -- | Map all matched entities.
-query :: Query o -> Entities Identity -> (Vector o, Entities Identity, AccessT Identity ())
-query q = runIdentity . queryM q
+query :: (Monad m) => Query m o -> Entities m -> m (Vector o, Entities m, Access m ())
+query q es = do
+  let !(rws, cs', dynQ) = runQuery q $ components es
+      !cIds = reads rws <> writes rws
+  (as, es', hook) <- queryDyn cIds dynQ es
+  return (as, es' {components = cs'}, hook)
 {-# INLINE query #-}
 
--- | Map all matched entities.
-queryM :: (Monad m) => QueryT m o -> Entities m -> m (Vector o, Entities m, AccessT m ())
-queryM q es = do
+-- | Map a single matched entity.
+querySingle :: (HasCallStack, Monad m) => Query m a -> Entities m -> m (a, Entities m, Access m ())
+querySingle q es = do
   let !(rws, cs', dynQ) = runQuery q $ components es
       !cIds = reads rws <> writes rws
-  (as, es', hook) <- queryDynM cIds dynQ es
+  (as, es', hook) <- querySingleDyn cIds dynQ es
   return (as, es' {components = cs'}, hook)
-{-# INLINE queryM #-}
-
--- | Map a single matched entity.
-querySingle :: (HasCallStack) => Query a -> Entities Identity -> (a, Entities Identity, AccessT Identity ())
-querySingle q = runIdentity . querySingleM q
 {-# INLINE querySingle #-}
 
--- | Map a single matched entity.
-querySingleM :: (HasCallStack, Monad m) => QueryT m a -> Entities m -> m (a, Entities m, AccessT m ())
-querySingleM q es = do
+-- | Map a single matched entity, or `Nothing`.
+querySingleMaybe :: (Monad m) => Query m a -> Entities m -> m (Maybe a, Entities m, Access m ())
+querySingleMaybe q es = do
   let !(rws, cs', dynQ) = runQuery q $ components es
       !cIds = reads rws <> writes rws
-  (as, es', hook) <- querySingleDynM cIds dynQ es
+  (as, es', hook) <- querySingleMaybeDyn cIds dynQ es
   return (as, es' {components = cs'}, hook)
-{-# INLINE querySingleM #-}
-
--- | Map a single matched entity, or `Nothing`.
-querySingleMaybe :: Query a -> Entities Identity -> (Maybe a, Entities Identity, AccessT Identity ())
-querySingleMaybe q = runIdentity . querySingleMaybeM q
 {-# INLINE querySingleMaybe #-}
-
--- | Map a single matched entity, or `Nothing`.
-querySingleMaybeM :: (Monad m) => QueryT m a -> Entities m -> m (Maybe a, Entities m, AccessT m ())
-querySingleMaybeM q es = do
-  let !(rws, cs', dynQ) = runQuery q $ components es
-      !cIds = reads rws <> writes rws
-  (as, es', hook) <- querySingleMaybeDynM cIds dynQ es
-  return (as, es' {components = cs'}, hook)
-{-# INLINE querySingleMaybeM #-}
 
 -- | Filter for a `Query`.
 newtype QueryFilter = QueryFilter

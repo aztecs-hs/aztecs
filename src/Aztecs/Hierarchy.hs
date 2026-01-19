@@ -2,8 +2,11 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -39,7 +42,6 @@ import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
 import Control.Monad
-import Control.Monad.Identity
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
@@ -56,28 +58,28 @@ newtype Parent = Parent
   }
   deriving (Eq, Ord, Show, Generic)
 
-instance Component Identity Parent
+instance (Monad m) => Component m Parent
 
 -- | Parent internal state component.
 newtype ParentState = ParentState {unParentState :: EntityID}
   deriving (Show, Generic)
 
-instance Component Identity ParentState
+instance (Monad m) => Component m ParentState
 
 -- | Children component.
 newtype Children = Children {unChildren :: Set EntityID}
   deriving (Eq, Ord, Show, Semigroup, Monoid, Generic)
 
-instance Component Identity Children
+instance (Monad m) => Component m Children
 
 -- | Child internal state component.
 newtype ChildState = ChildState {unChildState :: Set EntityID}
   deriving (Show, Generic)
 
-instance Component Identity ChildState
+instance (Monad m) => Component m ChildState
 
 -- | Update the parent-child relationships.
-update :: Access ()
+update :: (Monad m) => Access m ()
 update = do
   parents <- A.system . S.readQuery $ do
     entity <- Q.entity
@@ -169,9 +171,10 @@ mapWithAccum f b n = case f (nodeEntityId n) (nodeEntity n) b of
 
 -- | System to read a hierarchy of parents to children with the given query.
 hierarchy ::
+  (Monad m) =>
   EntityID ->
-  Query a ->
-  Access (Maybe (Hierarchy a))
+  Query m a ->
+  Access m (Maybe (Hierarchy a))
 hierarchy e q = do
   children <- A.system . S.readQuery $ do
     entity <- Q.entity
@@ -184,8 +187,10 @@ hierarchy e q = do
 
 -- | Build all hierarchies of parents to children, joined with the given query.
 hierarchies ::
-  Query a ->
-  Access (Vector (Hierarchy a))
+  forall m a.
+  (Monad m) =>
+  Query m a ->
+  Access m (Vector (Hierarchy a))
 hierarchies q = do
   children <-
     A.system . S.readQuery $ do
@@ -195,7 +200,7 @@ hierarchies q = do
       return (entity, (unChildren cs, a))
 
   let childMap = Map.fromList $ V.toList children
-  roots <- A.system $ S.readQueryFiltered Q.entity (with @Identity @Children <> without @Identity @Parent)
+  roots <- A.system $ S.readQueryFiltered Q.entity (with @m @Children <> without @m @Parent)
   return $ V.mapMaybe (`hierarchy'` childMap) roots
 
 -- | Build a hierarchy of parents to children.

@@ -27,7 +27,7 @@ module Aztecs.ECS.World.Archetypes
   )
 where
 
-import Aztecs.ECS.Access.Internal (AccessT)
+import Aztecs.ECS.Access.Internal (Access)
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
 import Aztecs.ECS.World.Archetype (Archetype (..))
@@ -110,7 +110,7 @@ insert ::
   Set ComponentID ->
   DynamicBundleT m ->
   Archetypes m ->
-  (Maybe ArchetypeID, Archetypes m, AccessT m ())
+  (Maybe ArchetypeID, Archetypes m, Access m ())
 insert e aId cIds b arches = case lookup aId arches of
   Just node ->
     if Set.isSubsetOf cIds $ nodeComponentIds node
@@ -165,7 +165,7 @@ remove ::
   ArchetypeID ->
   ComponentID ->
   Archetypes m ->
-  (Maybe (a, ArchetypeID), Archetypes m, AccessT m ())
+  (Maybe (a, ArchetypeID), Archetypes m, Access m ())
 remove e aId cId arches = case lookup aId arches of
   Just node -> case lookupArchetypeId (Set.delete cId (nodeComponentIds node)) arches of
     Just nextAId ->

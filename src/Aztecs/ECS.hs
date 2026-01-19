@@ -61,7 +61,6 @@ module Aztecs.ECS
     Component (..),
     EntityID,
     Query,
-    QueryT,
     fetch,
     fetchMaybe,
     fetchMap,

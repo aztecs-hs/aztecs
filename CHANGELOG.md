@@ -65,7 +65,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - My plan is to move these to other packages down the road, focusing this package on a modular ECS
 
 ```hs
-move :: (Monad m) => QueryT m Position
+move :: (Monad m) => Query m Position
 move = fetch & zipFetchMap (\(Velocity v) (Position p) -> Position $ p + v)
 ```
 

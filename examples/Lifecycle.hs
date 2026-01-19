@@ -13,15 +13,15 @@ instance Component IO X where
   componentOnChange e x = liftIO . putStrLn $ "change " ++ show e ++ ": " ++ show x
   componentOnRemove e x = liftIO . putStrLn $ "remove " ++ show e ++ ": " ++ show x
 
-addTen :: QueryT IO X
+addTen :: Query IO X
 addTen = fetchMap (\_ (X n) -> X (n + 10)) (pure ())
 
-app :: AccessT IO ()
+app :: Access IO ()
 app = do
   e <- spawn $ bundle (X 1)
-  _ <- systemM $ queryM addTen
+  _ <- systemM $ query addTen
   _ <- remove @IO @X e
   return ()
 
 main :: IO ()
-main = runAccessT_ app
+main = runAccess_ app

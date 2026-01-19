@@ -16,7 +16,7 @@ module Aztecs.ECS.Component
   )
 where
 
-import Aztecs.ECS.Access.Internal (AccessT)
+import Aztecs.ECS.Access.Internal (Access)
 import Aztecs.ECS.Component.Internal (ComponentID (..))
 import Aztecs.ECS.Entity
 import Aztecs.ECS.World.Storage
@@ -31,16 +31,16 @@ class (Monad m, Typeable a, Storage a (StorageT a)) => Component m a where
   type StorageT a = Vector a
 
   -- | Lifecycle hook called when a component is inserted.
-  componentOnInsert :: EntityID -> a -> AccessT m ()
+  componentOnInsert :: EntityID -> a -> Access m ()
   componentOnInsert _ _ = pure ()
   {-# INLINEABLE componentOnInsert #-}
 
   -- | Lifecycle hook called when a component is changed.
-  componentOnChange :: EntityID -> a -> AccessT m ()
+  componentOnChange :: EntityID -> a -> Access m ()
   componentOnChange _ _ = pure ()
   {-# INLINEABLE componentOnChange #-}
 
   -- | Lifecycle hook called when a component is removed.
-  componentOnRemove :: EntityID -> a -> AccessT m ()
+  componentOnRemove :: EntityID -> a -> Access m ()
   componentOnRemove _ _ = pure ()
   {-# INLINEABLE componentOnRemove #-}
