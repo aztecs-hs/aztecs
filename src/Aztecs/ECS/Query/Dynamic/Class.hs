@@ -52,3 +52,6 @@ class (Monad m, Functor f) => DynamicQueryF m f | f -> m where
 
   -- | Map over a `Component` by its `ComponentID` with input and a monadic function, returning a tuple.
   mapDynWithAccumM :: (Monad m, Component m c) => (b -> c -> m (a, c)) -> ComponentID -> f b -> f (a, c)
+
+  -- | Run a query without tracking changes.
+  untracked :: f a -> f a

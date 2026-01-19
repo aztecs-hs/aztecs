@@ -129,6 +129,11 @@ instance (Monad m) => DynamicQueryF m (DynamicQuery m) where
     return (pairs, arch'', hook1 >> hook2)
   {-# INLINE mapDynWithAccumM #-}
 
+  untracked q = DynamicQuery $ \arch -> do
+    (as, arch', _hooks) <- runDynQuery q arch
+    return (as, arch', return ())
+  {-# INLINE untracked #-}
+
 -- | Match all entities.
 readQueryDyn :: (Monad m) => Set ComponentID -> DynamicQuery m a -> Entities m -> m (Vector a)
 readQueryDyn cIds q es =

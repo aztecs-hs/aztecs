@@ -138,6 +138,11 @@ instance (Monad m) => DynamicQueryF m (Query m) where
   mapDynWithAccum f = dynQueryWriter $ mapDynWithAccum f
   {-# INLINE mapDynWithAccum #-}
 
+  untracked (Query q) = Query $ \cs ->
+    let !(rws, cs', dynQ) = q cs
+     in (rws, cs', untracked dynQ)
+  {-# INLINE untracked #-}
+
   mapDynWithAccumM f = dynQueryWriter $ mapDynWithAccumM f
   {-# INLINE mapDynWithAccumM #-}
 
