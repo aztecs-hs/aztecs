@@ -108,7 +108,7 @@ insert ::
   EntityID ->
   ArchetypeID ->
   Set ComponentID ->
-  DynamicBundleT m ->
+  DynamicBundle m ->
   Archetypes m ->
   (Maybe ArchetypeID, Archetypes m, Access m ())
 insert e aId cIds b arches = case lookup aId arches of

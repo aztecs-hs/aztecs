@@ -93,7 +93,7 @@ spawnWithArchetypeId ::
   (Monad m) =>
   EntityID ->
   ArchetypeID ->
-  DynamicBundleT m ->
+  DynamicBundle m ->
   Entities m ->
   (Entities m, Access m ())
 spawnWithArchetypeId e aId b w =
@@ -122,7 +122,7 @@ insert e b w =
    in insertDyn e cIds dynB w {components = components'}
 
 -- | Insert a component into an entity with its `ComponentID`. Returns the updated entities and the onInsert hook.
-insertDyn :: (Monad m) => EntityID -> Set ComponentID -> DynamicBundleT m -> Entities m -> (Entities m, Access m ())
+insertDyn :: (Monad m) => EntityID -> Set ComponentID -> DynamicBundle m -> Entities m -> (Entities m, Access m ())
 insertDyn e cIds b w = case Map.lookup e $ entities w of
   Just aId ->
     let (maybeNextAId, arches, hook) = AS.insert e aId cIds b $ archetypes w

@@ -10,37 +10,29 @@
 -- Maintainer  : matt@hunzinger.me
 -- Stability   : provisional
 -- Portability : non-portable (GHC extensions)
-module Aztecs.ECS.World.Bundle.Dynamic (DynamicBundleT (..), DynamicBundle, MonoidDynamicBundle (..)) where
+module Aztecs.ECS.World.Bundle.Dynamic (DynamicBundle (..), MonoidDynamicBundle (..)) where
 
 import Aztecs.ECS.Access.Internal (Access)
 import Aztecs.ECS.Entity
 import Aztecs.ECS.World.Archetype
 import Aztecs.ECS.World.Bundle.Dynamic.Class
-import Control.Monad.Identity
 
 -- | Dynamic bundle of components.
-data DynamicBundleT m = DynamicBundleT
+newtype DynamicBundle m = DynamicBundle
   { -- | Insert components into an archetype.
-    runDynamicBundle :: EntityID -> Archetype m -> (Archetype m, Access m ()),
-    -- | Run the on-insert hooks for all components.
-    runOnInsert :: Access m ()
+    runDynamicBundle :: EntityID -> Archetype m -> (Archetype m, Access m ())
   }
 
--- | Pure dynamic bundle.
-type DynamicBundle = DynamicBundleT Identity
+instance (Monad m) => Semigroup (DynamicBundle m) where
+  DynamicBundle d1 <> DynamicBundle d2 = DynamicBundle go
+    where
+      go eId arch =
+        let (arch', hook1) = d1 eId arch
+            (arch'', hook2) = d2 eId arch'
+         in (arch'', hook1 >> hook2)
 
-instance (Monad m) => Semigroup (DynamicBundleT m) where
-  DynamicBundleT d1 h1 <> DynamicBundleT d2 h2 =
-    DynamicBundleT
-      ( \eId arch ->
-          let (arch', hook1) = d1 eId arch
-              (arch'', hook2) = d2 eId arch'
-           in (arch'', hook1 >> hook2)
-      )
-      (h1 >> h2)
+instance (Monad m) => Monoid (DynamicBundle m) where
+  mempty = DynamicBundle (\_ arch -> (arch, return ()))
 
-instance (Monad m) => Monoid (DynamicBundleT m) where
-  mempty = DynamicBundleT (\_ arch -> (arch, return ())) (return ())
-
-instance (Monad m) => MonoidDynamicBundle m (DynamicBundleT m) where
-  dynBundle cId a = DynamicBundleT (\eId arch -> insertComponent eId cId a arch) (return ())
+instance (Monad m) => MonoidDynamicBundle m (DynamicBundle m) where
+  dynBundle cId a = DynamicBundle (\eId arch -> insertComponent eId cId a arch)

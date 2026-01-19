@@ -40,7 +40,7 @@ import qualified Data.Set as Set
 -- | Bundle of components.
 newtype BundleT m = BundleT
   { -- | Unwrap the bundle.
-    unBundle :: Components -> (Set ComponentID, Components, DynamicBundleT m)
+    unBundle :: Components -> (Set ComponentID, Components, DynamicBundle m)
   }
 
 -- | Pure bundle of components.

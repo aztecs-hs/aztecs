@@ -56,7 +56,6 @@ module Aztecs.ECS
     BundleT,
     bundle,
     DynamicBundle,
-    DynamicBundleT,
     MonoidDynamicBundle (..),
     Component (..),
     EntityID,
@@ -84,4 +83,4 @@ import Aztecs.ECS.Query
 import Aztecs.ECS.System
 import Aztecs.ECS.World (World)
 import Aztecs.ECS.World.Bundle (Bundle, BundleT, bundle)
-import Aztecs.ECS.World.Bundle.Dynamic (DynamicBundle, DynamicBundleT, MonoidDynamicBundle (..))
+import Aztecs.ECS.World.Bundle.Dynamic (DynamicBundle, DynamicBundle, MonoidDynamicBundle (..))
