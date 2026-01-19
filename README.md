@@ -15,6 +15,7 @@ providing patterns for data-oriented design and parallel processing.
 
 - Type-safe: Queries and systems use fully type-checked access with compile-time gurantees
 - High-performance: Components are stored by their unique sets in archetypes
+- Reactive: Component lifecycle hooks enable change-detection and event-based state management
 - Modular design: Aztecs can be extended for a variety of use cases
 
 ```hs
