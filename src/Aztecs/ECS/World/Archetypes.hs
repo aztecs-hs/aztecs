@@ -1,15 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TypeFamilies #-}
 
 -- |
 -- Module      : Aztecs.ECS.World.Archetypes
@@ -36,10 +27,12 @@ module Aztecs.ECS.World.Archetypes
   )
 where
 
+import Aztecs.ECS.Access.Internal (Access)
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
 import Aztecs.ECS.World.Archetype (Archetype (..))
 import qualified Aztecs.ECS.World.Archetype as A
+import Aztecs.ECS.World.Archetypes.Internal (ArchetypeID (..), Archetypes (..), Node (..))
 import Aztecs.ECS.World.Bundle.Dynamic
 import Aztecs.ECS.World.Storage.Dynamic
 import Data.Dynamic
@@ -51,40 +44,10 @@ import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Vector as V
-import GHC.Generics
 import Prelude hiding (all, lookup, map)
 
--- | `Archetype` ID.
-newtype ArchetypeID = ArchetypeID
-  { -- | Unique integer identifier.
-    unArchetypeId :: Int
-  }
-  deriving newtype (Eq, Ord, Show)
-
--- | Node in `Archetypes`.
-data Node = Node
-  { -- | Unique set of `ComponentID`s of this `Node`.
-    nodeComponentIds :: !(Set ComponentID),
-    -- | `Archetype` of this `Node`.
-    nodeArchetype :: !Archetype
-  }
-  deriving (Show, Generic)
-
--- | `Archetype` map.
-data Archetypes = Archetypes
-  { -- | Archetype nodes in the map.
-    nodes :: !(Map ArchetypeID Node),
-    -- | Mapping of unique `ComponentID` sets to `ArchetypeID`s.
-    archetypeIds :: !(Map (Set ComponentID) ArchetypeID),
-    -- | Next unique `ArchetypeID`.
-    nextArchetypeId :: !ArchetypeID,
-    -- | Mapping of `ComponentID`s to `ArchetypeID`s of `Archetypes` that contain them.
-    componentIds :: !(Map ComponentID (Set ArchetypeID))
-  }
-  deriving (Show, Generic)
-
 -- | Empty `Archetypes`.
-empty :: Archetypes
+empty :: Archetypes m
 empty =
   Archetypes
     { nodes = mempty,
@@ -94,7 +57,7 @@ empty =
     }
 
 -- | Insert an archetype by its set of `ComponentID`s.
-insertArchetype :: Set ComponentID -> Node -> Archetypes -> (ArchetypeID, Archetypes)
+insertArchetype :: Set ComponentID -> Node m -> Archetypes m -> (ArchetypeID, Archetypes m)
 insertArchetype cIds n arches =
   let aId = nextArchetypeId arches
    in ( aId,
@@ -107,22 +70,22 @@ insertArchetype cIds n arches =
       )
 
 -- | Adjust an `Archetype` by its `ArchetypeID`.
-adjustArchetype :: ArchetypeID -> (Archetype -> Archetype) -> Archetypes -> Archetypes
+adjustArchetype :: ArchetypeID -> (Archetype m -> Archetype m) -> Archetypes m -> Archetypes m
 adjustArchetype aId f arches =
   arches {nodes = Map.adjust (\node -> node {nodeArchetype = f (nodeArchetype node)}) aId (nodes arches)}
 
 -- | Find `ArchetypeID`s containing a set of `ComponentID`s.
-findArchetypeIds :: Set ComponentID -> Archetypes -> Set ArchetypeID
+findArchetypeIds :: Set ComponentID -> Archetypes m -> Set ArchetypeID
 findArchetypeIds cIds arches = case mapMaybe (\cId -> Map.lookup cId (componentIds arches)) (Set.elems cIds) of
   (aId : aIds') -> foldl' Set.intersection aId aIds'
   [] -> Set.empty
 
 -- | Lookup `Archetype`s containing a set of `ComponentID`s.
-find :: Set ComponentID -> Archetypes -> Map ArchetypeID Node
+find :: Set ComponentID -> Archetypes m -> Map ArchetypeID (Node m)
 find cIds arches = Map.fromSet (\aId -> nodes arches Map.! aId) (findArchetypeIds cIds arches)
 
 -- | Map over `Archetype`s containing a set of `ComponentID`s.
-map :: Set ComponentID -> (Archetype -> (a, Archetype)) -> Archetypes -> ([a], Archetypes)
+map :: Set ComponentID -> (Archetype m -> (a, Archetype m)) -> Archetypes m -> ([a], Archetypes m)
 map cIds f arches =
   let go (acc, archAcc) aId =
         let !node = nodes archAcc Map.! aId
@@ -132,27 +95,38 @@ map cIds f arches =
    in foldl' go ([], arches) $ findArchetypeIds cIds arches
 
 -- | Lookup an `ArchetypeID` by its set of `ComponentID`s.
-lookupArchetypeId :: Set ComponentID -> Archetypes -> Maybe ArchetypeID
+lookupArchetypeId :: Set ComponentID -> Archetypes m -> Maybe ArchetypeID
 lookupArchetypeId cIds arches = Map.lookup cIds (archetypeIds arches)
 
 -- | Lookup an `Archetype` by its `ArchetypeID`.
-lookup :: ArchetypeID -> Archetypes -> Maybe Node
+lookup :: ArchetypeID -> Archetypes m -> Maybe (Node m)
 lookup aId arches = Map.lookup aId (nodes arches)
 
 -- | Insert a component into an entity with its `ComponentID`.
 insert ::
+  (Monad m) =>
   EntityID ->
   ArchetypeID ->
   Set ComponentID ->
-  DynamicBundle ->
-  Archetypes ->
-  (Maybe ArchetypeID, Archetypes)
+  DynamicBundleT m ->
+  Archetypes m ->
+  (Maybe ArchetypeID, Archetypes m, Access m ())
 insert e aId cIds b arches = case lookup aId arches of
   Just node ->
     if Set.isSubsetOf cIds $ nodeComponentIds node
       then
-        let go n = n {nodeArchetype = runDynamicBundle b e $ nodeArchetype n}
-         in (Nothing, arches {nodes = Map.adjust go aId $ nodes arches})
+        let go n =
+              let (arch', hook) = runDynamicBundle b e $ nodeArchetype n
+               in (n {nodeArchetype = arch'}, hook)
+            (hooks, nodes') =
+              Map.alterF
+                ( \maybeN -> case maybeN of
+                    Just n -> let (n', hook) = go n in (hook, Just n')
+                    Nothing -> (return (), Nothing)
+                )
+                aId
+                $ nodes arches
+         in (Nothing, arches {nodes = nodes'}, hooks)
       else
         let cIds' = cIds <> nodeComponentIds node
          in case lookupArchetypeId cIds' arches of
@@ -164,25 +138,34 @@ insert e aId cIds b arches = case lookup aId arches of
                       let nextArch = nodeArchetype nextNode
                           nextArch' = nextArch {A.entities = Set.insert e $ A.entities nextArch}
                           !nextArch'' = A.insertComponents e cs nextArch'
-                       in nextNode {nodeArchetype = runDynamicBundle b e nextArch''}
-                 in (Just nextAId, arches {nodes = Map.adjust adjustNode nextAId nodes'})
+                          (finalArch, hook) = runDynamicBundle b e nextArch''
+                       in (nextNode {nodeArchetype = finalArch}, hook)
+                    (hooks, nodes'') =
+                      Map.alterF
+                        ( \maybeN -> case maybeN of
+                            Just n -> let (n', hook) = adjustNode n in (hook, Just n')
+                            Nothing -> (return (), Nothing)
+                        )
+                        nextAId
+                        nodes'
+                 in (Just nextAId, arches {nodes = nodes''}, hooks)
               Nothing ->
                 let !(s, arch) = A.removeStorages e $ nodeArchetype node
                     nodes' = Map.insert aId node {nodeArchetype = arch} $ nodes arches
-                    !nextArch = runDynamicBundle b e Archetype {storages = s, entities = Set.singleton e}
+                    (nextArch, hook) = runDynamicBundle b e Archetype {storages = s, entities = Set.singleton e}
                     !n = Node {nodeComponentIds = cIds', nodeArchetype = nextArch}
                     !(nextAId, arches') = insertArchetype cIds' n arches {nodes = nodes'}
-                 in (Just nextAId, arches')
-  Nothing -> (Nothing, arches)
+                 in (Just nextAId, arches', hook)
+  Nothing -> (Nothing, arches, return ())
 
 -- | Remove a component from an entity with its `ComponentID`.
 remove ::
-  (Component a) =>
+  (Component m a) =>
   EntityID ->
   ArchetypeID ->
   ComponentID ->
-  Archetypes ->
-  (Maybe (a, ArchetypeID), Archetypes)
+  Archetypes m ->
+  (Maybe (a, ArchetypeID), Archetypes m, Access m ())
 remove e aId cId arches = case lookup aId arches of
   Just node -> case lookupArchetypeId (Set.delete cId (nodeComponentIds node)) arches of
     Just nextAId ->
@@ -194,23 +177,28 @@ remove e aId cId arches = case lookup aId arches of
              in archAcc {storages = IntMap.adjust adjustStorage itemCId (storages archAcc)}
           go nextNode =
             nextNode {nodeArchetype = foldl' go' (nodeArchetype nextNode) (IntMap.toList cs')}
-       in ( (,nextAId) <$> (a >>= fromDynamic),
-            arches' {nodes = Map.adjust go nextAId (nodes arches')}
+          maybeA = a >>= fromDynamic
+          hook = maybe (return ()) (componentOnRemove e) maybeA
+       in ( (,nextAId) <$> maybeA,
+            arches' {nodes = Map.adjust go nextAId (nodes arches')},
+            hook
           )
     Nothing ->
       let !(cs, arch') = A.removeStorages e (nodeArchetype node)
           (a, cs') = IntMap.updateLookupWithKey (\_ _ -> Nothing) (unComponentId cId) cs
+          destCIds = Set.delete cId (nodeComponentIds node)
           !n =
             Node
-              { nodeComponentIds = Set.insert cId (nodeComponentIds node),
+              { nodeComponentIds = destCIds,
                 nodeArchetype = Archetype {storages = cs', entities = Set.singleton e}
               }
-          !(nextAId, arches') = insertArchetype (Set.insert cId (nodeComponentIds node)) n arches
+          !(nextAId, arches') = insertArchetype destCIds n arches
           node' = node {nodeArchetype = arch'}
-          removeDyn s =
-            let (res, dyns) = Map.updateLookupWithKey (\_ _ -> Nothing) e . Map.fromAscList . zip (Set.toList $ entities arch') . V.toList $ toAscVectorDyn s
-             in (res, fromAscVectorDyn . V.fromList $ Map.elems dyns)
-       in ( (,nextAId) <$> (a >>= (\a' -> fst (removeDyn a') >>= fromDynamic)),
-            arches' {nodes = Map.insert aId node' (nodes arches')}
+          -- Extract the component value from the singleton DynamicStorage
+          maybeA = a >>= (\dynS -> V.headM (toAscVectorDyn dynS) >>= fromDynamic)
+          hook = maybe (return ()) (componentOnRemove e) maybeA
+       in ( (,nextAId) <$> maybeA,
+            arches' {nodes = Map.insert aId node' (nodes arches')},
+            hook
           )
-  Nothing -> (Nothing, arches)
+  Nothing -> (Nothing, arches, return ())

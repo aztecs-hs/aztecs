@@ -19,39 +19,24 @@ import Prelude hiding (map, zipWith)
 -- | Component storage, containing zero or many components of the same type.
 class (Typeable s, Typeable a) => Storage a s where
   -- | Storage with a single component.
-  --
-  -- @since 0.9
   singleton :: a -> s
 
   -- | Vector of all components in the storage in ascending order.
-  --
-  -- @since 0.9
   toAscVector :: s -> Vector a
 
   -- | Convert a sorted vector of components (in ascending order) into a storage.
-  --
-  -- @since 0.9
   fromAscVector :: Vector a -> s
 
   -- | Map a function over all components in the storage.
-  --
-  --
-  -- @since 0.9
   map :: (a -> a) -> s -> s
 
   -- | Map a function with some input over all components in the storage.
-  --
-  -- @since 0.9
   zipWith :: (i -> a -> a) -> Vector i -> s -> (Vector a, s)
 
   -- | Map an applicative functor with some input over all components in the storage.
-  --
-  -- @since 0.9
   zipWithM :: (Monad m) => (i -> a -> m a) -> Vector i -> s -> m (Vector a, s)
 
   -- | Map a function with some input over all components in the storage.
-  --
-  -- @since 0.9
   zipWith_ :: (i -> a -> a) -> Vector i -> s -> s
   zipWith_ f is as = snd $ zipWith f is as
 

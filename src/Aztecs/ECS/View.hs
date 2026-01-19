@@ -25,7 +25,8 @@ module Aztecs.ECS.View
   )
 where
 
-import Aztecs.ECS.Query.Dynamic (DynamicQuery, DynamicQueryT (..))
+import Aztecs.ECS.Access.Internal (Access)
+import Aztecs.ECS.Query.Dynamic (DynamicQuery (..))
 import Aztecs.ECS.World.Archetypes
 import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Components
@@ -41,18 +42,18 @@ import qualified Data.Vector as V
 import Prelude hiding (null)
 
 -- | View into a `World`, containing a subset of archetypes.
-newtype View = View
+newtype View m = View
   { -- | Archetypes contained in this view.
-    viewArchetypes :: Map ArchetypeID Node
+    viewArchetypes :: Map ArchetypeID (Node m)
   }
   deriving (Show, Semigroup, Monoid)
 
 -- | View into all archetypes containing the provided component IDs.
-view :: Set ComponentID -> Archetypes -> View
+view :: Set ComponentID -> Archetypes m -> View m
 view cIds as = View $ AS.find cIds as
 
 -- | View into a single archetype containing the provided component IDs.
-viewSingle :: Set ComponentID -> Archetypes -> Maybe View
+viewSingle :: Set ComponentID -> Archetypes m -> Maybe (View m)
 viewSingle cIds as = case Map.toList $ AS.find cIds as of
   [a] -> Just . View $ uncurry Map.singleton a
   _ -> Nothing
@@ -60,17 +61,17 @@ viewSingle cIds as = case Map.toList $ AS.find cIds as of
 -- | View into all archetypes containing the provided component IDs and matching the provided predicate.
 filterView ::
   Set ComponentID ->
-  (Node -> Bool) ->
-  Archetypes ->
-  View
+  (Node m -> Bool) ->
+  Archetypes m ->
+  View m
 filterView cIds f as = View $ Map.filter f (AS.find cIds as)
 
 -- | @True@ if the `View` is empty.
-null :: View -> Bool
+null :: View m -> Bool
 null = Map.null . viewArchetypes
 
 -- | "Un-view" a `View` back into a `World`.
-unview :: View -> Entities -> Entities
+unview :: View m -> Entities m -> Entities m
 unview v es =
   es
     { E.archetypes =
@@ -81,39 +82,39 @@ unview v es =
     }
 
 -- | Query all matching entities in a `View`.
-allDyn :: DynamicQuery a -> View -> Vector a
+allDyn :: DynamicQuery Identity a -> View Identity -> Vector a
 allDyn q v =
   foldl'
     ( \acc n ->
-        let (as, _) = runIdentity . runDynQueryT q $ nodeArchetype n
+        let (as, _, _) = runIdentity . runDynQuery q $ nodeArchetype n
          in as V.++ acc
     )
     V.empty
     (viewArchetypes v)
 
 -- | Query all matching entities in a `View`.
-singleDyn :: DynamicQuery a -> View -> Maybe a
+singleDyn :: DynamicQuery Identity a -> View Identity -> Maybe a
 singleDyn q v = case allDyn q v of
   as | V.length as == 1 -> Just (V.head as)
   _ -> Nothing
 
--- | Map all matching entities in a `View`.
-mapDyn :: (Monad m) => DynamicQueryT m a -> View -> m (Vector a, View)
+-- | Map all matching entities in a `View`. Returns the results, updated view, and hooks to run.
+mapDyn :: (Monad m) => DynamicQuery m a -> View m -> m (Vector a, View m, Access m ())
 mapDyn q v = do
-  (as, arches) <-
+  (as, arches, hooks) <-
     foldlM
-      ( \(acc, archAcc) (aId, n) -> do
-          (as', arch') <- runDynQueryT q $ nodeArchetype n
-          return (as' V.++ acc, Map.insert aId (n {nodeArchetype = arch'}) archAcc)
+      ( \(acc, archAcc, hooksAcc) (aId, n) -> do
+          (as', arch', hook) <- runDynQuery q $ nodeArchetype n
+          return (as' V.++ acc, Map.insert aId (n {nodeArchetype = arch'}) archAcc, hooksAcc >> hook)
       )
-      (V.empty, Map.empty)
+      (V.empty, Map.empty, return ())
       (Map.toList $ viewArchetypes v)
-  return (as, View arches)
+  return (as, View arches, hooks)
 
--- | Map a single matching entity in a `View`.
-mapSingleDyn :: (Monad m) => DynamicQueryT m a -> View -> m (Maybe a, View)
+-- | Map a single matching entity in a `View`. Returns the result, updated view, and hooks to run.
+mapSingleDyn :: (Monad m) => DynamicQuery m a -> View m -> m (Maybe a, View m, Access m ())
 mapSingleDyn q v = do
-  (as, arches) <- mapDyn q v
+  (as, arches, hooks) <- mapDyn q v
   return $ case as of
-    a | V.length a == 1 -> (Just (V.head a), arches)
-    _ -> (Nothing, arches)
+    a | V.length a == 1 -> (Just (V.head a), arches, hooks)
+    _ -> (Nothing, arches, hooks)

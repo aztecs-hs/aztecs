@@ -1,6 +1,5 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -- |
@@ -11,25 +10,37 @@
 -- Maintainer  : matt@hunzinger.me
 -- Stability   : provisional
 -- Portability : non-portable (GHC extensions)
-module Aztecs.ECS.Component where
+module Aztecs.ECS.Component
+  ( ComponentID (..),
+    Component (..),
+  )
+where
 
+import Aztecs.ECS.Access.Internal (Access)
+import Aztecs.ECS.Component.Internal (ComponentID (..))
+import Aztecs.ECS.Entity
 import Aztecs.ECS.World.Storage
 import Data.Typeable
 import Data.Vector (Vector)
-import GHC.Generics
-
--- | Unique component identifier.
-newtype ComponentID = ComponentID
-  { -- | Unique integer identifier.
-    unComponentId :: Int
-  }
-  deriving (Eq, Ord, Show, Generic)
 
 -- | Component that can be stored in the `World`.
-class (Typeable a, Storage a (StorageT a)) => Component a where
+class (Monad m, Typeable a, Storage a (StorageT a)) => Component m a where
   -- | `Storage` of this component.
-  --
-  -- @since 0.9
   type StorageT a
 
   type StorageT a = Vector a
+
+  -- | Lifecycle hook called when a component is inserted.
+  componentOnInsert :: EntityID -> a -> Access m ()
+  componentOnInsert _ _ = pure ()
+  {-# INLINEABLE componentOnInsert #-}
+
+  -- | Lifecycle hook called when a component is changed.
+  componentOnChange :: EntityID -> a -> Access m ()
+  componentOnChange _ _ = pure ()
+  {-# INLINEABLE componentOnChange #-}
+
+  -- | Lifecycle hook called when a component is removed.
+  componentOnRemove :: EntityID -> a -> Access m ()
+  componentOnRemove _ _ = pure ()
+  {-# INLINEABLE componentOnRemove #-}

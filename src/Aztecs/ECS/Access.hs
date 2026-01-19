@@ -1,7 +1,9 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
@@ -14,11 +16,9 @@
 -- Stability   : provisional
 -- Portability : non-portable (GHC extensions)
 module Aztecs.ECS.Access
-  ( Access,
-    AccessT (..),
+  ( Access (..),
     runAccess,
-    runAccessT,
-    runAccessT_,
+    runAccess_,
     spawn,
     spawn_,
     insert,
@@ -30,6 +30,7 @@ module Aztecs.ECS.Access
   )
 where
 
+import Aztecs.ECS.Access.Internal (Access (..))
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
 import Aztecs.ECS.System (SystemT (..))
@@ -39,80 +40,67 @@ import qualified Aztecs.ECS.World as W
 import Aztecs.ECS.World.Bundle
 import qualified Aztecs.ECS.World.Entities as E
 import Control.Monad
-import Control.Monad.Fix
-import Control.Monad.Identity
-import Control.Monad.State.Strict
+import Control.Monad.State
 import Prelude hiding (all, filter, lookup, map, mapM)
 
-type Access = AccessT Identity
-
--- | Access into the `World`.
-newtype AccessT m a = AccessT {unAccessT :: StateT World m a}
-  deriving (Functor, Applicative, Monad, MonadFix, MonadIO, MonadTrans)
-
-runAccess :: Access a -> World -> (a, World)
-runAccess a = runIdentity . runAccessT a
-
 -- | Run an `Access` on a `World`, returning the output and updated `World`.
-runAccessT :: (Functor m) => AccessT m a -> World -> m (a, World)
-runAccessT a = runStateT $ unAccessT a
+runAccess :: (Functor m) => Access m a -> World m -> m (a, World m)
+runAccess a = runStateT $ unAccess a
 
 -- | Run an `Access` on an empty `World`.
-runAccessT_ :: (Functor m) => AccessT m a -> m a
-runAccessT_ a = fmap fst . runAccessT a $ W.empty
+runAccess_ :: (Monad m) => Access m a -> m a
+runAccess_ a = fmap fst . runAccess a $ W.empty
 
-spawn :: (Monad m) => Bundle -> AccessT m EntityID
-spawn b = AccessT $ do
+spawn :: (Monad m) => BundleT m -> Access m EntityID
+spawn b = Access $ do
   !w <- get
-  let !(e, w') = W.spawn b w
+  let (e, w', hook) = W.spawn b w
   put w'
+  unAccess hook
   return e
 
-spawn_ :: (Monad m) => Bundle -> AccessT m ()
+spawn_ :: (Monad m) => BundleT m -> Access m ()
 spawn_ = void . spawn
 
-insert :: (Monad m) => EntityID -> Bundle -> AccessT m ()
-insert e c = AccessT $ do
+insert :: (Monad m) => EntityID -> BundleT m -> Access m ()
+insert e c = Access $ do
   !w <- get
-  let !w' = W.insert e c w
+  let (w', hook) = W.insert e c w
   put w'
+  unAccess hook
 
-lookup :: (Monad m, Component a) => EntityID -> AccessT m (Maybe a)
-lookup e = AccessT $ do
+lookup :: forall m a. (Monad m, Component m a) => EntityID -> Access m (Maybe a)
+lookup e = Access $ do
   !w <- get
-  return $ W.lookup e w
+  return $ W.lookup @m e w
 
-remove :: (Monad m, Component a) => EntityID -> AccessT m (Maybe a)
-remove e = AccessT $ do
+remove :: forall m a. (Monad m, Component m a) => EntityID -> Access m (Maybe a)
+remove e = Access $ do
   !w <- get
-  let !(a, w') = W.remove e w
+  let (a, w', hook) = W.remove @m e w
   put w'
+  unAccess hook
   return a
 
-despawn :: (Monad m) => EntityID -> AccessT m ()
-despawn e = AccessT $ do
+despawn :: (Monad m) => EntityID -> Access m ()
+despawn e = Access $ do
   !w <- get
   let !(_, w') = W.despawn e w
   put w'
 
--- | Run a pure `System` on the `World`.
-system :: (Monad m) => S.System a -> AccessT m a
-system sys = AccessT $ do
+-- | Run a `SystemT` on the `World`.
+system :: (Monad m) => SystemT m a -> Access m a
+system sys = Access $ do
   !w <- get
   let !es = W.entities w
       !(cs', dynSys) = S.runSystemT sys $ E.components es
-      !(a, es') = runIdentity $ S.runDynamicSystemT dynSys es
+  (a, es', hook) <- lift $ S.runDynamicSystemT dynSys es
   put w {W.entities = es' {E.components = cs'}}
+  unAccess hook
   return a
 {-# INLINE system #-}
 
 -- | Run a `SystemT` on the `World`.
-systemM :: (Monad m) => SystemT m a -> AccessT m a
-systemM sys = AccessT $ do
-  !w <- get
-  let !es = W.entities w
-      !(cs', dynSys) = S.runSystemT sys $ E.components es
-  (a, es') <- lift $ S.runDynamicSystemT dynSys es
-  put w {W.entities = es' {E.components = cs'}}
-  return a
+systemM :: (Monad m) => SystemT m a -> Access m a
+systemM = system
 {-# INLINE systemM #-}

@@ -1,7 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -24,20 +22,10 @@ module Aztecs.ECS.World.Components
 where
 
 import Aztecs.ECS.Component
-import Data.Map.Strict (Map)
+import Aztecs.ECS.World.Components.Internal (Components (..))
 import qualified Data.Map.Strict as Map
 import Data.Typeable
-import GHC.Generics
 import Prelude hiding (lookup)
-
--- | Component ID map.
-data Components = Components
-  { -- | Map of component types to identifiers.
-    componentIds :: !(Map TypeRep ComponentID),
-    -- | Next unique component identifier.
-    nextComponentId :: !ComponentID
-  }
-  deriving (Show, Generic)
 
 -- | Empty `Components`.
 empty :: Components
@@ -52,13 +40,13 @@ lookup :: forall a. (Typeable a) => Components -> Maybe ComponentID
 lookup cs = Map.lookup (typeOf (Proxy @a)) (componentIds cs)
 
 -- | Insert a component ID by type, if it does not already exist.
-insert :: forall a. (Component a) => Components -> (ComponentID, Components)
+insert :: forall a m. (Component m a) => Components -> (ComponentID, Components)
 insert cs = case lookup @a cs of
   Just cId -> (cId, cs)
-  Nothing -> insert' @a cs
+  Nothing -> insert' @a @m cs
 
 -- | Insert a component ID by type.
-insert' :: forall c. (Component c) => Components -> (ComponentID, Components)
+insert' :: forall c m. (Component m c) => Components -> (ComponentID, Components)
 insert' cs =
   let !cId = nextComponentId cs
    in ( cId,

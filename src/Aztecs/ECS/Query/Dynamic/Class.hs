@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FunctionalDependencies #-}
 
 -- |
@@ -20,21 +21,21 @@ class (Monad m, Functor f) => DynamicQueryF m f | f -> m where
   entity :: f EntityID
 
   -- | Fetch a `Component` by its `ComponentID`.
-  fetchDyn :: (Component a) => ComponentID -> f a
+  fetchDyn :: (Component m a) => ComponentID -> f a
 
   -- | Try to fetch a `Component` by its `ComponentID`.
-  fetchMaybeDyn :: (Component a) => ComponentID -> f (Maybe a)
+  fetchMaybeDyn :: (Component m a) => ComponentID -> f (Maybe a)
   fetchMaybeDyn cId = Just <$> fetchDyn cId
 
   -- | Adjust a `Component` by its `ComponentID`.
-  adjustDyn :: (Component a) => (b -> a -> a) -> ComponentID -> f b -> f a
+  adjustDyn :: (Component m a) => (b -> a -> a) -> ComponentID -> f b -> f a
 
   -- | Adjust a `Component` by its `ComponentID`, ignoring any output.
-  adjustDyn_ :: (Component a) => (b -> a -> a) -> ComponentID -> f b -> f ()
+  adjustDyn_ :: (Component m a) => (b -> a -> a) -> ComponentID -> f b -> f ()
   adjustDyn_ f cId = void . adjustDyn f cId
 
   -- | Adjust a `Component` by its `ComponentID` with some applicative functor @g@.
-  adjustDynM :: (Monad m, Component a) => (b -> a -> m a) -> ComponentID -> f b -> f a
+  adjustDynM :: (Monad m, Component m a) => (b -> a -> m a) -> ComponentID -> f b -> f a
 
   -- | Set a `Component` by its `ComponentID`.
-  setDyn :: (Component a) => ComponentID -> f a -> f a
+  setDyn :: (Component m a) => ComponentID -> f a -> f a
