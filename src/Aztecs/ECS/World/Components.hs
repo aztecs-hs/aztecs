@@ -1,7 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -24,20 +22,10 @@ module Aztecs.ECS.World.Components
 where
 
 import Aztecs.ECS.Component
-import Data.Map.Strict (Map)
+import Aztecs.ECS.World.Components.Internal (Components (..))
 import qualified Data.Map.Strict as Map
 import Data.Typeable
-import GHC.Generics
 import Prelude hiding (lookup)
-
--- | Component ID map.
-data Components = Components
-  { -- | Map of component types to identifiers.
-    componentIds :: !(Map TypeRep ComponentID),
-    -- | Next unique component identifier.
-    nextComponentId :: !ComponentID
-  }
-  deriving (Show, Generic)
 
 -- | Empty `Components`.
 empty :: Components

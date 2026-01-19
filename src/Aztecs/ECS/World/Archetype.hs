@@ -2,8 +2,6 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
@@ -42,50 +40,25 @@ module Aztecs.ECS.World.Archetype
   )
 where
 
+import Aztecs.ECS.Access.Internal (AccessT)
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
+import Aztecs.ECS.World.Archetype.Internal (Archetype (..), empty)
 import qualified Aztecs.ECS.World.Storage as S
 import Aztecs.ECS.World.Storage.Dynamic
 import qualified Aztecs.ECS.World.Storage.Dynamic as S
 import Control.Monad.Writer
-  ( MonadWriter (..),
-    WriterT (..),
-    runWriter,
-  )
 import Data.Dynamic
 import Data.Foldable
 import Data.IntMap (IntMap)
 import qualified Data.IntMap.Strict as IntMap
-import Data.Kind
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
-import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Vector (Vector)
 import qualified Data.Vector as V
-import GHC.Generics
 import Prelude hiding (map, zipWith)
-
--- | Archetype of entities and components.
--- An archetype is guranteed to contain one of each stored component per entity.
-data Archetype (m :: Type -> Type) = Archetype
-  { -- | Component storages.
-    storages :: !(IntMap DynamicStorage),
-    -- | Entities stored in this archetype.
-    entities :: !(Set EntityID)
-  }
-  deriving (Show, Generic)
-
-instance Semigroup (Archetype m) where
-  a <> b = Archetype {storages = storages a <> storages b, entities = entities a <> entities b}
-
-instance Monoid (Archetype m) where
-  mempty = empty
-
--- | Empty archetype.
-empty :: Archetype m
-empty = Archetype {storages = IntMap.empty, entities = Set.empty}
 
 -- | Archetype with a single entity.
 singleton :: EntityID -> Archetype m
@@ -124,7 +97,7 @@ lookupComponentsAscMaybe cId arch = S.toAscVector @a @(StorageT a) <$> lookupSto
 -- This assumes the archetype contains one of each stored component per entity.
 -- Returns the updated archetype and the onInsert hook to run.
 insertComponent ::
-  forall m a. (Component m a) => EntityID -> ComponentID -> a -> Archetype m -> (Archetype m, m ())
+  forall m a. (Component m a) => EntityID -> ComponentID -> a -> Archetype m -> (Archetype m, AccessT m ())
 insertComponent e cId c arch =
   let !storage =
         S.fromAscVector @a @(StorageT a) . V.fromList . Map.elems . Map.insert e c $ lookupComponents cId arch
@@ -135,9 +108,10 @@ member :: ComponentID -> Archetype m -> Bool
 member cId = IntMap.member (unComponentId cId) . storages
 
 -- | Zip a vector of components with a function and a component storage.
+-- Returns the result vector, updated archetype, and the onChange hooks to run.
 zipWith ::
-  forall m a c. (Monad m, Component m c) => Vector a -> (a -> c -> c) -> ComponentID -> Archetype m -> m (Vector c, Archetype m)
-zipWith as f cId arch = do
+  forall m a c. (Monad m, Component m c) => Vector a -> (a -> c -> c) -> ComponentID -> Archetype m -> (Vector c, Archetype m, AccessT m ())
+zipWith as f cId arch =
   let go maybeDyn = case maybeDyn of
         Just dyn -> case fromDynamic $ storageDyn dyn of
           Just s -> do
@@ -147,13 +121,14 @@ zipWith as f cId arch = do
           Nothing -> return maybeDyn
         Nothing -> return Nothing
       !(storages', cs) = runWriter $ IntMap.alterF go (unComponentId cId) $ storages arch
-  V.mapM_ componentOnChange cs
-  return (cs, arch {storages = storages'})
+      !hooks = V.foldl' (\acc c -> acc >> componentOnChange c) (return ()) cs
+   in (cs, arch {storages = storages'}, hooks)
 {-# INLINE zipWith #-}
 
 -- | Zip a vector of components with a monadic function and a component storage.
+-- Returns the result vector, updated archetype, and the onChange hooks to run.
 zipWithM ::
-  forall m a c. (Monad m, Component m c) => Vector a -> (a -> c -> m c) -> ComponentID -> Archetype m -> m (Vector c, Archetype m)
+  forall m a c. (Monad m, Component m c) => Vector a -> (a -> c -> m c) -> ComponentID -> Archetype m -> m (Vector c, Archetype m, AccessT m ())
 zipWithM as f cId arch = do
   let go maybeDyn = case maybeDyn of
         Just dyn -> case fromDynamic $ storageDyn dyn of
@@ -166,12 +141,13 @@ zipWithM as f cId arch = do
         Nothing -> pure Nothing
   res <- runWriterT $ IntMap.alterF go (unComponentId cId) $ storages arch
   let cs = snd res
-  V.mapM_ componentOnChange cs
-  return (cs, arch {storages = fst res})
+      !hooks = V.foldl' (\acc c -> acc >> componentOnChange c) (return ()) cs
+  return (cs, arch {storages = fst res}, hooks)
 
 -- | Zip a vector of components with a function and a component storage.
+-- Returns the updated archetype and the onChange hooks to run.
 zipWith_ ::
-  forall m a c. (Monad m, Component m c) => Vector a -> (a -> c -> c) -> ComponentID -> Archetype m -> m (Archetype m)
+  forall m a c. (Monad m, Component m c) => Vector a -> (a -> c -> c) -> ComponentID -> Archetype m -> (Archetype m, AccessT m ())
 zipWith_ as f cId arch =
   let maybeStorage = case IntMap.lookup (unComponentId cId) $ storages arch of
         Just dyn -> case fromDynamic $ storageDyn dyn of
@@ -180,10 +156,10 @@ zipWith_ as f cId arch =
           Nothing -> Nothing
         Nothing -> Nothing
    in case maybeStorage of
-        Just (cs, s) -> do
-          V.mapM_ componentOnChange cs
-          return $ empty {storages = IntMap.singleton (unComponentId cId) s}
-        Nothing -> return $ empty {storages = IntMap.empty}
+        Just (cs, s) ->
+          let !hooks = V.foldl' (\acc c -> acc >> componentOnChange c) (return ()) cs
+           in (empty {storages = IntMap.singleton (unComponentId cId) s}, hooks)
+        Nothing -> (empty {storages = IntMap.empty}, return ())
 {-# INLINE zipWith_ #-}
 
 -- | Insert a vector of components into the archetype, sorted in ascending order by their `EntityID`.

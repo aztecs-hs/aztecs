@@ -11,7 +11,7 @@ import qualified Aztecs.ECS.World as W
 import Control.DeepSeq
 import Criterion.Main
 import Data.Function
-import Data.Functor.Identity
+import Data.Functor.Identity (Identity)
 import Data.Vector (Vector)
 import GHC.Generics
 
@@ -27,14 +27,14 @@ move :: Query Position
 move = Q.fetch & Q.fetchMap (\(Velocity v) (Position p) -> Position $ p + v)
 
 run :: Query Position -> World Identity -> Vector Position
-run q = fst . Q.query q . entities
+run q = (\(a, _, _) -> a) . Q.query q . entities
 
 runSystem :: Query Position -> World Identity -> Vector Position
 runSystem q = fst . runAccess (system $ query q)
 
 main :: IO ()
 main = do
-  let go wAcc = snd . runIdentity $ W.spawn (bundle (Position 0) <> bundle (Velocity 1)) wAcc
+  let go wAcc = (\(_, w', _) -> w') $ W.spawn (bundle (Position 0) <> bundle (Velocity 1)) wAcc
       !w = foldr (const go) W.empty [0 :: Int .. 10000]
   defaultMain
     [ bench "iter" $ nf (run move) w,

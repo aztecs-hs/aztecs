@@ -79,6 +79,7 @@ module Aztecs.ECS.Query
   )
 where
 
+import Aztecs.ECS.Access.Internal (AccessT)
 import Aztecs.ECS.Component
 import Aztecs.ECS.Query.Dynamic
 import Aztecs.ECS.World.Components (Components)
@@ -279,45 +280,45 @@ readQuerySingleMaybeM' q es = do
 {-# INLINE readQuerySingleMaybeM' #-}
 
 -- | Map all matched entities.
-query :: Query o -> Entities Identity -> (Vector o, Entities Identity)
+query :: Query o -> Entities Identity -> (Vector o, Entities Identity, AccessT Identity ())
 query q = runIdentity . queryM q
 {-# INLINE query #-}
 
 -- | Map all matched entities.
-queryM :: (Monad m) => QueryT m o -> Entities m -> m (Vector o, Entities m)
+queryM :: (Monad m) => QueryT m o -> Entities m -> m (Vector o, Entities m, AccessT m ())
 queryM q es = do
   let !(rws, cs', dynQ) = runQuery q $ components es
       !cIds = reads rws <> writes rws
-  (as, es') <- queryDynM cIds dynQ es
-  return (as, es' {components = cs'})
+  (as, es', hook) <- queryDynM cIds dynQ es
+  return (as, es' {components = cs'}, hook)
 {-# INLINE queryM #-}
 
 -- | Map a single matched entity.
-querySingle :: (HasCallStack) => Query a -> Entities Identity -> (a, Entities Identity)
+querySingle :: (HasCallStack) => Query a -> Entities Identity -> (a, Entities Identity, AccessT Identity ())
 querySingle q = runIdentity . querySingleM q
 {-# INLINE querySingle #-}
 
 -- | Map a single matched entity.
-querySingleM :: (HasCallStack, Monad m) => QueryT m a -> Entities m -> m (a, Entities m)
+querySingleM :: (HasCallStack, Monad m) => QueryT m a -> Entities m -> m (a, Entities m, AccessT m ())
 querySingleM q es = do
   let !(rws, cs', dynQ) = runQuery q $ components es
       !cIds = reads rws <> writes rws
-  (as, es') <- querySingleDynM cIds dynQ es
-  return (as, es' {components = cs'})
+  (as, es', hook) <- querySingleDynM cIds dynQ es
+  return (as, es' {components = cs'}, hook)
 {-# INLINE querySingleM #-}
 
 -- | Map a single matched entity, or `Nothing`.
-querySingleMaybe :: Query a -> Entities Identity -> (Maybe a, Entities Identity)
+querySingleMaybe :: Query a -> Entities Identity -> (Maybe a, Entities Identity, AccessT Identity ())
 querySingleMaybe q = runIdentity . querySingleMaybeM q
 {-# INLINE querySingleMaybe #-}
 
 -- | Map a single matched entity, or `Nothing`.
-querySingleMaybeM :: (Monad m) => QueryT m a -> Entities m -> m (Maybe a, Entities m)
+querySingleMaybeM :: (Monad m) => QueryT m a -> Entities m -> m (Maybe a, Entities m, AccessT m ())
 querySingleMaybeM q es = do
   let !(rws, cs', dynQ) = runQuery q $ components es
       !cIds = reads rws <> writes rws
-  (as, es') <- querySingleMaybeDynM cIds dynQ es
-  return (as, es' {components = cs'})
+  (as, es', hook) <- querySingleMaybeDynM cIds dynQ es
+  return (as, es' {components = cs'}, hook)
 {-# INLINE querySingleMaybeM #-}
 
 -- | Filter for a `Query`.

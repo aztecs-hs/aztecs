@@ -1,7 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -33,6 +32,7 @@ module Aztecs.ECS.Access
   )
 where
 
+import Aztecs.ECS.Access.Internal (AccessT (..))
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
 import Aztecs.ECS.System (SystemT (..))
@@ -42,16 +42,11 @@ import qualified Aztecs.ECS.World as W
 import Aztecs.ECS.World.Bundle
 import qualified Aztecs.ECS.World.Entities as E
 import Control.Monad
-import Control.Monad.Fix
 import Control.Monad.Identity
-import Control.Monad.State.Strict
+import Control.Monad.State
 import Prelude hiding (all, filter, lookup, map, mapM)
 
 type Access = AccessT Identity
-
--- | Access into the `World`.
-newtype AccessT m a = AccessT {unAccessT :: StateT (World m) m a}
-  deriving (Functor, Applicative, Monad, MonadFix, MonadIO)
 
 runAccess :: Access a -> World Identity -> (a, World Identity)
 runAccess a = runIdentity . runAccessT a
@@ -67,8 +62,9 @@ runAccessT_ a = fmap fst . runAccessT a $ W.empty
 spawn :: (Monad m) => BundleT m -> AccessT m EntityID
 spawn b = AccessT $ do
   !w <- get
-  (e, w') <- lift $ W.spawn b w
+  let (e, w', hook) = W.spawn b w
   put w'
+  unAccessT hook
   return e
 
 spawn_ :: (Monad m) => BundleT m -> AccessT m ()
@@ -77,8 +73,9 @@ spawn_ = void . spawn
 insert :: (Monad m) => EntityID -> BundleT m -> AccessT m ()
 insert e c = AccessT $ do
   !w <- get
-  w' <- lift $ W.insert e c w
+  let (w', hook) = W.insert e c w
   put w'
+  unAccessT hook
 
 lookup :: forall m a. (Monad m, Component m a) => EntityID -> AccessT m (Maybe a)
 lookup e = AccessT $ do
@@ -88,8 +85,9 @@ lookup e = AccessT $ do
 remove :: forall m a. (Monad m, Component m a) => EntityID -> AccessT m (Maybe a)
 remove e = AccessT $ do
   !w <- get
-  (a, w') <- lift $ W.remove @m e w
+  let (a, w', hook) = W.remove @m e w
   put w'
+  unAccessT hook
   return a
 
 despawn :: (Monad m) => EntityID -> AccessT m ()
@@ -104,8 +102,9 @@ system sys = AccessT $ do
   !w <- get
   let !es = W.entities w
       !(cs', dynSys) = S.runSystemT sys $ E.components es
-  (a, es') <- lift $ S.runDynamicSystemT dynSys es
+  (a, es', hook) <- lift $ S.runDynamicSystemT dynSys es
   put w {W.entities = es' {E.components = cs'}}
+  unAccessT hook
   return a
 {-# INLINE system #-}
 

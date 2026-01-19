@@ -15,7 +15,7 @@ import Aztecs
 import Aztecs.ECS.Component (ComponentID (ComponentID))
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.World as W
-import Data.Functor.Identity
+import Data.Functor.Identity (Identity)
 import qualified Data.Vector as V
 import Data.Word
 import GHC.Generics
@@ -82,7 +82,7 @@ prop_queryDyn xs =
                 idAcc + 1
               )
             (b, cs, _) = foldr spawner' (mempty, [], 0) xs'
-            (e, wAcc') = runIdentity $ W.spawn b wAcc
+            (e, wAcc', _) = W.spawn b wAcc
          in ((e, cs) : acc, wAcc')
       (es, w) = foldr spawner ([], W.empty) xs
       go (e, cs) = do
@@ -93,19 +93,19 @@ prop_queryDyn xs =
 
 prop_queryTypedComponent :: [X] -> Expectation
 prop_queryTypedComponent xs = do
-  let w = foldr (\x -> snd . runIdentity . W.spawn (bundle x)) W.empty xs
+  let w = foldr (\x -> (\(_, w', _) -> w') . W.spawn (bundle x)) W.empty xs
       (res, _) = Q.readQuery Q.fetch $ W.entities w
   V.toList res `shouldMatchList` xs
 
 prop_queryTwoTypedComponents :: [(X, Y)] -> Expectation
 prop_queryTwoTypedComponents xys = do
-  let w = foldr (\(x, y) -> snd . runIdentity . W.spawn (bundle x <> bundle y)) W.empty xys
+  let w = foldr (\(x, y) -> (\(_, w', _) -> w') . W.spawn (bundle x <> bundle y)) W.empty xys
       (res, _) = Q.readQuery ((,) <$> Q.fetch <*> Q.fetch) $ W.entities w
   V.toList res `shouldMatchList` xys
 
 prop_queryThreeTypedComponents :: [(X, Y, Z)] -> Expectation
 prop_queryThreeTypedComponents xyzs = do
-  let w = foldr (\(x, y, z) -> snd . runIdentity . W.spawn (bundle x <> bundle y <> bundle z)) W.empty xyzs
+  let w = foldr (\(x, y, z) -> (\(_, w', _) -> w') . W.spawn (bundle x <> bundle y <> bundle z)) W.empty xyzs
       q = do
         x <- Q.fetch
         y <- Q.fetch
@@ -116,15 +116,15 @@ prop_queryThreeTypedComponents xyzs = do
 
 prop_querySingle :: Expectation
 prop_querySingle =
-  let (_, w) = runIdentity $ W.spawn (bundle $ X 1) W.empty
+  let (_, w, _) = W.spawn (bundle $ X 1) W.empty
       (res, _) = Q.readQuerySingle Q.fetch $ W.entities w
    in res `shouldBe` X 1
 
 prop_queryMapSingle :: Word8 -> Expectation
 prop_queryMapSingle n =
-  let (_, w) = runIdentity $ W.spawn (bundle $ X 0) W.empty
+  let (_, w, _) = W.spawn (bundle $ X 0) W.empty
       q = Q.fetchMap (\_ (X x) -> X $ x + 1) (pure ())
-      w' = foldr (\_ es -> snd $ Q.querySingle q es) (W.entities w) [1 .. n]
+      w' = foldr (\_ es -> (\(_, es', _) -> es') $ Q.querySingle q es) (W.entities w) [1 .. n]
       (res, _) = Q.readQuerySingle Q.fetch w'
    in res `shouldBe` X (fromIntegral n)
 

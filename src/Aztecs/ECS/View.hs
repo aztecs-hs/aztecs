@@ -25,6 +25,7 @@ module Aztecs.ECS.View
   )
 where
 
+import Aztecs.ECS.Access.Internal (AccessT)
 import Aztecs.ECS.Query.Dynamic (DynamicQuery, DynamicQueryT (..))
 import Aztecs.ECS.World.Archetypes
 import qualified Aztecs.ECS.World.Archetypes as AS
@@ -85,7 +86,7 @@ allDyn :: DynamicQuery a -> View Identity -> Vector a
 allDyn q v =
   foldl'
     ( \acc n ->
-        let (as, _) = runIdentity . runDynQueryT q $ nodeArchetype n
+        let (as, _, _) = runIdentity . runDynQueryT q $ nodeArchetype n
          in as V.++ acc
     )
     V.empty
@@ -97,23 +98,23 @@ singleDyn q v = case allDyn q v of
   as | V.length as == 1 -> Just (V.head as)
   _ -> Nothing
 
--- | Map all matching entities in a `View`.
-mapDyn :: (Monad m) => DynamicQueryT m a -> View m -> m (Vector a, View m)
+-- | Map all matching entities in a `View`. Returns the results, updated view, and hooks to run.
+mapDyn :: (Monad m) => DynamicQueryT m a -> View m -> m (Vector a, View m, AccessT m ())
 mapDyn q v = do
-  (as, arches) <-
+  (as, arches, hooks) <-
     foldlM
-      ( \(acc, archAcc) (aId, n) -> do
-          (as', arch') <- runDynQueryT q $ nodeArchetype n
-          return (as' V.++ acc, Map.insert aId (n {nodeArchetype = arch'}) archAcc)
+      ( \(acc, archAcc, hooksAcc) (aId, n) -> do
+          (as', arch', hook) <- runDynQueryT q $ nodeArchetype n
+          return (as' V.++ acc, Map.insert aId (n {nodeArchetype = arch'}) archAcc, hooksAcc >> hook)
       )
-      (V.empty, Map.empty)
+      (V.empty, Map.empty, return ())
       (Map.toList $ viewArchetypes v)
-  return (as, View arches)
+  return (as, View arches, hooks)
 
--- | Map a single matching entity in a `View`.
-mapSingleDyn :: (Monad m) => DynamicQueryT m a -> View m -> m (Maybe a, View m)
+-- | Map a single matching entity in a `View`. Returns the result, updated view, and hooks to run.
+mapSingleDyn :: (Monad m) => DynamicQueryT m a -> View m -> m (Maybe a, View m, AccessT m ())
 mapSingleDyn q v = do
-  (as, arches) <- mapDyn q v
+  (as, arches, hooks) <- mapDyn q v
   return $ case as of
-    a | V.length a == 1 -> (Just (V.head a), arches)
-    _ -> (Nothing, arches)
+    a | V.length a == 1 -> (Just (V.head a), arches, hooks)
+    _ -> (Nothing, arches, hooks)

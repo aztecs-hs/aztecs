@@ -1,6 +1,4 @@
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -27,36 +25,24 @@ module Aztecs.ECS.World.Entities
   )
 where
 
+import Aztecs.ECS.Access.Internal (AccessT)
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
 import qualified Aztecs.ECS.World.Archetype as A
-import Aztecs.ECS.World.Archetypes (ArchetypeID, Archetypes, Node (..))
+import Aztecs.ECS.World.Archetypes (ArchetypeID, Node (..))
 import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Bundle
 import Aztecs.ECS.World.Bundle.Dynamic
-import Aztecs.ECS.World.Components (Components (..))
 import qualified Aztecs.ECS.World.Components as CS
+import Aztecs.ECS.World.Entities.Internal (Entities (..))
 import Data.Dynamic
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
-import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as Set
-import GHC.Generics
 import Prelude hiding (lookup)
-
--- | World of entities and their components.
-data Entities m = Entities
-  { -- | Archetypes.
-    archetypes :: !(Archetypes m),
-    -- | Components.
-    components :: !Components,
-    -- | Entities and their archetype identifiers.
-    entities :: !(Map EntityID ArchetypeID)
-  }
-  deriving (Show, Generic)
 
 -- | Empty `World`.
 empty :: Entities m
@@ -67,50 +53,50 @@ empty =
       entities = mempty
     }
 
--- | Spawn a `Bundle`.
-spawn :: (Monad m) => EntityID -> BundleT m -> Entities m -> m (Entities m)
-spawn eId b w = do
+-- | Spawn a `Bundle`. Returns the updated entities and the onInsert hook to run.
+spawn :: (Monad m) => EntityID -> BundleT m -> Entities m -> (Entities m, AccessT m ())
+spawn eId b w =
   let (cIds, components', dynB) = unBundle b (components w)
-  case AS.lookupArchetypeId cIds (archetypes w) of
-    Just aId -> case AS.lookup aId $ archetypes w of
-      Just node -> do
-        let (arch', hook) =
-              runDynamicBundle
-                dynB
-                eId
-                ( (nodeArchetype node)
-                    { A.entities = Set.insert eId . A.entities $ nodeArchetype node
-                    }
+   in case AS.lookupArchetypeId cIds (archetypes w) of
+        Just aId -> case AS.lookup aId $ archetypes w of
+          Just node ->
+            let (arch', hook) =
+                  runDynamicBundle
+                    dynB
+                    eId
+                    ( (nodeArchetype node)
+                        { A.entities = Set.insert eId . A.entities $ nodeArchetype node
+                        }
+                    )
+             in ( w
+                    { archetypes = (archetypes w) {AS.nodes = Map.insert aId node {nodeArchetype = arch'} (AS.nodes $ archetypes w)},
+                      components = components',
+                      entities = Map.insert eId aId (entities w)
+                    },
+                  hook
                 )
-        hook
-        return
-          w
-            { archetypes = (archetypes w) {AS.nodes = Map.insert aId node {nodeArchetype = arch'} (AS.nodes $ archetypes w)},
-              components = components',
-              entities = Map.insert eId aId (entities w)
-            }
-      Nothing -> return w
-    Nothing -> do
-      let (arch', hook) = runDynamicBundle dynB eId $ A.singleton eId
-          node' = Node {nodeComponentIds = cIds, nodeArchetype = arch'}
-          (aId, arches) = AS.insertArchetype cIds node' $ archetypes w
-      hook
-      return
-        w
-          { archetypes = arches,
-            entities = Map.insert eId aId (entities w),
-            components = components'
-          }
+          Nothing -> (w, return ())
+        Nothing ->
+          let (arch', hook) = runDynamicBundle dynB eId $ A.singleton eId
+              node' = Node {nodeComponentIds = cIds, nodeArchetype = arch'}
+              (aId, arches) = AS.insertArchetype cIds node' $ archetypes w
+           in ( w
+                  { archetypes = arches,
+                    entities = Map.insert eId aId (entities w),
+                    components = components'
+                  },
+                hook
+              )
 
--- | Spawn a `DynamicBundle` with a specified `ArchetypeID`.
+-- | Spawn a `DynamicBundle` with a specified `ArchetypeID`. Returns the updated entities and the onInsert hook.
 spawnWithArchetypeId ::
   (Monad m) =>
   EntityID ->
   ArchetypeID ->
   DynamicBundleT m ->
   Entities m ->
-  m (Entities m)
-spawnWithArchetypeId e aId b w = do
+  (Entities m, AccessT m ())
+spawnWithArchetypeId e aId b w =
   let f n =
         let (arch', hook) = runDynamicBundle b e ((nodeArchetype n) {A.entities = Set.insert e . A.entities $ nodeArchetype n})
          in (n {nodeArchetype = arch'}, hook)
@@ -122,37 +108,35 @@ spawnWithArchetypeId e aId b w = do
           )
           aId
           (AS.nodes $ archetypes w)
-  hooks
-  return
-    w
-      { archetypes = (archetypes w) {AS.nodes = nodes'},
-        entities = Map.insert e aId (entities w)
-      }
+   in ( w
+          { archetypes = (archetypes w) {AS.nodes = nodes'},
+            entities = Map.insert e aId (entities w)
+          },
+        hooks
+      )
 
--- | Insert a component into an entity.
-insert :: (Monad m) => EntityID -> BundleT m -> Entities m -> m (Entities m)
-insert e b w = do
+-- | Insert a component into an entity. Returns the updated entities and the onInsert hook.
+insert :: (Monad m) => EntityID -> BundleT m -> Entities m -> (Entities m, AccessT m ())
+insert e b w =
   let !(cIds, components', dynB) = unBundle b (components w)
-  insertDyn e cIds dynB w {components = components'}
+   in insertDyn e cIds dynB w {components = components'}
 
--- | Insert a component into an entity with its `ComponentID`.
-insertDyn :: (Monad m) => EntityID -> Set ComponentID -> DynamicBundleT m -> Entities m -> m (Entities m)
+-- | Insert a component into an entity with its `ComponentID`. Returns the updated entities and the onInsert hook.
+insertDyn :: (Monad m) => EntityID -> Set ComponentID -> DynamicBundleT m -> Entities m -> (Entities m, AccessT m ())
 insertDyn e cIds b w = case Map.lookup e $ entities w of
-  Just aId -> do
+  Just aId ->
     let (maybeNextAId, arches, hook) = AS.insert e aId cIds b $ archetypes w
         es = case maybeNextAId of
           Just nextAId -> Map.insert e nextAId $ entities w
           Nothing -> entities w
-    hook
-    return w {archetypes = arches, entities = es}
+     in (w {archetypes = arches, entities = es}, hook)
   Nothing -> case AS.lookupArchetypeId cIds $ archetypes w of
     Just aId -> spawnWithArchetypeId e aId b w
-    Nothing -> do
+    Nothing ->
       let (arch, hook) = runDynamicBundle b e $ A.singleton e
           node = Node {nodeComponentIds = cIds, nodeArchetype = arch}
           (aId, arches) = AS.insertArchetype cIds node $ archetypes w
-      hook
-      return w {archetypes = arches, entities = Map.insert e aId (entities w)}
+       in (w {archetypes = arches, entities = Map.insert e aId (entities w)}, hook)
 
 -- | Lookup a component in an entity.
 lookup :: forall m a. (Component m a) => EntityID -> Entities m -> Maybe a
@@ -162,23 +146,22 @@ lookup e w = do
   !node <- AS.lookup aId $ archetypes w
   A.lookupComponent e cId $ nodeArchetype node
 
--- | Remove a component from an entity.
-remove :: forall m a. (Component m a) => EntityID -> Entities m -> m (Maybe a, Entities m)
+-- | Remove a component from an entity. Returns the component (if found), updated entities, and the onRemove hook.
+remove :: forall m a. (Component m a) => EntityID -> Entities m -> (Maybe a, Entities m, AccessT m ())
 remove e w =
   let !(cId, components') = CS.insert @a @m (components w)
    in removeWithId e cId w {components = components'}
 
--- | Remove a component from an entity with its `ComponentID`.
-removeWithId :: forall m a. (Component m a) => EntityID -> ComponentID -> Entities m -> m (Maybe a, Entities m)
+-- | Remove a component from an entity with its `ComponentID`. Returns the component (if found), updated entities, and the onRemove hook.
+removeWithId :: forall m a. (Component m a) => EntityID -> ComponentID -> Entities m -> (Maybe a, Entities m, AccessT m ())
 removeWithId e cId w = case Map.lookup e (entities w) of
-  Just aId -> do
+  Just aId ->
     let (res, as, hook) = AS.remove @m @a e aId cId $ archetypes w
         (maybeA, es) = case res of
           Just (a, nextAId) -> (Just a, Map.insert e nextAId (entities w))
           Nothing -> (Nothing, entities w)
-    hook
-    return (maybeA, w {archetypes = as, entities = es})
-  Nothing -> return (Nothing, w)
+     in (maybeA, w {archetypes = as, entities = es}, hook)
+  Nothing -> (Nothing, w, return ())
 
 -- | Despawn an entity, returning its components.
 despawn :: EntityID -> Entities m -> (IntMap Dynamic, Entities m)

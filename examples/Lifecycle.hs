@@ -4,13 +4,14 @@
 module Main where
 
 import Aztecs.ECS
+import Control.Monad.IO.Class
 
 newtype X = X Int deriving (Show)
 
 instance Component IO X where
-  componentOnInsert x = putStrLn $ "insert: " ++ show x
-  componentOnChange x = putStrLn $ "change: " ++ show x
-  componentOnRemove x = putStrLn $ "remove: " ++ show x
+  componentOnInsert x = liftIO . putStrLn $ "insert: " ++ show x
+  componentOnChange x = liftIO . putStrLn $ "change: " ++ show x
+  componentOnRemove x = liftIO . putStrLn $ "remove: " ++ show x
 
 addTen :: QueryT IO X
 addTen = fetchMap (\_ (X n) -> X (n + 10)) (pure ())

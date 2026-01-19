@@ -36,6 +36,7 @@ module Aztecs.ECS.System.Dynamic
   )
 where
 
+import Aztecs.ECS.Access.Internal (AccessT)
 import Aztecs.ECS.Component
 import Aztecs.ECS.Query.Dynamic (DynamicQuery, DynamicQueryT)
 import qualified Aztecs.ECS.Query.Dynamic as DQ
@@ -70,20 +71,20 @@ data Op m a where
   QFilterMapM :: (Node m -> Bool) -> DynamicQueryT m a -> Op m (Vector a)
 
 -- | Run a query operation on entities.
-runOp :: (Monad m) => Set ComponentID -> Op m a -> Entities m -> m (a, Entities m)
-runOp cIds (QAll q) es = return (DQ.readQueryDyn cIds q es, es)
+runOp :: (Monad m) => Set ComponentID -> Op m a -> Entities m -> m (a, Entities m, AccessT m ())
+runOp cIds (QAll q) es = return (DQ.readQueryDyn cIds q es, es, return ())
 runOp cIds (QAllM q) es = do
   as <- DQ.readQueryDynM cIds q es
-  return (as, es)
-runOp cIds (QFilter q flt) es = return (DQ.readQueryFilteredDyn cIds q flt es, es)
+  return (as, es, return ())
+runOp cIds (QFilter q flt) es = return (DQ.readQueryFilteredDyn cIds q flt es, es, return ())
 runOp cIds (QFilterM q flt) es = do
   as <- DQ.readQueryFilteredDynM cIds flt q es
-  return (as, es)
-runOp cIds (QMap q) es = return (DQ.queryDyn cIds q es)
+  return (as, es, return ())
+runOp cIds (QMap q) es = let (a, es', hook) = DQ.queryDyn cIds q es in return (a, es', hook)
 runOp cIds (QMapM q) es = DQ.queryDynM cIds q es
-runOp cIds (QMapSingleMaybe q) es = return (DQ.querySingleMaybeDyn cIds q es)
+runOp cIds (QMapSingleMaybe q) es = let (a, es', hook) = DQ.querySingleMaybeDyn cIds q es in return (a, es', hook)
 runOp cIds (QMapSingleMaybeM q) es = DQ.querySingleMaybeDynM cIds q es
-runOp cIds (QFilterMap flt q) es = return (DQ.queryFilteredDyn cIds flt q es)
+runOp cIds (QFilterMap flt q) es = let (a, es', hook) = DQ.queryFilteredDyn cIds flt q es in return (a, es', hook)
 runOp cIds (QFilterMapM flt q) es = DQ.queryFilteredDynM cIds flt q es
 {-# INLINE runOp #-}
 
@@ -112,16 +113,16 @@ instance Applicative (DynamicSystemT m) where
   f <*> s = Ap f s
   {-# INLINE (<*>) #-}
 
--- | Run a dynamic system on entities, returning results and updated entities.
-runDynamicSystemT :: (Monad m) => DynamicSystemT m a -> Entities m -> m (a, Entities m)
-runDynamicSystemT (Pure a) es = return (a, es)
+-- | Run a dynamic system on entities, returning results, updated entities, and hooks to run.
+runDynamicSystemT :: (Monad m) => DynamicSystemT m a -> Entities m -> m (a, Entities m, AccessT m ())
+runDynamicSystemT (Pure a) es = return (a, es, return ())
 runDynamicSystemT (Map f s) es = do
-  (b, es') <- runDynamicSystemT s es
-  return (f b, es')
+  (b, es', hook) <- runDynamicSystemT s es
+  return (f b, es', hook)
 runDynamicSystemT (Ap sf sa) es = do
-  (f, es') <- runDynamicSystemT sf es
-  (a, es'') <- runDynamicSystemT sa es'
-  return (f a, es'')
+  (f, es', hook1) <- runDynamicSystemT sf es
+  (a, es'', hook2) <- runDynamicSystemT sa es'
+  return (f a, es'', hook1 >> hook2)
 runDynamicSystemT (Op cIds op) es = runOp cIds op es
 {-# INLINE runDynamicSystemT #-}
 

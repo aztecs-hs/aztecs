@@ -12,6 +12,7 @@
 -- Portability : non-portable (GHC extensions)
 module Aztecs.ECS.World.Bundle.Dynamic (DynamicBundleT (..), DynamicBundle, MonoidDynamicBundle (..)) where
 
+import Aztecs.ECS.Access.Internal (AccessT)
 import Aztecs.ECS.Entity
 import Aztecs.ECS.World.Archetype
 import Aztecs.ECS.World.Bundle.Dynamic.Class
@@ -20,9 +21,9 @@ import Control.Monad.Identity
 -- | Dynamic bundle of components.
 data DynamicBundleT m = DynamicBundleT
   { -- | Insert components into an archetype.
-    runDynamicBundle :: EntityID -> Archetype m -> (Archetype m, m ()),
+    runDynamicBundle :: EntityID -> Archetype m -> (Archetype m, AccessT m ()),
     -- | Run the on-insert hooks for all components.
-    runOnInsert :: m ()
+    runOnInsert :: AccessT m ()
   }
 
 -- | Pure dynamic bundle.

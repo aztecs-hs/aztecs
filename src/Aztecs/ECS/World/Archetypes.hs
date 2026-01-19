@@ -1,7 +1,4 @@
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 
@@ -30,10 +27,12 @@ module Aztecs.ECS.World.Archetypes
   )
 where
 
+import Aztecs.ECS.Access.Internal (AccessT)
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
 import Aztecs.ECS.World.Archetype (Archetype (..))
 import qualified Aztecs.ECS.World.Archetype as A
+import Aztecs.ECS.World.Archetypes.Internal (ArchetypeID (..), Archetypes (..), Node (..))
 import Aztecs.ECS.World.Bundle.Dynamic
 import Aztecs.ECS.World.Storage.Dynamic
 import Data.Dynamic
@@ -45,37 +44,7 @@ import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Vector as V
-import GHC.Generics
 import Prelude hiding (all, lookup, map)
-
--- | `Archetype` ID.
-newtype ArchetypeID = ArchetypeID
-  { -- | Unique integer identifier.
-    unArchetypeId :: Int
-  }
-  deriving newtype (Eq, Ord, Show)
-
--- | Node in `Archetypes`.
-data Node m = Node
-  { -- | Unique set of `ComponentID`s of this `Node`.
-    nodeComponentIds :: !(Set ComponentID),
-    -- | `Archetype` of this `Node`.
-    nodeArchetype :: !(Archetype m)
-  }
-  deriving (Show, Generic)
-
--- | `Archetype` map.
-data Archetypes m = Archetypes
-  { -- | Archetype nodes in the map.
-    nodes :: !(Map ArchetypeID (Node m)),
-    -- | Mapping of unique `ComponentID` sets to `ArchetypeID`s.
-    archetypeIds :: !(Map (Set ComponentID) ArchetypeID),
-    -- | Next unique `ArchetypeID`.
-    nextArchetypeId :: !ArchetypeID,
-    -- | Mapping of `ComponentID`s to `ArchetypeID`s of `Archetypes` that contain them.
-    componentIds :: !(Map ComponentID (Set ArchetypeID))
-  }
-  deriving (Show, Generic)
 
 -- | Empty `Archetypes`.
 empty :: Archetypes m
@@ -141,7 +110,7 @@ insert ::
   Set ComponentID ->
   DynamicBundleT m ->
   Archetypes m ->
-  (Maybe ArchetypeID, Archetypes m, m ())
+  (Maybe ArchetypeID, Archetypes m, AccessT m ())
 insert e aId cIds b arches = case lookup aId arches of
   Just node ->
     if Set.isSubsetOf cIds $ nodeComponentIds node
@@ -196,7 +165,7 @@ remove ::
   ArchetypeID ->
   ComponentID ->
   Archetypes m ->
-  (Maybe (a, ArchetypeID), Archetypes m, m ())
+  (Maybe (a, ArchetypeID), Archetypes m, AccessT m ())
 remove e aId cId arches = case lookup aId arches of
   Just node -> case lookupArchetypeId (Set.delete cId (nodeComponentIds node)) arches of
     Just nextAId ->
