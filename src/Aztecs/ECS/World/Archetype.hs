@@ -101,7 +101,7 @@ insertComponent ::
 insertComponent e cId c arch =
   let !storage =
         S.fromAscVector @a @(StorageT a) . V.fromList . Map.elems . Map.insert e c $ lookupComponents cId arch
-   in (arch {storages = IntMap.insert (unComponentId cId) (dynStorage @a storage) (storages arch)}, componentOnInsert c)
+   in (arch {storages = IntMap.insert (unComponentId cId) (dynStorage @a storage) (storages arch)}, componentOnInsert e c)
 
 -- | @True@ if this archetype contains an entity with the provided `ComponentID`.
 member :: ComponentID -> Archetype m -> Bool
@@ -120,8 +120,9 @@ zipWith as f cId arch =
             return $ Just $ dyn {storageDyn = toDyn s'}
           Nothing -> return maybeDyn
         Nothing -> return Nothing
-      !(storages', cs) = runWriter $ IntMap.alterF go (unComponentId cId) $ storages arch
-      !hooks = V.foldl' (\acc c -> acc >> componentOnChange c) (return ()) cs
+      (storages', cs) = runWriter $ IntMap.alterF go (unComponentId cId) $ storages arch
+      eIds = V.fromList . Set.toList $ entities arch
+      hooks = V.foldl (\acc (e, c) -> acc >> componentOnChange e c) (return ()) (V.zip eIds cs)
    in (cs, arch {storages = storages'}, hooks)
 {-# INLINE zipWith #-}
 
@@ -141,7 +142,8 @@ zipWithM as f cId arch = do
         Nothing -> pure Nothing
   res <- runWriterT $ IntMap.alterF go (unComponentId cId) $ storages arch
   let cs = snd res
-      !hooks = V.foldl' (\acc c -> acc >> componentOnChange c) (return ()) cs
+      eIds = V.fromList . Set.toList $ entities arch
+      hooks = V.foldl (\acc (e, c) -> acc >> componentOnChange e c) (return ()) (V.zip eIds cs)
   return (cs, arch {storages = fst res}, hooks)
 
 -- | Zip a vector of components with a function and a component storage.
@@ -157,7 +159,8 @@ zipWith_ as f cId arch =
         Nothing -> Nothing
    in case maybeStorage of
         Just (cs, s) ->
-          let !hooks = V.foldl' (\acc c -> acc >> componentOnChange c) (return ()) cs
+          let eIds = V.fromList . Set.toList $ entities arch
+              hooks = V.foldl (\acc (e, c) -> acc >> componentOnChange e c) (return ()) (V.zip eIds cs)
            in (empty {storages = IntMap.singleton (unComponentId cId) s}, hooks)
         Nothing -> (empty {storages = IntMap.empty}, return ())
 {-# INLINE zipWith_ #-}

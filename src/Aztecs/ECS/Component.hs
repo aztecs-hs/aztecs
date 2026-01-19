@@ -18,6 +18,7 @@ where
 
 import Aztecs.ECS.Access.Internal (AccessT)
 import Aztecs.ECS.Component.Internal (ComponentID (..))
+import Aztecs.ECS.Entity
 import Aztecs.ECS.World.Storage
 import Data.Typeable
 import Data.Vector (Vector)
@@ -30,16 +31,16 @@ class (Monad m, Typeable a, Storage a (StorageT a)) => Component m a where
   type StorageT a = Vector a
 
   -- | Lifecycle hook called when a component is inserted.
-  componentOnInsert :: a -> AccessT m ()
-  componentOnInsert _ = pure ()
+  componentOnInsert :: EntityID -> a -> AccessT m ()
+  componentOnInsert _ _ = pure ()
   {-# INLINEABLE componentOnInsert #-}
 
   -- | Lifecycle hook called when a component is changed.
-  componentOnChange :: a -> AccessT m ()
-  componentOnChange _ = pure ()
+  componentOnChange :: EntityID -> a -> AccessT m ()
+  componentOnChange _ _ = pure ()
   {-# INLINEABLE componentOnChange #-}
 
   -- | Lifecycle hook called when a component is removed.
-  componentOnRemove :: a -> AccessT m ()
-  componentOnRemove _ = pure ()
+  componentOnRemove :: EntityID -> a -> AccessT m ()
+  componentOnRemove _ _ = pure ()
   {-# INLINEABLE componentOnRemove #-}

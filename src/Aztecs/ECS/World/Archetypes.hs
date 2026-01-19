@@ -178,7 +178,7 @@ remove e aId cId arches = case lookup aId arches of
           go nextNode =
             nextNode {nodeArchetype = foldl' go' (nodeArchetype nextNode) (IntMap.toList cs')}
           maybeA = a >>= fromDynamic
-          hook = maybe (return ()) componentOnRemove maybeA
+          hook = maybe (return ()) (componentOnRemove e) maybeA
        in ( (,nextAId) <$> maybeA,
             arches' {nodes = Map.adjust go nextAId (nodes arches')},
             hook
@@ -196,7 +196,7 @@ remove e aId cId arches = case lookup aId arches of
           node' = node {nodeArchetype = arch'}
           -- Extract the component value from the singleton DynamicStorage
           maybeA = a >>= (\dynS -> V.headM (toAscVectorDyn dynS) >>= fromDynamic)
-          hook = maybe (return ()) componentOnRemove maybeA
+          hook = maybe (return ()) (componentOnRemove e) maybeA
        in ( (,nextAId) <$> maybeA,
             arches' {nodes = Map.insert aId node' (nodes arches')},
             hook

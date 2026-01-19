@@ -9,9 +9,9 @@ import Control.Monad.IO.Class
 newtype X = X Int deriving (Show)
 
 instance Component IO X where
-  componentOnInsert x = liftIO . putStrLn $ "insert: " ++ show x
-  componentOnChange x = liftIO . putStrLn $ "change: " ++ show x
-  componentOnRemove x = liftIO . putStrLn $ "remove: " ++ show x
+  componentOnInsert e x = liftIO . putStrLn $ "insert " ++ show e ++ ": " ++ show x
+  componentOnChange e x = liftIO . putStrLn $ "change " ++ show e ++ ": " ++ show x
+  componentOnRemove e x = liftIO . putStrLn $ "remove " ++ show e ++ ": " ++ show x
 
 addTen :: QueryT IO X
 addTen = fetchMap (\_ (X n) -> X (n + 10)) (pure ())
