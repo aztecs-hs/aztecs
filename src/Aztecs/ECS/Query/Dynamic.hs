@@ -96,12 +96,15 @@ instance (Monad m) => DynamicQueryF m (DynamicQueryT m) where
     Nothing -> pure (V.replicate (length $ A.entities arch) Nothing, arch)
   {-# INLINE fetchMaybeDyn #-}
 
-  adjustDyn f cId q =
-    DynamicQuery (fmap (\(bs, arch') -> A.zipWith bs f cId arch') . runDynQueryT q)
+  adjustDyn f cId q = DynamicQuery $ \arch -> do
+    (bs, arch') <- runDynQueryT q arch
+    A.zipWith bs f cId arch'
   {-# INLINE adjustDyn #-}
 
-  adjustDyn_ f cId q = DynamicQuery $ \arch ->
-    fmap (\(bs, arch') -> (V.map (const ()) bs, A.zipWith_ bs f cId arch')) (runDynQueryT q arch)
+  adjustDyn_ f cId q = DynamicQuery $ \arch -> do
+    (bs, arch') <- runDynQueryT q arch
+    arch'' <- A.zipWith_ bs f cId arch'
+    return (V.map (const ()) bs, arch'')
   {-# INLINE adjustDyn_ #-}
 
   adjustDynM f cId q = DynamicQuery $ \arch -> do

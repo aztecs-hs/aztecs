@@ -217,17 +217,16 @@ remove e aId cId arches = case lookup aId arches of
     Nothing ->
       let !(cs, arch') = A.removeStorages e (nodeArchetype node)
           (a, cs') = IntMap.updateLookupWithKey (\_ _ -> Nothing) (unComponentId cId) cs
+          destCIds = Set.delete cId (nodeComponentIds node)
           !n =
             Node
-              { nodeComponentIds = Set.insert cId (nodeComponentIds node),
+              { nodeComponentIds = destCIds,
                 nodeArchetype = Archetype {storages = cs', entities = Set.singleton e}
               }
-          !(nextAId, arches') = insertArchetype (Set.insert cId (nodeComponentIds node)) n arches
+          !(nextAId, arches') = insertArchetype destCIds n arches
           node' = node {nodeArchetype = arch'}
-          removeDyn s =
-            let (res, dyns) = Map.updateLookupWithKey (\_ _ -> Nothing) e . Map.fromAscList . zip (Set.toList $ entities arch') . V.toList $ toAscVectorDyn s
-             in (res, fromAscVectorDyn . V.fromList $ Map.elems dyns)
-          maybeA = a >>= (\a' -> fst (removeDyn a') >>= fromDynamic)
+          -- Extract the component value from the singleton DynamicStorage
+          maybeA = a >>= (\dynS -> V.headM (toAscVectorDyn dynS) >>= fromDynamic)
           hook = maybe (return ()) componentOnRemove maybeA
        in ( (,nextAId) <$> maybeA,
             arches' {nodes = Map.insert aId node' (nodes arches')},

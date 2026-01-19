@@ -29,14 +29,15 @@ newtype ComponentID = ComponentID
 -- | Component that can be stored in the `World`.
 class (Monad m, Typeable a, Storage a (StorageT a)) => Component m a where
   -- | `Storage` of this component.
-  --
-  -- @since 0.9
   type StorageT a
 
   type StorageT a = Vector a
 
   componentOnInsert :: a -> m ()
   componentOnInsert _ = return ()
+
+  componentOnChange :: a -> m ()
+  componentOnChange _ = return ()
 
   componentOnRemove :: a -> m ()
   componentOnRemove _ = return ()

@@ -136,8 +136,8 @@ member cId = IntMap.member (unComponentId cId) . storages
 
 -- | Zip a vector of components with a function and a component storage.
 zipWith ::
-  forall m a c. (Component m c) => Vector a -> (a -> c -> c) -> ComponentID -> Archetype m -> (Vector c, Archetype m)
-zipWith as f cId arch =
+  forall m a c. (Monad m, Component m c) => Vector a -> (a -> c -> c) -> ComponentID -> Archetype m -> m (Vector c, Archetype m)
+zipWith as f cId arch = do
   let go maybeDyn = case maybeDyn of
         Just dyn -> case fromDynamic $ storageDyn dyn of
           Just s -> do
@@ -147,7 +147,8 @@ zipWith as f cId arch =
           Nothing -> return maybeDyn
         Nothing -> return Nothing
       !(storages', cs) = runWriter $ IntMap.alterF go (unComponentId cId) $ storages arch
-   in (cs, arch {storages = storages'})
+  V.mapM_ componentOnChange cs
+  return (cs, arch {storages = storages'})
 {-# INLINE zipWith #-}
 
 -- | Zip a vector of components with a monadic function and a component storage.
@@ -164,19 +165,25 @@ zipWithM as f cId arch = do
           Nothing -> pure maybeDyn
         Nothing -> pure Nothing
   res <- runWriterT $ IntMap.alterF go (unComponentId cId) $ storages arch
-  return (snd res, arch {storages = fst res})
+  let cs = snd res
+  V.mapM_ componentOnChange cs
+  return (cs, arch {storages = fst res})
 
 -- | Zip a vector of components with a function and a component storage.
 zipWith_ ::
-  forall m a c. (Component m c) => Vector a -> (a -> c -> c) -> ComponentID -> Archetype m -> Archetype m
+  forall m a c. (Monad m, Component m c) => Vector a -> (a -> c -> c) -> ComponentID -> Archetype m -> m (Archetype m)
 zipWith_ as f cId arch =
   let maybeStorage = case IntMap.lookup (unComponentId cId) $ storages arch of
         Just dyn -> case fromDynamic $ storageDyn dyn of
           Just s ->
-            let !s' = S.zipWith_ @c @(StorageT c) f as s in Just $ dyn {storageDyn = toDyn s'}
+            let !(cs, s') = S.zipWith @c @(StorageT c) f as s in Just (cs, dyn {storageDyn = toDyn s'})
           Nothing -> Nothing
         Nothing -> Nothing
-   in (empty {storages = maybe IntMap.empty (IntMap.singleton (unComponentId cId)) maybeStorage})
+   in case maybeStorage of
+        Just (cs, s) -> do
+          V.mapM_ componentOnChange cs
+          return $ empty {storages = IntMap.singleton (unComponentId cId) s}
+        Nothing -> return $ empty {storages = IntMap.empty}
 {-# INLINE zipWith_ #-}
 
 -- | Insert a vector of components into the archetype, sorted in ascending order by their `EntityID`.
