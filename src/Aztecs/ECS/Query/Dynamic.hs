@@ -84,27 +84,50 @@ instance (Monad m) => DynamicQueryF m (DynamicQuery m) where
     Nothing -> pure (V.replicate (length $ A.entities arch) Nothing, arch, return ())
   {-# INLINE fetchMaybeDyn #-}
 
-  adjustDyn f cId q = DynamicQuery $ \arch -> do
-    (bs, arch', hook1) <- runDynQuery q arch
-    let (cs, arch'', hook2) = A.zipWith bs f cId arch'
+  mapDyn f cId = DynamicQuery $ \arch -> do
+    let (cs, arch', hook) = A.zipWith (V.replicate (length $ A.entities arch) ()) (const f) cId arch
+    return (cs, arch', hook)
+  {-# INLINE mapDyn #-}
+
+  mapDyn_ f cId = DynamicQuery $ \arch -> do
+    let (arch', hook) = A.zipWith_ (V.replicate (length $ A.entities arch) ()) (const f) cId arch
+    return (V.replicate (length $ A.entities arch) (), arch', hook)
+  {-# INLINE mapDyn_ #-}
+
+  mapDynM f cId = DynamicQuery $ \arch -> do
+    (cs, arch', hook) <- A.zipWithM (V.replicate (length $ A.entities arch) ()) (const f) cId arch
+    return (cs, arch', hook)
+  {-# INLINE mapDynM #-}
+
+  mapDynWith f cId q = DynamicQuery $ \arch -> do
+    (as, arch', hook1) <- runDynQuery q arch
+    let (cs, arch'', hook2) = A.zipWith as f cId arch'
     return (cs, arch'', hook1 >> hook2)
-  {-# INLINE adjustDyn #-}
+  {-# INLINE mapDynWith #-}
 
-  adjustDyn_ f cId q = DynamicQuery $ \arch -> do
-    (bs, arch', hook1) <- runDynQuery q arch
-    let (arch'', hook2) = A.zipWith_ bs f cId arch'
-    return (V.map (const ()) bs, arch'', hook1 >> hook2)
-  {-# INLINE adjustDyn_ #-}
+  mapDynWith_ f cId q = DynamicQuery $ \arch -> do
+    (as, arch', hook1) <- runDynQuery q arch
+    let (arch'', hook2) = A.zipWith_ as f cId arch'
+    return (V.map (const ()) as, arch'', hook1 >> hook2)
+  {-# INLINE mapDynWith_ #-}
 
-  adjustDynM f cId q = DynamicQuery $ \arch -> do
-    (bs, arch', hook1) <- runDynQuery q arch
-    (cs, arch'', hook2) <- A.zipWithM bs f cId arch'
+  mapDynWithM f cId q = DynamicQuery $ \arch -> do
+    (as, arch', hook1) <- runDynQuery q arch
+    (cs, arch'', hook2) <- A.zipWithM as f cId arch'
     return (cs, arch'', hook1 >> hook2)
-  {-# INLINE adjustDynM #-}
+  {-# INLINE mapDynWithM #-}
 
-  setDyn cId q =
-    DynamicQuery (fmap (\(bs, arch', hook) -> (bs, A.insertAscVector cId bs arch', hook)) . runDynQuery q)
-  {-# INLINE setDyn #-}
+  mapDynWithAccum f cId q = DynamicQuery $ \arch -> do
+    (bs, arch', hook1) <- runDynQuery q arch
+    let (pairs, arch'', hook2) = A.zipWithAccum bs f cId arch'
+    return (pairs, arch'', hook1 >> hook2)
+  {-# INLINE mapDynWithAccum #-}
+
+  mapDynWithAccumM f cId q = DynamicQuery $ \arch -> do
+    (bs, arch', hook1) <- runDynQuery q arch
+    (pairs, arch'', hook2) <- A.zipWithAccumM bs f cId arch'
+    return (pairs, arch'', hook1 >> hook2)
+  {-# INLINE mapDynWithAccumM #-}
 
 -- | Match all entities.
 readQueryDyn :: (Monad m) => Set ComponentID -> DynamicQuery m a -> Entities m -> m (Vector a)

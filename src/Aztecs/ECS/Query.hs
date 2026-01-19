@@ -46,6 +46,12 @@ module Aztecs.ECS.Query
     fetchMap,
     fetchMap_,
     fetchMapM,
+    fetchMapWith,
+    fetchMapWith_,
+    fetchMapWithM,
+    fetchMapWithAccum,
+    fetchMapWithAccum_,
+    fetchMapWithAccumM,
 
     -- ** Running
     readQuery,
@@ -111,19 +117,29 @@ instance (Monad m) => DynamicQueryF m (Query m) where
   fetchMaybeDyn = dynQueryReader fetchMaybeDyn
   {-# INLINE fetchMaybeDyn #-}
 
-  adjustDyn f = dynQueryWriter $ adjustDyn f
-  {-# INLINE adjustDyn #-}
+  mapDyn f = dynQueryWriter' $ mapDyn f
+  {-# INLINE mapDyn #-}
 
-  adjustDyn_ f = dynQueryWriter $ adjustDyn_ f
-  {-# INLINE adjustDyn_ #-}
+  mapDyn_ f = dynQueryWriter' $ mapDyn_ f
+  {-# INLINE mapDyn_ #-}
 
-  adjustDynM f = dynQueryWriter $ adjustDynM f
-  {-# INLINE adjustDynM #-}
+  mapDynM f = dynQueryWriter' $ mapDynM f
+  {-# INLINE mapDynM #-}
 
-  setDyn cId q = Query $ \cs ->
-    let !(rws, cs', dynQ) = runQuery q cs
-     in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', setDyn cId dynQ)
-  {-# INLINE setDyn #-}
+  mapDynWith f = dynQueryWriter $ mapDynWith f
+  {-# INLINE mapDynWith #-}
+
+  mapDynWith_ f = dynQueryWriter $ mapDynWith_ f
+  {-# INLINE mapDynWith_ #-}
+
+  mapDynWithM f = dynQueryWriter $ mapDynWithM f
+  {-# INLINE mapDynWithM #-}
+
+  mapDynWithAccum f = dynQueryWriter $ mapDynWithAccum f
+  {-# INLINE mapDynWithAccum #-}
+
+  mapDynWithAccumM f = dynQueryWriter $ mapDynWithAccumM f
+  {-# INLINE mapDynWithAccumM #-}
 
 fetch :: forall m a. (Monad m, Component m a) => Query m a
 fetch = queryReader @m @a fetchDyn
@@ -133,17 +149,41 @@ fetchMaybe :: forall m a. (Monad m, Component m a) => Query m (Maybe a)
 fetchMaybe = queryReader @m @a fetchMaybeDyn
 {-# INLINE fetchMaybe #-}
 
-fetchMap :: forall m a b. (Monad m, Component m a) => (b -> a -> a) -> Query m b -> Query m a
-fetchMap f = queryWriter @m @a $ adjustDyn f
+fetchMap :: forall m a. (Monad m, Component m a) => (a -> a) -> Query m a
+fetchMap f = queryWriter' @m @a $ mapDyn f
 {-# INLINE fetchMap #-}
 
-fetchMap_ :: forall m a b. (Monad m, Component m a) => (b -> a -> a) -> Query m b -> Query m ()
-fetchMap_ f = queryWriter @m @a $ adjustDyn_ f
+fetchMap_ :: forall m a. (Monad m, Component m a) => (a -> a) -> Query m ()
+fetchMap_ f = queryWriter' @m @a $ mapDyn_ f
 {-# INLINE fetchMap_ #-}
 
-fetchMapM :: forall m a b. (Monad m, Component m a) => (b -> a -> m a) -> Query m b -> Query m a
-fetchMapM f = queryWriter @m @a $ adjustDynM f
+fetchMapM :: forall m a. (Monad m, Component m a) => (a -> m a) -> Query m a
+fetchMapM f = queryWriter' @m @a $ mapDynM f
 {-# INLINE fetchMapM #-}
+
+fetchMapWith :: forall m a b. (Monad m, Component m b) => (a -> b -> b) -> Query m a -> Query m b
+fetchMapWith f = queryWriter @m @b $ mapDynWith f
+{-# INLINE fetchMapWith #-}
+
+fetchMapWith_ :: forall m a b. (Monad m, Component m b) => (a -> b -> b) -> Query m a -> Query m ()
+fetchMapWith_ f = queryWriter @m @b $ mapDynWith_ f
+{-# INLINE fetchMapWith_ #-}
+
+fetchMapWithM :: forall m a b. (Monad m, Component m b) => (a -> b -> m b) -> Query m a -> Query m b
+fetchMapWithM f = queryWriter @m @b $ mapDynWithM f
+{-# INLINE fetchMapWithM #-}
+
+fetchMapWithAccum :: forall m a b c. (Monad m, Component m c) => (b -> c -> (a, c)) -> Query m b -> Query m (a, c)
+fetchMapWithAccum f = queryWriter @m @c $ mapDynWithAccum f
+{-# INLINE fetchMapWithAccum #-}
+
+fetchMapWithAccum_ :: forall m a b. (Monad m, Component m b) => (a -> b -> b) -> Query m a -> Query m ()
+fetchMapWithAccum_ f = queryWriter @m @b $ mapDynWith_ f
+{-# INLINE fetchMapWithAccum_ #-}
+
+fetchMapWithAccumM :: forall m a b c. (Monad m, Component m c) => (b -> c -> m (a, c)) -> Query m b -> Query m (a, c)
+fetchMapWithAccumM f = queryWriter @m @c $ mapDynWithAccumM f
+{-# INLINE fetchMapWithAccumM #-}
 
 dynQueryReader :: (ComponentID -> DynamicQuery m a) -> ComponentID -> Query m a
 dynQueryReader f cId = Query (ReadsWrites {reads = Set.singleton cId, writes = Set.empty},,f cId)
@@ -153,6 +193,11 @@ dynQueryWriter :: (ComponentID -> DynamicQuery m a -> DynamicQuery m b) -> Compo
 dynQueryWriter f cId q = Query $ \cs ->
   let !(rws, cs', dynQ) = runQuery q cs
    in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs', f cId dynQ)
+{-# INLINE dynQueryWriter #-}
+
+dynQueryWriter' :: (ComponentID -> DynamicQuery m a) -> ComponentID -> Query m a
+dynQueryWriter' f cId = Query (ReadsWrites {reads = Set.empty, writes = Set.singleton cId},,f cId)
+{-# INLINE dynQueryWriter' #-}
 
 queryReader :: forall m a b. (Component m a) => (ComponentID -> DynamicQuery m b) -> Query m b
 queryReader f = Query $ \cs ->
@@ -165,6 +210,11 @@ queryWriter f (Query g) = Query $ \cs ->
       !(cId, cs'') = CS.insert @a @m cs'
    in (rws <> ReadsWrites Set.empty (Set.singleton cId), cs'', f cId dynQ)
 {-# INLINE queryWriter #-}
+
+queryWriter' :: forall m a b. (Component m a) => (ComponentID -> DynamicQuery m b) -> Query m b
+queryWriter' f = Query $ \cs ->
+  let !(cId, cs') = CS.insert @a @m cs in (ReadsWrites {reads = Set.empty, writes = Set.singleton cId}, cs', f cId)
+{-# INLINE queryWriter' #-}
 
 -- | Reads and writes of a `Query`.
 data ReadsWrites = ReadsWrites

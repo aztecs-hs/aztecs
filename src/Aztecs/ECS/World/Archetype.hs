@@ -37,6 +37,8 @@ module Aztecs.ECS.World.Archetype
     zipWith,
     zipWith_,
     zipWithM,
+    zipWithAccum,
+    zipWithAccumM,
   )
 where
 
@@ -164,6 +166,44 @@ zipWith_ as f cId arch =
            in (empty {storages = IntMap.singleton (unComponentId cId) s}, hooks)
         Nothing -> (empty {storages = IntMap.empty}, return ())
 {-# INLINE zipWith_ #-}
+
+-- | Zip a vector of components with a function returning a tuple.
+zipWithAccum ::
+  forall m a c o. (Monad m, Component m c) => Vector a -> (a -> c -> (o, c)) -> ComponentID -> Archetype m -> (Vector (o, c), Archetype m, Access m ())
+zipWithAccum as f cId arch =
+  let go maybeDyn = case maybeDyn of
+        Just dyn -> case fromDynamic $ storageDyn dyn of
+          Just s -> do
+            let !(pairs', s') = S.zipWithAccum @c @(StorageT c) f as s
+            tell pairs'
+            return $ Just $ dyn {storageDyn = toDyn s'}
+          Nothing -> return maybeDyn
+        Nothing -> return Nothing
+      (storages', pairs) = runWriter $ IntMap.alterF go (unComponentId cId) $ storages arch
+      eIds = V.fromList . Set.toList $ entities arch
+      hooks = V.foldl (\acc (e, (_, c)) -> acc >> componentOnChange e c) (return ()) (V.zip eIds pairs)
+   in (pairs, arch {storages = storages'}, hooks)
+{-# INLINE zipWithAccum #-}
+
+-- | Zip a vector of components with a monadic function returning a tuple.
+zipWithAccumM ::
+  forall m a c o. (Monad m, Component m c) => Vector a -> (a -> c -> m (o, c)) -> ComponentID -> Archetype m -> m (Vector (o, c), Archetype m, Access m ())
+zipWithAccumM as f cId arch = do
+  let go maybeDyn = case maybeDyn of
+        Just dyn -> case fromDynamic $ storageDyn dyn of
+          Just s ->
+            WriterT $
+              fmap
+                (\(pairs, s') -> (Just dyn {storageDyn = toDyn s'}, pairs))
+                (S.zipWithAccumM @c @(StorageT c) f as s)
+          Nothing -> pure maybeDyn
+        Nothing -> pure Nothing
+  res <- runWriterT $ IntMap.alterF go (unComponentId cId) $ storages arch
+  let pairs = snd res
+      eIds = V.fromList . Set.toList $ entities arch
+      hooks = V.foldl (\acc (e, (_, c)) -> acc >> componentOnChange e c) (return ()) (V.zip eIds pairs)
+  return (pairs, arch {storages = fst res}, hooks)
+{-# INLINE zipWithAccumM #-}
 
 -- | Insert a vector of components into the archetype, sorted in ascending order by their `EntityID`.
 insertAscVector :: forall m a. (Component m a) => ComponentID -> Vector a -> Archetype m -> Archetype m
