@@ -66,7 +66,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ```hs
 move :: (Monad m) => Query m Position
-move = fetch & zipFetchMap (\(Velocity v) (Position p) -> Position $ p + v)
+move = query & zipFetchMap (\(Velocity v) (Position p) -> Position $ p + v)
 ```
 
 ## [0.10.0](https://github.com/aztecs-hs/aztecs/compare/aztecs-v0.9.1..aztecs-v0.10.0) - 2025-3-6

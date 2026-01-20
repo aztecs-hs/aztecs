@@ -60,7 +60,7 @@ prop_queryEmpty =
   let res =
         fst
           . runIdentity
-          . Q.readQuery (Q.fetch @_ @X)
+          . Q.readQuery (Q.query @_ @X)
           $ W.entities W.empty
    in V.toList res `shouldMatchList` []
 
@@ -72,7 +72,7 @@ queryComponentIds ::
   q (EntityID, [a])
 queryComponentIds =
   let go cId qAcc = do
-        x' <- Q.fetchDyn @_ @_ @a cId
+        x' <- Q.queryDyn @_ @_ @a cId
         (e, xs) <- qAcc
         return (e, x' : xs)
    in foldr go ((,) <$> Q.entity <*> pure [])
@@ -99,22 +99,22 @@ prop_queryDyn xs =
 prop_queryTypedComponent :: [X] -> Expectation
 prop_queryTypedComponent xs = do
   let w = foldr (\x -> (\(_, w', _) -> w') . W.spawn (bundle x)) W.empty xs
-      (res, _) = runIdentity . Q.readQuery Q.fetch $ W.entities w
+      (res, _) = runIdentity . Q.readQuery Q.query $ W.entities w
   V.toList res `shouldMatchList` xs
 
 prop_queryTwoTypedComponents :: [(X, Y)] -> Expectation
 prop_queryTwoTypedComponents xys = do
   let w = foldr (\(x, y) -> (\(_, w', _) -> w') . W.spawn (bundle x <> bundle y)) W.empty xys
-      (res, _) = runIdentity $ Q.readQuery ((,) <$> Q.fetch <*> Q.fetch) $ W.entities w
+      (res, _) = runIdentity $ Q.readQuery ((,) <$> Q.query <*> Q.query) $ W.entities w
   V.toList res `shouldMatchList` xys
 
 prop_queryThreeTypedComponents :: [(X, Y, Z)] -> Expectation
 prop_queryThreeTypedComponents xyzs = do
   let w = foldr (\(x, y, z) -> (\(_, w', _) -> w') . W.spawn (bundle x <> bundle y <> bundle z)) W.empty xyzs
       q = do
-        x <- Q.fetch
-        y <- Q.fetch
-        z <- Q.fetch
+        x <- Q.query
+        y <- Q.query
+        z <- Q.query
         pure (x, y, z)
       (res, _) = runIdentity $ Q.readQuery q $ W.entities w
   V.toList res `shouldMatchList` xyzs
@@ -122,15 +122,15 @@ prop_queryThreeTypedComponents xyzs = do
 prop_querySingle :: Expectation
 prop_querySingle =
   let (_, w, _) = W.spawn (bundle $ X 1) W.empty
-      (res, _) = runIdentity $ Q.readQuerySingle Q.fetch $ W.entities w
+      (res, _) = runIdentity $ Q.readQuerySingle Q.query $ W.entities w
    in res `shouldBe` X 1
 
 prop_queryMapSingle :: Word8 -> Expectation
 prop_queryMapSingle n =
   let (_, w, _) = W.spawn (bundle $ X 0) W.empty
-      q = Q.fetchMap $ \(X x) -> X $ x + 1
-      w' = foldr (\_ es -> (\(_, es', _) -> es') . runIdentity $ Q.querySingle q es) (W.entities w) [1 .. n]
-      (res, _) = runIdentity $ Q.readQuerySingle Q.fetch w'
+      q = Q.queryMap $ \(X x) -> X $ x + 1
+      w' = foldr (\_ es -> (\(_, es', _) -> es') . runIdentity $ Q.runQuerySingle q es) (W.entities w) [1 .. n]
+      (res, _) = runIdentity $ Q.readQuerySingle Q.query w'
    in res `shouldBe` X (fromIntegral n)
 
 {-TODO
@@ -141,7 +141,7 @@ prop_systemMapSingle n =
       s =  S.mapSingle q
       go _ wAcc = let (_, _, wAcc') = runIdentity $ runSchedule s wAcc () in wAcc'
       w' = foldr go w [1 .. n]
-      (res, _) = Q.single () Q.fetch (W.entities w')
+      (res, _) = Q.single () Q.query (W.entities w')
    in res `shouldBe` X (fromIntegral n)
 
 prop_addParents :: Expectation
@@ -149,7 +149,7 @@ prop_addParents = do
   let (_, w) = W.spawnEmpty W.empty
       (e, w') = W.spawn (bundle . Children $ Set.singleton e) w
   (_, _, w'') <- runSchedule (system Hierarchy.update) w' ()
-  let (res, _) = Q.all () Q.fetch $ W.entities w''
+  let (res, _) = Q.all () Q.query $ W.entities w''
   res `shouldMatchList` [Parent e]
 
 prop_removeParents :: Expectation
@@ -159,7 +159,7 @@ prop_removeParents = do
   (_, _, w'') <- runSchedule (system Hierarchy.update) w' ()
   let w''' = W.insert e (Children Set.empty) w''
   (_, _, w'''') <- runSchedule (system Hierarchy.update) w''' ()
-  let (res, _) = Q.all () (Q.fetch @_ @Parent) $ W.entities w''''
+  let (res, _) = Q.all () (Q.query @_ @Parent) $ W.entities w''''
   res `shouldMatchList` []
 -}
 
@@ -185,7 +185,7 @@ update = proc () -> do
         system $
           S.mapSingle
             ( proc () -> do
-                X x <- Q.fetch -< ()
+                X x <- Q.query -< ()
                 Q.set -< X $ x + 1
                 returnA -< x
             )

@@ -23,13 +23,13 @@ newtype Velocity = Velocity Int deriving (Show, Generic, NFData)
 instance (Monad m) => Component m Velocity
 
 move :: (Monad m) => Query m Position
-move = fetchMapWith (\(Velocity v) (Position p) -> (Position $ p + v)) fetch
+move = queryMapWith (\(Velocity v) (Position p) -> (Position $ p + v)) query
 
 run :: Query Identity Position -> World Identity -> Vector Position
-run q = (\(a, _, _) -> a) . runIdentity . Q.query q . entities
+run q = (\(a, _, _) -> a) . runIdentity . Q.runQuery q . entities
 
 runSystem :: Query Identity Position -> World Identity -> Vector Position
-runSystem q = fst . runIdentity . runAccess (system $ query q)
+runSystem q = fst . runIdentity . runAccess (system $ runQuery q)
 
 main :: IO ()
 main = do

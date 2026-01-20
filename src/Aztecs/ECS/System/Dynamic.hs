@@ -63,9 +63,9 @@ runOp cIds (QAll q) es = do
 runOp cIds (QFilter q flt) es = do
   as <- DQ.readQueryFilteredDyn cIds flt q es
   return (as, es, return ())
-runOp cIds (QMap q) es = DQ.queryDyn cIds q es
-runOp cIds (QMapSingleMaybe q) es = DQ.querySingleMaybeDyn cIds q es
-runOp cIds (QFilterMap flt q) es = DQ.queryFilteredDyn cIds flt q es
+runOp cIds (QMap q) es = DQ.runQueryDyn cIds q es
+runOp cIds (QMapSingleMaybe q) es = DQ.runQuerySingleMaybeDyn cIds q es
+runOp cIds (QFilterMap flt q) es = DQ.runQueryFilteredDyn cIds flt q es
 {-# INLINE runOp #-}
 
 -- | Dynamic system.
