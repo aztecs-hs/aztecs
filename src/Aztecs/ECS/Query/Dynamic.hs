@@ -41,7 +41,9 @@ import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
 import qualified Aztecs.ECS.World.Archetypes as AS
 import Aztecs.ECS.World.Entities (Entities (..))
+import Aztecs.ECS.World.Storage.Dynamic
 import Data.Foldable
+import qualified Data.IntMap.Strict as IntMap
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -133,6 +135,37 @@ instance (Monad m) => DynamicQueryF m (DynamicQuery m) where
     (as, arch', _hooks) <- runDynQuery q arch
     return (as, arch', return ())
   {-# INLINE untracked #-}
+
+  filter q p = DynamicQuery $ \arch -> do
+    (as, _, _) <- runDynQuery q arch
+    let eIds = V.fromList . Set.toList $ A.entities arch
+        mask = V.map p as
+        (filteredEIds, indices) = V.unzip . V.imapMaybe (\i (e, m) -> if m then Just (e, i) else Nothing) $ V.zip eIds mask
+        filteredArch = filterArchetype indices arch
+    (filteredAs, filteredArch', hook) <- runDynQuery q filteredArch {A.entities = Set.fromList $ V.toList filteredEIds}
+    let resultAs = unfilterVector indices as filteredAs
+        resultArch = unfilterArchetype indices arch filteredArch'
+    return (resultAs, resultArch, hook)
+    where
+      filterArchetype indices arch =
+        arch {A.storages = IntMap.map (filterStorage indices) $ A.storages arch}
+      filterStorage indices s =
+        let allVec = toAscVectorDyn s
+            filteredVec = V.map (allVec V.!) indices
+         in fromAscVectorDyn filteredVec s
+      unfilterVector indices original filtered =
+        V.accum (\_ new -> new) original (V.toList $ V.zip indices filtered)
+      unfilterArchetype indices original filtered =
+        original {A.storages = IntMap.mapWithKey go $ A.storages original}
+        where
+          go cId origStorage = case IntMap.lookup cId (A.storages filtered) of
+            Just filteredStorage ->
+              let origVec = toAscVectorDyn origStorage
+                  filteredVec = toAscVectorDyn filteredStorage
+                  mergedVec = V.accum (\_ new -> new) origVec (V.toList $ V.zip indices filteredVec)
+               in fromAscVectorDyn mergedVec origStorage
+            Nothing -> origStorage
+  {-# INLINE filter #-}
 
 -- | Match all entities.
 readQueryDyn :: (Monad m) => Set ComponentID -> DynamicQuery m a -> Entities m -> m (Vector a)

@@ -86,7 +86,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Vector (Vector)
 import GHC.Stack
-import Prelude hiding (all, id, map, mapM, reads)
+import Prelude hiding (all, filter, id, map, mapM, reads)
 
 -- | Query for matching entities.
 newtype Query m a = Query
@@ -145,6 +145,11 @@ instance (Monad m) => DynamicQueryF m (Query m) where
 
   mapDynWithAccumM f = dynQueryWriter $ mapDynWithAccumM f
   {-# INLINE mapDynWithAccumM #-}
+
+  filter (Query q) p = Query $ \cs ->
+    let !(rws, cs', dynQ) = q cs
+     in (rws, cs', filter dynQ p)
+  {-# INLINE filter #-}
 
 fetch :: forall m a. (Monad m, Component m a) => Query m a
 fetch = queryReader @m @a fetchDyn
