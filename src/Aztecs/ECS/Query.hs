@@ -146,10 +146,10 @@ instance (Monad m) => DynamicQueryF m (Query m) where
   queryMapDynWithAccumM f = dynQueryWriter $ queryMapDynWithAccumM f
   {-# INLINE queryMapDynWithAccumM #-}
 
-  queryFilter (Query q) p = Query $ \cs ->
+  queryFilterMap p (Query q) = Query $ \cs ->
     let !(rws, cs', dynQ) = q cs
-     in (rws, cs', queryFilter dynQ p)
-  {-# INLINE queryFilter #-}
+     in (rws, cs', queryFilterMap p dynQ)
+  {-# INLINE queryFilterMap #-}
 
 query :: forall m a. (Monad m, Component m a) => Query m a
 query = queryReader @m @a queryDyn

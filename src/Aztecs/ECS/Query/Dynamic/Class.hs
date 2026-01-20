@@ -53,8 +53,12 @@ class (Monad m, Functor f) => DynamicQueryF m f | f -> m where
   -- | Map over a `Component` by its `ComponentID` with input and a monadic function, returning a tuple.
   queryMapDynWithAccumM :: (Monad m, Component m c) => (b -> c -> m (a, c)) -> ComponentID -> f b -> f (a, c)
 
+  -- | Filter a query and map the results, constraining the query to entities that satisfy the predicate.
+  queryFilterMap :: (a -> Maybe b) -> f a -> f b
+
   -- | Filter a query, constraining it to entities that satisfy the predicate.
-  queryFilter :: f a -> (a -> Bool) -> f a
+  queryFilter :: (a -> Bool) -> f a -> f a
+  queryFilter p fa = queryFilterMap (\a -> if p a then Just a else Nothing) fa
 
   -- | Run a query without tracking changes.
   queryUntracked :: f a -> f a

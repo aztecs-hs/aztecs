@@ -26,7 +26,6 @@ module Aztecs.ECS.Access
     remove,
     despawn,
     system,
-    systemM,
   )
 where
 
@@ -99,8 +98,3 @@ system sys = Access $ do
   unAccess hook
   return a
 {-# INLINE system #-}
-
--- | Run a `SystemT` on the `World`.
-systemM :: (Monad m) => SystemT m a -> Access m a
-systemM = system
-{-# INLINE systemM #-}
