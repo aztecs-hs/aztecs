@@ -39,8 +39,8 @@
 -- > move =
 -- >  S.map
 -- >    ( proc () -> do
--- >        Velocity v <- Q.fetch -< ()
--- >        Position p <- Q.fetch -< ()
+-- >        Velocity v <- Q.query -< ()
+-- >        Position p <- Q.query -< ()
 -- >        Q.set -< Position $ p + v
 -- >    )
 -- >    >>> S.run print
@@ -60,14 +60,13 @@ module Aztecs.ECS
     Component (..),
     EntityID,
     Query,
-    fetch,
-    fetchMaybe,
-    fetchMap,
-    fetchMap_,
-    fetchMapM,
-    fetchMapWith,
-    fetchMapWith_,
-    fetchMapWithM,
+    query,
+    queryMaybe,
+    queryMap,
+    queryMapM,
+    queryMapWith,
+    queryMapWith_,
+    queryMapWithM,
     DynamicQueryF,
     QueryFilter,
     with,
@@ -80,7 +79,20 @@ import Aztecs.ECS.Access
 import Aztecs.ECS.Component (Component (..))
 import Aztecs.ECS.Entity (EntityID)
 import Aztecs.ECS.Query
+  ( DynamicQueryF,
+    Query,
+    QueryFilter,
+    query,
+    queryMap,
+    queryMapM,
+    queryMapWith,
+    queryMapWithM,
+    queryMapWith_,
+    queryMaybe,
+    with,
+    without,
+  )
 import Aztecs.ECS.System
 import Aztecs.ECS.World (World)
 import Aztecs.ECS.World.Bundle (Bundle, BundleT, bundle)
-import Aztecs.ECS.World.Bundle.Dynamic (DynamicBundle, DynamicBundle, MonoidDynamicBundle (..))
+import Aztecs.ECS.World.Bundle.Dynamic (DynamicBundle, MonoidDynamicBundle (..))

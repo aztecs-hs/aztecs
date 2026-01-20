@@ -83,14 +83,14 @@ update :: (Monad m) => Access m ()
 update = do
   parents <- A.system . S.readQuery $ do
     entity <- Q.entity
-    parent <- Q.fetch
-    maybeParentState <- Q.fetchMaybe @_ @ParentState
+    parent <- Q.query
+    maybeParentState <- Q.queryMaybe @_ @ParentState
     return (entity, unParent parent, maybeParentState)
 
   children <- A.system . S.readQuery $ do
     entity <- Q.entity
-    cs <- Q.fetch
-    maybeChildState <- Q.fetchMaybe @_ @ChildState
+    cs <- Q.query
+    maybeChildState <- Q.queryMaybe @_ @ChildState
     return (entity, unChildren cs, maybeChildState)
 
   let go = do
@@ -178,7 +178,7 @@ hierarchy ::
 hierarchy e q = do
   children <- A.system . S.readQuery $ do
     entity <- Q.entity
-    cs <- Q.fetch
+    cs <- Q.query
     a <- q
     return (entity, (unChildren cs, a))
 
@@ -195,7 +195,7 @@ hierarchies q = do
   children <-
     A.system . S.readQuery $ do
       entity <- Q.entity
-      cs <- Q.fetch
+      cs <- Q.query
       a <- q
       return (entity, (unChildren cs, a))
 
