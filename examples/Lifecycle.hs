@@ -22,7 +22,7 @@ addTen = queryMap (\(X n) -> X (n + 10))
 app :: Access IO ()
 app = do
   e <- spawn $ bundle (X 1)
-  _ <- systemM $ runQuery addTen
+  _ <- system $ runQuery addTen
   _ <- remove @IO @X e
   return ()
 

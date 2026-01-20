@@ -35,7 +35,7 @@ move = queryMapWith go query
 app :: Access IO ()
 app = do
   spawn_ $ bundle (Position 0) <> bundle (Velocity 1)
-  positions <- system $ query move
+  positions <- system $ runQuery move
   liftIO $ print positions
 
 main :: IO ()
