@@ -281,6 +281,9 @@ data DynamicQueryFilter = DynamicQueryFilter
 instance Semigroup DynamicQueryFilter where
   DynamicQueryFilter withA withoutA <> DynamicQueryFilter withB withoutB =
     DynamicQueryFilter (withA <> withB) (withoutA <> withoutB)
+  {-# INLINE (<>) #-}
 
 instance Monoid DynamicQueryFilter where
   mempty = DynamicQueryFilter mempty mempty
+  {-# INLINE mempty #-}
+

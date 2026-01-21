@@ -28,8 +28,8 @@ move = queryMapWith (\(Velocity v) (Position p) -> (Position $ p + v)) query
 run :: Query Identity Position -> World Identity -> Vector Position
 run q = (\(a, _, _) -> a) . runIdentity . Q.runQuery q . entities
 
-runSystem :: Query Identity Position -> World Identity -> Vector Position
-runSystem q = fst . runIdentity . runAccess (system $ runQuery q)
+runSys :: Query Identity Position -> World Identity -> Vector Position
+runSys q = fst . runIdentity . runAccess (system $ runQuery q)
 
 main :: IO ()
 main = do
@@ -37,5 +37,5 @@ main = do
       !w = foldr (const go) W.empty [0 :: Int .. 10000]
   defaultMain
     [ bench "iter" $ nf (run move) w,
-      bench "iterSystem" $ nf (runSystem move) w
+      bench "iterSystem" $ nf (runSys move) w
     ]
