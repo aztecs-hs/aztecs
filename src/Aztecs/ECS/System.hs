@@ -18,27 +18,30 @@
 -- Stability   : provisional
 -- Portability : non-portable (GHC extensions)
 module Aztecs.ECS.System
-  ( -- * Dynamic systems
-    DynamicSystemT (..),
-    runDynamicSystemT,
+  ( -- * Systems
+    System (..),
 
-    -- * Systems
-    System,
-    SystemT (..),
+    -- * Dynamic systems
+    DynamicSystem (..),
+    runDynamicSystem,
 
     -- ** Queries
     readQuery,
     readQueryFiltered,
+    readQuerySingle,
+    readQuerySingleMaybe,
     runQuery,
-    runQuerySingleMaybe,
     runQueryFiltered,
+    runQuerySingle,
+    runQuerySingleMaybe,
 
     -- ** Dynamic queries
     readQueryDyn,
     readQueryFilteredDyn,
+    readQuerySingleMaybeDyn,
     runQueryDyn,
-    runQuerySingleMaybeDyn,
     runQueryFilteredDyn,
+    runQuerySingleMaybeDyn,
   )
 where
 
@@ -46,91 +49,100 @@ import Aztecs.ECS.Component
 import Aztecs.ECS.Query (Query (..), QueryFilter (..))
 import qualified Aztecs.ECS.Query as Q
 import Aztecs.ECS.Query.Dynamic (DynamicQuery, DynamicQueryFilter (..))
-import Aztecs.ECS.System.Dynamic (DynamicSystemT (..), runDynamicSystemT)
+import Aztecs.ECS.System.Dynamic (DynamicSystem (..), runDynamicSystem)
 import qualified Aztecs.ECS.System.Dynamic as DS
 import qualified Aztecs.ECS.World.Archetype as A
 import Aztecs.ECS.World.Archetypes (Node (..))
 import Aztecs.ECS.World.Components (Components)
-import Control.Monad.Identity
 import qualified Data.Foldable as F
 import Data.Set (Set)
 import Data.Vector (Vector)
+import GHC.Stack
 import Prelude hiding (all, filter, map, mapM)
 
-type System = SystemT Identity
-
 -- | System for querying entities.
-newtype SystemT m a = SystemT {runSystemT :: Components -> (Components, DynamicSystemT m a)}
+newtype System m a = System {runSystem :: Components -> (Components, DynamicSystem m a)}
 
-instance Functor (SystemT m) where
-  fmap f (SystemT g) = SystemT $ \cs ->
+instance Functor (System m) where
+  fmap f (System g) = System $ \cs ->
     let !(cs', dynS) = g cs in (cs', fmap f dynS)
   {-# INLINE fmap #-}
 
-instance Applicative (SystemT m) where
-  pure a = SystemT (,Pure a)
+instance Applicative (System m) where
+  pure a = System (,Pure a)
   {-# INLINE pure #-}
 
-  (SystemT f) <*> (SystemT g) = SystemT $ \cs ->
+  (System f) <*> (System g) = System $ \cs ->
     let !(cs', dynF) = f cs
         !(cs'', dynG) = g cs'
      in (cs'', dynF <*> dynG)
   {-# INLINE (<*>) #-}
 
--- | Match all entities.
-readQuery :: (Monad m) => Query m a -> SystemT m (Vector a)
-readQuery q = SystemT $ \cs ->
+runner :: (Set ComponentID -> DynamicQuery m a -> DynamicSystem m b) -> Query m a -> System m b
+runner f q = System $ \cs ->
   let (rws, cs', dynQ) = runQuery' q cs
-   in (cs', DS.all (Q.reads rws <> Q.writes rws) dynQ)
+   in (cs', f (Q.reads rws <> Q.writes rws) dynQ)
+
+-- | Match all entities.
+readQuery :: (Monad m) => Query m a -> System m (Vector a)
+readQuery = runner DS.readQuery
+
+readQuerySingle :: (HasCallStack, Monad m) => Query m a -> System m a
+readQuerySingle = runner DS.readQuerySingle
+
+readQuerySingleMaybe :: (Monad m) => Query m a -> System m (Maybe a)
+readQuerySingleMaybe = runner DS.readQuerySingleMaybe
 
 -- | Match all entities with a filter.
-readQueryFiltered :: (Monad m) => Query m a -> QueryFilter -> SystemT m (Vector a)
-readQueryFiltered q f = SystemT $ \cs ->
+readQueryFiltered :: (Monad m) => Query m a -> QueryFilter -> System m (Vector a)
+readQueryFiltered q f = System $ \cs ->
   let (rws, cs', dynQ) = runQuery' q cs
       (dynF, cs'') = runQueryFilter f cs'
       flt n =
         F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynF)
           && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
-   in (cs'', DS.filter (Q.reads rws <> Q.writes rws) dynQ flt)
+   in (cs'', DS.readQueryFiltered (Q.reads rws <> Q.writes rws) flt dynQ)
 
 -- | Map all matching entities.
-runQuery :: (Monad m) => Query m a -> SystemT m (Vector a)
-runQuery q = SystemT $ \cs ->
-  let (rws, cs', dynQ) = runQuery' q cs
-   in (cs', DS.map (Q.reads rws <> Q.writes rws) dynQ)
+runQuery :: (Monad m) => Query m a -> System m (Vector a)
+runQuery = runner DS.runQuery
+
+runQuerySingle :: (HasCallStack, Monad m) => Query m a -> System m a
+runQuerySingle = runner DS.runQuerySingle
 
 -- | Map a single matching entity, or @Nothing@.
-runQuerySingleMaybe :: (Monad m) => Query m a -> SystemT m (Maybe a)
-runQuerySingleMaybe q = SystemT $ \cs ->
-  let (rws, cs', dynQ) = runQuery' q cs
-   in (cs', DS.mapSingleMaybe (Q.reads rws <> Q.writes rws) dynQ)
+runQuerySingleMaybe :: (Monad m) => Query m a -> System m (Maybe a)
+runQuerySingleMaybe = runner DS.runQuerySingleMaybe
 
 -- | Filter and map all matching entities.
-runQueryFiltered :: (Monad m) => Query m a -> QueryFilter -> SystemT m (Vector a)
-runQueryFiltered q f = SystemT $ \cs ->
+runQueryFiltered :: (Monad m) => Query m a -> QueryFilter -> System m (Vector a)
+runQueryFiltered q f = System $ \cs ->
   let (rws, cs', dynQ) = runQuery' q cs
       (dynF, cs'') = runQueryFilter f cs'
       flt n =
         F.all (\cId -> A.member cId $ nodeArchetype n) (filterWith dynF)
           && F.all (\cId -> not (A.member cId $ nodeArchetype n)) (filterWithout dynF)
-   in (cs'', DS.filterMapM (Q.reads rws <> Q.writes rws) flt dynQ)
+   in (cs'', DS.runQueryFiltered (Q.reads rws <> Q.writes rws) dynQ flt)
 
 -- | Match all entities with a dynamic query.
-readQueryDyn :: Set ComponentID -> DynamicQuery m a -> SystemT m (Vector a)
-readQueryDyn cIds q = SystemT (,DS.all cIds q)
+readQueryDyn :: Set ComponentID -> DynamicQuery m a -> System m (Vector a)
+readQueryDyn cIds q = System (,DS.readQuery cIds q)
+
+readQuerySingleMaybeDyn :: Set ComponentID -> DynamicQuery m a -> System m (Maybe a)
+readQuerySingleMaybeDyn cIds q = System (,DS.readQuerySingleMaybe cIds q)
 
 -- | Match all entities with a dynamic query and filter.
-readQueryFilteredDyn :: Set ComponentID -> DynamicQuery m a -> (Node m -> Bool) -> SystemT m (Vector a)
-readQueryFilteredDyn cIds q f = SystemT (,DS.filter cIds q f)
+readQueryFilteredDyn :: Set ComponentID -> DynamicQuery m a -> (Node m -> Bool) -> System m (Vector a)
+readQueryFilteredDyn cIds q f = System (,DS.readQueryFiltered cIds f q)
 
 -- | Map all entities with a dynamic query.
-runQueryDyn :: Set ComponentID -> DynamicQuery m a -> SystemT m (Vector a)
-runQueryDyn cIds q = SystemT (,DS.map cIds q)
+runQueryDyn :: Set ComponentID -> DynamicQuery m a -> System m (Vector a)
+runQueryDyn cIds q = System (,DS.runQuery cIds q)
 
 -- | Map a single entity with a dynamic query.
-runQuerySingleMaybeDyn :: Set ComponentID -> DynamicQuery m a -> SystemT m (Maybe a)
-runQuerySingleMaybeDyn cIds q = SystemT (,DS.mapSingleMaybe cIds q)
+runQuerySingleMaybeDyn :: Set ComponentID -> DynamicQuery m a -> System m (Maybe a)
+runQuerySingleMaybeDyn cIds q = System (,DS.runQuerySingleMaybe cIds q)
 
 -- | Filter and map all entities with a dynamic query.
-runQueryFilteredDyn :: Set ComponentID -> (Node m -> Bool) -> DynamicQuery m a -> SystemT m (Vector a)
-runQueryFilteredDyn cIds f q = SystemT (,DS.filterMapM cIds f q)
+runQueryFilteredDyn :: Set ComponentID -> (Node m -> Bool) -> DynamicQuery m a -> System m (Vector a)
+runQueryFilteredDyn cIds f q = System (,DS.runQueryFiltered cIds q f)
