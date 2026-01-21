@@ -20,21 +20,6 @@
 -- Portability : non-portable (GHC extensions)
 --
 -- Query for matching entities.
---
--- === Do notation:
--- > move :: (ArrowQuery arr) => arr () Position
--- > move = proc () -> do
--- >   Velocity v <- Q.query -< ()
--- >   Position p <- Q.query -< ()
--- >   Q.set -< Position $ p + v
---
--- === Arrow combinators:
--- > move :: (ArrowQuery arr) => arr () Position
--- > move = Q.query &&& Q.query >>> arr (\(Position p, Velocity v) -> Position $ p + v) >>> Q.set
---
--- === Applicative combinators:
--- > move :: (ArrowQuery arr) => arr () Position
--- > move = (,) <$> Q.query <*> Q.query >>> arr (\(Position p, Velocity v) -> Position $ p + v) >>> Q.set
 module Aztecs.ECS.Query
   ( -- * Queries
     Query (..),
@@ -50,7 +35,6 @@ module Aztecs.ECS.Query
     queryMapWith_,
     queryMapWithM,
     queryMapWithAccum,
-    queryMapWithAccum_,
     queryMapWithAccumM,
 
     -- ** Running
@@ -151,46 +135,52 @@ instance (Monad m) => DynamicQueryF m (Query m) where
      in (rws, cs', queryFilterMap p dynQ)
   {-# INLINE queryFilterMap #-}
 
+-- | Query a component.
 query :: forall m a. (Monad m, Component m a) => Query m a
 query = queryReader @m @a queryDyn
 {-# INLINE query #-}
 
+-- | Optionally query a component, returning @Nothing@ if it does not exist.
 queryMaybe :: forall m a. (Monad m, Component m a) => Query m (Maybe a)
 queryMaybe = queryReader @m @a queryMaybeDyn
 {-# INLINE queryMaybe #-}
 
+-- | Query a component and update it.
 queryMap :: forall m a. (Monad m, Component m a) => (a -> a) -> Query m a
 queryMap f = queryWriter' @m @a $ queryMapDyn f
 {-# INLINE queryMap #-}
 
+-- | Query a component and update it, ignoring any output.
 queryMap_ :: forall m a. (Monad m, Component m a) => (a -> a) -> Query m ()
 queryMap_ f = queryWriter' @m @a $ queryMapDyn_ f
 {-# INLINE queryMap_ #-}
 
+-- | Query a component and update it with a monadic action.
 queryMapM :: forall m a. (Monad m, Component m a) => (a -> m a) -> Query m a
 queryMapM f = queryWriter' @m @a $ queryMapDynM f
 {-# INLINE queryMapM #-}
 
+-- | Query a component with input and update it.
 queryMapWith :: forall m a b. (Monad m, Component m b) => (a -> b -> b) -> Query m a -> Query m b
 queryMapWith f = queryWriter @m @b $ queryMapDynWith f
 {-# INLINE queryMapWith #-}
 
+-- | Query a component with input and update it, ignoring any output.
 queryMapWith_ :: forall m a b. (Monad m, Component m b) => (a -> b -> b) -> Query m a -> Query m ()
 queryMapWith_ f = queryWriter @m @b $ queryMapDynWith_ f
 {-# INLINE queryMapWith_ #-}
 
+-- | Query a component with input and update it with a monadic action.
 queryMapWithM :: forall m a b. (Monad m, Component m b) => (a -> b -> m b) -> Query m a -> Query m b
 queryMapWithM f = queryWriter @m @b $ queryMapDynWithM f
 {-# INLINE queryMapWithM #-}
 
+-- | Query a component with input, returning a tuple of the result and the updated component.
 queryMapWithAccum :: forall m a b c. (Monad m, Component m c) => (b -> c -> (a, c)) -> Query m b -> Query m (a, c)
 queryMapWithAccum f = queryWriter @m @c $ queryMapDynWithAccum f
 {-# INLINE queryMapWithAccum #-}
 
-queryMapWithAccum_ :: forall m a b. (Monad m, Component m b) => (a -> b -> b) -> Query m a -> Query m ()
-queryMapWithAccum_ f = queryWriter @m @b $ queryMapDynWith_ f
-{-# INLINE queryMapWithAccum_ #-}
-
+-- | Query a component with input and update it with a monadic action, returning a tuple.
 queryMapWithAccumM :: forall m a b c. (Monad m, Component m c) => (b -> c -> m (a, c)) -> Query m b -> Query m (a, c)
 queryMapWithAccumM f = queryWriter @m @c $ queryMapDynWithAccumM f
 {-# INLINE queryMapWithAccumM #-}
