@@ -32,7 +32,7 @@ where
 import Aztecs.ECS.Access.Internal (Access (..))
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
-import Aztecs.ECS.System (SystemT (..))
+import Aztecs.ECS.System (System (..))
 import qualified Aztecs.ECS.System as S
 import Aztecs.ECS.World (World)
 import qualified Aztecs.ECS.World as W
@@ -87,13 +87,13 @@ despawn e = Access $ do
   let !(_, w') = W.despawn e w
   put w'
 
--- | Run a `SystemT` on the `World`.
-system :: (Monad m) => SystemT m a -> Access m a
+-- | Run a `System` on the `World`.
+system :: (Monad m) => System m a -> Access m a
 system sys = Access $ do
   !w <- get
   let !es = W.entities w
-      !(cs', dynSys) = S.runSystemT sys $ E.components es
-  (a, es', hook) <- lift $ S.runDynamicSystemT dynSys es
+      !(cs', dynSys) = S.runSystem sys $ E.components es
+  (a, es', hook) <- lift $ S.runDynamicSystem dynSys es
   put w {W.entities = es' {E.components = cs'}}
   unAccess hook
   return a
