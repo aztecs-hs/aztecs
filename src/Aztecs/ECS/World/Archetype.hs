@@ -32,6 +32,7 @@ module Aztecs.ECS.World.Archetype
     remove,
     removeStorages,
     insertComponent,
+    insertComponentUntracked,
     insertComponents,
     insertAscVector,
     zipWith,
@@ -42,10 +43,11 @@ module Aztecs.ECS.World.Archetype
   )
 where
 
-import Aztecs.ECS.Access.Internal (Access)
+import Aztecs.ECS.Access.Internal
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
-import Aztecs.ECS.World.Archetype.Internal (Archetype (..), empty)
+import Aztecs.ECS.Event
+import Aztecs.ECS.World.Archetype.Internal
 import qualified Aztecs.ECS.World.Storage as S
 import Aztecs.ECS.World.Storage.Dynamic
 import qualified Aztecs.ECS.World.Storage.Dynamic as S
@@ -96,14 +98,23 @@ lookupComponentsAscMaybe cId arch = S.toAscVector @a @(StorageT a) <$> lookupSto
 {-# INLINE lookupComponentsAscMaybe #-}
 
 -- | Insert a component into the archetype.
--- This assumes the archetype contains one of each stored component per entity.
--- Returns the updated archetype and the onInsert hook to run.
 insertComponent ::
   forall m a. (Component m a) => EntityID -> ComponentID -> a -> Archetype m -> (Archetype m, Access m ())
 insertComponent e cId c arch =
   let !storage =
         S.fromAscVector @a @(StorageT a) . V.fromList . Map.elems . Map.insert e c $ lookupComponents cId arch
-   in (arch {storages = IntMap.insert (unComponentId cId) (dynStorage @a storage) (storages arch)}, componentOnInsert e c)
+      hook = do
+        componentOnInsert e c
+        triggerEntityEvent e (OnInsert c)
+   in (arch {storages = IntMap.insert (unComponentId cId) (dynStorage @a storage) (storages arch)}, hook)
+
+-- | Insert a component into an archetype without running lifecycle hooks.
+insertComponentUntracked ::
+  forall m a. (Component m a) => EntityID -> ComponentID -> a -> Archetype m -> Archetype m
+insertComponentUntracked e cId c arch =
+  let !storage =
+        S.fromAscVector @a @(StorageT a) . V.fromList . Map.elems . Map.insert e c $ lookupComponents cId arch
+   in arch {storages = IntMap.insert (unComponentId cId) (dynStorage @a storage) (storages arch)}
 
 -- | @True@ if this archetype contains an entity with the provided `ComponentID`.
 member :: ComponentID -> Archetype m -> Bool
@@ -124,7 +135,7 @@ zipWith as f cId arch =
         Nothing -> return Nothing
       (storages', cs) = runWriter $ IntMap.alterF go (unComponentId cId) $ storages arch
       eIds = V.fromList . Set.toList $ entities arch
-      hooks = V.foldl (\acc (e, c) -> acc >> componentOnChange e c) (return ()) (V.zip eIds cs)
+      hooks = V.foldl (\acc (e, c) -> acc >> componentOnChange e c >> triggerEntityEvent e (OnChange c)) (return ()) (V.zip eIds cs)
    in (cs, arch {storages = storages'}, hooks)
 {-# INLINE zipWith #-}
 
@@ -145,7 +156,7 @@ zipWithM as f cId arch = do
   res <- runWriterT $ IntMap.alterF go (unComponentId cId) $ storages arch
   let cs = snd res
       eIds = V.fromList . Set.toList $ entities arch
-      hooks = V.foldl (\acc (e, c) -> acc >> componentOnChange e c) (return ()) (V.zip eIds cs)
+      hooks = V.foldl (\acc (e, c) -> acc >> componentOnChange e c >> triggerEntityEvent e (OnChange c)) (return ()) (V.zip eIds cs)
   return (cs, arch {storages = fst res}, hooks)
 
 -- | Zip a vector of components with a function and a component storage.
@@ -162,7 +173,7 @@ zipWith_ as f cId arch =
    in case maybeStorage of
         Just (cs, s) ->
           let eIds = V.fromList . Set.toList $ entities arch
-              hooks = V.foldl (\acc (e, c) -> acc >> componentOnChange e c) (return ()) (V.zip eIds cs)
+              hooks = V.foldl (\acc (e, c) -> acc >> componentOnChange e c >> triggerEntityEvent e (OnChange c)) (return ()) (V.zip eIds cs)
            in (empty {storages = IntMap.singleton (unComponentId cId) s}, hooks)
         Nothing -> (empty {storages = IntMap.empty}, return ())
 {-# INLINE zipWith_ #-}
@@ -181,7 +192,7 @@ zipWithAccum as f cId arch =
         Nothing -> return Nothing
       (storages', pairs) = runWriter $ IntMap.alterF go (unComponentId cId) $ storages arch
       eIds = V.fromList . Set.toList $ entities arch
-      hooks = V.foldl (\acc (e, (_, c)) -> acc >> componentOnChange e c) (return ()) (V.zip eIds pairs)
+      hooks = V.foldl (\acc (e, (_, c)) -> acc >> componentOnChange e c >> triggerEntityEvent e (OnChange c)) (return ()) (V.zip eIds pairs)
    in (pairs, arch {storages = storages'}, hooks)
 {-# INLINE zipWithAccum #-}
 
@@ -201,7 +212,7 @@ zipWithAccumM as f cId arch = do
   res <- runWriterT $ IntMap.alterF go (unComponentId cId) $ storages arch
   let pairs = snd res
       eIds = V.fromList . Set.toList $ entities arch
-      hooks = V.foldl (\acc (e, (_, c)) -> acc >> componentOnChange e c) (return ()) (V.zip eIds pairs)
+      hooks = V.foldl (\acc (e, (_, c)) -> acc >> componentOnChange e c >> triggerEntityEvent e (OnChange c)) (return ()) (V.zip eIds pairs)
   return (pairs, arch {storages = fst res}, hooks)
 {-# INLINE zipWithAccumM #-}
 

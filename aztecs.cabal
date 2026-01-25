@@ -32,6 +32,8 @@ library
         Aztecs.ECS.Component
         Aztecs.ECS.Component.Internal
         Aztecs.ECS.Entity
+        Aztecs.ECS.Event
+        Aztecs.ECS.Observer
         Aztecs.ECS.Query
         Aztecs.ECS.Query.Dynamic
         Aztecs.ECS.Query.Dynamic.Class
@@ -51,6 +53,8 @@ library
         Aztecs.ECS.World.Entities
         Aztecs.ECS.World.Entities.Internal
         Aztecs.ECS.World.Internal
+        Aztecs.ECS.World.Observers
+        Aztecs.ECS.World.Observers.Internal
         Aztecs.ECS.World.Storage
         Aztecs.ECS.World.Storage.Dynamic
         Aztecs.Hierarchy
@@ -79,6 +83,16 @@ executable lifecycle
     build-depends:
         base,
         aztecs
+
+executable observers
+    main-is:          examples/Observers.hs
+    default-language: Haskell2010
+    ghc-options:      -Wall
+    build-depends:
+        base,
+        aztecs,
+        mtl,
+        vector
 
 test-suite aztecs-test
     type:             exitcode-stdio-1.0

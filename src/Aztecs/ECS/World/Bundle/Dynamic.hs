@@ -36,3 +36,4 @@ instance (Monad m) => Monoid (DynamicBundle m) where
 
 instance (Monad m) => MonoidDynamicBundle m (DynamicBundle m) where
   dynBundle cId a = DynamicBundle (\eId arch -> insertComponent eId cId a arch)
+  dynBundleUntracked cId a = DynamicBundle (\eId arch -> (insertComponentUntracked eId cId a arch, return ()))

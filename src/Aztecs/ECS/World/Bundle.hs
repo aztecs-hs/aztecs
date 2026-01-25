@@ -22,6 +22,7 @@ module Aztecs.ECS.World.Bundle
     Bundle,
     MonoidDynamicBundle (..),
     bundle,
+    bundleUntracked,
     runBundle,
   )
 where
@@ -59,8 +60,14 @@ bundle :: forall m a. (Component m a) => a -> BundleT m
 bundle a = BundleT $ \cs ->
   let (cId, cs') = CS.insert @a @m cs in (Set.singleton cId, cs', dynBundle @m cId a)
 
+-- | Create a bundle that inserts without running lifecycle hooks.
+bundleUntracked :: forall m a. (Component m a) => a -> BundleT m
+bundleUntracked a = BundleT $ \cs ->
+  let (cId, cs') = CS.insert @a @m cs in (Set.singleton cId, cs', dynBundleUntracked @m cId a)
+
 instance (Monad m) => MonoidDynamicBundle m (BundleT m) where
   dynBundle cId c = BundleT (Set.singleton cId,,dynBundle @m cId c)
+  dynBundleUntracked cId c = BundleT (Set.singleton cId,,dynBundleUntracked @m cId c)
 
 -- | Insert a bundle of components into an archetype.
 runBundle :: (Monad m) => BundleT m -> Components -> EntityID -> Archetype m -> (Components, Archetype m, Access m ())

@@ -17,6 +17,7 @@ module Aztecs.ECS.World
     spawn,
     spawnEmpty,
     insert,
+    insertUntracked,
     lookup,
     remove,
     removeWithId,
@@ -30,6 +31,7 @@ import Aztecs.ECS.Entity
 import Aztecs.ECS.World.Bundle
 import qualified Aztecs.ECS.World.Entities as E
 import Aztecs.ECS.World.Internal (World (..))
+import qualified Aztecs.ECS.World.Observers as O
 import Data.Dynamic
 import Data.IntMap (IntMap)
 import Prelude hiding (lookup)
@@ -39,7 +41,8 @@ empty :: World m
 empty =
   World
     { entities = E.empty,
-      nextEntityId = EntityID 0
+      nextEntityId = EntityID 0,
+      observers = O.empty
     }
 
 -- | Spawn a `Bundle` into the `World`. Returns the entity ID, updated world, and onInsert hook.
@@ -58,6 +61,12 @@ insert :: (Monad m) => EntityID -> BundleT m -> World m -> (World m, Access m ()
 insert e c w =
   let (es', hook) = E.insert e c (entities w)
    in (w {entities = es'}, hook)
+
+-- | Insert a `Bundle` into an entity without running lifecycle hooks.
+insertUntracked :: (Monad m) => EntityID -> BundleT m -> World m -> World m
+insertUntracked e c w =
+  let es' = E.insertUntracked e c (entities w)
+   in w {entities = es'}
 
 -- | Lookup a component in an entity.
 lookup :: forall m a. (Component m a) => EntityID -> World m -> Maybe a

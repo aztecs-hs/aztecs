@@ -27,12 +27,13 @@ module Aztecs.ECS.World.Archetypes
   )
 where
 
-import Aztecs.ECS.Access.Internal (Access)
+import Aztecs.ECS.Access.Internal
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
+import Aztecs.ECS.Event
 import Aztecs.ECS.World.Archetype (Archetype (..))
 import qualified Aztecs.ECS.World.Archetype as A
-import Aztecs.ECS.World.Archetypes.Internal (ArchetypeID (..), Archetypes (..), Node (..))
+import Aztecs.ECS.World.Archetypes.Internal
 import Aztecs.ECS.World.Bundle.Dynamic
 import Aztecs.ECS.World.Storage.Dynamic
 import Data.Dynamic
@@ -178,7 +179,7 @@ remove e aId cId arches = case lookup aId arches of
           go nextNode =
             nextNode {nodeArchetype = foldl' go' (nodeArchetype nextNode) (IntMap.toList cs')}
           maybeA = a >>= fromDynamic
-          hook = maybe (return ()) (componentOnRemove e) maybeA
+          hook = maybe (return ()) (\comp -> componentOnRemove e comp >> triggerEntityEvent e (OnRemove comp)) maybeA
        in ( (,nextAId) <$> maybeA,
             arches' {nodes = Map.adjust go nextAId (nodes arches')},
             hook
@@ -194,9 +195,8 @@ remove e aId cId arches = case lookup aId arches of
               }
           !(nextAId, arches') = insertArchetype destCIds n arches
           node' = node {nodeArchetype = arch'}
-          -- Extract the component value from the singleton DynamicStorage
           maybeA = a >>= (\dynS -> V.headM (toAscVectorDyn dynS) >>= fromDynamic)
-          hook = maybe (return ()) (componentOnRemove e) maybeA
+          hook = maybe (return ()) (\comp -> componentOnRemove e comp >> triggerEntityEvent e (OnRemove comp)) maybeA
        in ( (,nextAId) <$> maybeA,
             arches' {nodes = Map.insert aId node' (nodes arches')},
             hook
