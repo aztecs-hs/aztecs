@@ -18,3 +18,6 @@ import Aztecs.ECS.Component
 class MonoidDynamicBundle m a where
   -- | Add a component to the bundle by its `ComponentID`.
   dynBundle :: (Component m c) => ComponentID -> c -> a
+
+  -- | Add a component to the bundle by its `ComponentID` without running lifecycle hooks.
+  dynBundleUntracked :: (Component m c) => ComponentID -> c -> a

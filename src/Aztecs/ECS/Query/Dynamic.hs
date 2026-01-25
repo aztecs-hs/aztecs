@@ -286,4 +286,3 @@ instance Semigroup DynamicQueryFilter where
 instance Monoid DynamicQueryFilter where
   mempty = DynamicQueryFilter mempty mempty
   {-# INLINE mempty #-}
-

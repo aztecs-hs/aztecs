@@ -22,14 +22,17 @@ module Aztecs.ECS.Access
     spawn,
     spawn_,
     insert,
+    insertUntracked,
     lookup,
     remove,
     despawn,
     system,
+    triggerEvent,
+    triggerEntityEvent,
   )
 where
 
-import Aztecs.ECS.Access.Internal (Access (..))
+import Aztecs.ECS.Access.Internal
 import Aztecs.ECS.Component
 import Aztecs.ECS.Entity
 import Aztecs.ECS.System (System (..))
@@ -67,6 +70,13 @@ insert e c = Access $ do
   let (w', hook) = W.insert e c w
   put w'
   unAccess hook
+
+-- | Insert a component into an entity without running lifecycle hooks.
+insertUntracked :: (Monad m) => EntityID -> BundleT m -> Access m ()
+insertUntracked e c = Access $ do
+  !w <- get
+  let w' = W.insertUntracked e c w
+  put w'
 
 lookup :: forall m a. (Monad m, Component m a) => EntityID -> Access m (Maybe a)
 lookup e = Access $ do

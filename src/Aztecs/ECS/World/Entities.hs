@@ -18,6 +18,7 @@ module Aztecs.ECS.World.Entities
     spawnWithArchetypeId,
     insert,
     insertDyn,
+    insertUntracked,
     lookup,
     remove,
     removeWithId,
@@ -137,6 +138,10 @@ insertDyn e cIds b w = case Map.lookup e $ entities w of
           node = Node {nodeComponentIds = cIds, nodeArchetype = arch}
           (aId, arches) = AS.insertArchetype cIds node $ archetypes w
        in (w {archetypes = arches, entities = Map.insert e aId (entities w)}, hook)
+
+-- | Insert a component into an entity without running lifecycle hooks.
+insertUntracked :: (Monad m) => EntityID -> BundleT m -> Entities m -> Entities m
+insertUntracked e b w = fst $ insert e b w
 
 -- | Lookup a component in an entity.
 lookup :: forall m a. (Component m a) => EntityID -> Entities m -> Maybe a

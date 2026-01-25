@@ -72,12 +72,31 @@ module Aztecs.ECS
     with,
     without,
     World,
+
+    -- * Events
+    Event,
+    OnInsert (..),
+    OnChange (..),
+    OnRemove (..),
+
+    -- * Observers
+    Observer,
+    observer,
+    observerFor,
+    observerGlobal,
   )
 where
 
 import Aztecs.ECS.Access
 import Aztecs.ECS.Component (Component (..))
 import Aztecs.ECS.Entity (EntityID)
+import Aztecs.ECS.Event (Event, OnChange (..), OnInsert (..), OnRemove (..))
+import Aztecs.ECS.Observer
+  ( Observer (..),
+    observer,
+    observerFor,
+    observerGlobal,
+  )
 import Aztecs.ECS.Query
   ( DynamicQueryF,
     Query,
