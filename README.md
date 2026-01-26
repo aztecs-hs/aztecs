@@ -52,7 +52,7 @@ main = runAccess_ app
 
   [![Package](https://img.shields.io/hackage/v/aztecs.svg)](https://hackage.haskell.org/package/aztecs)
 
-- [`aztecs-gl`](https://github.com/aztecs-hs/aztecs-glfw)
+- [`aztecs-gl`](https://github.com/aztecs-hs/aztecs-gl)
 
   OpenGL rendering support
 
