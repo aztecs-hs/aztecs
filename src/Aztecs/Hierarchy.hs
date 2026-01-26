@@ -24,7 +24,6 @@
 module Aztecs.Hierarchy
   ( Parent (..),
     Children (..),
-    update,
     Hierarchy (..),
     toList,
     foldWithKey,
@@ -32,8 +31,6 @@ module Aztecs.Hierarchy
     mapWithAccum,
     hierarchy,
     hierarchies,
-    ParentState (..),
-    ChildState (..),
   )
 where
 
@@ -41,7 +38,6 @@ import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
-import Control.Monad
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
@@ -58,80 +54,52 @@ newtype Parent = Parent
   }
   deriving (Eq, Ord, Show, Generic)
 
-instance (Monad m) => Component m Parent
+instance (Monad m) => Component m Parent where
+  componentOnInsert e (Parent parent) = do
+    -- Add this entity to the parent's children.
+    maybeChildren <- A.lookup parent
+    let parentChildren = maybe mempty unChildren maybeChildren
+    A.insertUntracked parent . bundle . Children $ Set.insert e parentChildren
 
--- | Parent internal state component.
-newtype ParentState = ParentState {unParentState :: EntityID}
-  deriving (Show, Generic)
+  componentOnChange e (Parent oldParent) (Parent newParent) = do
+    -- Remove this entity from the old parent's children.
+    maybeOldChildren <- A.lookup oldParent
+    let oldChildren = maybe mempty unChildren maybeOldChildren
+    let oldChildren' = Set.filter (/= e) oldChildren
+    A.insertUntracked oldParent . bundle . Children $ oldChildren'
 
-instance (Monad m) => Component m ParentState
+    -- Add this entity to the new parent's children.
+    maybeNewChildren <- A.lookup newParent
+    let newChildren = maybe mempty unChildren maybeNewChildren
+    A.insertUntracked newParent . bundle . Children $ Set.insert e newChildren
+
+  componentOnRemove e (Parent parent) = do
+    -- Remove this entity from the parent's children.
+    maybeChildren <- A.lookup parent
+    let parentChildren = maybe mempty unChildren maybeChildren
+    let parentChildren' = Set.filter (/= e) parentChildren
+    A.insertUntracked parent . bundle . Children $ parentChildren'
 
 -- | Children component.
 newtype Children = Children {unChildren :: Set EntityID}
   deriving (Eq, Ord, Show, Semigroup, Monoid, Generic)
 
-instance (Monad m) => Component m Children
+instance (Monad m) => Component m Children where
+  componentOnInsert e (Children cs) = do
+    -- Set parent on all children.
+    mapM_ (\child -> A.insertUntracked child . bundle $ Parent e) cs
 
--- | Child internal state component.
-newtype ChildState = ChildState {unChildState :: Set EntityID}
-  deriving (Show, Generic)
+  componentOnChange e (Children oldCs) (Children newCs) = do
+    let added = Set.difference newCs oldCs
+        removed = Set.difference oldCs newCs
+    -- Set parent on added children.
+    mapM_ (\child -> A.insertUntracked child . bundle $ Parent e) added
+    -- Remove parent from removed children.
+    mapM_ (\child -> A.remove @_ @Parent child) removed
 
-instance (Monad m) => Component m ChildState
-
--- | Update the parent-child relationships.
-update :: (Monad m) => Access m ()
-update = do
-  parents <- A.system . S.readQuery $ do
-    e <- Q.entity
-    parent <- Q.query
-    maybeParentState <- Q.queryMaybe @_ @ParentState
-    return (e, unParent parent, maybeParentState)
-
-  children <- A.system . S.readQuery $ do
-    e <- Q.entity
-    cs <- Q.query
-    maybeChildState <- Q.queryMaybe @_ @ChildState
-    return (e, unChildren cs, maybeChildState)
-
-  let go = do
-        mapM_
-          ( \(e, parent, maybeParentState) -> case maybeParentState of
-              Just (ParentState parentState) -> do
-                when (parent /= parentState) $ do
-                  A.insert parent . bundle $ ParentState parent
-
-                  -- Remove this entity from the previous parent's children.
-                  maybeLastChildren <- A.lookup parentState
-                  let lastChildren = maybe mempty unChildren maybeLastChildren
-                  let lastChildren' = Set.filter (/= e) lastChildren
-                  A.insert parentState . bundle . Children $ lastChildren'
-
-                  -- Add this entity to the new parent's children.
-                  maybeChildren <- A.lookup parent
-                  let parentChildren = maybe mempty unChildren maybeChildren
-                  A.insert parent . bundle . Children $ Set.insert e parentChildren
-              Nothing -> do
-                A.spawn_ . bundle $ ParentState parent
-                maybeChildren <- A.lookup parent
-                let parentChildren = maybe mempty unChildren maybeChildren
-                A.insert parent . bundle . Children $ Set.insert e parentChildren
-          )
-          parents
-        mapM_
-          ( \(e, children', maybeChildState) -> case maybeChildState of
-              Just (ChildState childState) -> do
-                when (children' /= childState) $ do
-                  A.insert e . bundle $ ChildState children'
-                  let added = Set.difference children' childState
-                      removed = Set.difference childState children'
-                  mapM_ (\e' -> A.insert e' . bundle . Parent $ e') added
-                  mapM_ (A.remove @_ @Parent) removed
-              Nothing -> do
-                A.insert e . bundle $ ChildState children'
-                mapM_ (\e' -> A.insert e' . bundle . Parent $ e') children'
-          )
-          children
-  go
+  componentOnRemove _ (Children cs) = do
+    -- Remove parent from all children.
+    mapM_ (\child -> A.remove @_ @Parent child) cs
 
 -- | Hierarchy of entities.
 data Hierarchy a = Node
