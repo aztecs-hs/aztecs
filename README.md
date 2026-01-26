@@ -9,7 +9,7 @@ A modular game engine and [ECS](https://en.wikipedia.org/wiki/Entity_component_s
 An ECS is a modern approach to organizing your application state as a database,
 providing patterns for data-oriented design and parallel processing.
 
-[Examples](https://github.com/aztecs-hs/aztecs/tree/main/examples)
+[Examples](https://github.com/aztecs-hs/examples)
 
 ## Features
 
