@@ -47,12 +47,28 @@ main = runAccess_ app
 - [Examples](https://github.com/aztecs-hs/examples)
 
 - [`aztecs`](https://github.com/aztecs-hs/aztecs)
+
   The core ECS
+
   [![Package](https://img.shields.io/hackage/v/aztecs.svg)](https://hackage.haskell.org/package/aztecs)
 
+- [`aztecs-gl`](https://github.com/aztecs-hs/aztecs-glfw)
+
+  OpenGL rendering support
+
+  [![Package](https://img.shields.io/hackage/v/aztecs-gl.svg)](https://hackage.haskell.org/package/aztecs-gl)
+
 - [`aztecs-glfw`](https://github.com/aztecs-hs/aztecs-glfw)
+
   GLFW window support
+
   [![Package](https://img.shields.io/hackage/v/aztecs-glfw.svg)](https://hackage.haskell.org/package/aztecs-glfw)
+
+- [`aztecs-transform`](https://github.com/aztecs-hs/aztecs-transform)
+
+  Transform components
+
+  [![Package](https://img.shields.io/hackage/v/aztecs-transform.svg)](https://hackage.haskell.org/package/aztecs-transform)
 
 ## Prior art
 
