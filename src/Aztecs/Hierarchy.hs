@@ -82,20 +82,20 @@ instance (Monad m) => Component m ChildState
 update :: (Monad m) => Access m ()
 update = do
   parents <- A.system . S.readQuery $ do
-    entity <- Q.entity
+    e <- Q.entity
     parent <- Q.query
     maybeParentState <- Q.queryMaybe @_ @ParentState
-    return (entity, unParent parent, maybeParentState)
+    return (e, unParent parent, maybeParentState)
 
   children <- A.system . S.readQuery $ do
-    entity <- Q.entity
+    e <- Q.entity
     cs <- Q.query
     maybeChildState <- Q.queryMaybe @_ @ChildState
-    return (entity, unChildren cs, maybeChildState)
+    return (e, unChildren cs, maybeChildState)
 
   let go = do
         mapM_
-          ( \(entity, parent, maybeParentState) -> case maybeParentState of
+          ( \(e, parent, maybeParentState) -> case maybeParentState of
               Just (ParentState parentState) -> do
                 when (parent /= parentState) $ do
                   A.insert parent . bundle $ ParentState parent
@@ -103,32 +103,32 @@ update = do
                   -- Remove this entity from the previous parent's children.
                   maybeLastChildren <- A.lookup parentState
                   let lastChildren = maybe mempty unChildren maybeLastChildren
-                  let lastChildren' = Set.filter (/= entity) lastChildren
+                  let lastChildren' = Set.filter (/= e) lastChildren
                   A.insert parentState . bundle . Children $ lastChildren'
 
                   -- Add this entity to the new parent's children.
                   maybeChildren <- A.lookup parent
                   let parentChildren = maybe mempty unChildren maybeChildren
-                  A.insert parent . bundle . Children $ Set.insert entity parentChildren
+                  A.insert parent . bundle . Children $ Set.insert e parentChildren
               Nothing -> do
                 A.spawn_ . bundle $ ParentState parent
                 maybeChildren <- A.lookup parent
                 let parentChildren = maybe mempty unChildren maybeChildren
-                A.insert parent . bundle . Children $ Set.insert entity parentChildren
+                A.insert parent . bundle . Children $ Set.insert e parentChildren
           )
           parents
         mapM_
-          ( \(entity, children', maybeChildState) -> case maybeChildState of
+          ( \(e, children', maybeChildState) -> case maybeChildState of
               Just (ChildState childState) -> do
                 when (children' /= childState) $ do
-                  A.insert entity . bundle $ ChildState children'
+                  A.insert e . bundle $ ChildState children'
                   let added = Set.difference children' childState
                       removed = Set.difference childState children'
-                  mapM_ (\e -> A.insert e . bundle . Parent $ entity) added
+                  mapM_ (\e' -> A.insert e' . bundle . Parent $ e') added
                   mapM_ (A.remove @_ @Parent) removed
               Nothing -> do
-                A.insert entity . bundle $ ChildState children'
-                mapM_ (\e -> A.insert e . bundle . Parent $ entity) children'
+                A.insert e . bundle $ ChildState children'
+                mapM_ (\e' -> A.insert e' . bundle . Parent $ e') children'
           )
           children
   go
@@ -177,11 +177,10 @@ hierarchy ::
   Access m (Maybe (Hierarchy a))
 hierarchy e q = do
   children <- A.system . S.readQuery $ do
-    entity <- Q.entity
+    e' <- Q.entity
     cs <- Q.query
     a <- q
-    return (entity, (unChildren cs, a))
-
+    return (e', (unChildren cs, a))
   let childMap = Map.fromList $ V.toList children
   return $ hierarchy' e childMap
 
@@ -194,10 +193,10 @@ hierarchies ::
 hierarchies q = do
   children <-
     A.system . S.readQuery $ do
-      entity <- Q.entity
+      e <- Q.entity
       cs <- Q.query
       a <- q
-      return (entity, (unChildren cs, a))
+      return (e, (unChildren cs, a))
 
   let childMap = Map.fromList $ V.toList children
   roots <- A.system $ S.readQueryFiltered Q.entity (with @m @Children <> without @m @Parent)

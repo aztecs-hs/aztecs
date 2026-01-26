@@ -34,6 +34,8 @@ module Aztecs.ECS.Query
     queryMapWith,
     queryMapWith_,
     queryMapWithM,
+    queryMapAccum,
+    queryMapAccumM,
     queryMapWithAccum,
     queryMapWithAccumM,
 
@@ -179,6 +181,24 @@ queryMapWithM ::
   Query m b
 queryMapWithM f = queryWriter @m @b $ queryMapDynWithM f
 {-# INLINE queryMapWithM #-}
+
+-- | Query a component with input, returning a tuple of the result and the updated component.
+queryMapAccum ::
+  forall m a b.
+  (Monad m, Component m b) =>
+  (b -> (a, b)) ->
+  Query m (a, b)
+queryMapAccum f = queryMapWithAccum (const f) (pure ())
+{-# INLINE queryMapAccum #-}
+
+-- | Query a component with input and update it with a monadic action, returning a tuple.
+queryMapAccumM ::
+  forall m a b.
+  (Monad m, Component m b) =>
+  (b -> m (a, b)) ->
+  Query m (a, b)
+queryMapAccumM f = queryMapWithAccumM (const f) (pure ())
+{-# INLINE queryMapAccumM #-}
 
 -- | Query a component with input, returning a tuple of the result and the updated component.
 queryMapWithAccum ::

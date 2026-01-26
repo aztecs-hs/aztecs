@@ -10,7 +10,7 @@ newtype X = X Int deriving (Show)
 
 instance Component IO X where
   componentOnInsert = exampleHook "insert"
-  componentOnChange = exampleHook "change"
+  componentOnChange e _ = exampleHook "change" e
   componentOnRemove = exampleHook "remove"
 
 exampleHook :: String -> EntityID -> X -> Access IO ()

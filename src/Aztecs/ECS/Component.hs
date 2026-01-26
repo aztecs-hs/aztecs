@@ -36,8 +36,8 @@ class (Monad m, Typeable a, Storage a (StorageT a)) => Component m a where
   {-# INLINEABLE componentOnInsert #-}
 
   -- | Lifecycle hook called when a component is changed.
-  componentOnChange :: EntityID -> a -> Access m ()
-  componentOnChange _ _ = pure ()
+  componentOnChange :: EntityID -> a -> a -> Access m ()
+  componentOnChange _ _ _ = pure ()
   {-# INLINEABLE componentOnChange #-}
 
   -- | Lifecycle hook called when a component is removed.

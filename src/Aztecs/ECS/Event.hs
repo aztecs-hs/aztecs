@@ -32,7 +32,10 @@ newtype OnInsert a = OnInsert {unOnInsert :: a}
 instance (Typeable a) => Event (OnInsert a)
 
 -- | Event triggered when a component is changed.
-newtype OnChange a = OnChange {unOnChange :: a}
+data OnChange a = OnChange
+  { onChangeOld :: a,
+    onChangeNew :: a
+  }
   deriving (Show, Eq, Generic)
 
 instance (Typeable a) => Event (OnChange a)
