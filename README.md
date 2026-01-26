@@ -42,6 +42,18 @@ main :: IO ()
 main = runAccess_ app
 ```
 
+## Packages
+
+- [Examples](https://github.com/aztecs-hs/examples)
+
+- [`aztecs`](https://github.com/aztecs-hs/aztecs)
+  The core ECS
+  [![Package](https://img.shields.io/hackage/v/aztecs.svg)](https://hackage.haskell.org/package/aztecs)
+
+- [`aztecs-glfw`](https://github.com/aztecs-hs/aztecs-glfw)
+  GLFW window support
+  [![Package](https://img.shields.io/hackage/v/aztecs-glfw.svg)](https://hackage.haskell.org/package/aztecs-glfw)
+
 ## Prior art
 
 Aztecs' approach to archetypical ECS is inspired by [Bevy](https://github.com/bevyengine/bevy/) and [Flecs](https://github.com/SanderMertens/flecs).
