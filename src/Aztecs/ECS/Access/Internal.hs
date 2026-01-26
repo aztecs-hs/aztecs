@@ -38,6 +38,9 @@ import Data.Typeable
 newtype Access m a = Access {unAccess :: StateT (World m) m a}
   deriving (Functor, Applicative, Monad, MonadFix, MonadIO)
 
+instance MonadTrans Access where
+  lift = Access . lift
+
 -- | Run an `Access` with a given `World`, returning the result and updated world.
 runAccessWith :: Access m a -> World m -> m (a, World m)
 runAccessWith a = runStateT (unAccess a)
