@@ -71,7 +71,7 @@ module Aztecs.ECS
     queryMapAccumM,
     queryMapWithAccum,
     queryMapWithAccumM,
-    DynamicQueryF,
+    DynamicQueryF (..),
     QueryFilter,
     with,
     without,
@@ -102,7 +102,7 @@ import Aztecs.ECS.Observer
     observerGlobal,
   )
 import Aztecs.ECS.Query
-  ( DynamicQueryF,
+  ( DynamicQueryF (..),
     Query,
     QueryFilter,
     query,
