@@ -57,6 +57,12 @@ main = runAccess_ app
 
   [![Package](https://img.shields.io/hackage/v/aztecs-gl.svg)](https://hackage.haskell.org/package/aztecs-gl)
 
+- [`aztecs-gl-text`](https://github.com/aztecs-hs/aztecs-gl-text)
+
+  OpenGL text rendering support
+
+  [![Package](https://img.shields.io/hackage/v/aztecs-gl-text.svg)](https://hackage.haskell.org/package/aztecs-gl-text)
+
 - [`aztecs-glfw`](https://github.com/aztecs-hs/aztecs-glfw)
 
   GLFW window support
