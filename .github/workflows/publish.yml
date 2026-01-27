@@ -36,6 +36,11 @@ jobs:
       - name: Build dependencies
         run: cabal build --only-dependencies
 
+      - name: Clean old artifacts
+        run: |
+          rm -rf dist-newstyle/sdist
+          rm -rf dist-newstyle/*-docs.tar.gz
+
       - name: Create source distribution
         run: cabal sdist
 
