@@ -41,17 +41,16 @@ import qualified Aztecs.ECS.Query.Dynamic as DQ
 import Aztecs.ECS.World.Archetypes (Node (..))
 import Aztecs.ECS.World.Entities (Entities)
 import Data.Set (Set)
-import Data.Vector.Strict (Vector)
 import Prelude hiding (all, filter, map, mapM)
 
 -- | Query operation.
 data Op m a where
-  RunQuery :: DynamicQuery m a -> Op m (Vector a)
-  RunFiltered :: (Node m -> Bool) -> DynamicQuery m a -> Op m (Vector a)
+  RunQuery :: DynamicQuery m a -> Op m [a]
+  RunFiltered :: (Node m -> Bool) -> DynamicQuery m a -> Op m [a]
   RunQuerySingle :: DynamicQuery m a -> Op m a
   RunQuerySingleMaybe :: DynamicQuery m a -> Op m (Maybe a)
-  ReadQuery :: DynamicQuery m a -> Op m (Vector a)
-  ReadQueryFiltered :: DynamicQuery m a -> (Node m -> Bool) -> Op m (Vector a)
+  ReadQuery :: DynamicQuery m a -> Op m [a]
+  ReadQueryFiltered :: DynamicQuery m a -> (Node m -> Bool) -> Op m [a]
   ReadQuerySingle :: DynamicQuery m a -> Op m a
   ReadQuerySingleMaybe :: DynamicQuery m a -> Op m (Maybe a)
 
@@ -113,11 +112,11 @@ runDynamicSystem (Ap sf sa) es = do
 runDynamicSystem (Op cIds op) es = runOp cIds op es
 {-# INLINE runDynamicSystem #-}
 
-runQuery :: Set ComponentID -> DynamicQuery m a -> DynamicSystem m (Vector a)
+runQuery :: Set ComponentID -> DynamicQuery m a -> DynamicSystem m [a]
 runQuery cIds q = Op cIds (RunQuery q)
 {-# INLINE runQuery #-}
 
-runQueryFiltered :: Set ComponentID -> DynamicQuery m a -> (Node m -> Bool) -> DynamicSystem m (Vector a)
+runQueryFiltered :: Set ComponentID -> DynamicQuery m a -> (Node m -> Bool) -> DynamicSystem m [a]
 runQueryFiltered cIds q flt = Op cIds (RunFiltered flt q)
 {-# INLINE runQueryFiltered #-}
 
@@ -129,11 +128,11 @@ runQuerySingleMaybe :: Set ComponentID -> DynamicQuery m a -> DynamicSystem m (M
 runQuerySingleMaybe cIds q = Op cIds (RunQuerySingleMaybe q)
 {-# INLINE runQuerySingleMaybe #-}
 
-readQuery :: Set ComponentID -> DynamicQuery m a -> DynamicSystem m (Vector a)
+readQuery :: Set ComponentID -> DynamicQuery m a -> DynamicSystem m [a]
 readQuery cIds q = Op cIds (ReadQuery q)
 {-# INLINE readQuery #-}
 
-readQueryFiltered :: Set ComponentID -> (Node m -> Bool) -> DynamicQuery m a -> DynamicSystem m (Vector a)
+readQueryFiltered :: Set ComponentID -> (Node m -> Bool) -> DynamicQuery m a -> DynamicSystem m [a]
 readQueryFiltered cIds flt q = Op cIds (ReadQueryFiltered q flt)
 {-# INLINE readQueryFiltered #-}
 

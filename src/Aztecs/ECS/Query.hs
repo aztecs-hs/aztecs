@@ -75,19 +75,17 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Data.Vector (Vector)
-import qualified Data.Vector as V
 import GHC.Stack (HasCallStack)
 import Prelude hiding (reads)
 
--- | A @Vector@ with zip semantics for @Applicative@.
-newtype QueryStream a = QueryStream {unQueryStream :: Vector a}
+-- | A list with zip semantics for @Applicative@.
+newtype QueryStream a = QueryStream {unQueryStream :: [a]}
   deriving (Functor, Show)
 
 instance Applicative QueryStream where
-  pure a = QueryStream (V.singleton a)
+  pure a = QueryStream [a]
   {-# INLINE pure #-}
-  QueryStream fs <*> QueryStream xs = QueryStream (V.zipWith ($) fs xs)
+  QueryStream fs <*> QueryStream xs = QueryStream (zipWith ($) fs xs)
   {-# INLINE (<*>) #-}
 
 data Op f m a where
@@ -149,7 +147,7 @@ buildQueryBuilder a = DynamicQuery $ \arch -> do
     goEntity :: (Monad m) => StateT (Archetype m, Access m ()) m (QueryStream EntityID)
     goEntity = do
       (arch, _) <- get
-      return $ QueryStream $ V.fromList . Set.toList $ A.entities arch
+      return $ QueryStream $ Set.toList $ A.entities arch
     goRead :: forall m a. (Monad m, Component m a) => ComponentID -> StateT (Archetype m, Access m ()) m (QueryStream a)
     goRead cId = do
       (arch, hooks) <- get
@@ -161,7 +159,7 @@ buildQueryBuilder a = DynamicQuery $ \arch -> do
       (arch, hooks) <- get
       let as = A.lookupComponentsAsc cId arch
           as' = unQueryStream $ f (QueryStream as)
-          arch' = A.insertAscVector cId as' arch
+          arch' = A.insertAscList cId as' arch
       put (arch', hooks)
       return (QueryStream as')
     goMapAccum :: forall m a b. (Monad m, Component m b) => ComponentID -> (QueryStream b -> QueryStream (a, b)) -> StateT (Archetype m, Access m ()) m (QueryStream (a, b))
@@ -169,7 +167,7 @@ buildQueryBuilder a = DynamicQuery $ \arch -> do
       (arch, hooks) <- get
       let bs = A.lookupComponentsAsc cId arch
           xs = unQueryStream $ f (QueryStream bs)
-          arch' = A.insertAscVector cId (fmap snd xs) arch
+          arch' = A.insertAscList cId (fmap snd xs) arch
       put (arch', hooks)
       return (QueryStream xs)
 
@@ -197,7 +195,7 @@ queryDyn cId = Query . lift . QueryBuilder . liftF . liftAp $ QueryOp cId
 {-# INLINE queryDyn #-}
 
 -- | Read all matching entities.
-readQuery :: (Monad m) => (forall f. (Applicative f) => Query f m (f a)) -> Entities m -> m (Vector a, Entities m)
+readQuery :: (Monad m) => (forall f. (Applicative f) => Query f m (f a)) -> Entities m -> m ([a], Entities m)
 readQuery q es =
   let (rws, cs', dynQ) = runQuery' q (components es)
    in do
@@ -215,7 +213,7 @@ readQuerySingle q es =
 {-# INLINE readQuerySingle #-}
 
 -- | Run a query on all matching entities, potentially modifying them.
-runQuery :: (Monad m) => (forall f. (Applicative f) => Query f m (f a)) -> Entities m -> m (Vector a, Entities m, Access m ())
+runQuery :: (Monad m) => (forall f. (Applicative f) => Query f m (f a)) -> Entities m -> m ([a], Entities m, Access m ())
 runQuery q es =
   let (rws, cs', dynQ) = runQuery' q $ components es
    in DQ.runQueryDyn (reads rws <> writes rws) dynQ es {components = cs'}

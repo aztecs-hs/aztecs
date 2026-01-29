@@ -37,8 +37,6 @@ import Data.Foldable hiding (null)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
-import Data.Vector.Strict (Vector)
-import qualified Data.Vector.Strict as V
 import Prelude hiding (null)
 
 -- | View into a `World`, containing a subset of archetypes.
@@ -82,32 +80,32 @@ unview v es =
     }
 
 -- | Query all matching entities in a `View`.
-allDyn :: DynamicQuery Identity a -> View Identity -> Vector a
+allDyn :: DynamicQuery Identity a -> View Identity -> [a]
 allDyn q v =
   foldl'
     ( \acc n ->
         let (as, _, _) = runIdentity . runDynQuery q $ nodeArchetype n
-         in as V.++ acc
+         in as ++ acc
     )
-    V.empty
+    []
     (viewArchetypes v)
 
 -- | Query all matching entities in a `View`.
 singleDyn :: DynamicQuery Identity a -> View Identity -> Maybe a
 singleDyn q v = case allDyn q v of
-  as | V.length as == 1 -> Just (V.head as)
+  [x] -> Just x
   _ -> Nothing
 
 -- | Map all matching entities in a `View`. Returns the results, updated view, and hooks to run.
-mapDyn :: (Monad m) => DynamicQuery m a -> View m -> m (Vector a, View m, Access m ())
+mapDyn :: (Monad m) => DynamicQuery m a -> View m -> m ([a], View m, Access m ())
 mapDyn q v = do
   (as, arches, hooks) <-
     foldlM
       ( \(acc, archAcc, hooksAcc) (aId, n) -> do
           (as', arch', hook) <- runDynQuery q $ nodeArchetype n
-          return (as' V.++ acc, Map.insert aId (n {nodeArchetype = arch'}) archAcc, hooksAcc >> hook)
+          return (as' ++ acc, Map.insert aId (n {nodeArchetype = arch'}) archAcc, hooksAcc >> hook)
       )
-      (V.empty, Map.empty, return ())
+      ([], Map.empty, return ())
       (Map.toList $ viewArchetypes v)
   return (as, View arches, hooks)
 
@@ -116,5 +114,5 @@ mapSingleDyn :: (Monad m) => DynamicQuery m a -> View m -> m (Maybe a, View m, A
 mapSingleDyn q v = do
   (as, arches, hooks) <- mapDyn q v
   return $ case as of
-    a | V.length a == 1 -> (Just (V.head a), arches, hooks)
+    [x] -> (Just x, arches, hooks)
     _ -> (Nothing, arches, hooks)

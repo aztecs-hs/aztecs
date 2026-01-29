@@ -44,8 +44,6 @@ import qualified Data.Map as Map
 import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Data.Vector.Strict (Vector)
-import qualified Data.Vector.Strict as V
 import GHC.Generics
 
 -- | Parent component.
@@ -120,9 +118,9 @@ instance Traversable Hierarchy where
   traverse f n =
     Node (nodeEntityId n) <$> f (nodeEntity n) <*> traverse (traverse f) (nodeChildren n)
 
--- | Convert a hierarchy to a vector of entity IDs and components.
-toList :: Hierarchy a -> Vector (EntityID, a)
-toList n = V.singleton (nodeEntityId n, nodeEntity n) <> V.concatMap toList (V.fromList $ nodeChildren n)
+-- | Convert a hierarchy to a list of entity IDs and components.
+toList :: Hierarchy a -> [(EntityID, a)]
+toList n = (nodeEntityId n, nodeEntity n) : concatMap toList (nodeChildren n)
 
 -- | Fold a hierarchy with a function that takes the entity ID, entity, and accumulator.
 foldWithKey :: (EntityID -> a -> b -> b) -> Hierarchy a -> b -> b
@@ -153,7 +151,7 @@ hierarchy e q = do
         a' <- q
         return $ liftA3 (\eid c a'' -> (eid, (unChildren c, a''))) e' cs a'
   children <- A.system $ S.readQuery mkQuery
-  let childMap = Map.fromList $ V.toList children
+  let childMap = Map.fromList children
   return $ hierarchy' e childMap
 
 -- | Build all hierarchies of parents to children, joined with the given query.
@@ -161,7 +159,7 @@ hierarchies ::
   forall m a.
   (Monad m) =>
   (forall f. (Applicative f) => Query f m (f a)) ->
-  Access m (Vector (Hierarchy a))
+  Access m [Hierarchy a]
 hierarchies q = do
   let mkQuery :: forall f. (Applicative f) => Query f m (f (EntityID, (Set EntityID, a)))
       mkQuery = do
@@ -170,9 +168,9 @@ hierarchies q = do
         a' <- q
         return $ liftA3 (\eid c a -> (eid, (unChildren c, a))) e' cs a'
   children <- A.system $ S.readQuery mkQuery
-  let childMap = Map.fromList $ V.toList children
+  let childMap = Map.fromList children
   roots <- A.system $ S.readQueryFiltered (Q.entity) (with @m @Children <> without @m @Parent)
-  return $ V.mapMaybe (`hierarchy'` childMap) roots
+  return $ mapMaybe (`hierarchy'` childMap) roots
 
 -- | Build a hierarchy of parents to children.
 hierarchy' :: EntityID -> Map EntityID (Set EntityID, a) -> Maybe (Hierarchy a)

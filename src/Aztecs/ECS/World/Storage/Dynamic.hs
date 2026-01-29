@@ -20,16 +20,14 @@ module Aztecs.ECS.World.Storage.Dynamic
   ( DynamicStorage (..),
     dynStorage,
     singletonDyn,
-    fromAscVectorDyn,
-    toAscVectorDyn,
+    fromAscListDyn,
+    toAscListDyn,
   )
 where
 
 import qualified Aztecs.ECS.World.Storage as S
 import Data.Dynamic
 import Data.Maybe
-import Data.Vector.Strict (Vector)
-import qualified Data.Vector.Strict as V
 
 -- | Dynamic storage of components.
 data DynamicStorage = DynamicStorage
@@ -37,10 +35,10 @@ data DynamicStorage = DynamicStorage
     storageDyn :: !Dynamic,
     -- | Singleton storage.
     singletonDyn' :: !(Dynamic -> Dynamic),
-    -- | Convert this storage to an ascending vector.
-    toAscVectorDyn' :: !(Dynamic -> Vector Dynamic),
-    -- | Convert from an ascending vector.
-    fromAscVectorDyn' :: !(Vector Dynamic -> Dynamic)
+    -- | Convert this storage to an ascending list.
+    toAscListDyn' :: !(Dynamic -> [Dynamic]),
+    -- | Convert from an ascending list.
+    fromAscListDyn' :: !([Dynamic] -> Dynamic)
   }
 
 instance Show DynamicStorage where
@@ -52,8 +50,8 @@ dynStorage s =
   DynamicStorage
     { storageDyn = toDyn s,
       singletonDyn' = toDyn . S.singleton @a @s . fromMaybe (error "TODO") . fromDynamic,
-      toAscVectorDyn' = \d -> V.map toDyn (S.toAscVector @a @s (fromMaybe (error "TODO") $ fromDynamic d)),
-      fromAscVectorDyn' = toDyn . S.fromAscVector @a @s . V.map (fromMaybe (error "TODO") . fromDynamic)
+      toAscListDyn' = \d -> fmap toDyn (S.toAsc @a @s (fromMaybe (error "TODO") $ fromDynamic d)),
+      fromAscListDyn' = toDyn . S.fromAsc @a @s . fmap (fromMaybe (error "TODO") . fromDynamic)
     }
 {-# INLINE dynStorage #-}
 
@@ -61,10 +59,10 @@ dynStorage s =
 singletonDyn :: Dynamic -> DynamicStorage -> DynamicStorage
 singletonDyn dyn s = s {storageDyn = singletonDyn' s dyn}
 
--- | Convert from an ascending vector.
-fromAscVectorDyn :: Vector Dynamic -> DynamicStorage -> DynamicStorage
-fromAscVectorDyn dyns s = s {storageDyn = fromAscVectorDyn' s dyns}
+-- | Convert from an ascending list.
+fromAscListDyn :: [Dynamic] -> DynamicStorage -> DynamicStorage
+fromAscListDyn dyns s = s {storageDyn = fromAscListDyn' s dyns}
 
--- | Convert this storage to an ascending vector.
-toAscVectorDyn :: DynamicStorage -> Vector Dynamic
-toAscVectorDyn = toAscVectorDyn' <*> storageDyn
+-- | Convert this storage to an ascending list.
+toAscListDyn :: DynamicStorage -> [Dynamic]
+toAscListDyn = toAscListDyn' <*> storageDyn

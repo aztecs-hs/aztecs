@@ -11,8 +11,7 @@ import Aztecs.ECS.World
 import qualified Aztecs.ECS.World as W
 import Control.DeepSeq
 import Criterion.Main
-import Data.Functor.Identity (Identity (runIdentity))
-import Data.Vector (Vector)
+import Data.Functor.Identity
 import GHC.Generics
 
 newtype Position = Position Int deriving (Show, Generic, NFData)
@@ -28,10 +27,10 @@ move = do
   vs <- Q.query
   Q.queryMap $ \ps -> (\(Velocity v) (Position p) -> Position $ p + v) <$> vs <*> ps
 
-run :: (forall f. (Applicative f) => Q.Query f Identity (f Position)) -> World Identity -> Vector Position
+run :: (forall f. (Applicative f) => Q.Query f Identity (f Position)) -> World Identity -> [Position]
 run q = (\(a, _, _) -> a) . runIdentity . Q.runQuery q . entities
 
-runSys :: (forall f. (Applicative f) => Q.Query f Identity (f Position)) -> World Identity -> Vector Position
+runSys :: (forall f. (Applicative f) => Q.Query f Identity (f Position)) -> World Identity -> [Position]
 runSys q = fst . runIdentity . runAccess (system $ runQuery q)
 
 main :: IO ()

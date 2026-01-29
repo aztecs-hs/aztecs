@@ -21,14 +21,13 @@ import Aztecs.ECS.Component.Internal (ComponentID (..))
 import Aztecs.ECS.Entity
 import Aztecs.ECS.World.Storage
 import Data.Typeable
-import Data.Vector.Strict (Vector)
 
 -- | Component that can be stored in the `World`.
 class (Monad m, Typeable a, Storage a (StorageT a)) => Component m a where
   -- | `Storage` of this component.
   type StorageT a
 
-  type StorageT a = Vector a
+  type StorageT a = [a]
 
   -- | Lifecycle hook called when a component is inserted.
   componentOnInsert :: EntityID -> a -> Access m ()

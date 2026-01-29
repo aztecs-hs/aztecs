@@ -44,7 +44,6 @@ import qualified Data.Map.Strict as Map
 import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as Set
-import qualified Data.Vector.Strict as V
 import Prelude hiding (all, lookup, map)
 
 -- | Empty `Archetypes`.
@@ -174,7 +173,7 @@ remove e aId cId arches = case lookup aId arches of
           !arches' = arches {nodes = Map.insert aId node {nodeArchetype = arch'} (nodes arches)}
           (a, cs') = IntMap.updateLookupWithKey (\_ _ -> Nothing) (unComponentId cId) cs
           go' archAcc (itemCId, dyn) =
-            let adjustStorage s = fromAscVectorDyn (V.fromList . Map.elems . Map.insert e dyn . Map.fromAscList . zip (Set.toList $ entities archAcc) . V.toList $ toAscVectorDyn s) s
+            let adjustStorage s = fromAscListDyn (Map.elems . Map.insert e dyn . Map.fromAscList . zip (Set.toList $ entities archAcc) $ toAscListDyn s) s
              in archAcc {storages = IntMap.adjust adjustStorage itemCId (storages archAcc)}
           go nextNode =
             nextNode {nodeArchetype = foldl' go' (nodeArchetype nextNode) (IntMap.toList cs')}
@@ -195,7 +194,7 @@ remove e aId cId arches = case lookup aId arches of
               }
           !(nextAId, arches') = insertArchetype destCIds n arches
           node' = node {nodeArchetype = arch'}
-          maybeA = a >>= (\dynS -> V.headM (toAscVectorDyn dynS) >>= fromDynamic)
+          maybeA = a >>= (\dynS -> listToMaybe (toAscListDyn dynS) >>= fromDynamic)
           hook = maybe (return ()) (\comp -> componentOnRemove e comp >> triggerEntityEvent e (OnRemove comp)) maybeA
        in ( (,nextAId) <$> maybeA,
             arches' {nodes = Map.insert aId node' (nodes arches')},

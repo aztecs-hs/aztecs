@@ -17,7 +17,6 @@ import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.World as W
 import Control.Applicative
 import Data.Functor.Identity
-import qualified Data.Vector.Strict as V
 import Data.Word
 import GHC.Generics
 import Test.Hspec
@@ -63,7 +62,7 @@ prop_queryEmpty =
           . runIdentity
           . Q.readQuery (Q.query @_ @_ @X)
           $ W.entities W.empty
-   in V.toList res `shouldMatchList` []
+   in res `shouldMatchList` []
 
 -- | Query all components from a list of `ComponentID`s.
 queryComponentIds ::
@@ -99,14 +98,14 @@ prop_queryDyn xs =
       (es, w) = foldr spawner ([], W.empty) xs
       go (e, cs) = do
         let (res, _) = runIdentity . Q.readQuery (queryComponentIds @X @Identity $ map snd cs) $ W.entities w
-        return $ V.toList res `shouldContain` [(e, map fst cs)]
+        return $ res `shouldContain` [(e, map fst cs)]
    in mapM_ go es
 
 prop_queryTypedComponent :: [X] -> Expectation
 prop_queryTypedComponent xs = do
   let w = foldr (\x -> (\(_, w', _) -> w') . W.spawn (bundle x)) W.empty xs
       (res, _) = runIdentity . Q.readQuery (Q.query @_ @_ @X) $ W.entities w
-  V.toList res `shouldMatchList` xs
+  res `shouldMatchList` xs
 
 prop_queryTwoTypedComponents :: [(X, Y)] -> Expectation
 prop_queryTwoTypedComponents xys = do
@@ -120,7 +119,7 @@ prop_queryTwoTypedComponents xys = do
                 return $ liftA2 (,) x y
             )
           $ W.entities w
-  V.toList res `shouldMatchList` xys
+  res `shouldMatchList` xys
 
 prop_queryThreeTypedComponents :: [(X, Y, Z)] -> Expectation
 prop_queryThreeTypedComponents xyzs = do
@@ -135,7 +134,7 @@ prop_queryThreeTypedComponents xyzs = do
                 return $ liftA3 (,,) x y z
             )
           $ W.entities w
-  V.toList res `shouldMatchList` xyzs
+  res `shouldMatchList` xyzs
 
 prop_querySingle :: Expectation
 prop_querySingle =

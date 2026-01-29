@@ -34,7 +34,7 @@ module Aztecs.ECS.World.Archetype
     insertComponent,
     insertComponentUntracked,
     insertComponents,
-    insertAscVector,
+    insertAscList,
     zipWith,
     zipWith_,
     zipWithM,
@@ -60,8 +60,6 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
 import qualified Data.Set as Set
-import Data.Vector.Strict (Vector)
-import qualified Data.Vector.Strict as V
 import Prelude hiding (map, zipWith)
 
 -- | Archetype with a single entity.
@@ -83,18 +81,18 @@ lookupComponent e cId w = lookupComponents cId w Map.!? e
 -- | Lookup all components by their `ComponentID`.
 lookupComponents :: forall m a. (Component m a) => ComponentID -> Archetype m -> Map EntityID a
 lookupComponents cId arch = case lookupComponentsAscMaybe cId arch of
-  Just as -> Map.fromAscList $ zip (Set.toList $ entities arch) (V.toList as)
+  Just as -> Map.fromAscList $ zip (Set.toList $ entities arch) as
   Nothing -> Map.empty
 {-# INLINE lookupComponents #-}
 
 -- | Lookup all components by their `ComponentID`, in ascending order by their `EntityID`.
-lookupComponentsAsc :: forall m a. (Component m a) => ComponentID -> Archetype m -> Vector a
-lookupComponentsAsc cId = fromMaybe V.empty . lookupComponentsAscMaybe @m @a cId
+lookupComponentsAsc :: forall m a. (Component m a) => ComponentID -> Archetype m -> [a]
+lookupComponentsAsc cId = fromMaybe [] . lookupComponentsAscMaybe @m @a cId
 {-# INLINE lookupComponentsAsc #-}
 
 -- | Lookup all components by their `ComponentID`, in ascending order by their `EntityID`.
-lookupComponentsAscMaybe :: forall m a. (Component m a) => ComponentID -> Archetype m -> Maybe (Vector a)
-lookupComponentsAscMaybe cId arch = S.toAscVector @a @(StorageT a) <$> lookupStorage @m @a cId arch
+lookupComponentsAscMaybe :: forall m a. (Component m a) => ComponentID -> Archetype m -> Maybe [a]
+lookupComponentsAscMaybe cId arch = S.toAsc @a @(StorageT a) <$> lookupStorage @m @a cId arch
 {-# INLINE lookupComponentsAscMaybe #-}
 
 -- | Insert a component into the archetype.
@@ -104,7 +102,7 @@ insertComponent e cId c arch =
   let oldComponents = lookupComponents @m @a cId arch
       oldValue = oldComponents Map.!? e
       !storage =
-        S.fromAscVector @a @(StorageT a) . V.fromList . Map.elems . Map.insert e c $ oldComponents
+        S.fromAsc @a @(StorageT a) . Map.elems . Map.insert e c $ oldComponents
       hook = case oldValue of
         Just old -> do
           componentOnChange e old c
@@ -119,17 +117,17 @@ insertComponentUntracked ::
   forall m a. (Component m a) => EntityID -> ComponentID -> a -> Archetype m -> Archetype m
 insertComponentUntracked e cId c arch =
   let !storage =
-        S.fromAscVector @a @(StorageT a) . V.fromList . Map.elems . Map.insert e c $ lookupComponents cId arch
+        S.fromAsc @a @(StorageT a) . Map.elems . Map.insert e c $ lookupComponents cId arch
    in arch {storages = IntMap.insert (unComponentId cId) (dynStorage @a storage) (storages arch)}
 
 -- | @True@ if this archetype contains an entity with the provided `ComponentID`.
 member :: ComponentID -> Archetype m -> Bool
 member cId = IntMap.member (unComponentId cId) . storages
 
--- | Zip a vector of components with a function and a component storage.
--- Returns the result vector, updated archetype, and the onChange hooks to run.
+-- | Zip a list of components with a function and a component storage.
+-- Returns the result list, updated archetype, and the onChange hooks to run.
 zipWith ::
-  forall m a c. (Monad m, Component m c) => Vector a -> (a -> c -> c) -> ComponentID -> Archetype m -> (Vector c, Archetype m, Access m ())
+  forall m a c. (Monad m, Component m c) => [a] -> (a -> c -> c) -> ComponentID -> Archetype m -> ([c], Archetype m, Access m ())
 zipWith as f cId arch =
   let oldCs = lookupComponentsAsc @m @c cId arch
       go maybeDyn = case maybeDyn of
@@ -141,15 +139,15 @@ zipWith as f cId arch =
           Nothing -> return maybeDyn
         Nothing -> return Nothing
       (storages', cs) = runWriter $ IntMap.alterF go (unComponentId cId) $ storages arch
-      eIds = V.fromList . Set.toList $ entities arch
-      hooks = V.foldl (\acc (e, old, new) -> acc >> componentOnChange e old new >> triggerEntityEvent e (OnChange old new)) (return ()) (V.zip3 eIds oldCs cs)
+      eIds = Set.toList $ entities arch
+      hooks = foldl (\acc (e, old, new) -> acc >> componentOnChange e old new >> triggerEntityEvent e (OnChange old new)) (return ()) (zip3 eIds oldCs cs)
    in (cs, arch {storages = storages'}, hooks)
 {-# INLINE zipWith #-}
 
--- | Zip a vector of components with a monadic function and a component storage.
--- Returns the result vector, updated archetype, and the onChange hooks to run.
+-- | Zip a list of components with a monadic function and a component storage.
+-- Returns the result list, updated archetype, and the onChange hooks to run.
 zipWithM ::
-  forall m a c. (Monad m, Component m c) => Vector a -> (a -> c -> m c) -> ComponentID -> Archetype m -> m (Vector c, Archetype m, Access m ())
+  forall m a c. (Monad m, Component m c) => [a] -> (a -> c -> m c) -> ComponentID -> Archetype m -> m ([c], Archetype m, Access m ())
 zipWithM as f cId arch = do
   let oldCs = lookupComponentsAsc @m @c cId arch
       go maybeDyn = case maybeDyn of
@@ -163,14 +161,14 @@ zipWithM as f cId arch = do
         Nothing -> pure Nothing
   res <- runWriterT $ IntMap.alterF go (unComponentId cId) $ storages arch
   let cs = snd res
-      eIds = V.fromList . Set.toList $ entities arch
-      hooks = V.foldl (\acc (e, old, new) -> acc >> componentOnChange e old new >> triggerEntityEvent e (OnChange old new)) (return ()) (V.zip3 eIds oldCs cs)
+      eIds = Set.toList $ entities arch
+      hooks = foldl (\acc (e, old, new) -> acc >> componentOnChange e old new >> triggerEntityEvent e (OnChange old new)) (return ()) (zip3 eIds oldCs cs)
   return (cs, arch {storages = fst res}, hooks)
 
--- | Zip a vector of components with a function and a component storage.
+-- | Zip a list of components with a function and a component storage.
 -- Returns the updated archetype and the onChange hooks to run.
 zipWith_ ::
-  forall m a c. (Monad m, Component m c) => Vector a -> (a -> c -> c) -> ComponentID -> Archetype m -> (Archetype m, Access m ())
+  forall m a c. (Monad m, Component m c) => [a] -> (a -> c -> c) -> ComponentID -> Archetype m -> (Archetype m, Access m ())
 zipWith_ as f cId arch =
   let oldCs = lookupComponentsAsc @m @c cId arch
       maybeStorage = case IntMap.lookup (unComponentId cId) $ storages arch of
@@ -181,15 +179,15 @@ zipWith_ as f cId arch =
         Nothing -> Nothing
    in case maybeStorage of
         Just (cs, s) ->
-          let eIds = V.fromList . Set.toList $ entities arch
-              hooks = V.foldl (\acc (e, old, new) -> acc >> componentOnChange e old new >> triggerEntityEvent e (OnChange old new)) (return ()) (V.zip3 eIds oldCs cs)
+          let eIds = Set.toList $ entities arch
+              hooks = foldl (\acc (e, old, new) -> acc >> componentOnChange e old new >> triggerEntityEvent e (OnChange old new)) (return ()) (zip3 eIds oldCs cs)
            in (empty {storages = IntMap.singleton (unComponentId cId) s}, hooks)
         Nothing -> (empty {storages = IntMap.empty}, return ())
 {-# INLINE zipWith_ #-}
 
--- | Zip a vector of components with a function returning a tuple.
+-- | Zip a list of components with a function returning a tuple.
 zipWithAccum ::
-  forall m a c o. (Monad m, Component m c) => Vector a -> (a -> c -> (o, c)) -> ComponentID -> Archetype m -> (Vector (o, c), Archetype m, Access m ())
+  forall m a c o. (Monad m, Component m c) => [a] -> (a -> c -> (o, c)) -> ComponentID -> Archetype m -> ([(o, c)], Archetype m, Access m ())
 zipWithAccum as f cId arch =
   let oldCs = lookupComponentsAsc @m @c cId arch
       go maybeDyn = case maybeDyn of
@@ -201,14 +199,14 @@ zipWithAccum as f cId arch =
           Nothing -> return maybeDyn
         Nothing -> return Nothing
       (storages', pairs) = runWriter $ IntMap.alterF go (unComponentId cId) $ storages arch
-      eIds = V.fromList . Set.toList $ entities arch
-      hooks = V.foldl (\acc (e, old, (_, new)) -> acc >> componentOnChange e old new >> triggerEntityEvent e (OnChange old new)) (return ()) (V.zip3 eIds oldCs pairs)
+      eIds = Set.toList $ entities arch
+      hooks = foldl (\acc (e, old, (_, new)) -> acc >> componentOnChange e old new >> triggerEntityEvent e (OnChange old new)) (return ()) (zip3 eIds oldCs pairs)
    in (pairs, arch {storages = storages'}, hooks)
 {-# INLINE zipWithAccum #-}
 
--- | Zip a vector of components with a monadic function returning a tuple.
+-- | Zip a list of components with a monadic function returning a tuple.
 zipWithAccumM ::
-  forall m a c o. (Monad m, Component m c) => Vector a -> (a -> c -> m (o, c)) -> ComponentID -> Archetype m -> m (Vector (o, c), Archetype m, Access m ())
+  forall m a c o. (Monad m, Component m c) => [a] -> (a -> c -> m (o, c)) -> ComponentID -> Archetype m -> m ([(o, c)], Archetype m, Access m ())
 zipWithAccumM as f cId arch = do
   let oldCs = lookupComponentsAsc @m @c cId arch
       go maybeDyn = case maybeDyn of
@@ -222,25 +220,25 @@ zipWithAccumM as f cId arch = do
         Nothing -> pure Nothing
   res <- runWriterT $ IntMap.alterF go (unComponentId cId) $ storages arch
   let pairs = snd res
-      eIds = V.fromList . Set.toList $ entities arch
-      hooks = V.foldl (\acc (e, old, (_, new)) -> acc >> componentOnChange e old new >> triggerEntityEvent e (OnChange old new)) (return ()) (V.zip3 eIds oldCs pairs)
+      eIds = Set.toList $ entities arch
+      hooks = foldl (\acc (e, old, (_, new)) -> acc >> componentOnChange e old new >> triggerEntityEvent e (OnChange old new)) (return ()) (zip3 eIds oldCs pairs)
   return (pairs, arch {storages = fst res}, hooks)
 {-# INLINE zipWithAccumM #-}
 
--- | Insert a vector of components into the archetype, sorted in ascending order by their `EntityID`.
-insertAscVector :: forall m a. (Component m a) => ComponentID -> Vector a -> Archetype m -> Archetype m
-insertAscVector cId as arch =
-  let !storage = dynStorage @a $ S.fromAscVector @a @(StorageT a) as
+-- | Insert a list of components into the archetype, sorted in ascending order by their `EntityID`.
+insertAscList :: forall m a. (Component m a) => ComponentID -> [a] -> Archetype m -> Archetype m
+insertAscList cId as arch =
+  let !storage = dynStorage @a $ S.fromAsc @a @(StorageT a) as
    in arch {storages = IntMap.insert (unComponentId cId) storage $ storages arch}
-{-# INLINE insertAscVector #-}
+{-# INLINE insertAscList #-}
 
 -- | Remove an entity from an archetype, returning its components.
 remove :: EntityID -> Archetype m -> (IntMap Dynamic, Archetype m)
 remove e arch =
   let go (dynAcc, archAcc) (cId, dynS) =
-        let cs = Map.fromAscList . zip (Set.toList $ entities arch) . V.toList $ toAscVectorDyn dynS
+        let cs = Map.fromAscList . zip (Set.toList $ entities arch) $ toAscListDyn dynS
             !(dynA, cs') = Map.updateLookupWithKey (\_ _ -> Nothing) e cs
-            dynS' = S.fromAscVectorDyn (V.fromList $ Map.elems cs') dynS
+            dynS' = S.fromAscListDyn (Map.elems cs') dynS
             !dynAcc' = case dynA of
               Just d -> IntMap.insert cId d dynAcc
               Nothing -> dynAcc
@@ -252,9 +250,9 @@ remove e arch =
 removeStorages :: EntityID -> Archetype m -> (IntMap DynamicStorage, Archetype m)
 removeStorages e arch =
   let go (dynAcc, archAcc) (cId, dynS) =
-        let cs = Map.fromAscList . zip (Set.toList $ entities arch) . V.toList $ toAscVectorDyn dynS
+        let cs = Map.fromAscList . zip (Set.toList $ entities arch) $ toAscListDyn dynS
             !(dynA, cs') = Map.updateLookupWithKey (\_ _ -> Nothing) e cs
-            dynS' = S.fromAscVectorDyn (V.fromList $ Map.elems cs') dynS
+            dynS' = S.fromAscListDyn (Map.elems cs') dynS
             !dynAcc' = case dynA of
               Just d -> IntMap.insert cId (S.singletonDyn d dynS') dynAcc
               Nothing -> dynAcc
@@ -269,7 +267,7 @@ insertComponents e cs arch =
         let storages' = IntMap.adjust go itemCId (storages archAcc)
             es = Set.toList $ entities archAcc
             go s =
-              let ecs = V.fromList . Map.elems . Map.insert e dyn . Map.fromAscList . zip es . V.toList $ toAscVectorDyn s
-               in fromAscVectorDyn ecs s
+              let ecs = Map.elems . Map.insert e dyn . Map.fromAscList . zip es $ toAscListDyn s
+               in fromAscListDyn ecs s
          in archAcc {storages = storages', entities = Set.insert e $ entities archAcc}
    in foldl' f arch (IntMap.toList cs)

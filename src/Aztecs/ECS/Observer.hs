@@ -39,7 +39,6 @@ import Control.Monad.State
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Typeable
-import Data.Vector.Strict (Vector)
 
 -- | The kind of observer - either entity-specific or global.
 data ObserverKind m e
@@ -64,7 +63,7 @@ instance Show (Observer m e) where
   show o = "Observer { kind = " ++ show (observerKind o) ++ ", id = " ++ show (observerId o) ++ " }"
 
 instance (Monad m, Typeable m, Event e) => Component m (Observer m e) where
-  type StorageT (Observer m e) = Vector (Observer m e)
+  type StorageT (Observer m e) = [Observer m e]
 
   componentOnInsert ownerEntity o = Access $ do
     !w <- get

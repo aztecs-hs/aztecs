@@ -81,8 +81,7 @@ test-suite aztecs-test
         containers >=0.6,
         deepseq >=1,
         hspec >=2,
-        QuickCheck >=2,
-        vector >=0.12
+        QuickCheck >=2
 
 benchmark aztecs-bench
     type:             exitcode-stdio-1.0
@@ -94,5 +93,4 @@ benchmark aztecs-bench
         base >=4.2 && <5,
         aztecs,
         criterion >=1,
-        deepseq >=1,
-        vector >=0.12
+        deepseq >=1
