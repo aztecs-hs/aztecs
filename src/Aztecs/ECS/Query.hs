@@ -140,33 +140,25 @@ buildQueryPlan a = DynamicQuery $ \arch -> do
   where
     go :: (Monad m) => Op QueryStream m x -> StateT (Archetype m, Access m ()) m x
     go = \case
-      EntityOp -> goEntity
-      QueryOp cId -> goQuery cId
-      QueryMapOp cId f -> goMap cId f
-      QueryMapAccumOp cId f -> goMapAccum cId f
-    goEntity :: (Monad m) => StateT (Archetype m, Access m ()) m (QueryStream EntityID)
-    goEntity = do
-      (arch, _) <- get
-      return $ QueryStream $ Set.toList $ A.entities arch
-    goQuery :: forall m a. (Monad m, Component m a) => ComponentID -> StateT (Archetype m, Access m ()) m (QueryStream a)
-    goQuery cId = do
-      (arch, hooks) <- get
-      (as, arch', hooks') <- lift $ runDynQuery (DQ.queryDyn cId) arch
-      put (arch', hooks >> hooks')
-      return (QueryStream as)
-    goMap :: forall m a. (Monad m, Component m a) => ComponentID -> (QueryStream a -> QueryStream a) -> StateT (Archetype m, Access m ()) m (QueryStream a)
-    goMap cId f = do
-      (arch, hooks) <- get
-      let (arch', as') = A.alterComponentsAsc (unQueryStream . f . QueryStream) cId arch
-      put (arch', hooks)
-      return (QueryStream as')
-    goMapAccum :: forall m a b. (Monad m, Component m b) => ComponentID -> (QueryStream b -> QueryStream (a, b)) -> StateT (Archetype m, Access m ()) m (QueryStream (a, b))
-    goMapAccum cId f = do
-      (arch, hooks) <- get
-      let f' = fmap (\(a', b) -> (b, (a', b))) . unQueryStream . f . QueryStream
-          (arch', xs) = A.zipAlterComponentsAsc f' cId arch
-      put (arch', hooks)
-      return (QueryStream xs)
+      EntityOp -> do
+        (arch, _) <- get
+        return $ QueryStream $ Set.toList $ A.entities arch
+      QueryOp cId -> do
+        (arch, hooks) <- get
+        (as, arch', hooks') <- lift $ runDynQuery (DQ.queryDyn cId) arch
+        put (arch', hooks >> hooks')
+        return (QueryStream as)
+      QueryMapOp cId f -> do
+        (arch, hooks) <- get
+        let (arch', as') = A.alterComponentsAsc (unQueryStream . f . QueryStream) cId arch
+        put (arch', hooks)
+        return (QueryStream as')
+      QueryMapAccumOp cId f -> do
+        (arch, hooks) <- get
+        let f' = fmap (\(a', b) -> (b, (a', b))) . unQueryStream . f . QueryStream
+            (arch', xs) = A.zipAlterComponentsAsc f' cId arch
+        put (arch', hooks)
+        return (QueryStream xs)
 
 runQuery' :: (Monad m) => (forall f. (Applicative f) => Query f m (f a)) -> Components -> (ReadsWrites, Components, DynamicQuery m a)
 runQuery' q cs =
@@ -193,36 +185,47 @@ queryDyn cId = Query . lift . QueryPlan . liftF . liftAp $ QueryOp cId
 {-# INLINE queryDyn #-}
 
 -- | Read all matching entities.
-readQuery :: (Monad m) => (forall f. (Applicative f) => Query f m (f a)) -> Entities m -> m ([a], Entities m)
-readQuery q es =
-  let (rws, cs', dynQ) = runQuery' q (components es)
-   in do
-        res <- DQ.readQueryDyn (reads rws <> writes rws) dynQ es
-        return (res, es {components = cs'})
+readQuery :: (Monad m) => (forall f. (Applicative f) => Query f m (f a)) -> Entities m -> m [a]
+readQuery = runner readQueryDyn
 {-# INLINE readQuery #-}
 
 -- | Read a single matching entity.
-readQuerySingle :: (HasCallStack, Monad m) => (forall f. (Applicative f) => Query f m (f a)) -> Entities m -> m (a, Entities m)
-readQuerySingle q es =
-  let (rws, cs', dynQ) = runQuery' q (components es)
-   in do
-        res <- DQ.readQuerySingleDyn (reads rws <> writes rws) dynQ es
-        return (res, es {components = cs'})
+readQuerySingle ::
+  (HasCallStack, Monad m) =>
+  (forall f. (Applicative f) => Query f m (f a)) ->
+  Entities m ->
+  m a
+readQuerySingle = runner readQuerySingleDyn
 {-# INLINE readQuerySingle #-}
 
 -- | Run a query on all matching entities, potentially modifying them.
-runQuery :: (Monad m) => (forall f. (Applicative f) => Query f m (f a)) -> Entities m -> m ([a], Entities m, Access m ())
-runQuery q es =
-  let (rws, cs', dynQ) = runQuery' q $ components es
-   in DQ.runQueryDyn (reads rws <> writes rws) dynQ es {components = cs'}
+runQuery ::
+  (Monad m) =>
+  (forall f. (Applicative f) => Query f m (f a)) ->
+  Entities m ->
+  m ([a], Entities m, Access m ())
+runQuery = runner runQueryDyn
 {-# INLINE runQuery #-}
 
 -- | Run a query on a single matching entity, potentially modifying it.
-runQuerySingle :: (HasCallStack, Monad m) => (forall f. (Applicative f) => Query f m (f a)) -> Entities m -> m (a, Entities m, Access m ())
-runQuerySingle q es =
-  let (rws, cs', dynQ) = runQuery' q $ components es
-   in DQ.runQuerySingleDyn (reads rws <> writes rws) dynQ es {components = cs'}
+runQuerySingle ::
+  (HasCallStack, Monad m) =>
+  (forall f. (Applicative f) => Query f m (f a)) ->
+  Entities m ->
+  m (a, Entities m, Access m ())
+runQuerySingle = runner runQuerySingleDyn
 {-# INLINE runQuerySingle #-}
+
+runner ::
+  (Monad m) =>
+  (Set ComponentID -> DynamicQuery m a -> Entities m -> t) ->
+  (forall f. (Applicative f) => Query f m (f a)) ->
+  Entities m ->
+  t
+runner f q es =
+  let (rws, cs', dynQ) = runQuery' q $ components es
+   in f (reads rws <> writes rws) dynQ es {components = cs'}
+{-# INLINE runner #-}
 
 -- | Reads and writes of a `Query`.
 data ReadsWrites = ReadsWrites

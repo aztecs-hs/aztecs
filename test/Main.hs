@@ -58,8 +58,7 @@ describe "Aztecs.ECS.Hierarchy.update" $ do
 prop_queryEmpty :: Expectation
 prop_queryEmpty =
   let res =
-        fst
-          . runIdentity
+        runIdentity
           . Q.readQuery (Q.query @_ @_ @X)
           $ W.entities W.empty
    in res `shouldMatchList` []
@@ -97,20 +96,20 @@ prop_queryDyn xs =
          in ((e, cs) : acc, wAcc')
       (es, w) = foldr spawner ([], W.empty) xs
       go (e, cs) = do
-        let (res, _) = runIdentity . Q.readQuery (queryComponentIds @X @Identity $ map snd cs) $ W.entities w
+        let res = runIdentity . Q.readQuery (queryComponentIds @X @Identity $ map snd cs) $ W.entities w
         return $ res `shouldContain` [(e, map fst cs)]
    in mapM_ go es
 
 prop_queryTypedComponent :: [X] -> Expectation
 prop_queryTypedComponent xs = do
   let w = foldr (\x -> (\(_, w', _) -> w') . W.spawn (bundle x)) W.empty xs
-      (res, _) = runIdentity . Q.readQuery (Q.query @_ @_ @X) $ W.entities w
+      res = runIdentity . Q.readQuery (Q.query @_ @_ @X) $ W.entities w
   res `shouldMatchList` xs
 
 prop_queryTwoTypedComponents :: [(X, Y)] -> Expectation
 prop_queryTwoTypedComponents xys = do
   let w = foldr (\(x, y) -> (\(_, w', _) -> w') . W.spawn (bundle x <> bundle y)) W.empty xys
-      (res, _) =
+      res =
         runIdentity
           $ Q.readQuery
             ( do
@@ -124,7 +123,7 @@ prop_queryTwoTypedComponents xys = do
 prop_queryThreeTypedComponents :: [(X, Y, Z)] -> Expectation
 prop_queryThreeTypedComponents xyzs = do
   let w = foldr (\(x, y, z) -> (\(_, w', _) -> w') . W.spawn (bundle x <> bundle y <> bundle z)) W.empty xyzs
-      (res, _) =
+      res =
         runIdentity
           $ Q.readQuery
             ( do
@@ -139,14 +138,14 @@ prop_queryThreeTypedComponents xyzs = do
 prop_querySingle :: Expectation
 prop_querySingle =
   let (_, w, _) = W.spawn (bundle $ X 1) W.empty
-      (res, _) = runIdentity $ Q.readQuerySingle (Q.query @_ @_ @X) $ W.entities w
+      res = runIdentity $ Q.readQuerySingle (Q.query @_ @_ @X) $ W.entities w
    in res `shouldBe` X 1
 
 prop_queryMapSingle :: Word8 -> Expectation
 prop_queryMapSingle n =
   let (_, w, _) = W.spawn (bundle $ X 0) W.empty
       w' = foldr (\_ es -> (\(_, es', _) -> es') . runIdentity $ Q.runQuerySingle (Q.queryMap @_ @_ @X $ fmap (\(X x) -> X $ x + 1)) es) (W.entities w) [1 .. n]
-      (res, _) = runIdentity $ Q.readQuerySingle (Q.query @_ @_ @X) w'
+      res = runIdentity $ Q.readQuerySingle (Q.query @_ @_ @X) w'
    in res `shouldBe` X (fromIntegral n)
 
 {-TODO
