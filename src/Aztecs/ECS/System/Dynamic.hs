@@ -41,7 +41,7 @@ import qualified Aztecs.ECS.Query.Dynamic as DQ
 import Aztecs.ECS.World.Archetypes (Node (..))
 import Aztecs.ECS.World.Entities (Entities)
 import Data.Set (Set)
-import Data.Vector (Vector)
+import Data.Vector.Strict (Vector)
 import Prelude hiding (all, filter, map, mapM)
 
 -- | Query operation.

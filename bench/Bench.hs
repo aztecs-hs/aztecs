@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
 
 import Aztecs.ECS
 import qualified Aztecs.ECS.Query as Q
@@ -22,13 +23,15 @@ newtype Velocity = Velocity Int deriving (Show, Generic, NFData)
 
 instance (Monad m) => Component m Velocity
 
-move :: (Monad m) => Query m Position
-move = queryMapWith (\(Velocity v) (Position p) -> (Position $ p + v)) query
+move :: (Applicative f, Monad m) => Q.Query f m (f Position)
+move = do
+  vs <- Q.query
+  Q.queryMap $ \ps -> (\(Velocity v) (Position p) -> Position $ p + v) <$> vs <*> ps
 
-run :: Query Identity Position -> World Identity -> Vector Position
+run :: (forall f. (Applicative f) => Q.Query f Identity (f Position)) -> World Identity -> Vector Position
 run q = (\(a, _, _) -> a) . runIdentity . Q.runQuery q . entities
 
-runSys :: Query Identity Position -> World Identity -> Vector Position
+runSys :: (forall f. (Applicative f) => Q.Query f Identity (f Position)) -> World Identity -> Vector Position
 runSys q = fst . runIdentity . runAccess (system $ runQuery q)
 
 main :: IO ()

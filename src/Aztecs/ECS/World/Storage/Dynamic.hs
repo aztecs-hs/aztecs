@@ -28,8 +28,8 @@ where
 import qualified Aztecs.ECS.World.Storage as S
 import Data.Dynamic
 import Data.Maybe
-import Data.Vector (Vector)
-import qualified Data.Vector as V
+import Data.Vector.Strict (Vector)
+import qualified Data.Vector.Strict as V
 
 -- | Dynamic storage of components.
 data DynamicStorage = DynamicStorage

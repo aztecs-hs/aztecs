@@ -12,11 +12,12 @@
 module Main (main) where
 
 import Aztecs
-import Aztecs.ECS.Component (ComponentID (ComponentID))
+import Aztecs.ECS.Component
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.World as W
-import Data.Functor.Identity (Identity (runIdentity))
-import qualified Data.Vector as V
+import Control.Applicative
+import Data.Functor.Identity
+import qualified Data.Vector.Strict as V
 import Data.Word
 import GHC.Generics
 import Test.Hspec
@@ -60,22 +61,28 @@ prop_queryEmpty =
   let res =
         fst
           . runIdentity
-          . Q.readQuery (Q.query @_ @X)
+          . Q.readQuery (Q.query @_ @_ @X)
           $ W.entities W.empty
    in V.toList res `shouldMatchList` []
 
 -- | Query all components from a list of `ComponentID`s.
 queryComponentIds ::
-  forall m q a.
-  (Applicative q, DynamicQueryF m q, Component m a) =>
+  forall a m.
+  (Component m a) =>
   [ComponentID] ->
-  q (EntityID, [a])
-queryComponentIds =
+  (forall f. (Applicative f) => Q.Query f m (f (EntityID, [a])))
+queryComponentIds cIds =
   let go cId qAcc = do
         x' <- Q.queryDyn @_ @_ @a cId
-        (e, xs) <- qAcc
-        return (e, x' : xs)
-   in foldr go ((,) <$> Q.entity <*> pure [])
+        acc <- qAcc
+        return $ liftA2 (\x (e, xs) -> (e, x : xs)) x' acc
+   in foldr
+        go
+        ( do
+            e <- Q.entity
+            return $ fmap (\eid -> (eid, [])) e
+        )
+        cIds
 
 prop_queryDyn :: [[X]] -> Expectation
 prop_queryDyn xs =
@@ -91,46 +98,56 @@ prop_queryDyn xs =
          in ((e, cs) : acc, wAcc')
       (es, w) = foldr spawner ([], W.empty) xs
       go (e, cs) = do
-        let q = queryComponentIds @Identity $ map snd cs
-            (res, _) = runIdentity . Q.readQuery q $ W.entities w
+        let (res, _) = runIdentity . Q.readQuery (queryComponentIds @X @Identity $ map snd cs) $ W.entities w
         return $ V.toList res `shouldContain` [(e, map fst cs)]
    in mapM_ go es
 
 prop_queryTypedComponent :: [X] -> Expectation
 prop_queryTypedComponent xs = do
   let w = foldr (\x -> (\(_, w', _) -> w') . W.spawn (bundle x)) W.empty xs
-      (res, _) = runIdentity . Q.readQuery Q.query $ W.entities w
+      (res, _) = runIdentity . Q.readQuery (Q.query @_ @_ @X) $ W.entities w
   V.toList res `shouldMatchList` xs
 
 prop_queryTwoTypedComponents :: [(X, Y)] -> Expectation
 prop_queryTwoTypedComponents xys = do
   let w = foldr (\(x, y) -> (\(_, w', _) -> w') . W.spawn (bundle x <> bundle y)) W.empty xys
-      (res, _) = runIdentity $ Q.readQuery ((,) <$> Q.query <*> Q.query) $ W.entities w
+      (res, _) =
+        runIdentity
+          $ Q.readQuery
+            ( do
+                x <- Q.query @_ @_ @X
+                y <- Q.query @_ @_ @Y
+                return $ liftA2 (,) x y
+            )
+          $ W.entities w
   V.toList res `shouldMatchList` xys
 
 prop_queryThreeTypedComponents :: [(X, Y, Z)] -> Expectation
 prop_queryThreeTypedComponents xyzs = do
   let w = foldr (\(x, y, z) -> (\(_, w', _) -> w') . W.spawn (bundle x <> bundle y <> bundle z)) W.empty xyzs
-      q = do
-        x <- Q.query
-        y <- Q.query
-        z <- Q.query
-        pure (x, y, z)
-      (res, _) = runIdentity $ Q.readQuery q $ W.entities w
+      (res, _) =
+        runIdentity
+          $ Q.readQuery
+            ( do
+                x <- Q.query @_ @_ @X
+                y <- Q.query @_ @_ @Y
+                z <- Q.query @_ @_ @Z
+                return $ liftA3 (,,) x y z
+            )
+          $ W.entities w
   V.toList res `shouldMatchList` xyzs
 
 prop_querySingle :: Expectation
 prop_querySingle =
   let (_, w, _) = W.spawn (bundle $ X 1) W.empty
-      (res, _) = runIdentity $ Q.readQuerySingle Q.query $ W.entities w
+      (res, _) = runIdentity $ Q.readQuerySingle (Q.query @_ @_ @X) $ W.entities w
    in res `shouldBe` X 1
 
 prop_queryMapSingle :: Word8 -> Expectation
 prop_queryMapSingle n =
   let (_, w, _) = W.spawn (bundle $ X 0) W.empty
-      q = Q.queryMap $ \(X x) -> X $ x + 1
-      w' = foldr (\_ es -> (\(_, es', _) -> es') . runIdentity $ Q.runQuerySingle q es) (W.entities w) [1 .. n]
-      (res, _) = runIdentity $ Q.readQuerySingle Q.query w'
+      w' = foldr (\_ es -> (\(_, es', _) -> es') . runIdentity $ Q.runQuerySingle (Q.queryMap @_ @_ @X $ fmap (\(X x) -> X $ x + 1)) es) (W.entities w) [1 .. n]
+      (res, _) = runIdentity $ Q.readQuerySingle (Q.query @_ @_ @X) w'
    in res `shouldBe` X (fromIntegral n)
 
 {-TODO

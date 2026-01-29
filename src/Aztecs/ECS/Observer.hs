@@ -39,7 +39,7 @@ import Control.Monad.State
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Typeable
-import Data.Vector (Vector)
+import Data.Vector.Strict (Vector)
 
 -- | The kind of observer - either entity-specific or global.
 data ObserverKind m e

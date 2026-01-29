@@ -12,8 +12,8 @@
 module Aztecs.ECS.World.Storage (Storage (..)) where
 
 import Data.Data
-import Data.Vector (Vector)
-import qualified Data.Vector as V
+import Data.Vector.Strict (Vector)
+import qualified Data.Vector.Strict as V
 import Prelude hiding (map, zipWith)
 
 -- | Component storage, containing zero or many components of the same type.

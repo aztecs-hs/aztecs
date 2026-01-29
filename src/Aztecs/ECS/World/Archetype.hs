@@ -60,8 +60,8 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
 import qualified Data.Set as Set
-import Data.Vector (Vector)
-import qualified Data.Vector as V
+import Data.Vector.Strict (Vector)
+import qualified Data.Vector.Strict as V
 import Prelude hiding (map, zipWith)
 
 -- | Archetype with a single entity.

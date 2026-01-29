@@ -37,8 +37,8 @@ import Data.Foldable hiding (null)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
-import Data.Vector (Vector)
-import qualified Data.Vector as V
+import Data.Vector.Strict (Vector)
+import qualified Data.Vector.Strict as V
 import Prelude hiding (null)
 
 -- | View into a `World`, containing a subset of archetypes.

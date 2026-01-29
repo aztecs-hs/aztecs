@@ -38,13 +38,14 @@ import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
+import Control.Applicative (liftA3)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Data.Vector (Vector)
-import qualified Data.Vector as V
+import Data.Vector.Strict (Vector)
+import qualified Data.Vector.Strict as V
 import GHC.Generics
 
 -- | Parent component.
@@ -139,16 +140,19 @@ mapWithAccum f b n = case f (nodeEntityId n) (nodeEntity n) b of
 
 -- | System to read a hierarchy of parents to children with the given query.
 hierarchy ::
+  forall m a.
   (Monad m) =>
   EntityID ->
-  Query m a ->
+  (forall f. (Applicative f) => Query f m (f a)) ->
   Access m (Maybe (Hierarchy a))
 hierarchy e q = do
-  children <- A.system . S.readQuery $ do
-    e' <- Q.entity
-    cs <- Q.query
-    a <- q
-    return (e', (unChildren cs, a))
+  let mkQuery :: forall f. (Applicative f) => Query f m (f (EntityID, (Set EntityID, a)))
+      mkQuery = do
+        e' <- Q.entity
+        cs <- Q.query @_ @_ @Children
+        a' <- q
+        return $ liftA3 (\eid c a'' -> (eid, (unChildren c, a''))) e' cs a'
+  children <- A.system $ S.readQuery mkQuery
   let childMap = Map.fromList $ V.toList children
   return $ hierarchy' e childMap
 
@@ -156,18 +160,18 @@ hierarchy e q = do
 hierarchies ::
   forall m a.
   (Monad m) =>
-  Query m a ->
+  (forall f. (Applicative f) => Query f m (f a)) ->
   Access m (Vector (Hierarchy a))
 hierarchies q = do
-  children <-
-    A.system . S.readQuery $ do
-      e <- Q.entity
-      cs <- Q.query
-      a <- q
-      return (e, (unChildren cs, a))
-
+  let mkQuery :: forall f. (Applicative f) => Query f m (f (EntityID, (Set EntityID, a)))
+      mkQuery = do
+        e' <- Q.entity
+        cs <- Q.query @_ @_ @Children
+        a' <- q
+        return $ liftA3 (\eid c a -> (eid, (unChildren c, a))) e' cs a'
+  children <- A.system $ S.readQuery mkQuery
   let childMap = Map.fromList $ V.toList children
-  roots <- A.system $ S.readQueryFiltered Q.entity (with @m @Children <> without @m @Parent)
+  roots <- A.system $ S.readQueryFiltered (Q.entity) (with @m @Children <> without @m @Parent)
   return $ V.mapMaybe (`hierarchy'` childMap) roots
 
 -- | Build a hierarchy of parents to children.
