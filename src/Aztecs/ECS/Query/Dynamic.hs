@@ -47,8 +47,6 @@ import qualified Data.IntMap.Strict as IntMap
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Data.Vector (Vector)
-import qualified Data.Vector as V
 import GHC.Stack
 
 -- | Dynamic query for components by ID.
@@ -57,12 +55,12 @@ newtype DynamicQuery m a
   { -- | Run a dynamic query.
     --
     -- @since 0.10
-    runDynQuery :: Archetype m -> m (Vector a, Archetype m, Access m ())
+    runDynQuery :: Archetype m -> m ([a], Archetype m, Access m ())
   }
   deriving (Functor)
 
 instance (Monad m) => Applicative (DynamicQuery m) where
-  pure a = DynamicQuery $ \arch -> pure (V.replicate (length $ A.entities arch) a, arch, return ())
+  pure a = DynamicQuery $ \arch -> pure (replicate (length $ A.entities arch) a, arch, return ())
   {-# INLINE pure #-}
 
   f <*> g = DynamicQuery $ \arch -> do
@@ -71,33 +69,33 @@ instance (Monad m) => Applicative (DynamicQuery m) where
     return $
       let (as, arch', hook1) = x
           (bs, arch'', hook2) = y
-       in (V.zipWith ($) bs as, arch' <> arch'', hook1 >> hook2)
+       in (zipWith ($) bs as, arch' <> arch'', hook1 >> hook2)
   {-# INLINE (<*>) #-}
 
 instance (Monad m) => DynamicQueryF m (DynamicQuery m) where
-  entity = DynamicQuery $ \arch -> pure (V.fromList . Set.toList $ A.entities arch, arch, return ())
+  entity = DynamicQuery $ \arch -> pure (Set.toList $ A.entities arch, arch, return ())
   {-# INLINE entity #-}
 
   queryDyn cId = DynamicQuery $ \arch -> pure (A.lookupComponentsAsc cId arch, arch, return ())
   {-# INLINE queryDyn #-}
 
   queryMaybeDyn cId = DynamicQuery $ \arch -> case A.lookupComponentsAscMaybe cId arch of
-    Just as -> pure (V.map Just as, arch, return ())
-    Nothing -> pure (V.replicate (length $ A.entities arch) Nothing, arch, return ())
+    Just as -> pure (map Just as, arch, return ())
+    Nothing -> pure (replicate (length $ A.entities arch) Nothing, arch, return ())
   {-# INLINE queryMaybeDyn #-}
 
   queryMapDyn f cId = DynamicQuery $ \arch -> do
-    let (cs, arch', hook) = A.zipWith (V.replicate (length $ A.entities arch) ()) (const f) cId arch
+    let (cs, arch', hook) = A.zipWith (replicate (length $ A.entities arch) ()) (const f) cId arch
     return (cs, arch', hook)
   {-# INLINE queryMapDyn #-}
 
   queryMapDyn_ f cId = DynamicQuery $ \arch -> do
-    let (arch', hook) = A.zipWith_ (V.replicate (length $ A.entities arch) ()) (const f) cId arch
-    return (V.replicate (length $ A.entities arch) (), arch', hook)
+    let (arch', hook) = A.zipWith_ (replicate (length $ A.entities arch) ()) (const f) cId arch
+    return (replicate (length $ A.entities arch) (), arch', hook)
   {-# INLINE queryMapDyn_ #-}
 
   queryMapDynM f cId = DynamicQuery $ \arch -> do
-    (cs, arch', hook) <- A.zipWithM (V.replicate (length $ A.entities arch) ()) (const f) cId arch
+    (cs, arch', hook) <- A.zipWithM (replicate (length $ A.entities arch) ()) (const f) cId arch
     return (cs, arch', hook)
   {-# INLINE queryMapDynM #-}
 
@@ -110,7 +108,7 @@ instance (Monad m) => DynamicQueryF m (DynamicQuery m) where
   queryMapDynWith_ f cId q = DynamicQuery $ \arch -> do
     (as, arch', hook1) <- runDynQuery q arch
     let (arch'', hook2) = A.zipWith_ as f cId arch'
-    return (V.map (const ()) as, arch'', hook1 >> hook2)
+    return (map (const ()) as, arch'', hook1 >> hook2)
   {-# INLINE queryMapDynWith_ #-}
 
   queryMapDynWithM f cId q = DynamicQuery $ \arch -> do
@@ -138,51 +136,54 @@ instance (Monad m) => DynamicQueryF m (DynamicQuery m) where
 
   queryFilterMap p q = DynamicQuery $ \arch -> do
     (as, _, _) <- runDynQuery q arch
-    let eIds = V.fromList . Set.toList $ A.entities arch
-        mapped = V.map p as
-        (filteredEIds, indices, filteredBs) = V.unzip3 . V.imapMaybe (\i (e, mb) -> (\b -> (e, i, b)) <$> mb) $ V.zip eIds mapped
+    let eIds = Set.toList $ A.entities arch
+        mapped = map p as
+        withIndices = zip3 eIds [0 ..] mapped
+        filtered = [(e, i, b) | (e, i, Just b) <- withIndices]
+        (filteredEIds, indices, filteredBs) = unzip3 filtered
         filteredArch = filterArchetype indices arch
-    (_, filteredArch', hook) <- runDynQuery q filteredArch {A.entities = Set.fromList $ V.toList filteredEIds}
+    (_, filteredArch', hook) <- runDynQuery q filteredArch {A.entities = Set.fromList filteredEIds}
     let resultArch = unfilterArchetype indices arch filteredArch'
     return (filteredBs, resultArch, hook)
     where
       filterArchetype indices arch =
         arch {A.storages = IntMap.map (filterStorage indices) $ A.storages arch}
       filterStorage indices s =
-        let allVec = toAscVectorDyn s
-            filteredVec = V.map (allVec V.!) indices
-         in fromAscVectorDyn filteredVec s
+        let allList = toAscListDyn s
+            filteredList = map (allList !!) indices
+         in fromAscListDyn filteredList s
       unfilterArchetype indices original filtered =
         original {A.storages = IntMap.mapWithKey go $ A.storages original}
         where
           go cId s = case IntMap.lookup cId (A.storages filtered) of
             Just filteredStorage ->
-              let origVec = toAscVectorDyn s
-                  filteredVec = toAscVectorDyn filteredStorage
-                  mergedVec = V.accum (\_ new -> new) origVec (V.toList $ V.zip indices filteredVec)
-               in fromAscVectorDyn mergedVec s
+              let origList = toAscListDyn s
+                  filteredList = toAscListDyn filteredStorage
+                  updates = zip indices filteredList
+                  mergedList = foldr (\(i, v) acc -> take i acc ++ [v] ++ drop (i + 1) acc) origList updates
+               in fromAscListDyn mergedList s
             Nothing -> s
   {-# INLINE queryFilterMap #-}
 
 -- | Match all entities.
-readQueryDyn :: (Monad m) => Set ComponentID -> DynamicQuery m a -> Entities m -> m (Vector a)
+readQueryDyn :: (Monad m) => Set ComponentID -> DynamicQuery m a -> Entities m -> m [a]
 readQueryDyn cIds q es =
   if Set.null cIds
     then (\(a, _, _) -> a) <$> runDynQuery q A.empty {A.entities = Map.keysSet $ entities es}
     else do
       let go n = (\(a, _, _) -> a) <$> runDynQuery q (AS.nodeArchetype n)
       results <- mapM go . Map.elems $ AS.find cIds $ archetypes es
-      return $ V.concat results
+      return $ concat results
 
 -- | Match all entities with a filter.
-readQueryFilteredDyn :: (Monad m) => Set ComponentID -> (Node m -> Bool) -> DynamicQuery m a -> Entities m -> m (Vector a)
+readQueryFilteredDyn :: (Monad m) => Set ComponentID -> (Node m -> Bool) -> DynamicQuery m a -> Entities m -> m [a]
 readQueryFilteredDyn cIds f q es =
   if Set.null cIds
     then (\(a, _, _) -> a) <$> runDynQuery q A.empty {A.entities = Map.keysSet $ entities es}
     else do
       let go n = (\(a, _, _) -> a) <$> runDynQuery q (AS.nodeArchetype n)
       results <- mapM go . Map.elems . Map.filter f $ AS.find cIds $ archetypes es
-      return $ V.concat results
+      return $ concat results
 
 -- | Match a single entity.
 readQuerySingleDyn :: (HasCallStack, Monad m) => Set ComponentID -> DynamicQuery m a -> Entities m -> m a
@@ -199,16 +200,20 @@ readQuerySingleMaybeDyn cIds q es =
     then case Map.keys $ entities es of
       [eId] -> do
         (v, _, _) <- runDynQuery q $ A.singleton eId
-        return $ if V.length v == 1 then Just (V.head v) else Nothing
+        return $ case v of
+          [x] -> Just x
+          _ -> Nothing
       _ -> return Nothing
     else case Map.elems $ AS.find cIds $ archetypes es of
       [n] -> do
         (v, _, _) <- runDynQuery q $ AS.nodeArchetype n
-        return $ if V.length v == 1 then Just (V.head v) else Nothing
+        return $ case v of
+          [x] -> Just x
+          _ -> Nothing
       _ -> return Nothing
 
 -- | Map all matched entities.
-runQueryDyn :: (Monad m) => Set ComponentID -> DynamicQuery m a -> Entities m -> m (Vector a, Entities m, Access m ())
+runQueryDyn :: (Monad m) => Set ComponentID -> DynamicQuery m a -> Entities m -> m ([a], Entities m, Access m ())
 runQueryDyn cIds q es =
   let go = runDynQuery q
    in if Set.null cIds
@@ -219,12 +224,12 @@ runQueryDyn cIds q es =
           let go' (acc, esAcc, hooks) (aId, n) = do
                 (as', arch', hook) <- go $ nodeArchetype n
                 let !nodes = Map.insert aId n {nodeArchetype = arch' <> nodeArchetype n} . AS.nodes $ archetypes esAcc
-                return (as' V.++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}}, hooks >> hook)
-           in foldlM go' (V.empty, es, return ()) $ Map.toList . AS.find cIds $ archetypes es
+                return (as' ++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}}, hooks >> hook)
+           in foldlM go' ([], es, return ()) $ Map.toList . AS.find cIds $ archetypes es
 {-# INLINE runQueryDyn #-}
 
 -- | Map all matched entities.
-runQueryFilteredDyn :: (Monad m) => Set ComponentID -> (Node m -> Bool) -> DynamicQuery m a -> Entities m -> m (Vector a, Entities m, Access m ())
+runQueryFilteredDyn :: (Monad m) => Set ComponentID -> (Node m -> Bool) -> DynamicQuery m a -> Entities m -> m ([a], Entities m, Access m ())
 runQueryFilteredDyn cIds f q es =
   let go = runDynQuery q
    in if Set.null cIds
@@ -235,8 +240,8 @@ runQueryFilteredDyn cIds f q es =
           let go' (acc, esAcc, hooks) (aId, n) = do
                 (as', arch', hook) <- go $ nodeArchetype n
                 let !nodes = Map.insert aId n {nodeArchetype = arch' <> nodeArchetype n} . AS.nodes $ archetypes esAcc
-                return (as' V.++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}}, hooks >> hook)
-           in foldlM go' (V.empty, es, return ()) $ Map.toList . Map.filter f . AS.find cIds $ archetypes es
+                return (as' ++ acc, esAcc {archetypes = (archetypes esAcc) {AS.nodes = nodes}}, hooks >> hook)
+           in foldlM go' ([], es, return ()) $ Map.toList . Map.filter f . AS.find cIds $ archetypes es
 {-# INLINE runQueryFilteredDyn #-}
 
 -- | Map a single matched entity.
@@ -255,17 +260,16 @@ runQuerySingleMaybeDyn cIds q es =
       [eId] -> do
         res <- runDynQuery q $ A.singleton eId
         return $ case res of
-          (v, _, hook) | V.length v == 1 -> (Just (V.head v), es, hook)
+          ([x], _, hook) -> (Just x, es, hook)
           _ -> (Nothing, es, return ())
       _ -> pure (Nothing, es, return ())
     else case Map.toList $ AS.find cIds $ archetypes es of
       [(aId, n)] -> do
         res <- runDynQuery q $ AS.nodeArchetype n
         return $ case res of
-          (v, arch', hook)
-            | V.length v == 1 ->
-                let nodes = Map.insert aId n {nodeArchetype = arch' <> nodeArchetype n} . AS.nodes $ archetypes es
-                 in (Just (V.head v), es {archetypes = (archetypes es) {AS.nodes = nodes}}, hook)
+          ([x], arch', hook) ->
+            let nodes = Map.insert aId n {nodeArchetype = arch' <> nodeArchetype n} . AS.nodes $ archetypes es
+             in (Just x, es {archetypes = (archetypes es) {AS.nodes = nodes}}, hook)
           _ -> (Nothing, es, return ())
       _ -> pure (Nothing, es, return ())
 {-# INLINE runQuerySingleMaybeDyn #-}

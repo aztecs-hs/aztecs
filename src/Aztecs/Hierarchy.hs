@@ -38,13 +38,12 @@ import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
+import Control.Applicative (liftA3)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Data.Vector (Vector)
-import qualified Data.Vector as V
 import GHC.Generics
 
 -- | Parent component.
@@ -119,9 +118,9 @@ instance Traversable Hierarchy where
   traverse f n =
     Node (nodeEntityId n) <$> f (nodeEntity n) <*> traverse (traverse f) (nodeChildren n)
 
--- | Convert a hierarchy to a vector of entity IDs and components.
-toList :: Hierarchy a -> Vector (EntityID, a)
-toList n = V.singleton (nodeEntityId n, nodeEntity n) <> V.concatMap toList (V.fromList $ nodeChildren n)
+-- | Convert a hierarchy to a list of entity IDs and components.
+toList :: Hierarchy a -> [(EntityID, a)]
+toList n = (nodeEntityId n, nodeEntity n) : concatMap toList (nodeChildren n)
 
 -- | Fold a hierarchy with a function that takes the entity ID, entity, and accumulator.
 foldWithKey :: (EntityID -> a -> b -> b) -> Hierarchy a -> b -> b
@@ -139,36 +138,39 @@ mapWithAccum f b n = case f (nodeEntityId n) (nodeEntity n) b of
 
 -- | System to read a hierarchy of parents to children with the given query.
 hierarchy ::
+  forall m a.
   (Monad m) =>
   EntityID ->
-  Query m a ->
+  (forall f. (Applicative f) => Query f m (f a)) ->
   Access m (Maybe (Hierarchy a))
 hierarchy e q = do
-  children <- A.system . S.readQuery $ do
-    e' <- Q.entity
-    cs <- Q.query
-    a <- q
-    return (e', (unChildren cs, a))
-  let childMap = Map.fromList $ V.toList children
+  let mkQuery :: forall f. (Applicative f) => Query f m (f (EntityID, (Set EntityID, a)))
+      mkQuery = do
+        e' <- Q.entity
+        cs <- Q.query @_ @_ @Children
+        a' <- q
+        return $ liftA3 (\eid c a'' -> (eid, (unChildren c, a''))) e' cs a'
+  children <- A.system $ S.readQuery mkQuery
+  let childMap = Map.fromList children
   return $ hierarchy' e childMap
 
 -- | Build all hierarchies of parents to children, joined with the given query.
 hierarchies ::
   forall m a.
   (Monad m) =>
-  Query m a ->
-  Access m (Vector (Hierarchy a))
+  (forall f. (Applicative f) => Query f m (f a)) ->
+  Access m [Hierarchy a]
 hierarchies q = do
-  children <-
-    A.system . S.readQuery $ do
-      e <- Q.entity
-      cs <- Q.query
-      a <- q
-      return (e, (unChildren cs, a))
-
-  let childMap = Map.fromList $ V.toList children
-  roots <- A.system $ S.readQueryFiltered Q.entity (with @m @Children <> without @m @Parent)
-  return $ V.mapMaybe (`hierarchy'` childMap) roots
+  let mkQuery :: forall f. (Applicative f) => Query f m (f (EntityID, (Set EntityID, a)))
+      mkQuery = do
+        e' <- Q.entity
+        cs <- Q.query @_ @_ @Children
+        a' <- q
+        return $ liftA3 (\eid c a -> (eid, (unChildren c, a))) e' cs a'
+  children <- A.system $ S.readQuery mkQuery
+  let childMap = Map.fromList children
+  roots <- A.system $ S.readQueryFiltered (Q.entity) (with @m @Children <> without @m @Parent)
+  return $ mapMaybe (`hierarchy'` childMap) roots
 
 -- | Build a hierarchy of parents to children.
 hierarchy' :: EntityID -> Map EntityID (Set EntityID, a) -> Maybe (Hierarchy a)
