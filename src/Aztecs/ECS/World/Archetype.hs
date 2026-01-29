@@ -28,6 +28,10 @@ module Aztecs.ECS.World.Archetype
     lookupComponentsAsc,
     lookupComponentsAscMaybe,
     lookupStorage,
+    alterStorage,
+    alterStorageF,
+    alterComponentsAsc,
+    zipAlterComponentsAsc,
     member,
     remove,
     removeStorages,
@@ -51,6 +55,7 @@ import Aztecs.ECS.World.Archetype.Internal
 import qualified Aztecs.ECS.World.Storage as S
 import Aztecs.ECS.World.Storage.Dynamic
 import qualified Aztecs.ECS.World.Storage.Dynamic as S
+import Control.Monad.Identity
 import Control.Monad.Writer
 import Data.Dynamic
 import Data.Foldable
@@ -73,6 +78,27 @@ lookupStorage cId w = do
   fromDynamic $ storageDyn dynS
 {-# INLINE lookupStorage #-}
 
+-- | Alter a component `Storage` by its `ComponentID`.
+alterStorage :: forall m a. (Component m a) => (StorageT a -> (StorageT a)) -> ComponentID -> Archetype m -> (Archetype m)
+alterStorage f cId w = runIdentity $ alterStorageF @_ @m @a (return . f) cId w
+{-# INLINE alterStorage #-}
+
+-- | Alter a component `Storage` by its `ComponentID`.
+alterStorageF :: forall f m a. (Monad f, Component m a) => (StorageT a -> f (StorageT a)) -> ComponentID -> Archetype m -> f (Archetype m)
+alterStorageF f cId w =
+  (\s -> w {storages = s}) <$> IntMap.alterF go (unComponentId cId) (storages w)
+  where
+    go dyn = case dyn of
+      Just d -> case fromDynamic $ storageDyn d of
+        Just s -> do
+          s' <- f s
+          return $ Just $ d {storageDyn = toDyn s'}
+        Nothing -> return dyn
+      Nothing -> do
+        s' <- f (S.fromAsc @a @(StorageT a) [])
+        return $ Just $ dynStorage @a s'
+{-# INLINE alterStorageF #-}
+
 -- | Lookup a component by its `EntityID` and `ComponentID`.
 lookupComponent :: forall m a. (Component m a) => EntityID -> ComponentID -> Archetype m -> Maybe a
 lookupComponent e cId w = lookupComponents cId w Map.!? e
@@ -94,6 +120,37 @@ lookupComponentsAsc cId = fromMaybe [] . lookupComponentsAscMaybe @m @a cId
 lookupComponentsAscMaybe :: forall m a. (Component m a) => ComponentID -> Archetype m -> Maybe [a]
 lookupComponentsAscMaybe cId arch = S.toAsc @a @(StorageT a) <$> lookupStorage @m @a cId arch
 {-# INLINE lookupComponentsAscMaybe #-}
+
+alterComponentsAsc ::
+  forall m a.
+  (Component m a) =>
+  ([a] -> [a]) ->
+  ComponentID ->
+  Archetype m ->
+  (Archetype m, [a])
+alterComponentsAsc f cId arch = runWriter $ alterStorageF @_ @m @a go cId arch
+  where
+    go s = do
+      let as' = f $ S.toAsc @a @(StorageT a) s
+      tell as'
+      return $ S.fromAsc @a @(StorageT a) as'
+{-# INLINE alterComponentsAsc #-}
+
+zipAlterComponentsAsc ::
+  forall m a b.
+  (Component m a) =>
+  ([a] -> [(a, b)]) ->
+  ComponentID ->
+  Archetype m ->
+  (Archetype m, [b])
+zipAlterComponentsAsc f cId arch = runWriter $ alterStorageF @_ @m @a go cId arch
+  where
+    go s = do
+      let xs = f $ S.toAsc @a @(StorageT a) s
+          (as', bs) = unzip xs
+      tell bs
+      return $ S.fromAsc @a @(StorageT a) as'
+{-# INLINE zipAlterComponentsAsc #-}
 
 -- | Insert a component into the archetype.
 insertComponent ::
@@ -127,7 +184,13 @@ member cId = IntMap.member (unComponentId cId) . storages
 -- | Zip a list of components with a function and a component storage.
 -- Returns the result list, updated archetype, and the onChange hooks to run.
 zipWith ::
-  forall m a c. (Monad m, Component m c) => [a] -> (a -> c -> c) -> ComponentID -> Archetype m -> ([c], Archetype m, Access m ())
+  forall m a c.
+  (Monad m, Component m c) =>
+  [a] ->
+  (a -> c -> c) ->
+  ComponentID ->
+  Archetype m ->
+  ([c], Archetype m, Access m ())
 zipWith as f cId arch =
   let oldCs = lookupComponentsAsc @m @c cId arch
       go maybeDyn = case maybeDyn of
