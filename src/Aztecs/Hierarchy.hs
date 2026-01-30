@@ -38,7 +38,7 @@ import Aztecs.ECS
 import qualified Aztecs.ECS.Access as A
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.System as S
-import Control.Applicative (liftA3)
+import Control.Applicative
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe

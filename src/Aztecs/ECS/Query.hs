@@ -70,6 +70,7 @@ import qualified Aztecs.ECS.World.Components as CS
 import Aztecs.ECS.World.Entities (Entities (..))
 import Control.Applicative
 import Control.Applicative.Free
+import Control.Monad.Fix
 import Control.Monad.Free
 import Control.Monad.Reader
 import Control.Monad.State
@@ -93,13 +94,17 @@ data Op f m a where
   QueryOp :: (Component m a) => ComponentID -> Op f m (f a)
   QueryMapOp :: (Component m a) => ComponentID -> (f a -> f a) -> Op f m (f a)
   QueryMapAccumOp :: (Component m b) => ComponentID -> (f b -> f (a, b)) -> Op f m (f (a, b))
+  QueryFix :: (MonadFix m) => (a -> QueryPlan f m a) -> Op f m a
 
 newtype QueryPlan f m a = QueryPlan {unQueryPlan :: Free (Ap (Op f m)) a}
   deriving (Functor, Applicative, Monad)
 
+instance (MonadFix m) => MonadFix (QueryPlan f m) where
+  mfix f = QueryPlan $ liftF $ liftAp $ QueryFix f
+
 -- | Query for matching entities.
 newtype Query f m a = Query {unQuery :: ReaderT Components (QueryPlan f m) a}
-  deriving (Functor, Applicative, Monad)
+  deriving (Functor, Applicative, Monad, MonadFix)
 
 -- | Query the entity ID.
 entity :: forall f m. (Applicative f) => Query f m (f EntityID)
@@ -159,6 +164,7 @@ buildQueryPlan a = DynamicQuery $ \arch -> do
             (arch', xs) = A.zipAlterComponentsAsc f' cId arch
         put (arch', hooks)
         return (QueryStream xs)
+      QueryFix f -> mfix $ \x -> foldFree (runAp go) $ unQueryPlan (f x)
 
 runQuery' :: (Monad m) => (forall f. (Applicative f) => Query f m (f a)) -> Components -> (ReadsWrites, Components, DynamicQuery m a)
 runQuery' q cs =
@@ -178,6 +184,7 @@ runQuery' q cs =
       (QueryMapAccumOp cId _) -> do
         modify (\rws -> rws {writes = Set.insert cId (writes rws)})
         return (Fetch (Const ()))
+      (QueryFix f) -> mfix $ \x -> foldFree (runAp go) $ unQueryPlan (f x)
 
 -- | Query a component dynamically by 'ComponentID'.
 queryDyn :: forall f m a. (Applicative f, Component m a, Monad m) => ComponentID -> Query f m (f a)
