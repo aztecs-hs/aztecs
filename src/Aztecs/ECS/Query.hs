@@ -50,9 +50,6 @@ module Aztecs.ECS.Query
     ReadsWrites (..),
     disjoint,
 
-    -- * QueryStream
-    QueryStream (..),
-
     -- * Re-exports
     DynamicQueryF,
   )
@@ -79,16 +76,6 @@ import qualified Data.Set as Set
 import GHC.Stack
 import Prelude hiding (reads)
 
--- | A list with zip semantics for @Applicative@.
-newtype QueryStream a = QueryStream {unQueryStream :: [a]}
-  deriving (Functor, Show)
-
-instance Applicative QueryStream where
-  pure a = QueryStream [a]
-  {-# INLINE pure #-}
-  QueryStream fs <*> QueryStream xs = QueryStream (zipWith ($) fs xs)
-  {-# INLINE (<*>) #-}
-
 data Op f m a where
   EntityOp :: Op f m (f EntityID)
   QueryOp :: (Component m a) => ComponentID -> Op f m (f a)
@@ -100,7 +87,8 @@ newtype QueryPlan f m a = QueryPlan {unQueryPlan :: Free (Ap (Op f m)) a}
   deriving (Functor, Applicative, Monad)
 
 instance (MonadFix m) => MonadFix (QueryPlan f m) where
-  mfix f = QueryPlan $ liftF $ liftAp $ QueryFix f
+  mfix = QueryPlan . liftF . liftAp . QueryFix
+  {-# INLINE mfix #-}
 
 -- | Query for matching entities.
 newtype Query f m a = Query {unQuery :: ReaderT Components (QueryPlan f m) a}
@@ -138,32 +126,32 @@ queryMapAccum f = Query $ do
 newtype Fetch a = Fetch (Const () a)
   deriving (Functor, Applicative)
 
-buildQueryPlan :: (Monad m) => QueryPlan QueryStream m (QueryStream a) -> DynamicQuery m a
+buildQueryPlan :: (Monad m) => QueryPlan ZipList m (ZipList a) -> DynamicQuery m a
 buildQueryPlan a = DynamicQuery $ \arch -> do
   (as, (arch', hooks)) <- runStateT (foldFree (runAp go) $ unQueryPlan a) (arch, pure ())
-  return (unQueryStream as, arch', hooks)
+  return (getZipList as, arch', hooks)
   where
-    go :: (Monad m) => Op QueryStream m x -> StateT (Archetype m, Access m ()) m x
+    go :: (Monad m) => Op ZipList m x -> StateT (Archetype m, Access m ()) m x
     go = \case
       EntityOp -> do
         (arch, _) <- get
-        return $ QueryStream $ Set.toList $ A.entities arch
+        return $ ZipList $ Set.toList $ A.entities arch
       QueryOp cId -> do
         (arch, hooks) <- get
         (as, arch', hooks') <- lift $ runDynQuery (DQ.queryDyn cId) arch
         put (arch', hooks >> hooks')
-        return (QueryStream as)
+        return (ZipList as)
       QueryMapOp cId f -> do
         (arch, hooks) <- get
-        let (arch', as') = A.alterComponentsAsc (unQueryStream . f . QueryStream) cId arch
+        let (arch', as') = A.alterComponentsAsc (getZipList . f . ZipList) cId arch
         put (arch', hooks)
-        return (QueryStream as')
+        return (ZipList as')
       QueryMapAccumOp cId f -> do
         (arch, hooks) <- get
-        let f' = fmap (\(a', b) -> (b, (a', b))) . unQueryStream . f . QueryStream
+        let f' = fmap (\(a', b) -> (b, (a', b))) . getZipList . f . ZipList
             (arch', xs) = A.zipAlterComponentsAsc f' cId arch
         put (arch', hooks)
-        return (QueryStream xs)
+        return (ZipList xs)
       QueryFix f -> mfix $ \x -> foldFree (runAp go) $ unQueryPlan (f x)
 
 runQuery' :: (Monad m) => (forall f. (Applicative f) => Query f m (f a)) -> Components -> (ReadsWrites, Components, DynamicQuery m a)

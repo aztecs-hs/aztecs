@@ -60,7 +60,6 @@ module Aztecs.ECS
     Component (..),
     EntityID,
     Query (..),
-    QueryStream (..),
     entity,
     query,
     queryMap,
@@ -97,7 +96,6 @@ import Aztecs.ECS.Observer
 import Aztecs.ECS.Query
   ( Query (..),
     QueryFilter,
-    QueryStream (..),
     entity,
     query,
     queryMap,
