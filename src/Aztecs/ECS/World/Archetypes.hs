@@ -132,14 +132,14 @@ insert e aId cIds b arches = case lookup aId arches of
         let cIds' = cIds <> nodeComponentIds node
          in case lookupArchetypeId cIds' arches of
               Just nextAId ->
-                let !(cs, arch) = A.remove e $ nodeArchetype node
+                let !(s, arch) = A.removeStorages e $ nodeArchetype node
                     node' = node {nodeArchetype = arch}
                     !nodes' = Map.insert aId node' $ nodes arches
                     adjustNode nextNode =
-                      let nextArch = nodeArchetype nextNode
-                          nextArch' = nextArch {A.entities = Set.insert e $ A.entities nextArch}
-                          !nextArch'' = A.insertComponents e cs nextArch'
-                          (finalArch, hook) = runDynamicBundle b e nextArch''
+                      let tmpArch = Archetype s $ Set.singleton e
+                          (tmpArch', hook) = runDynamicBundle b e tmpArch
+                          !(cs, _) = A.remove e tmpArch'
+                          !finalArch = A.insertComponents e cs $ nodeArchetype nextNode
                        in (nextNode {nodeArchetype = finalArch}, hook)
                     (hooks, nodes'') =
                       Map.alterF

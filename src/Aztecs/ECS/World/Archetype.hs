@@ -269,7 +269,8 @@ insertComponents e cs arch =
         let storages' = IntMap.adjust go itemCId (storages archAcc)
             es = Set.toList $ entities archAcc
             go s =
-              let ecs = V.fromList . Map.elems . Map.insert e dyn . Map.fromAscList . zip es . V.toList $ toAscVectorDyn s
+              let !ecs = V.fromList . Map.elems . Map.insert e dyn . Map.fromAscList . zip es . V.toList $ toAscVectorDyn s
                in fromAscVectorDyn ecs s
-         in archAcc {storages = storages', entities = Set.insert e $ entities archAcc}
-   in foldl' f arch (IntMap.toList cs)
+         in archAcc {storages = storages'}
+      !arch' = foldl' f arch (IntMap.toList cs)
+   in arch' { entities = Set.insert e $ entities arch' }

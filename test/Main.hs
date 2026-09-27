@@ -12,6 +12,7 @@
 module Main (main) where
 
 import Aztecs
+import qualified Aztecs.ECS.Access as A
 import Aztecs.ECS.Component (ComponentID (ComponentID))
 import qualified Aztecs.ECS.Query as Q
 import qualified Aztecs.ECS.World as W
@@ -46,6 +47,8 @@ main = hspec $ do
     it "queries a typed component" $ property prop_queryTypedComponent
     it "queries 2 typed components" $ property prop_queryTwoTypedComponents
     it "queries 3 typed components" $ property prop_queryThreeTypedComponents
+  describe "Archetypes" $ do
+    it "Archetype migration should work" $ property prop_archetypeMigration
 
 {-TODO
 describe "Aztecs.ECS.System.mapSingle" $ do
@@ -132,6 +135,17 @@ prop_queryMapSingle n =
       w' = foldr (\_ es -> (\(_, es', _) -> es') . runIdentity $ Q.runQuerySingle q es) (W.entities w) [1 .. n]
       (res, _) = runIdentity $ Q.readQuerySingle Q.query w'
    in res `shouldBe` X (fromIntegral n)
+
+prop_archetypeMigration :: (X,Y) -> (X,Y) -> Expectation
+prop_archetypeMigration (aX, aY) (bX, bY) =
+    runIdentity (runAccess_ access) `shouldBe` (Just aY, Just bY)
+  where
+    access :: A.Access Identity (Maybe Y, Maybe Y)
+    access = do
+      firstEntityId <- A.spawn $ bundle aX
+      secondEntityId <- A.spawn $ bundle bX <> bundle bY
+      insert firstEntityId $ bundle aY
+      (,) <$> Aztecs.lookup firstEntityId <*> Aztecs.lookup secondEntityId
 
 {-TODO
 prop_systemMapSingle :: Word8 -> Expectation
